@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual, types } from "node:util";
 import { GenerationContractExecutorV2, type GenerationContractV2Request, type PreparedSyntxMediaRequestV2 } from "../adapter/syntx/generation-contract-executor-v2.js";
-import { serializeGenerationContractRegistryV2, type GenerationContractRegistryV2 } from "../domain/generation-contract-v2.js";
+import { serializeGenerationContractRegistryV2, type GenerationContractRegistryV2, type GenerationContractV2 } from "../domain/generation-contract-v2.js";
 import type { ModelAccessResult } from "./model-access.js";
 import type { SyntxCostParameter } from "../adapter/syntx/http-client.js";
 import { createReviewedContractPreflight } from "./reviewed-contract-preflight.js";
@@ -11,6 +11,7 @@ import type { OwnerContractMediaContractContext } from "./owner-contract-media.j
 import { OwnerGenerationPreflightError } from "./owner-generation-preflight.js";
 import { loadGenerationContractRegistryV2 } from "../catalog/generation-contract-history-v2.js";
 import { loadSelectedDiscoveryCatalog } from "../catalog/selected-discovery-catalog.js";
+import { validateGenerationParametersV2 } from "./generation-contract-validator-v2.js";
 
 const ATTEMPT_PATTERN = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const REGISTRY_VERSION_PATTERN = /^sha256-[a-f0-9]{64}\.json$/u;
@@ -208,16 +209,23 @@ export function createOwnerReviewedContractCallPolicy(
   const contract = input.executor.getContract(input.modelId, input.operationId, input.variantId);
   const registryContract = input.registry.contracts.find((candidate) => candidate.model_id === input.modelId &&
     candidate.operation_id === input.operationId && candidate.variant_id === input.variantId);
-  const costParameters = contract === null ? null : projectCostParameters(contract.parameters, input.parameters,
-    input.costParameters, input.costParameterFields);
   if (contract === null || registryContract === undefined || contract.status !== "reviewed" ||
       registryVersionFor(input.registry) !== input.registryVersion ||
       !isDeepStrictEqual(contract, registryContract) || contract.schema_hash === undefined ||
       contract.operation_id !== input.operationId || contract.variant_id !== input.variantId ||
       (contract.modality !== "image" && contract.modality !== "video") ||
       contract.provenance.settings_source_sha256 === null ||
-      containsMediaReferenceSchema(contract.parameters) || containsExternalReference(input.parameters) || costParameters === null ||
-      !isExactCostParameterProjection(input.parameters, costParameters)) {
+      containsMediaReferenceSchema(contract.parameters) || containsExternalReference(input.parameters)) {
+    throw policyError("PROBE_CONTRACT_NOT_REVIEWED");
+  }
+
+  let validatedParameters: Readonly<Record<string, unknown>>;
+  try { validatedParameters = validateGenerationParametersV2(contract, input.parameters); }
+  catch { throw policyError("PROBE_CONTRACT_NOT_REVIEWED"); }
+  const costParameters = projectCostParameters(contract, input.parameters, validatedParameters,
+    input.costParameters, input.costParameterFields);
+  if (costParameters === null || (contract.cost_parameter_bindings === undefined &&
+      !isExactCostParameterProjection(input.parameters, costParameters))) {
     throw policyError("PROBE_CONTRACT_NOT_REVIEWED");
   }
 
@@ -458,11 +466,29 @@ function validCallFactoryInput(input: CreateOwnerReviewedContractCallPolicyInput
 }
 
 function projectCostParameters(
-  contractParameters: unknown,
-  parameters: Readonly<Record<string, unknown>>,
+  contract: GenerationContractV2,
+  callerParameters: Readonly<Record<string, unknown>>,
+  validatedParameters: Readonly<Record<string, unknown>>,
   supplied: Readonly<Record<string, SyntxCostParameter>> | undefined,
   fields: readonly string[] | undefined
 ): Readonly<Record<string, SyntxCostParameter>> | null {
+  const bindings = contract.cost_parameter_bindings;
+  if (bindings !== undefined) {
+    const expected: Record<string, SyntxCostParameter> = Object.create(null) as Record<string, SyntxCostParameter>;
+    for (const [costKey, binding] of Object.entries(bindings)) {
+      const value = binding.kind === "literal" ? binding.value : validatedParameters[binding.parameter];
+      if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean" ||
+          typeof value === "number" && !Number.isFinite(value)) return null;
+      expected[costKey] = value;
+    }
+    const expectedKeys = Object.keys(expected).sort();
+    if (supplied !== undefined && !isExactCostParameterMap(supplied, expected)) return null;
+    if (fields !== undefined && (new Set(fields).size !== fields.length ||
+        !sameStrings([...fields].sort(), expectedKeys))) return null;
+    return Object.freeze(expected);
+  }
+
+  const contractParameters = contract.parameters;
   if (supplied !== undefined) return Object.freeze({ ...supplied });
   if (fields === undefined || !isPlainDataRecord(contractParameters) ||
       !isPlainDataRecord(contractParameters.properties)) return null;
@@ -472,8 +498,8 @@ function projectCostParameters(
   const projected: Record<string, SyntxCostParameter> = Object.create(null) as Record<string, SyntxCostParameter>;
   for (const key of keys) {
     const property = contractParameters.properties[key];
-    const value = parameters[key];
-    if (!isPlainDataRecord(property) || !Object.hasOwn(parameters, key) ||
+    const value = callerParameters[key];
+    if (!isPlainDataRecord(property) || !Object.hasOwn(callerParameters, key) ||
         (property.type !== "string" && property.type !== "integer" && property.type !== "number" && property.type !== "boolean") ||
         (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") ||
         (typeof value === "number" && !Number.isFinite(value)) ||
@@ -490,6 +516,16 @@ function isExactCostParameterProjection(
   const keys = Object.keys(costParameters);
   return keys.length <= 8 && keys.every((key) => key !== "ai_name" && key !== "model_type" &&
     Object.hasOwn(parameters, key) && Object.is(parameters[key], costParameters[key]));
+}
+
+function isExactCostParameterMap(
+  supplied: Readonly<Record<string, SyntxCostParameter>>,
+  expected: Readonly<Record<string, SyntxCostParameter>>
+): boolean {
+  const suppliedKeys = Object.keys(supplied).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  return sameStrings(suppliedKeys, expectedKeys) && expectedKeys.every((key) =>
+    Object.hasOwn(supplied, key) && Object.is(supplied[key], expected[key]));
 }
 
 function registryVersionFor(registry: GenerationContractRegistryV2): string {

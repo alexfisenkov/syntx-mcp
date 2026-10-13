@@ -133,7 +133,8 @@ export function correlateOwnerVideo2AudioHistory(input: unknown): OwnerVideo2Aud
       if (objects.status !== "OK") { pageGap = "HISTORY_OBJECTS_INVALID"; break; }
       const validatedObjects: unknown[] = [];
       for (const rawObject of objects.values) {
-        const object = readRecord(rawObject, ["id", "message_id", "object_type", "model_type", "object_text", "object_url", "completed"]);
+        const object = readRecord(rawObject, ["id", "message_id", "object_type", "model_type", "object_text", "object_url", "completed"],
+          ["created_at", "updated_at", "task_id", "metadata"]);
         if (!object || object.unknownFieldCount > 0) { pageGap = "HISTORY_OBJECTS_INVALID"; break; }
         const objectId = providerId(object.values.id);
         if (objectId === undefined) { pageGap = "HISTORY_OBJECT_ID_INVALID"; break; }
@@ -285,7 +286,8 @@ function snapshotHistoryInput(value: unknown): HistoryInputSnapshot | null {
 function isPositiveOwnerAck(row: HistoryRow, prompt: string): boolean {
   if (row.author_id <= 0 || row.message_object.length !== 1) return false;
   const object = row.message_object[0]!;
-  return object.object_type === "text" && object.object_text === prompt && typeof object.object_text === "string" &&
+  return object.object_type === "text" && typeof object.object_text === "string" &&
+    (object.object_text === prompt || object.object_text === `🎵 ${prompt}`) &&
     object.object_text.trim().length > 0 && object.model_type === MODEL_ID;
 }
 

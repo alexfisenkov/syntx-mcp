@@ -54,6 +54,32 @@ test("correlates the exact V2A owner ACK and retains the observed video result c
   assert.equal("provider_terminal_status" in history, false);
 });
 
+test("matches only the exact Video2Audio display-prefixed owner ACK", () => {
+  const pageWithAckText = (objectText: string) => {
+    const page = JSON.parse(JSON.stringify(observedPage)) as { messages: Array<{ message_object: Array<Record<string, unknown>> }>;
+      pagination: Record<string, unknown> };
+    page.messages[0]!.message_object[0]!.object_text = objectText;
+    return page;
+  };
+  const prefixed = correlate({ chat_uuid: chatUuid, model_id: "video2audio", owner_echo_message_id: ownerAckMessageId,
+    prompt, pages: [pageWithAckText(`🎵 ${prompt}`)] }) as { status: string; owner_ack_status: string; contexts: readonly unknown[]; gaps: readonly string[] };
+  assert.equal(prefixed.status, "COMPLETE");
+  assert.equal(prefixed.owner_ack_status, "MATCHED");
+  assert.equal(prefixed.contexts.length, 1);
+  assert.deepEqual(prefixed.gaps, []);
+
+  for (const wrongText of ["A different prompt", `untrusted prefix: ${prompt}`, `${prompt} additional suffix`]) {
+    const rejected = correlate({ chat_uuid: chatUuid, model_id: "video2audio", owner_echo_message_id: ownerAckMessageId,
+      prompt, pages: [pageWithAckText(wrongText)] }) as {
+        status: string; owner_ack_status: string; contexts: readonly unknown[]; gaps: readonly string[];
+      };
+    assert.equal(rejected.status, "UNVERIFIED", wrongText);
+    assert.equal(rejected.owner_ack_status, "MISMATCH", wrongText);
+    assert.deepEqual(rejected.contexts, [], wrongText);
+    assert.deepEqual(rejected.gaps, ["OWNER_ACK_MISMATCH"], wrongText);
+  }
+});
+
 test("rejects history rows whose provider chat id is not the observed numeric field", () => {
   const page = JSON.parse(JSON.stringify(observedPage)) as { messages: Array<Record<string, unknown>>; pagination: Record<string, unknown> };
   page.messages[0]!.chat_id = "41356";
@@ -75,6 +101,35 @@ test("ignores inert provider timestamps and metadata while binding the exact his
   assert.equal(history.contexts.length, 1);
   assert.deepEqual(history.gaps, []);
   assert.equal(JSON.stringify(history).includes("nonbinding-metadata"), false);
+});
+
+test("accepts inert task metadata on owned ACK and bot objects but rejects unknown object fields", () => {
+  const withInertFields = JSON.parse(JSON.stringify(observedPage)) as { messages: Array<{ message_object: Array<Record<string, unknown>> }>;
+    pagination: Record<string, unknown> };
+  withInertFields.messages = withInertFields.messages.map((row) => ({
+    ...row,
+    message_object: row.message_object.map((object) => ({ ...object, created_at: "2026-10-14T00:00:00.000Z",
+      updated_at: "2026-10-14T00:00:01.000Z", task_id: "task-private-inert-value", metadata: { private: "metadata-inert-value" } }))
+  }));
+  const history = correlate({ chat_uuid: chatUuid, model_id: "video2audio", owner_echo_message_id: ownerAckMessageId,
+    prompt, pages: [withInertFields] }) as { status: string; contexts: readonly unknown[]; gaps: readonly string[] };
+  assert.equal(history.status, "COMPLETE");
+  assert.equal(history.contexts.length, 1);
+  assert.deepEqual(history.gaps, []);
+  const serialized = JSON.stringify(history);
+  assert.equal(serialized.includes("2026-10-14T00:00:00.000Z"), false);
+  assert.equal(serialized.includes("2026-10-14T00:00:01.000Z"), false);
+  assert.equal(serialized.includes("task-private-inert-value"), false);
+  assert.equal(serialized.includes("metadata-inert-value"), false);
+
+  const withUnknownField = JSON.parse(JSON.stringify(withInertFields)) as typeof withInertFields;
+  withUnknownField.messages[1]!.message_object[0]!.unexpected_payload = "must-not-bind";
+  const rejected = correlate({ chat_uuid: chatUuid, model_id: "video2audio", owner_echo_message_id: ownerAckMessageId,
+    prompt, pages: [withUnknownField] }) as { status: string; contexts: readonly unknown[]; gaps: readonly string[] };
+  assert.equal(rejected.status, "UNVERIFIED");
+  assert.deepEqual(rejected.contexts, []);
+  assert.deepEqual(rejected.gaps, ["HISTORY_OBJECTS_INVALID"]);
+  assert.equal(JSON.stringify(rejected).includes("must-not-bind"), false);
 });
 
 test("aggregates every bot result across complete consistent history pages", () => {

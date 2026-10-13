@@ -1431,6 +1431,13 @@ export type {
 } from "./application/owner-hailuo02-t2v-profile.js";
 export { OwnerHailuo02T2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
 export type { OwnerHailuo02T2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export { createOwnerSeedance20T2vProfile,
+  OWNER_SEEDANCE20_T2V_CONTRACT_VARIANT_ID,
+  OWNER_SEEDANCE20_T2V_CONTRACT_REGISTRY_VERSION } from "./application/owner-seedance20-t2v-profile.js";
+export { OwnerSeedance20T2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export type { OwnerSeedance20T2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export { registerSyntxOwnerSeedance20T2vTools,
+  SYNTX_OWNER_SEEDANCE20_T2V_TOOL_NAMES } from "./mcp/owner-seedance20-t2v-tools.js";
 export {
   OwnerElevenLabsDialogueGenerationService,
   OwnerElevenLabsDialogueGenerationServiceError

@@ -38,6 +38,11 @@ import {
   type OwnerHailuo02T2vSourceContract
 } from "./owner-hailuo02-t2v-profile.js";
 import {
+  OWNER_SEEDANCE20_T2V_CONTRACT_REGISTRY_VERSION,
+  isAuthenticOwnerSeedance20T2vProfile,
+  type OwnerSeedance20T2vSourceContract
+} from "./owner-seedance20-t2v-profile.js";
+import {
   OwnerContractMediaError,
   OwnerContractMediaService,
   type OwnerContractMediaClient,
@@ -95,6 +100,15 @@ export interface OwnerHailuo02T2vGenerationInput {
   readonly prompt: string;
   readonly resolution: OwnerHailuo02T2vResolution;
   readonly video_duration: OwnerHailuo02T2vDuration;
+}
+
+export interface OwnerSeedance20T2vGenerationInput {
+  readonly attemptId: string;
+  readonly prompt: string;
+  readonly resolution: "480p" | "720p";
+  readonly aspect_ratio: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16";
+  readonly video_duration: number;
+  readonly generate_audio: boolean;
 }
 
 export interface OwnerReviewedNoReferenceT2vGenerationOutput extends OwnerContractMediaResult {
@@ -539,6 +553,34 @@ export class OwnerHailuo02T2vGenerationService {
   getParametersSource(): OwnerHailuo02T2vSourceContract { return this.#engine.getParametersSource(); }
   getReviewedContract() { return this.#engine.getReviewedContract(); }
   generate(input: OwnerHailuo02T2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.generate(input, signal);
+  }
+  reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.reconcile(input, signal);
+  }
+  listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
+    return this.#engine.listRecoveries(attemptId, limit);
+  }
+  invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
+  close(): Promise<void> { return this.#engine.close(); }
+}
+
+/** Thin flat Seedance 2.0 mini ABI over the sealed no-reference T2V engine. */
+export class OwnerSeedance20T2vGenerationService {
+  readonly #engine: OwnerReviewedNoReferenceT2vEngine<OwnerSeedance20T2vSourceContract>;
+
+  constructor(options: OwnerReviewedNoReferenceT2vServiceOptions<OwnerSeedance20T2vSourceContract>) {
+    if (!isAuthenticOwnerSeedance20T2vProfile(options.profile) ||
+        options.profile.registryVersion !== OWNER_SEEDANCE20_T2V_CONTRACT_REGISTRY_VERSION ||
+        contentAddressedVersion(options.profile.registry) !== OWNER_SEEDANCE20_T2V_CONTRACT_REGISTRY_VERSION) {
+      throw new Error("OWNER_REVIEWED_T2V_PROFILE_INVALID");
+    }
+    this.#engine = new OwnerReviewedNoReferenceT2vEngine(options);
+  }
+
+  getParametersSource(): OwnerSeedance20T2vSourceContract { return this.#engine.getParametersSource(); }
+  getReviewedContract() { return this.#engine.getReviewedContract(); }
+  generate(input: OwnerSeedance20T2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
     return this.#engine.generate(input, signal);
   }
   reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {

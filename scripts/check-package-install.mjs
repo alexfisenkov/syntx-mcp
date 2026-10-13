@@ -2999,11 +2999,12 @@ async function assertInstalledMediaMcpConfig(installedPackagePath, consumerPath)
   try { config = JSON.parse(emitted.stdout)?.mcpServers?.syntx; } catch { /* rejected below */ }
   if (emitted.stderr !== "" || config?.command !== process.execPath ||
       config.args?.length !== 1 || config.args[0] !== await realpath(join(installedPackagePath, "dist/src/transports/stdio-owner.js")) ||
-      Object.values(config.env ?? {}).filter((value) => value === "1").length !== 26 ||
+      Object.values(config.env ?? {}).filter((value) => value === "1").length !== 27 ||
       config.env.SYNTX_OWNER_LUMA_T2V !== "1" || config.env.SYNTX_OWNER_HAILUO01_T2V !== "1" ||
       config.env.SYNTX_OWNER_HAILUO01_DIRECTOR_T2V !== "1" ||
       config.env.SYNTX_OWNER_HAILUO23_T2V !== "1" ||
       config.env.SYNTX_OWNER_HAILUO02_T2V !== "1" ||
+      config.env.SYNTX_OWNER_SEEDANCE20_T2V !== "1" ||
       config.env.SYNTX_OWNER_ELEVENLABS_DIALOGUE !== "1" ||
       config.env.SYNTX_OWNER_VIDEO2AUDIO !== "1" ||
       config.env.SYNTX_OWNER_DURABLE_GENERATION !== "0" ||
@@ -3033,6 +3034,7 @@ async function assertInstalledMediaMcpConfig(installedPackagePath, consumerPath)
     "const runList=async(env,audit)=>{const t=new StdioClientTransport({command:cfg.command,args:cfg.args,cwd:consumer,env:{...env,NODE_OPTIONS:'--import '+pathToFileURL(preload).href,SYNTX_CONFIG_TEST_AUDIT:audit},stderr:'pipe'});const c=new Client({name:'syntx-installed-media-config',version:'1'},{capabilities:{}});let bytes=0,names=[],closed=false,signalClose;const closePromise=new Promise(resolve=>{signalClose=resolve;});t.onclose=()=>{closed=true;signalClose();};t.stderr?.on('data',x=>{bytes+=x.length;});try{await c.connect(t,{timeout:10000,maxTotalTimeout:10000});const listed=await c.listTools({}, {timeout:10000,maxTotalTimeout:10000});names=listed.tools.map(x=>x.name);}finally{await c.close();await t.close();}await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('CLOSE_TIMEOUT')),3000);closePromise.then(()=>{clearTimeout(timer);resolve();});});assert.equal(closed,true);assert.equal(t.pid,null);assert.equal(bytes,0);assert.equal(JSON.parse(await readFile(audit,'utf8')).network_calls,0);return {names,count:names.length};};",
     "const optIn=await runList(cfg.env,auditOn);const defaultOff=await runList({...cfg.env,SYNTX_OWNER_LUMA_T2V:'0'},auditOff);const hailuoOff=await runList({...cfg.env,SYNTX_OWNER_HAILUO01_T2V:'0'},auditHailuoOff);const hailuoDirectorOff=await runList({...cfg.env,SYNTX_OWNER_HAILUO01_DIRECTOR_T2V:'0'},auditHailuoDirectorOff);const hailuo23Off=await runList({...cfg.env,SYNTX_OWNER_HAILUO23_T2V:'0'},auditHailuo23Off);const video2AudioOff=await runList({...cfg.env,SYNTX_OWNER_VIDEO2AUDIO:'0'},auditVideo2AudioOff);",
     "for(const n of ['syntx_owner_generate_seedream_editor_image','syntx_owner_generate_suno_audio','syntx_owner_generate_elevenlabs_tts','syntx_owner_generate_wan_t2v_video'])assert.ok(optIn.names.includes(n));",
+    "for(const n of ['syntx_owner_get_seedance20_t2v_source','syntx_owner_generate_seedance20_t2v','syntx_owner_reconcile_seedance20_t2v','syntx_owner_list_seedance20_t2v_recoveries'])assert.ok(optIn.names.includes(n));",
     "for(const n of ['syntx_owner_get_hailuo02_t2v_source','syntx_owner_generate_hailuo02_t2v','syntx_owner_reconcile_hailuo02_t2v','syntx_owner_list_hailuo02_t2v_recoveries','syntx_get_elevenlabs_dialogue_parameters','syntx_owner_generate_elevenlabs_dialogue','syntx_owner_reconcile_elevenlabs_dialogue','syntx_owner_list_elevenlabs_dialogue_recoveries','syntx_owner_get_elevenlabs_dialogue_result_page'])assert.ok(optIn.names.includes(n));",
     `for(const n of ${JSON.stringify(lumaToolNames)})assert.ok(optIn.names.includes(n));`,
     `for(const n of ${JSON.stringify(hailuoToolNames)})assert.ok(optIn.names.includes(n));`,
@@ -3060,9 +3062,9 @@ async function assertInstalledMediaMcpConfig(installedPackagePath, consumerPath)
     `for(const n of ${JSON.stringify(hailuoToolNames)})assert.ok(!hailuoOff.names.includes(n));`,
     `for(const n of ${JSON.stringify(hailuoDirectorToolNames)})assert.ok(!hailuoDirectorOff.names.includes(n));`,
     `const jointToolCount=optIn.count;assert.equal(jointToolCount-defaultOff.count,${lumaToolNames.length});assert.equal(jointToolCount-hailuoOff.count,${hailuoToolNames.length});assert.equal(jointToolCount-hailuoDirectorOff.count,${hailuoDirectorToolNames.length});assert.equal(jointToolCount-hailuo23Off.count,${hailuo23ToolNames.length});assert.equal(jointToolCount-video2AudioOff.count,${video2AudioToolNames.length});`,
-    "process.stdout.write('media_config_cli=PASS enabled_flags=26 joint_tools='+jointToolCount+' hailuo23_off_joint_tools='+hailuo23Off.count+' video2audio_off_joint_tools='+video2AudioOff.count+' default_off_luma_tools=0 default_off_hailuo01_tools=0 default_off_hailuo01_director_tools=0 default_off_hailuo23_tools=0 default_off_video2audio_tools=0 network=0 auth_calls=0 tool_calls=0 generation_posts=0 close=CLOSED pid_null=true stderr=0\\n');"
+    "process.stdout.write('media_config_cli=PASS enabled_flags=27 joint_tools='+jointToolCount+' hailuo23_off_joint_tools='+hailuo23Off.count+' video2audio_off_joint_tools='+video2AudioOff.count+' default_off_luma_tools=0 default_off_hailuo01_tools=0 default_off_hailuo01_director_tools=0 default_off_hailuo23_tools=0 default_off_video2audio_tools=0 network=0 auth_calls=0 tool_calls=0 generation_posts=0 close=CLOSED pid_null=true stderr=0\\n');"
   ].join("\n")], consumerPath);
-  if (!result.stdout.startsWith("media_config_cli=PASS enabled_flags=26 joint_tools=") ||
+  if (!result.stdout.startsWith("media_config_cli=PASS enabled_flags=27 joint_tools=") ||
       !result.stdout.endsWith(" default_off_luma_tools=0 default_off_hailuo01_tools=0 default_off_hailuo01_director_tools=0 default_off_hailuo23_tools=0 default_off_video2audio_tools=0 network=0 auth_calls=0 tool_calls=0 generation_posts=0 close=CLOSED pid_null=true stderr=0\n") ||
       result.stderr !== "") throw new PackageSmokeError("INSTALLED_MEDIA_CONFIG_COMBINED_STARTUP_FAILED");
   return result.stdout.trim();

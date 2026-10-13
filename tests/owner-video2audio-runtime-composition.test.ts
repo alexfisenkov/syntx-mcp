@@ -51,6 +51,72 @@ async function connect(runtimeValue: Runtime) {
   return { client, server };
 }
 
+test("Video2Audio Stock SDK upload accepts the service's reduced remaining TTL", async () => {
+  let now = 1_000;
+  let uploadPosts = 0;
+  let generationPosts = 0;
+  const attemptId = "link_video2audio_ttl899_0123456789";
+  const bytes = Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
+    0, 0, 2, 0, 0x69, 0x73, 0x6f, 0x6d, 0x6d, 0x70, 0x34, 0x32]);
+  const uploadedUrl = "https://r2.syntx.ai/video2audio/synthetic-original.mp4";
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+    if (url.origin !== "https://api.syntx.ai" || method !== "POST") throw new Error("Unexpected synthetic route");
+    if (url.pathname === "/api/v1/chats/upload-files") {
+      uploadPosts += 1;
+      const form = init?.body;
+      assert.ok(form instanceof FormData);
+      const file = form.get("files");
+      assert.ok(file instanceof File);
+      assert.equal(file.type, "video/mp4");
+      assert.equal(file.name, "synthetic-original.mp4");
+      assert.deepEqual(Buffer.from(await file.arrayBuffer()), bytes);
+      now += 1_000;
+      return Response.json({ total: 1, successful: 1, failed: 0, duplicates: 0,
+        files: [{ filename: "synthetic-original.mp4", url: uploadedUrl, status: "success", content_type: "video/mp4",
+          size: bytes.byteLength, duration: 5.64 }] });
+    }
+    if (url.pathname === "/api/v1/audio/generate") generationPosts += 1;
+    throw new Error("Unexpected synthetic route");
+  };
+  const enabled = runtime({ ownerVideo2AudioEnabled: true, fetchImpl, now: () => now });
+  const owner = enabled.serverOptions.ownerVideo2Audio as {
+    originalReferenceService: { resolveOriginal(input: unknown): Promise<{ video_original_handle: string; generation_permit: false }> };
+  };
+  const { authBinding, authStore } = enabled;
+  await authStore.createAttempt({ attempt_id: attemptId, binding: authBinding, expires_at_ms: now + 60_000 });
+  await authStore.beginHandoff(authBinding, attemptId);
+  await authStore.attachChallenge(authBinding, attemptId, "synthetic-video2audio-ttl-challenge");
+  await authStore.beginPoll(authBinding, attemptId);
+  await authStore.markLinked(authBinding, attemptId, { scheme: "Bearer", value: "synthetic-only-credential" });
+  const pair = await connect(enabled);
+  try {
+    const uploadTool = (await pair.client.listTools()).tools.find(({ name }) => name === TOOL_NAMES[1]);
+    assert.ok(uploadTool);
+    const expirySchema = (uploadTool.outputSchema as { properties?: Record<string, { type?: string; minimum?: number; maximum?: number }> })
+      .properties?.expires_in_seconds;
+    assert.deepEqual([expirySchema?.type, expirySchema?.minimum, expirySchema?.maximum], ["integer", 1, 900]);
+    const result = await pair.client.callTool({ name: TOOL_NAMES[1], arguments: { link_attempt_id: attemptId,
+      content_base64: bytes.toString("base64"), filename: "synthetic-original.mp4", mime_type: "video/mp4" } });
+    assert.notEqual(result.isError, true);
+    const receipt = result.structuredContent as { status?: string; video_original_handle?: string; expires_in_seconds?: number };
+    assert.equal(receipt.status, "uploaded");
+    assert.match(receipt.video_original_handle ?? "", /^video2audio_original_[0-9a-f-]{36}$/u);
+    assert.equal(receipt.expires_in_seconds, 899);
+    const owned = await owner.originalReferenceService.resolveOriginal({ attempt_id: attemptId,
+      video_original_handle: receipt.video_original_handle });
+    assert.equal(owned.video_original_handle, receipt.video_original_handle);
+    assert.equal(owned.generation_permit, false);
+    assert.equal(uploadPosts, 1);
+    assert.equal(generationPosts, 0);
+  } finally {
+    await pair.client.close();
+    await pair.server.close();
+    await enabled.ownerVideo2AudioLifecycle?.close();
+  }
+});
+
 test("Video2Audio opt-in flag is strict and default-off", () => {
   for (const value of [undefined, "", "0"]) assert.equal(readOwnerVideo2AudioFlag(value), false);
   assert.equal(readOwnerVideo2AudioFlag("1"), true);

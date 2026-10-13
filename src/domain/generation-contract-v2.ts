@@ -16,10 +16,24 @@ const MAX_ARRAY_ITEMS = 256;
 const hashSchema = z.string().regex(/^sha256:[a-f0-9]{64}$/u);
 const identifierSchema = z.string().min(1).max(160).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u);
 const fieldSchema = z.string().min(1).max(64).regex(/^[A-Za-z][A-Za-z0-9._-]*$/u);
+const costBindingTargetSchema = fieldSchema.superRefine((field, context) => {
+  if (["ai_name", "model_type", "prototype", "constructor", "toString", "valueOf", "hasOwnProperty", "__proto__"].includes(field)) {
+    context.addIssue({ code: "custom", message: "Reserved cost binding keys are not allowed." });
+  }
+});
 const modalitySchema = z.enum(["image", "video", "audio"]);
 const routeSchema = z.enum(["design", "video", "audio"]);
 const operationSchema = z.string().min(1).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
 const jsonScalarSchema = z.union([z.string().max(2_000), z.number().finite(), z.boolean(), z.null()]);
+const costParameterBindingSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("parameter"), parameter: fieldSchema }).strict(),
+  z.object({ kind: z.literal("literal"), value: z.union([z.string().max(2_000), z.number().finite(), z.boolean()]) }).strict()
+]);
+const costParameterBindingsSchema = z.record(costBindingTargetSchema, costParameterBindingSchema)
+  .superRefine((bindings, context) => {
+    const count = Object.keys(bindings).length;
+    if (count < 1 || count > 8) context.addIssue({ code: "custom", message: "Cost bindings must declare one through eight fields." });
+  });
 
 export type GenerationContractV2JsonValue =
   | string | number | boolean | null
@@ -263,6 +277,7 @@ const contractBaseSchemaV2 = z.object({
   status: z.enum(["discovered", "static_partial", "reviewed", "live_verified", "blocked"]),
   provenance: provenanceSchemaV2,
   parameters: parametersSchemaV2,
+  cost_parameter_bindings: costParameterBindingsSchema.optional(),
   wire: z.object({
     dispatch_action: operationSchema,
     input_kind: z.enum(["prompt", "media_only", "prompt_and_media"]),
@@ -291,6 +306,20 @@ const contractBaseSchemaV2 = z.object({
 }).strict().superRefine((contract, context) => {
   const wire = contract.wire;
   const props = contract.parameters.properties;
+  const costBindings = contract.cost_parameter_bindings;
+  if (costBindings !== undefined) {
+    if (!liveStatuses.has(contract.status)) {
+      context.addIssue({ code: "custom", path: ["cost_parameter_bindings"], message: "Cost bindings require a reviewed V2 contract." });
+    }
+    for (const [costKey, binding] of Object.entries(costBindings)) {
+      if (binding.kind === "parameter") {
+        const source = props[binding.parameter];
+        if (!source || source.type === "array" || source.type === "object" || source.type === "media_reference") {
+          context.addIssue({ code: "custom", path: ["cost_parameter_bindings", costKey], message: "Cost parameter bindings must target a declared scalar input." });
+        }
+      }
+    }
+  }
   const prompt = wire.prompt_field;
   const references = wire.media_reference_fields;
   const referenceFields = Object.keys(references);
@@ -432,6 +461,7 @@ export const generationContractRegistryV2Schema = registryV2BaseSchema.extend({ 
   });
 
 export type GenerationContractV2 = z.infer<typeof fullContractSchemaV2>;
+export type GenerationContractV2CostParameterBinding = z.infer<typeof costParameterBindingSchema>;
 export type GenerationContractRegistryV2 = z.infer<typeof generationContractRegistryV2Schema>;
 export type GenerationContractV2Input = z.input<typeof contractBaseSchemaV2>;
 export type GenerationContractRegistryV2Input = Omit<z.input<typeof registryV2InputSchema>, "contracts"> & {

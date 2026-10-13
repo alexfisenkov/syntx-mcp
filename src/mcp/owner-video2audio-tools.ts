@@ -64,7 +64,7 @@ export const ownerVideo2AudioSourceOutputSchema = z.object({
 
 const uploadOutputSchema = z.object({ status: z.literal("uploaded"), video_original_handle: handleSchema, mime_type: z.literal("video/mp4"),
   size: z.number().int().min(16).max(MAX_VIDEO_BYTES), sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
-  duration_seconds: z.number().positive().max(20), expires_in_seconds: z.literal(900) }).strict();
+  duration_seconds: z.number().positive().max(20), expires_in_seconds: z.number().int().min(1).max(900) }).strict();
 const diagnosticSchema = z.object({
   phase: z.enum(["VALIDATE_REQUEST", "PREPARE_CANDIDATE", "RESOLVE_PRINCIPAL", "PREFLIGHT_ONE", "CHAT_CREATE", "PREFLIGHT_TWO",
     "GENERATION_POST", "POST_ACK_KNOWN", "HISTORY_GET", "RESULT_GET", "RESULT_BINDING"]),

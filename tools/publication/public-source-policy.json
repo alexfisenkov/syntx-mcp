@@ -25,7 +25,9 @@
     "AGENTS.md",
     "README.md",
     "SECURITY.md",
-    "docs/интеграция/Обновление-MCP.md"
+    "docs/интеграция/Inpaint-источники-и-границы.md",
+    "docs/интеграция/Обновление-MCP.md",
+    "docs/модели/WAN-image-источники-и-параметры.md"
   ],
   "excluded_roots": [
     ".autopilot",

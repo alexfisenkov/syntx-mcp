@@ -62,7 +62,8 @@ function readPolicy(bytes) {
     assertPolicyPathList(value[key]);
   }
   if (!sameStringArray(value.bootstrap_paths, [".github/workflows/verify.yml", ".gitignore", "AGENTS.md", "README.md",
-    "SECURITY.md", "docs/интеграция/Обновление-MCP.md"]) ||
+    "SECURITY.md", "docs/интеграция/Inpaint-источники-и-границы.md", "docs/интеграция/Обновление-MCP.md",
+    "docs/модели/WAN-image-источники-и-параметры.md"]) ||
       !sameStringArray(value.excluded_roots, [".autopilot", ".журналы", "docs/контроль", "docs/проект"])) {
     fail("POLICY_INVALID");
   }

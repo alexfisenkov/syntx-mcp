@@ -204,7 +204,9 @@ test("package smoke requires the installed config and combined media startup", (
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.ok(source.includes(JSON.stringify(packageJson.scripts.test)), "installed manifest test-command pin is stale");
   assert.ok(/await assertInstalledMediaMcpConfig\(installedPackagePath, consumerPath\)/u.test(source), "mandatory installed config gate missing");
-  assert.ok(/media_config_cli=PASS enabled_flags=24 joint_tools=/u.test(source), "installed config summary missing or stale");
+  assert.ok(/media_config_cli=PASS enabled_flags=26 joint_tools=/u.test(source), "installed config summary missing or stale");
+  assert.ok(/config\.env\.SYNTX_OWNER_HAILUO02_T2V !== "1"/u.test(source), "installed Hailuo02 opt-in pin missing");
+  assert.ok(/config\.env\.SYNTX_OWNER_ELEVENLABS_DIALOGUE !== "1"/u.test(source), "installed dialogue opt-in pin missing");
   assert.ok(/config\.env\.SYNTX_OWNER_HAILUO01_T2V !== "1"/u.test(source), "installed config must explicitly emit the Hailuo opt-in flag");
   assert.ok(/config\.env\.SYNTX_OWNER_HAILUO01_DIRECTOR_T2V !== "1"/u.test(source), "installed config must explicitly emit the Hailuo Director opt-in flag");
   assert.ok(/config\.env\.SYNTX_OWNER_HAILUO23_T2V !== "1"/u.test(source), "installed config must explicitly emit the Hailuo 2.3 opt-in flag");

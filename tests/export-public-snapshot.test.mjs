@@ -11,7 +11,8 @@ import { validatePublicSourceManifest } from "../scripts/public-source-package-m
 const SCRIPT = fileURLToPath(new URL("../scripts/export-public-snapshot.mjs", import.meta.url));
 const POLICY_PATH = fileURLToPath(new URL("../tools/publication/public-source-policy.json", import.meta.url));
 const BOOTSTRAP_PATHS = ["README.md", "AGENTS.md", "SECURITY.md", ".gitignore", ".github/workflows/verify.yml",
-  "docs/интеграция/Обновление-MCP.md"];
+  "docs/интеграция/Inpaint-источники-и-границы.md", "docs/интеграция/Обновление-MCP.md",
+  "docs/модели/WAN-image-источники-и-параметры.md"];
 const REQUIRED_PRIVATE_CATALOG_PATHS = [
   "catalog/runtime/v12/owner-mcp-banana21-smoke.json",
   "catalog/runtime/v12/owner-mcp-seedance-pro-fast-smoke.json",
@@ -277,9 +278,7 @@ test("rejects unclassified source files and path traversal arguments", () => {
     const unclassified = runExporter(source, destination, unclassifiedCommit);
     assert.equal(unclassified.status, 2);
     assert.match(unclassified.stderr, /SOURCE_PATH_UNCLASSIFIED/u);
-    assert.equal(walkFiles(destination).some((path) => path !== "README.md" && path !== "AGENTS.md" &&
-      path !== "SECURITY.md" && path !== ".gitignore" && path !== ".github/workflows/verify.yml" &&
-      path !== "docs/интеграция/Обновление-MCP.md"), false,
+    assert.equal(walkFiles(destination).some((path) => !BOOTSTRAP_PATHS.includes(path)), false,
     "source classification completes before any source file is installed");
 
     const gitDestination = runExporter(source, join(source, ".git"), unclassifiedCommit);

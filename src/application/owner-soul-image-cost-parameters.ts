@@ -18,7 +18,7 @@ const SOURCE_BINDING = Object.freeze({
   declared_model_info_keys: Object.freeze(["quality", "resolution", "batch_size", "version"] as const),
   projected_model_info_keys: Object.freeze(["quality", "resolution", "batch_size"] as const),
   version_value: "UNRESOLVED_NOT_UI_FIELD_OMITTED_NOT_DEFAULTED" as const,
-  intent_only_fields: Object.freeze(["prompt", "enhance_prompt", "seed", "style", "character"] as const),
+  intent_only_fields: Object.freeze(["prompt", "enhance_prompt", "seed", "style", "character", "reference_strength"] as const),
   generation_wire_bound: false
 } as const);
 

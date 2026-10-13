@@ -25,6 +25,7 @@ import {
 import {
   OwnerSoulGenerationParametersError,
   normalizeOwnerSoulGenerationParameters,
+  type OwnerSoulGenerationReferenceStrengthMode,
   type OwnerSoulGenerationParametersInput,
   type OwnerSoulGenerationQuality,
   type OwnerSoulGenerationResolution
@@ -100,6 +101,7 @@ export interface OwnerSoulImagePreparedCandidate {
     batch_size: 1 | 4;
     enhance_prompt: boolean;
     seed: number | null;
+    reference_strength?: 0.7;
     style: Readonly<{ kind: "none" } | { kind: "selected"; strength: number }>;
     character: Readonly<{ kind: "none" } | { kind: "selected" }>;
   }>;
@@ -108,7 +110,7 @@ export interface OwnerSoulImagePreparedCandidate {
   readonly cost_inputs: Readonly<{ quality: OwnerSoulGenerationQuality; resolution: OwnerSoulGenerationResolution; batch_size: 1 | 4 }>;
   readonly cost_confidence: "SOURCE_JOINED_COST2_QUERY_FIELDS_NOT_QUOTE_BILLING_OR_HARDCAP";
   readonly source_projection_confidence: "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY";
-  readonly reference_strength: "UNRESOLVED_UNCONTROLLED_WIRE_FIELD";
+  readonly reference_strength: OwnerSoulGenerationReferenceStrengthMode;
   readonly expires_at_ms: number;
   readonly request_fingerprint: string;
   readonly intent_fingerprint: string;
@@ -215,12 +217,14 @@ export class OwnerSoulImageRequestPreparer {
       if (freshStyle && !this.#styleGuard(freshStyle.value, freshStyle.context)) fail("STYLE_UNAVAILABLE");
       const settings = Object.freeze({ n: 1, model_type: MODEL_ID, quality: normalized.quality, resolution: normalized.resolution,
         batch_size: normalized.batch_size, enhance_prompt: normalized.enhance_prompt, seed: normalized.seed,
+        ...(normalized.reference_strength === undefined ? {} : { reference_strength: normalized.reference_strength }),
         style_id: styleId, ...(normalized.style.kind === "selected" ? { style_strength: normalized.style.strength } : {}),
         reference_id: characterId, file_urls: Object.freeze([]) });
       const nativeRequest = Object.freeze({ prompt: normalized.prompt, settings });
       const cost = projectOwnerSoulImageCostParameters(normalized);
       const safeParameters = Object.freeze({ quality: normalized.quality, resolution: normalized.resolution, batch_size: normalized.batch_size,
         enhance_prompt: normalized.enhance_prompt, seed: normalized.seed,
+        ...(normalized.reference_strength === undefined ? {} : { reference_strength: normalized.reference_strength }),
         style: Object.freeze(normalized.style.kind === "selected" ? { kind: "selected" as const, strength: normalized.style.strength } : { kind: "none" as const }),
         character: Object.freeze(normalized.character.kind === "selected" ? { kind: "selected" as const } : { kind: "none" as const }) });
       const selection = Object.freeze({ style: normalized.style.kind, character: normalized.character.kind });
@@ -237,7 +241,9 @@ export class OwnerSoulImageRequestPreparer {
         parameters: safeParameters, selection, cost_routing: cost.routing, cost_inputs: cost.cost_inputs,
         cost_confidence: cost.cost_inputs_confidence,
         source_projection_confidence: "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY",
-        reference_strength: "UNRESOLVED_UNCONTROLLED_WIRE_FIELD", expires_at_ms: expiresAt,
+        reference_strength: normalized.reference_strength === undefined
+          ? "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" as const : "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN" as const,
+        expires_at_ms: expiresAt,
         request_fingerprint: requestFingerprint, intent_fingerprint: intentFingerprint
       };
       Object.defineProperty(candidateRecord, "request", { value: nativeRequest, enumerable: false, writable: false, configurable: false });

@@ -174,6 +174,26 @@ test("preserves all eleven selected style strengths and emits style_strength onl
   } finally { await rig.close(); }
 });
 
+test("one-shot binds explicit source-fixed reference strength to the exact private wire field", async () => {
+  const module = await import(MODULE_URL) as Record<string, unknown>;
+  const create = module.createOwnerSoulImageOneShotPermit as (input: unknown) => Record<string, any>;
+  const consume = module.consumeOwnerSoulImageOneShotPermit as (input: unknown) => Record<string, any>;
+  const rig = createRig();
+  try {
+    const candidate = await rig.preparer.prepare({ attemptId: ATTEMPT, principal: PRINCIPAL,
+      input: { ...baseIntent, reference_strength: 0.7 } });
+    const permit = create({ preparer: rig.preparer, candidate, principal: PRINCIPAL, attemptId: ATTEMPT,
+      catalog: CATALOG, catalog_version: VERSION, now: () => rig.now });
+    assert.equal(candidate.reference_strength, "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN");
+    assert.equal(permit.reference_strength, "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN");
+    assert.equal(candidate.parameters.reference_strength, 0.7);
+    assert.equal(candidate.request.settings.reference_strength, 0.7);
+    assert.equal(permit.backend_acceptance, "UNPROVEN");
+    assert.equal(permit.dispatch_allowed, false);
+    assert.equal(consume({ permit, candidate, principal: PRINCIPAL, attemptId: ATTEMPT }).status, "consumed");
+  } finally { await rig.close(); }
+});
+
 test("preserves Character reference IDs as their source string or number type", async () => {
   const module = await import(MODULE_URL) as Record<string, unknown>;
   const create = module.createOwnerSoulImageOneShotPermit as (input: unknown) => Record<string, any>;

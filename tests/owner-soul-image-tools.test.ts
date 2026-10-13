@@ -45,6 +45,7 @@ function createGenerationFixture() {
   let preflightReads = 0;
   let accountFactories = 0;
   let accessFactories = 0;
+  const generationBodies: Record<string, unknown>[] = [];
   const broker: SyntxCredentialBroker = { async useCredential<T>(operation: (credential: string) => Promise<T>) {
     return operation("synthetic-soul-generation-credential");
   } };
@@ -55,7 +56,11 @@ function createGenerationFixture() {
     if (url.pathname === "/api/v2/get_model_info") return Response.json({ access: true, cost: 2, discount_cost: null,
       free_remaining_generations: null, limit: 0.5, show_warning: null });
     if (url.pathname === "/api/v1/chats" && method === "POST") { chats += 1; return Response.json({ uuid: `soul-mcp-chat-${chats}` }); }
-    if (url.pathname === "/api/v1/design/generate" && method === "POST") { posts += 1; return Response.json({ id: "soul-mcp-ack" }); }
+    if (url.pathname === "/api/v1/design/generate" && method === "POST") {
+      posts += 1;
+      generationBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return Response.json({ id: "soul-mcp-ack" });
+    }
     if (/^\/api\/v1\/chats\/soul-mcp-chat-\d+\/messages$/u.test(url.pathname)) {
       return Response.json({ messages: [
         { id: "soul-mcp-ack", chat_id: 9001, author_id: 42, message_object: [] },
@@ -91,7 +96,8 @@ function createGenerationFixture() {
     createAccountStatusService: () => { accountFactories += 1; return new AccountStatusService(readClient(), () => now); },
     createModelAccessService: () => { accessFactories += 1; return new ModelAccessService(REPOSITORY, readClient(), () => now); },
     now: () => now, pollDelayMs: 0, maxPollAttempts: 2 });
-  return { binding, service, character, get counts() { return { chats, posts, preflightReads, accountFactories, accessFactories }; },
+  return { binding, service, character, generationBodies,
+    get counts() { return { chats, posts, preflightReads, accountFactories, accessFactories }; },
     async close() { await service.close(); } };
 }
 
@@ -207,6 +213,12 @@ test("registers all four strict tools and routes generation through actual Soul 
       style: { kind: "none" }, character: { kind: "none" } }).success, true);
     assert.equal(module.OWNER_SOUL_IMAGE_TOOL_INPUT_SCHEMAS.generate.safeParse({ link_attempt_id: ATTEMPT,
       prompt: "A portrait", quality: "720p", resolution: "2048x1152", batch_size: 1, enhance_prompt: true, seed: 0,
+      style: { kind: "none" }, character: { kind: "none" }, reference_strength: 0.7 }).success, true);
+    assert.equal(module.OWNER_SOUL_IMAGE_TOOL_INPUT_SCHEMAS.generate.safeParse({ link_attempt_id: ATTEMPT,
+      prompt: "A portrait", quality: "720p", resolution: "2048x1152", batch_size: 1, enhance_prompt: true, seed: 0,
+      style: { kind: "none" }, character: { kind: "none" }, reference_strength: 0.6 }).success, false);
+    assert.equal(module.OWNER_SOUL_IMAGE_TOOL_INPUT_SCHEMAS.generate.safeParse({ link_attempt_id: ATTEMPT,
+      prompt: "A portrait", quality: "720p", resolution: "2048x1152", batch_size: 1, enhance_prompt: true, seed: 0,
       style: { kind: "none" }, character: { kind: "none" }, n: 4 }).success, false);
     const pairs: readonly (readonly ["720p" | "1080p", string])[] = [
       ["720p", "2048x1152"], ["720p", "1680x1120"], ["720p", "1536x1152"], ["720p", "1536x1536"],
@@ -237,11 +249,24 @@ test("registers all four strict tools and routes generation through actual Soul 
     assert.equal(output.dispatch_allowed, false);
     assert.equal(output.provider_execution, false);
     assert.equal(output.actual_result_count, 1);
-    assert.equal(fixture.counts.accountFactories, 2);
-    assert.equal(fixture.counts.accessFactories, 2);
-    assert.equal(fixture.counts.preflightReads, 4);
-    assert.equal(fixture.counts.chats, 1);
-    assert.equal(fixture.counts.posts, 1);
+    assert.equal(output.reference_strength, "UNRESOLVED_UNCONTROLLED_WIRE_FIELD");
+    assert.equal((output.parameters as Record<string, unknown>).reference_strength, undefined);
+    assert.equal(Object.hasOwn((fixture.generationBodies[0]!.settings as object), "reference_strength"), false);
+    const fixedResult = await client.callTool({ name: "syntx_owner_generate_soul_image", arguments: {
+      link_attempt_id: ATTEMPT, prompt: "A quiet portrait with the source-fixed control", quality: "720p", resolution: "2048x1152",
+      batch_size: 1, enhance_prompt: true, seed: 0, style: { kind: "none" }, character: { kind: "none" }, reference_strength: 0.7
+    } });
+    assert.equal(fixedResult.isError, undefined, JSON.stringify(fixedResult));
+    const fixedOutput = fixedResult.structuredContent as Record<string, unknown>;
+    assert.equal(fixedOutput.reference_strength, "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN");
+    assert.equal((fixedOutput.parameters as Record<string, unknown>).reference_strength, 0.7);
+    assert.equal(((fixture.generationBodies[1]!.settings as Record<string, unknown>).reference_strength), 0.7);
+    assert.equal(fixedOutput.backend_acceptance, "UNPROVEN");
+    assert.equal(fixture.counts.accountFactories, 4);
+    assert.equal(fixture.counts.accessFactories, 4);
+    assert.equal(fixture.counts.preflightReads, 8);
+    assert.equal(fixture.counts.chats, 2);
+    assert.equal(fixture.counts.posts, 2);
     for (const privateValue of ["soul-mcp-ack", "soul-mcp-chat-1"]) {
       assert.equal(JSON.stringify(result).includes(privateValue), false);
     }

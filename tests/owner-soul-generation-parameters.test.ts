@@ -55,7 +55,10 @@ test("source descriptor exposes full explicit UI controls, source pins, and unre
   assert.equal(descriptor.character_source_mapping.value_source, "record.reference_id");
   assert.equal(descriptor.historical_character_source_reference.status, "HISTORICAL_NOT_CURRENT_CHARACTER_BINDING");
   assert.equal("character_module_sha256" in descriptor.source_pins, false);
-  assert.equal(descriptor.reference_strength, "UNRESOLVED_UNCONTROLLED_WIRE_FIELD");
+  assert.deepEqual(descriptor.reference_strength, {
+    mode: "OPTIONAL_EXPLICIT_FIXED_INITIALIZER_ONLY", source_initializer_value: 0.7, accepted_input_values: [0.7],
+    omitted_behavior: "KEEP_EXISTING_SETTINGS_PAYLOAD_UNCHANGED", provider_acceptance: "UNPROVEN"
+  });
   assert.equal(descriptor.prompt.local_utf8_max_bytes, 131072);
   assert.equal(descriptor.prompt.provider_max, "UNPROVEN");
   assert.equal(Object.isFrozen(descriptor), true);
@@ -135,6 +138,19 @@ test("seed accepts explicit null, zero and source-bound maximum; rejects strings
   }
 });
 
+test("reference_strength is opt-in and admits only the source-observed initializer value", () => {
+  const omitted = normalizeOwnerSoulGenerationParameters(input());
+  assert.equal(omitted.reference_strength, "UNRESOLVED_UNCONTROLLED_WIRE_FIELD");
+  assert.equal(Object.hasOwn(omitted.intent, "reference_strength"), false);
+  const selected = normalizeOwnerSoulGenerationParameters(input({ reference_strength: 0.7 }));
+  assert.equal(selected.reference_strength, "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN");
+  assert.equal(selected.intent.reference_strength, 0.7);
+  for (const reference_strength of [0, 0.6, 1, "0.7", null, undefined]) {
+    assert.throws(() => normalizeOwnerSoulGenerationParameters(input({ reference_strength })),
+      (error: unknown) => error instanceof OwnerSoulGenerationParametersError && error.code === "INVALID_PARAMETERS");
+  }
+});
+
 test("prompt local UTF-8 cap is enforced without using catalog zero as provider max", () => {
   assert.throws(() => normalizeOwnerSoulGenerationParameters(input({ prompt: "x".repeat(131073) })),
     (error: unknown) => error instanceof OwnerSoulGenerationParametersError && error.code === "INVALID_PARAMETERS");
@@ -148,7 +164,7 @@ test("normalizer rejects caller model fields, extras, accessors, proxies, bad ca
   for (const bad of [
     input({ model_type: "caller-model-type" }),
     input({ file_urls: [] }),
-    input({ reference_strength: 0.7 }),
+    input({ reference_strength: 0.6 }),
     input({ aspect_ratio: "1:1" }),
     input({ quality: "720P" }),
     input({ batch_size: 2 }),

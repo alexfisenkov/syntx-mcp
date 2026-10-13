@@ -63,6 +63,7 @@ const generationParametersSchema = z.object({
   batch_size: batchSizeSchema,
   enhance_prompt: z.boolean(),
   seed: seedSchema,
+  reference_strength: z.literal(0.7).optional().describe("Optional source-pinned Soul initializer value. Omit to keep the existing request unchanged; provider acceptance is unproven."),
   style: styleSelectionSchema,
   character: characterSelectionSchema
 }).strict();
@@ -70,7 +71,8 @@ const generateInputSchema = z.object({ link_attempt_id: attemptSchema, ...genera
   .superRefine((input, context) => {
     try {
       normalizeOwnerSoulGenerationParameters({ prompt: input.prompt, quality: input.quality, resolution: input.resolution,
-        batch_size: input.batch_size, enhance_prompt: input.enhance_prompt, seed: input.seed, style: input.style, character: input.character });
+        batch_size: input.batch_size, enhance_prompt: input.enhance_prompt, seed: input.seed, style: input.style, character: input.character,
+        ...(input.reference_strength === undefined ? {} : { reference_strength: input.reference_strength }) });
     } catch {
       context.addIssue({ code: "custom", path: ["resolution"], message: "Soul explicit controls or conditional selections are invalid." });
     }
@@ -145,6 +147,7 @@ const outputSchema = z.object({
 });
 const generationParameterOutputSchema = z.object({
   quality: qualitySchema, resolution: resolutionSchema, batch_size: batchSizeSchema, enhance_prompt: z.boolean(), seed: seedSchema,
+  reference_strength: z.literal(0.7).optional(),
   style: z.discriminatedUnion("kind", [z.object({ kind: z.literal("none") }).strict(),
     z.object({ kind: z.literal("selected"), strength: z.number().min(0).max(1) }).strict()]),
   character: z.discriminatedUnion("kind", [z.object({ kind: z.literal("none") }).strict(),
@@ -171,7 +174,7 @@ const generationOutputSchema = z.object({
   cost_routing: z.object({ ai_name: z.literal("higgsfield-soul"), model_type: z.literal("higgsfield-soul") }).strict(),
   cost_inputs: z.object({ quality: qualitySchema, resolution: resolutionSchema, batch_size: batchSizeSchema }).strict(),
   source_projection_confidence: z.literal("EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY"),
-  reference_strength: z.literal("UNRESOLVED_UNCONTROLLED_WIRE_FIELD"), requested_batch_size: batchSizeSchema,
+  reference_strength: z.enum(["UNRESOLVED_UNCONTROLLED_WIRE_FIELD", "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN"]), requested_batch_size: batchSizeSchema,
   actual_result_count: z.number().int().min(0).max(4),
   count_confidence: z.enum(["CURRENT_VERIFIED_MESSAGE_MATCHES_EXPLICIT_BATCH_SIZE", "OBSERVED_CURRENT_MESSAGE_NOT_REQUESTED_TOTAL"]),
   artifacts: z.array(generationArtifactSchema).max(4), recovery_id: z.string().regex(RECOVERY_ID).optional()
@@ -225,7 +228,7 @@ export function registerSyntxOwnerSoulImageTools(server: McpServer, options: Reg
   if (generationService) {
   server.registerTool(SYNTX_OWNER_GENERATE_SOUL_IMAGE_TOOL_NAME, {
     title: "Generate a Soul image",
-    description: "Starts one source-bound Soul image generation after fresh account and model-access preflights. The explicit batch size is 1 or 4; partial observations must be reconciled, never retried as a new generation.",
+    description: "Starts one source-bound Soul image generation after fresh account and model-access preflights. The explicit batch size is 1 or 4. Optional reference_strength accepts only the source-observed initializer 0.7; provider acceptance is unproven. Omit it to preserve the existing request. Partial observations must be reconciled, never retried as a new generation.",
     inputSchema: generateInputSchema, outputSchema: generationOutputSchema,
     annotations: { title: "Generate a Soul image", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => {
@@ -234,7 +237,8 @@ export function registerSyntxOwnerSoulImageTools(server: McpServer, options: Reg
     try {
       const intent: OwnerSoulGenerationParametersInput = { prompt: parsed.data.prompt, quality: parsed.data.quality,
         resolution: parsed.data.resolution, batch_size: parsed.data.batch_size, enhance_prompt: parsed.data.enhance_prompt,
-        seed: parsed.data.seed, style: parsed.data.style, character: parsed.data.character };
+        seed: parsed.data.seed, style: parsed.data.style, character: parsed.data.character,
+        ...(parsed.data.reference_strength === undefined ? {} : { reference_strength: parsed.data.reference_strength }) };
       const result = await generationService.generate({ attemptId: parsed.data.link_attempt_id, input: intent }, signal);
       return structured(parseSafeOutput(generationOutputSchema, result));
     } catch (error) { return generationErrorResult(error, "PRE_DISPATCH_FAILED", "GENERATION_FAILED"); }

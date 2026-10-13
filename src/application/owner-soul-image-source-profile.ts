@@ -3,6 +3,7 @@ import { schemaHash } from "../domain/generation-contract.js";
 import type { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION } from "../catalog/selected-discovery-catalog.js";
 import { getOwnerSoulGenerationSourceParameters } from "./owner-soul-generation-parameters.js";
+import { getOwnerSoulReferenceStrengthSourceProfile } from "./owner-soul-reference-strength-source-profile.js";
 
 const MODEL_ID = "higgsfield-soul" as const;
 const CATALOG_VERSION = DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION;
@@ -14,6 +15,7 @@ const SOURCE_HASHES = Object.freeze({
 } as const);
 const MODEL_RECORD_SHA256 = "sha256:16da8ea2298f05143e9992197536d63830a9359428312e2c635287d8f152fa22";
 const SOURCE_PARAMETERS = getOwnerSoulGenerationSourceParameters();
+const REFERENCE_STRENGTH_SOURCE = getOwnerSoulReferenceStrengthSourceProfile();
 const COST_INPUT_KEYS = Object.freeze(["quality", "resolution", "batch_size"] as const);
 const MODEL_RECORD_KEYS = Object.freeze([
   "id", "upstream_id", "ai_name", "display_name", "description", "active", "default", "type", "scope", "modalities",
@@ -133,13 +135,19 @@ export interface OwnerSoulImageSourceProfile {
     backend_acceptance: "UNPROVEN";
   }>;
   readonly reference_strength: DeepReadonly<{
+    source_profile_id: "owner-soul-reference-strength-source-profile-v1";
+    source_build_id: "1791904852";
+    source_sha256: typeof REFERENCE_STRENGTH_SOURCE.source_sha256;
     initializer_value: 0.7;
     visible_control: false;
     saved_model_value_key: false;
     removed_by_fixed_cache_prune: false;
     ordinary_sender_condition: "ACTIVE_SETTINGS_FIELD_AND_NULL_CUSTOM_PAYLOAD";
+    request_control: "OPTIONAL_EXPLICIT_FIXED_INITIALIZER_ONLY";
+    allowed_explicit_values: readonly [0.7];
+    omitted_behavior: "KEEP_EXISTING_SETTINGS_PAYLOAD_UNCHANGED";
     effective_value: "UNPROVEN";
-    normalizer_accepts: false;
+    normalizer_accepts_only_source_initializer: true;
     backend_acceptance: "UNPROVEN";
   }>;
   readonly public_settings: Readonly<Record<string, unknown>>;
@@ -265,9 +273,17 @@ export function getOwnerSoulImageSourceProfile(
       owned_reference_permission: "UNPROVEN_NO_CHARACTER_UPLOAD_HANDLE" as const, backend_acceptance: "UNPROVEN" as const
     },
     reference_strength: {
-      initializer_value: 0.7 as const, visible_control: false as const, saved_model_value_key: false as const,
+      source_profile_id: REFERENCE_STRENGTH_SOURCE.profile_id,
+      source_build_id: REFERENCE_STRENGTH_SOURCE.build_id,
+      source_sha256: REFERENCE_STRENGTH_SOURCE.source_sha256,
+      initializer_value: REFERENCE_STRENGTH_SOURCE.initializer_value,
+      visible_control: false as const, saved_model_value_key: false as const,
       removed_by_fixed_cache_prune: false as const, ordinary_sender_condition: "ACTIVE_SETTINGS_FIELD_AND_NULL_CUSTOM_PAYLOAD" as const,
-      effective_value: "UNPROVEN" as const, normalizer_accepts: false as const, backend_acceptance: "UNPROVEN" as const
+      request_control: "OPTIONAL_EXPLICIT_FIXED_INITIALIZER_ONLY" as const,
+      allowed_explicit_values: [REFERENCE_STRENGTH_SOURCE.initializer_value] as const,
+      omitted_behavior: "KEEP_EXISTING_SETTINGS_PAYLOAD_UNCHANGED" as const,
+      effective_value: "UNPROVEN" as const, normalizer_accepts_only_source_initializer: true as const,
+      backend_acceptance: "UNPROVEN" as const
     },
     public_settings: record.settings,
     public_input_metadata: {

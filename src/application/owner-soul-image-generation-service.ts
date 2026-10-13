@@ -549,7 +549,8 @@ export class OwnerSoulImageGenerationService {
         candidate.provider_execution !== false || candidate.model_id !== MODEL_ID || candidate.ai_name !== MODEL_ID || candidate.model_type !== MODEL_ID ||
         candidate.catalog_version !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION || candidate.source_projection_confidence !==
           "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY" ||
-        candidate.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" || !SHA256.test(candidate.profile_schema_hash) ||
+        (candidate.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" && candidate.reference_strength !== "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN") ||
+        !SHA256.test(candidate.profile_schema_hash) ||
         !SHA256.test(candidate.request_fingerprint) || !SHA256.test(candidate.intent_fingerprint) ||
         !Number.isSafeInteger(candidate.expires_at_ms) || candidate.expires_at_ms <= this.#readNow()) fail("PRE_DISPATCH_FAILED");
     let profile: Readonly<OwnerSoulImageSourceProfile>;

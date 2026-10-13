@@ -17,9 +17,25 @@ import {
   type OwnerElevenLabsTtsOneShotReceipt
 } from "../../application/owner-elevenlabs-tts-one-shot-policy.js";
 import {
+  getOwnerElevenLabsDialogueSourceProfile,
+  getOwnerElevenLabsDialoguePrivateRequestForPolicy,
+  isOwnerElevenLabsDialogueRequestPreparer,
+  type OwnerElevenLabsDialogueCandidateBinding,
+  type OwnerElevenLabsDialoguePreparedCandidate,
+  type OwnerElevenLabsDialoguePrivateRequest,
+  type OwnerElevenLabsDialogueRequestPreparer
+} from "../../application/owner-elevenlabs-dialogue-request-preparer.js";
+import {
+  OwnerElevenLabsDialogueOneShotPolicy,
+  type OwnerElevenLabsDialogueOneShotPermit,
+  type OwnerElevenLabsDialogueOneShotReceipt
+} from "../../application/owner-elevenlabs-dialogue-one-shot-policy.js";
+import {
   OWNER_ELEVENLABS_TTS_MODEL_IDS,
+  OWNER_ELEVENLABS_DIALOGUE_MODEL_IDS,
   OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION,
   OWNER_ELEVENLABS_GENERATION_SETTINGS_VERSION,
+  type OwnerElevenLabsDialogueModel,
   type OwnerElevenLabsTtsModel
 } from "../../application/owner-elevenlabs-generation-parameters.js";
 import {
@@ -698,6 +714,77 @@ export interface OwnerElevenLabsTtsMessageCandidates {
   readonly provider_chat_id: string | null;
   readonly owner_echo_message_id: string | null;
   readonly contexts: readonly OwnerElevenLabsTtsAudioResultMessageContext[];
+  readonly gaps: readonly string[];
+  readonly backend_acceptance: "UNPROVEN";
+}
+
+export interface OwnerElevenLabsDialogueChatContext {
+  readonly status: "created";
+  readonly chat_uuid: string;
+  readonly attempt_id: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly model_id: OwnerElevenLabsDialogueModel;
+  readonly voice_epoch: number;
+  readonly intent_fingerprint: string;
+  readonly profile_schema_hash: string;
+  readonly profile_id: string;
+  readonly source_profile_schema_hash: string;
+  readonly dispatch_allowed: false;
+  readonly backend_acceptance: "UNPROVEN";
+}
+
+export interface CreateOwnerElevenLabsDialogueChatInput {
+  readonly candidate: OwnerElevenLabsDialoguePreparedCandidate;
+  readonly permit: OwnerElevenLabsDialogueOneShotPermit;
+  readonly preparer: OwnerElevenLabsDialogueRequestPreparer;
+  readonly oneShotPolicy: OwnerElevenLabsDialogueOneShotPolicy;
+  readonly principal: GenerationPrincipalRef;
+  readonly attemptId: string;
+}
+
+export interface StartOwnerElevenLabsDialogueWithOwnedCandidateInput extends CreateOwnerElevenLabsDialogueChatInput {
+  readonly chat: OwnerElevenLabsDialogueChatContext;
+}
+
+export interface OwnerElevenLabsDialogueAudioResultMessageContext {
+  readonly chat_uuid: string;
+  readonly message_id: string;
+  readonly model_id: OwnerElevenLabsDialogueModel;
+  readonly provider_chat_id: string;
+  readonly message_object_ids: readonly string[];
+  readonly owner_echo_message_id: string;
+  readonly attempt_id: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly voice_epoch: number;
+  readonly intent_fingerprint: string;
+  readonly profile_schema_hash: string;
+  readonly source_profile_schema_hash: string;
+}
+
+export interface OwnerElevenLabsDialogueMessageCandidates {
+  readonly status: "PENDING" | "COMPLETE" | "UNVERIFIED";
+  readonly owner_ack_status: "MATCHED" | "MISSING" | "AMBIGUOUS" | "MISMATCH" | "UNKNOWN";
+  readonly history_binding_status: "BOUND" | "PARTIAL" | "UNVERIFIED";
+  readonly history_page_status: "COMPLETE" | "INCOMPLETE" | "UNVERIFIED";
+  readonly history_get_calls: number;
+  readonly provider_chat_id: string | null;
+  readonly owner_echo_message_id: string | null;
+  readonly contexts: readonly OwnerElevenLabsDialogueAudioResultMessageContext[];
+  readonly gaps: readonly string[];
+  readonly backend_acceptance: "UNPROVEN";
+}
+
+export interface OwnerElevenLabsDialogueResultObject {
+  readonly object_index: number;
+  readonly message_object_id: string;
+  readonly object_type: "audio";
+  readonly object_url: string;
+}
+
+export interface OwnerElevenLabsDialogueResult {
+  readonly message_binding: "BOUND" | "UNVERIFIED";
+  readonly model_echo: "MATCHED" | "UNKNOWN" | "MISMATCH";
+  readonly objects: readonly OwnerElevenLabsDialogueResultObject[];
   readonly gaps: readonly string[];
   readonly backend_acceptance: "UNPROVEN";
 }
@@ -1567,6 +1654,29 @@ interface OwnerElevenLabsTtsResultContextState {
   readonly chat: OwnerElevenLabsTtsChatState;
   readonly context: OwnerElevenLabsTtsAudioResultMessageContext;
 }
+type OwnerElevenLabsDialogueChatPhase = "AVAILABLE" | "OUTCOME_UNKNOWN" | "ACKNOWLEDGED";
+interface OwnerElevenLabsDialogueStartInput {
+  readonly candidate: OwnerElevenLabsDialoguePreparedCandidate;
+  readonly permit: OwnerElevenLabsDialogueOneShotPermit;
+  readonly preparer: OwnerElevenLabsDialogueRequestPreparer;
+  readonly oneShotPolicy: OwnerElevenLabsDialogueOneShotPolicy;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly attemptId: string;
+}
+interface OwnerElevenLabsDialogueChatState {
+  readonly client: SyntxChatHttpClient;
+  readonly chat: OwnerElevenLabsDialogueChatContext;
+  readonly operation: Readonly<OwnerElevenLabsDialogueStartInput>;
+  readonly modelId: OwnerElevenLabsDialogueModel;
+  phase: OwnerElevenLabsDialogueChatPhase;
+  ownerEchoMessageId?: string;
+  readonly resultContexts: Map<string, OwnerElevenLabsDialogueAudioResultMessageContext>;
+}
+interface OwnerElevenLabsDialogueResultContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly chat: OwnerElevenLabsDialogueChatState;
+  readonly context: OwnerElevenLabsDialogueAudioResultMessageContext;
+}
 const OWNER_ELEVENLABS_TTS_CHAT_LIMIT = 128;
 const OWNER_ELEVENLABS_TTS_HISTORY_MESSAGE_LIMIT = 64;
 const OWNER_ELEVENLABS_TTS_HISTORY_PAGE_SIZE = 10;
@@ -1576,6 +1686,19 @@ const OWNER_ELEVENLABS_TTS_CHATS = new WeakMap<object, Map<string, OwnerElevenLa
 const OWNER_ELEVENLABS_TTS_CHAT_CONTEXTS = new WeakMap<object, OwnerElevenLabsTtsChatState>();
 const OWNER_ELEVENLABS_TTS_CHAT_BY_PERMIT = new WeakMap<object, OwnerElevenLabsTtsChatState>();
 const OWNER_ELEVENLABS_TTS_RESULT_CONTEXTS = new WeakMap<object, OwnerElevenLabsTtsResultContextState>();
+const OWNER_ELEVENLABS_DIALOGUE_CHAT_LIMIT = 128;
+const OWNER_ELEVENLABS_DIALOGUE_HISTORY_MESSAGE_LIMIT = 64;
+const OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SIZE = 10;
+const OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_LIMIT = Math.ceil(
+  OWNER_ELEVENLABS_DIALOGUE_HISTORY_MESSAGE_LIMIT / OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SIZE
+);
+const OWNER_ELEVENLABS_DIALOGUE_MODELS = new Set<string>(OWNER_ELEVENLABS_DIALOGUE_MODEL_IDS);
+const OWNER_ELEVENLABS_DIALOGUE_CHATS = new WeakMap<object, Map<string, OwnerElevenLabsDialogueChatState>>();
+const OWNER_ELEVENLABS_DIALOGUE_CHAT_CONTEXTS = new WeakMap<object, OwnerElevenLabsDialogueChatState>();
+const OWNER_ELEVENLABS_DIALOGUE_CHAT_BY_PERMIT = new WeakMap<object, OwnerElevenLabsDialogueChatState>();
+const OWNER_ELEVENLABS_DIALOGUE_PENDING_PERMITS = new WeakSet<object>();
+const OWNER_ELEVENLABS_DIALOGUE_CREATE_ATTEMPTED = new WeakSet<object>();
+const OWNER_ELEVENLABS_DIALOGUE_RESULT_CONTEXTS = new WeakMap<object, OwnerElevenLabsDialogueResultContextState>();
 const OWNER_ELEVENLABS_TTS_HISTORY_OBJECT_SCHEMA = z.object({
   id: providerIdSchema,
   message_id: providerIdSchema,
@@ -1596,6 +1719,29 @@ const OWNER_ELEVENLABS_TTS_HISTORY_PAGE_SCHEMA = z.object({
     page_size: z.literal(OWNER_ELEVENLABS_TTS_HISTORY_PAGE_SIZE),
     total_count: z.number().int().min(0).max(OWNER_ELEVENLABS_TTS_HISTORY_MESSAGE_LIMIT),
     total_pages: z.number().int().min(0).max(OWNER_ELEVENLABS_TTS_HISTORY_PAGE_LIMIT),
+    has_next: z.boolean(),
+    has_previous: z.boolean()
+  }).strip()
+}).strip();
+const OWNER_ELEVENLABS_DIALOGUE_HISTORY_OBJECT_SCHEMA = z.object({
+  id: providerIdSchema,
+  message_id: providerIdSchema,
+  object_type: z.string().regex(SAFE_RESPONSE_TOKEN),
+  model_type: z.string().regex(SAFE_RESPONSE_TOKEN).nullable().optional()
+}).strip();
+const OWNER_ELEVENLABS_DIALOGUE_HISTORY_ROW_SCHEMA = z.object({
+  id: providerIdSchema,
+  chat_id: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  author_id: z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER),
+  message_object: z.array(OWNER_ELEVENLABS_DIALOGUE_HISTORY_OBJECT_SCHEMA).max(64)
+}).strip();
+const OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SCHEMA = z.object({
+  messages: z.array(OWNER_ELEVENLABS_DIALOGUE_HISTORY_ROW_SCHEMA).max(OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SIZE),
+  pagination: z.object({
+    page: z.number().int().min(1).max(OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_LIMIT),
+    page_size: z.literal(OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SIZE),
+    total_count: z.number().int().min(0).max(OWNER_ELEVENLABS_DIALOGUE_HISTORY_MESSAGE_LIMIT),
+    total_pages: z.number().int().min(0).max(OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_LIMIT),
     has_next: z.boolean(),
     has_previous: z.boolean()
   }).strip()
@@ -3494,7 +3640,8 @@ export class SyntxChatHttpClient {
         !/^sha256:[a-f0-9]{64}$/u.test(candidate.profile_schema_hash) ||
         candidate.profile_id !== "owner-soul-image-source-profile-v1" || !Number.isSafeInteger(candidate.expires_at_ms) ||
         candidate.source_projection_confidence !== "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY" ||
-        candidate.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD") throw invalidRequest();
+        (candidate.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" &&
+          candidate.reference_strength !== "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN")) throw invalidRequest();
 
     const requestDescriptor = Object.getOwnPropertyDescriptor(candidate, "request");
     if (!requestDescriptor || !("value" in requestDescriptor) || requestDescriptor.enumerable !== false ||
@@ -3503,12 +3650,16 @@ export class SyntxChatHttpClient {
     if (typeof request.prompt !== "string") throw invalidRequest();
     validateBoundedText(request.prompt, MAX_PROMPT_BYTES, true);
     const settings = readExactDataRecord(request.settings,
-      ["n", "model_type", "quality", "resolution", "batch_size", "enhance_prompt", "seed", "style_id", "reference_id", "file_urls", "style_strength"],
+      ["n", "model_type", "quality", "resolution", "batch_size", "enhance_prompt", "seed", "style_id", "reference_id", "file_urls", "style_strength", "reference_strength"],
       ["n", "model_type", "quality", "resolution", "batch_size", "enhance_prompt", "seed", "style_id", "reference_id", "file_urls"]);
     if (settings.n !== 1 || settings.model_type !== "higgsfield-soul" ||
         !Array.isArray(settings.file_urls) || types.isProxy(settings.file_urls) ||
         Object.getPrototypeOf(settings.file_urls) !== Array.prototype || settings.file_urls.length !== 0 ||
-        Object.hasOwn(settings, "version") || Object.hasOwn(settings, "reference_strength")) throw invalidRequest();
+        Object.hasOwn(settings, "version")) throw invalidRequest();
+    const hasReferenceStrength = candidate.reference_strength === "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN";
+    if (Object.hasOwn(settings, "reference_strength") !== hasReferenceStrength ||
+        Object.hasOwn(candidate.parameters, "reference_strength") !== hasReferenceStrength ||
+        (hasReferenceStrength && (settings.reference_strength !== 0.7 || candidate.parameters.reference_strength !== 0.7))) throw invalidRequest();
     const safeSettings = sanitizeSettings(settings);
     if (!isDeepStrictEqual(safeSettings, { ...settings })) throw invalidRequest();
     const body: Record<string, JsonValue> = { chat_uuid: fields.chat_uuid, prompt: request.prompt, settings: safeSettings };
@@ -4704,6 +4855,282 @@ export class SyntxChatHttpClient {
       principal: Object.freeze({ ...input.principal })
     });
     OWNER_ELEVENLABS_TTS_RESULT_CONTEXTS.set(context, { client: this, chat: state, context });
+    state.resultContexts.set(context.message_id, context);
+    return context;
+  }
+
+  /** Creates one fresh owner dialogue chat bound to its prepared candidate and one-shot reservation. */
+  async createOwnerElevenLabsDialogueChat(
+    input: CreateOwnerElevenLabsDialogueChatInput | unknown,
+    signal?: AbortSignal
+  ): Promise<OwnerElevenLabsDialogueChatContext> {
+    assertNativeElevenLabsDialogueClient(this);
+    const operation = snapshotOwnerElevenLabsDialogueStartInput(input);
+    const binding = validateOwnerElevenLabsDialogueOperation(operation);
+    if (signal?.aborted) throw ownerElevenLabsDialogueError("REQUEST_ABORTED");
+    if (OWNER_ELEVENLABS_DIALOGUE_CHAT_BY_PERMIT.has(operation.permit) ||
+        OWNER_ELEVENLABS_DIALOGUE_CREATE_ATTEMPTED.has(operation.permit) ||
+        OWNER_ELEVENLABS_DIALOGUE_PENDING_PERMITS.has(operation.permit)) {
+      throw ownerElevenLabsDialogueError("CHAT_CONTEXT_ALREADY_CREATED");
+    }
+    const chats = ownerElevenLabsDialogueChats(this);
+    if (chats.size >= OWNER_ELEVENLABS_DIALOGUE_CHAT_LIMIT) throw ownerElevenLabsDialogueError("CAPACITY_EXCEEDED");
+    OWNER_ELEVENLABS_DIALOGUE_PENDING_PERMITS.add(operation.permit);
+    OWNER_ELEVENLABS_DIALOGUE_CREATE_ATTEMPTED.add(operation.permit);
+    try {
+      let receipt: CreateChatReceipt;
+      try {
+        receipt = await Reflect.apply(NATIVE_OWNER_ELEVENLABS_TTS_CREATE_CHAT, this,
+          ["audio", `owner-elevenlabs-dialogue-${randomUUID()}`, signal]) as CreateChatReceipt;
+      } catch { throw ownerElevenLabsDialogueError("CHAT_CREATE_FAILED"); }
+      if (signal?.aborted) throw ownerElevenLabsDialogueError("REQUEST_ABORTED");
+      validatePathIdentifier(receipt.chat_uuid);
+      if (chats.has(receipt.chat_uuid)) throw protocolError();
+      validateOwnerElevenLabsDialogueOperation(operation);
+      const chat: OwnerElevenLabsDialogueChatContext = Object.freeze({
+        status: "created",
+        chat_uuid: receipt.chat_uuid,
+        attempt_id: operation.attemptId,
+        principal: operation.principal,
+        model_id: binding.model_id,
+        voice_epoch: binding.voice_epoch,
+        intent_fingerprint: binding.intent_fingerprint,
+        profile_schema_hash: binding.profile_schema_hash,
+        profile_id: operation.candidate.profile_id,
+        source_profile_schema_hash: binding.profile_schema_hash,
+        dispatch_allowed: false,
+        backend_acceptance: "UNPROVEN"
+      });
+      const state: OwnerElevenLabsDialogueChatState = {
+        client: this, chat, operation, modelId: binding.model_id, phase: "AVAILABLE", resultContexts: new Map()
+      };
+      chats.set(chat.chat_uuid, state);
+      OWNER_ELEVENLABS_DIALOGUE_CHAT_CONTEXTS.set(chat, state);
+      OWNER_ELEVENLABS_DIALOGUE_CHAT_BY_PERMIT.set(operation.permit, state);
+      return chat;
+    } finally {
+      OWNER_ELEVENLABS_DIALOGUE_PENDING_PERMITS.delete(operation.permit);
+    }
+  }
+
+  /** Consumes the dialogue permit before its sole fixed audio POST; any possible POST outcome is GET-only. */
+  async startOwnerElevenLabsDialogueWithOwnedCandidate(
+    input: StartOwnerElevenLabsDialogueWithOwnedCandidateInput | unknown,
+    signal?: AbortSignal
+  ): Promise<MediaGenerationReceipt> {
+    assertNativeElevenLabsDialogueClient(this);
+    const fields = snapshotOwnerElevenLabsDialogueStartInput(input, true);
+    const chat = fields.chat;
+    if (!chat) throw ownerElevenLabsDialogueError("CHAT_CONTEXT_INVALID");
+    const state = OWNER_ELEVENLABS_DIALOGUE_CHAT_CONTEXTS.get(chat);
+    if (!state || state.client !== this || state.chat !== chat || state.operation.candidate !== fields.candidate ||
+        state.operation.permit !== fields.permit || state.operation.preparer !== fields.preparer ||
+        state.operation.oneShotPolicy !== fields.oneShotPolicy || state.operation.attemptId !== fields.attemptId ||
+        !sameGenerationPrincipal(state.operation.principal, fields.principal)) {
+      throw ownerElevenLabsDialogueError("CHAT_CONTEXT_INVALID");
+    }
+    if (state.phase !== "AVAILABLE") throw ownerElevenLabsDialogueError("CHAT_DISPATCH_ALREADY_STARTED");
+    validateOwnerElevenLabsDialogueOperation(state.operation);
+    if (signal?.aborted) throw ownerElevenLabsDialogueError("REQUEST_ABORTED");
+
+    let consumed: OwnerElevenLabsDialogueOneShotReceipt;
+    try {
+      consumed = Reflect.apply(OwnerElevenLabsDialogueOneShotPolicy.prototype.consume, state.operation.oneShotPolicy, [{
+        candidate: state.operation.candidate, permit: state.operation.permit,
+        attemptId: state.operation.attemptId, principal: state.operation.principal
+      }]) as OwnerElevenLabsDialogueOneShotReceipt;
+    } catch { throw ownerElevenLabsDialogueError("CANDIDATE_INVALID"); }
+    if (consumed.status !== "consumed" || consumed.dispatch_allowed !== false ||
+        consumed.backend_acceptance !== "UNPROVEN" || consumed.intent_fingerprint !== state.chat.intent_fingerprint ||
+        !consumed.private_request) {
+      state.phase = "OUTCOME_UNKNOWN";
+      throw ownerElevenLabsDialogueError("CANDIDATE_INVALID");
+    }
+
+    let privateRequest: OwnerElevenLabsDialoguePrivateRequest;
+    try { privateRequest = validateOwnerElevenLabsDialoguePrivateRequest(consumed.private_request, state); }
+    catch { state.phase = "OUTCOME_UNKNOWN"; throw ownerElevenLabsDialogueError("CANDIDATE_INVALID"); }
+    state.phase = "OUTCOME_UNKNOWN";
+    let receipt: MediaGenerationReceipt;
+    try {
+      receipt = await Reflect.apply(NATIVE_OWNER_ELEVENLABS_TTS_START_AUDIO, this, [{
+        ai_name: "elevenlabs", chat_uuid: state.chat.chat_uuid,
+        prompt: privateRequest.prompt, settings: privateRequest.settings
+      }, signal]) as MediaGenerationReceipt;
+    } catch { throw ownerElevenLabsDialogueError("OUTCOME_UNKNOWN"); }
+    if (signal?.aborted || !receipt || receipt.chat_uuid !== state.chat.chat_uuid || !isSafeProviderId(receipt.message_id)) {
+      throw ownerElevenLabsDialogueError("OUTCOME_UNKNOWN");
+    }
+    state.ownerEchoMessageId = receipt.message_id;
+    state.phase = "ACKNOWLEDGED";
+    return Object.freeze({ chat_uuid: state.chat.chat_uuid, message_id: receipt.message_id });
+  }
+
+  /** Bounded GET-only history scan; ACK binding uses the known response ID and the fresh chat, never prompt text. */
+  async listOwnedElevenLabsDialogueCandidates(
+    chatInput: OwnerElevenLabsDialogueChatContext | unknown,
+    signal?: AbortSignal
+  ): Promise<OwnerElevenLabsDialogueMessageCandidates> {
+    assertNativeElevenLabsDialogueClient(this);
+    const state = ownerElevenLabsDialogueChatState(this, chatInput);
+    validateOwnerElevenLabsDialogueChatStillBound(state);
+    if (state.phase !== "ACKNOWLEDGED" && state.phase !== "OUTCOME_UNKNOWN") {
+      throw ownerElevenLabsDialogueError("CHAT_NOT_DISPATCHED");
+    }
+    if (signal?.aborted) throw ownerElevenLabsDialogueError("REQUEST_ABORTED");
+
+    const messages: z.infer<typeof OWNER_ELEVENLABS_DIALOGUE_HISTORY_ROW_SCHEMA>[] = [];
+    const messageIds = new Set<string>();
+    const objectIds = new Set<string>();
+    let providerChatId: string | undefined;
+    let totalCount: number | undefined;
+    let totalPages: number | undefined;
+    let getCalls = 0;
+    try {
+      for (let page = 1; page <= OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_LIMIT; page += 1) {
+        const url = new URL(`chats/${state.chat.chat_uuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("page_size", String(OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SIZE));
+        getCalls += 1;
+        const raw = await this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+        const parsed = OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SCHEMA.safeParse(raw);
+        if (!parsed.success) throw protocolError();
+        const { messages: rows, pagination } = parsed.data;
+        const expectedPages = pagination.total_count === 0 ? 0 : Math.ceil(
+          pagination.total_count / OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SIZE
+        );
+        const expectedRows = Math.min(OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SIZE,
+          Math.max(0, pagination.total_count - (page - 1) * OWNER_ELEVENLABS_DIALOGUE_HISTORY_PAGE_SIZE));
+        if (pagination.page !== page || pagination.total_pages !== expectedPages ||
+            pagination.has_previous !== (page > 1) || pagination.has_next !== (page < expectedPages) ||
+            rows.length !== expectedRows) throw protocolError();
+        if (expectedPages === 0) {
+          if (page !== 1 || pagination.total_count !== 0 || rows.length !== 0) throw protocolError();
+          totalCount = 0; totalPages = 0;
+          break;
+        }
+        if (totalCount === undefined) { totalCount = pagination.total_count; totalPages = pagination.total_pages; }
+        else if (totalCount !== pagination.total_count || totalPages !== pagination.total_pages) throw protocolError();
+        for (const row of rows) {
+          const rowProviderChatId = String(row.chat_id);
+          if (providerChatId === undefined) providerChatId = rowProviderChatId;
+          if (rowProviderChatId !== providerChatId || messageIds.has(row.id)) throw protocolError();
+          messageIds.add(row.id);
+          for (const object of row.message_object) {
+            if (object.message_id !== row.id || objectIds.has(object.id)) throw protocolError();
+            objectIds.add(object.id);
+          }
+          messages.push(row);
+        }
+        if (page === expectedPages) {
+          if (messages.length !== totalCount || providerChatId === undefined) throw protocolError();
+          break;
+        }
+      }
+    } catch {
+      if (signal?.aborted) throw ownerElevenLabsDialogueError("REQUEST_ABORTED");
+      return emptyOwnerElevenLabsDialogueHistory("UNVERIFIED", getCalls, "HISTORY_UNVERIFIED");
+    }
+
+    if (messages.length === 0 || providerChatId === undefined) {
+      return emptyOwnerElevenLabsDialogueHistory("PENDING", getCalls,
+        state.ownerEchoMessageId === undefined ? "OWNER_ACK_UNKNOWN" : "HISTORY_EMPTY",
+        state.ownerEchoMessageId === undefined ? "UNKNOWN" : "MISSING");
+    }
+    // A lost response has no trustworthy ACK identifier. Do not infer the owner ACK from prompt text or settings.
+    if (state.ownerEchoMessageId === undefined) {
+      return Object.freeze({ status: "UNVERIFIED", owner_ack_status: "UNKNOWN", history_binding_status: "UNVERIFIED",
+        history_page_status: "COMPLETE", history_get_calls: getCalls, provider_chat_id: providerChatId, owner_echo_message_id: null,
+        contexts: Object.freeze([]), gaps: Object.freeze(["OWNER_ACK_UNKNOWN"]), backend_acceptance: "UNPROVEN" });
+    }
+    const ownerRows = messages.filter((row) => row.author_id > 0);
+    const ackRows = ownerRows.filter((row) => row.id === state.ownerEchoMessageId);
+    if (ackRows.length !== 1) {
+      const idRows = messages.filter((row) => row.id === state.ownerEchoMessageId);
+      const ackStatus = ackRows.length > 1 ? "AMBIGUOUS" : idRows.length > 0 ? "MISMATCH" : "MISSING";
+      return emptyOwnerElevenLabsDialogueHistory("UNVERIFIED", getCalls,
+        ackStatus === "AMBIGUOUS" ? "OWNER_ACK_AMBIGUOUS" : ackStatus === "MISMATCH" ? "OWNER_ACK_AUTHOR_MISMATCH" : "OWNER_ACK_MISSING",
+        ackStatus, providerChatId, "COMPLETE");
+    }
+    const ownerEchoMessageId = state.ownerEchoMessageId;
+    const contexts: OwnerElevenLabsDialogueAudioResultMessageContext[] = [];
+    const gaps: string[] = [];
+    for (const row of messages) {
+      if (row.author_id !== BOT_AUTHOR_ID) continue;
+      const audioObjects = row.message_object.filter((object) => object.object_type === "audio");
+      if (audioObjects.length === 0) continue;
+      if (audioObjects.some((object) => object.model_type !== undefined && object.model_type !== null &&
+          object.model_type !== state.modelId)) {
+        gaps.push("AUDIO_MODEL_ECHO_MISMATCH");
+        continue;
+      }
+      if (audioObjects.some((object) => object.model_type === undefined || object.model_type === null)) {
+        gaps.push("AUDIO_MODEL_ECHO_UNKNOWN");
+      }
+      const ids = audioObjects.map((object) => object.id);
+      if (ids.length > 64 || ids.some((id) => !isSafeProviderId(id)) || new Set(ids).size !== ids.length) {
+        gaps.push("AUDIO_OBJECT_IDS_INVALID");
+        continue;
+      }
+      contexts.push(this.#mintOwnerElevenLabsDialogueResultContext(state, {
+        chat_uuid: state.chat.chat_uuid, message_id: row.id, model_id: state.modelId,
+        provider_chat_id: providerChatId, message_object_ids: ids, owner_echo_message_id: ownerEchoMessageId,
+        attempt_id: state.chat.attempt_id, principal: state.chat.principal, voice_epoch: state.chat.voice_epoch,
+        intent_fingerprint: state.chat.intent_fingerprint, profile_schema_hash: state.chat.profile_schema_hash,
+        source_profile_schema_hash: state.chat.source_profile_schema_hash
+      }));
+    }
+    if (contexts.length === 0 && gaps.length === 0) gaps.push("BOT_RESULT_NOT_OBSERVED");
+    return Object.freeze({ status: contexts.length > 0 ? "COMPLETE" : gaps.includes("BOT_RESULT_NOT_OBSERVED") ? "PENDING" : "UNVERIFIED",
+      owner_ack_status: "MATCHED", history_binding_status: gaps.some((gap) => gap === "AUDIO_MODEL_ECHO_MISMATCH" ||
+        gap === "AUDIO_OBJECT_IDS_INVALID") ? "PARTIAL" : "BOUND", history_page_status: "COMPLETE",
+      history_get_calls: getCalls,
+      provider_chat_id: providerChatId, owner_echo_message_id: ownerEchoMessageId,
+      contexts: Object.freeze(contexts), gaps: Object.freeze(gaps), backend_acceptance: "UNPROVEN" });
+  }
+
+  /** Reads only a result context minted from the matching owner ACK and bot audio row. */
+  async getOwnedElevenLabsDialogueResult(
+    contextInput: OwnerElevenLabsDialogueAudioResultMessageContext | unknown,
+    signal?: AbortSignal
+  ): Promise<OwnerElevenLabsDialogueResult> {
+    assertNativeElevenLabsDialogueClient(this);
+    if (!contextInput || typeof contextInput !== "object" || types.isProxy(contextInput)) {
+      throw ownerElevenLabsDialogueError("RESULT_CONTEXT_INVALID");
+    }
+    const owned = OWNER_ELEVENLABS_DIALOGUE_RESULT_CONTEXTS.get(contextInput);
+    if (!owned || owned.client !== this || owned.context !== contextInput || owned.chat.phase !== "ACKNOWLEDGED" ||
+        owned.context.owner_echo_message_id !== owned.chat.ownerEchoMessageId ||
+        owned.context.profile_schema_hash !== owned.chat.chat.profile_schema_hash ||
+        owned.context.intent_fingerprint !== owned.chat.chat.intent_fingerprint ||
+        owned.context.source_profile_schema_hash !== owned.chat.chat.source_profile_schema_hash) {
+      throw ownerElevenLabsDialogueError("RESULT_CONTEXT_INVALID");
+    }
+    validateOwnerElevenLabsDialogueChatStillBound(owned.chat);
+    if (signal?.aborted) throw ownerElevenLabsDialogueError("REQUEST_ABORTED");
+    const context = owned.context;
+    const raw = await this.#request(new URL(`chats/${context.chat_uuid}/${context.message_id}`, V1_BASE_URL),
+      "GET", undefined, "JSON_REQUIRED", signal);
+    const decoded = decodeOwnerElevenLabsAudioResult(raw, {
+      chat_uuid: context.chat_uuid, message_id: context.message_id, model_id: context.model_id,
+      provider_chat_id: context.provider_chat_id, message_object_ids: context.message_object_ids
+    });
+    return Object.freeze({ message_binding: decoded.message_binding, model_echo: decoded.model_echo,
+      objects: Object.freeze(decoded.ready_audio.map(({ object_index, message_object_id, object_type, object_url }) =>
+        Object.freeze({ object_index, message_object_id, object_type, object_url }))),
+      gaps: Object.freeze(decoded.gaps.map((gap) => gap.code)), backend_acceptance: "UNPROVEN" });
+  }
+
+  #mintOwnerElevenLabsDialogueResultContext(state: OwnerElevenLabsDialogueChatState,
+    input: OwnerElevenLabsDialogueAudioResultMessageContext): OwnerElevenLabsDialogueAudioResultMessageContext {
+    const existing = state.resultContexts.get(input.message_id);
+    if (existing) {
+      if (schemaHash(existing) !== schemaHash(input)) throw protocolError();
+      return existing;
+    }
+    const context = Object.freeze({ ...input, principal: Object.freeze({ ...input.principal }),
+      message_object_ids: Object.freeze([...input.message_object_ids]) });
+    OWNER_ELEVENLABS_DIALOGUE_RESULT_CONTEXTS.set(context, { client: this, chat: state, context });
     state.resultContexts.set(context.message_id, context);
     return context;
   }
@@ -5990,6 +6417,10 @@ const NATIVE_OWNER_SUNO_POLICY_REVALIDATE = OwnerSunoGenerationOneShotPolicy.pro
 const NATIVE_OWNER_SUNO_POLICY_CONSUME = OwnerSunoGenerationOneShotPolicy.prototype.consume;
 const NATIVE_OWNER_ELEVENLABS_TTS_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
 const NATIVE_OWNER_ELEVENLABS_TTS_START_AUDIO = SyntxChatHttpClient.prototype.startAudio;
+const NATIVE_OWNER_ELEVENLABS_DIALOGUE_CREATE_CHAT = SyntxChatHttpClient.prototype.createOwnerElevenLabsDialogueChat;
+const NATIVE_OWNER_ELEVENLABS_DIALOGUE_START = SyntxChatHttpClient.prototype.startOwnerElevenLabsDialogueWithOwnedCandidate;
+const NATIVE_OWNER_ELEVENLABS_DIALOGUE_LIST = SyntxChatHttpClient.prototype.listOwnedElevenLabsDialogueCandidates;
+const NATIVE_OWNER_ELEVENLABS_DIALOGUE_RESULT = SyntxChatHttpClient.prototype.getOwnedElevenLabsDialogueResult;
 
 export type OwnerSunoGenerationNativeErrorCode = "INVALID_REQUEST" | "CHAT_CREATE_FAILED" | "CHAT_CONTEXT_ALREADY_CREATED"
   | "CHAT_CONTEXT_INVALID" | "CHAT_NOT_DISPATCHED" | "CHAT_DISPATCH_ALREADY_STARTED" | "CANDIDATE_INVALID"
@@ -6206,6 +6637,187 @@ function assertNativeElevenLabsTtsClient(client: unknown): asserts client is Syn
         getDataMethod(client, "createChat") !== NATIVE_OWNER_ELEVENLABS_TTS_CREATE_CHAT ||
         getDataMethod(client, "startAudio") !== NATIVE_OWNER_ELEVENLABS_TTS_START_AUDIO) throw null;
   } catch { throw ownerElevenLabsTtsError("INVALID_REQUEST"); }
+}
+
+export type OwnerElevenLabsDialogueNativeErrorCode = "INVALID_REQUEST" | "CHAT_CREATE_FAILED" | "CHAT_CONTEXT_ALREADY_CREATED"
+  | "CHAT_CONTEXT_INVALID" | "CHAT_NOT_DISPATCHED" | "CHAT_DISPATCH_ALREADY_STARTED" | "CANDIDATE_INVALID"
+  | "OUTCOME_UNKNOWN" | "REQUEST_ABORTED" | "RESULT_CONTEXT_INVALID" | "CAPACITY_EXCEEDED";
+export class OwnerElevenLabsDialogueNativeError extends Error {
+  constructor(readonly code: OwnerElevenLabsDialogueNativeErrorCode) {
+    super("The owner ElevenLabs dialogue native operation could not be completed safely.");
+    this.name = "OwnerElevenLabsDialogueNativeError";
+  }
+}
+
+export function isOwnerElevenLabsDialogueChatContext(value: unknown, client?: unknown): value is OwnerElevenLabsDialogueChatContext {
+  try {
+    if (!value || typeof value !== "object" || types.isProxy(value) || !Object.isFrozen(value)) return false;
+    const state = OWNER_ELEVENLABS_DIALOGUE_CHAT_CONTEXTS.get(value);
+    return !!state && (client === undefined || state.client === client);
+  } catch { return false; }
+}
+
+export function isOwnerElevenLabsDialogueAudioResultMessageContext(
+  value: unknown, client?: unknown
+): value is OwnerElevenLabsDialogueAudioResultMessageContext {
+  try {
+    if (!value || typeof value !== "object" || types.isProxy(value) || !Object.isFrozen(value)) return false;
+    const state = OWNER_ELEVENLABS_DIALOGUE_RESULT_CONTEXTS.get(value);
+    return !!state && (client === undefined || state.client === client);
+  } catch { return false; }
+}
+
+function ownerElevenLabsDialogueError(code: OwnerElevenLabsDialogueNativeErrorCode): OwnerElevenLabsDialogueNativeError {
+  return new OwnerElevenLabsDialogueNativeError(code);
+}
+
+function assertNativeElevenLabsDialogueClient(client: unknown): asserts client is SyntxChatHttpClient {
+  try {
+    if (!client || typeof client !== "object" || types.isProxy(client) ||
+        Object.getPrototypeOf(client) !== SyntxChatHttpClient.prototype ||
+        getDataMethod(client, "createChat") !== NATIVE_OWNER_ELEVENLABS_TTS_CREATE_CHAT ||
+        getDataMethod(client, "startAudio") !== NATIVE_OWNER_ELEVENLABS_TTS_START_AUDIO ||
+        getDataMethod(client, "createOwnerElevenLabsDialogueChat") !== NATIVE_OWNER_ELEVENLABS_DIALOGUE_CREATE_CHAT ||
+        getDataMethod(client, "startOwnerElevenLabsDialogueWithOwnedCandidate") !== NATIVE_OWNER_ELEVENLABS_DIALOGUE_START ||
+        getDataMethod(client, "listOwnedElevenLabsDialogueCandidates") !== NATIVE_OWNER_ELEVENLABS_DIALOGUE_LIST ||
+        getDataMethod(client, "getOwnedElevenLabsDialogueResult") !== NATIVE_OWNER_ELEVENLABS_DIALOGUE_RESULT) throw null;
+  } catch { throw ownerElevenLabsDialogueError("INVALID_REQUEST"); }
+}
+
+function snapshotOwnerElevenLabsDialogueStartInput(
+  value: unknown, includeChat = false
+): Readonly<OwnerElevenLabsDialogueStartInput & { chat?: OwnerElevenLabsDialogueChatContext }> {
+  const keys = ["candidate", "permit", "preparer", "oneShotPolicy", "principal", "attemptId", ...(includeChat ? ["chat"] : [])];
+  let fields: Record<string, unknown>;
+  try { fields = readExactDataRecord(value, keys, keys); }
+  catch { throw ownerElevenLabsDialogueError("INVALID_REQUEST"); }
+  if (typeof fields.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(fields.attemptId) ||
+      !isOwnerElevenLabsDialogueRequestPreparer(fields.preparer) || !isOwnerElevenLabsDialoguePolicy(fields.oneShotPolicy) ||
+      !fields.candidate || typeof fields.candidate !== "object" || types.isProxy(fields.candidate) ||
+      !fields.permit || typeof fields.permit !== "object" || types.isProxy(fields.permit)) {
+    throw ownerElevenLabsDialogueError("INVALID_REQUEST");
+  }
+  let principal: Readonly<GenerationPrincipalRef>;
+  try { principal = snapshotGenerationPrincipal(fields.principal as GenerationPrincipalRef); }
+  catch { throw ownerElevenLabsDialogueError("INVALID_REQUEST"); }
+  if (principal.connection_id !== fields.attemptId) throw ownerElevenLabsDialogueError("INVALID_REQUEST");
+  if (includeChat && !isOwnerElevenLabsDialogueChatContext(fields.chat)) {
+    throw ownerElevenLabsDialogueError("CHAT_CONTEXT_INVALID");
+  }
+  return Object.freeze({ candidate: fields.candidate as OwnerElevenLabsDialoguePreparedCandidate,
+    permit: fields.permit as OwnerElevenLabsDialogueOneShotPermit,
+    preparer: fields.preparer as OwnerElevenLabsDialogueRequestPreparer,
+    oneShotPolicy: fields.oneShotPolicy as OwnerElevenLabsDialogueOneShotPolicy,
+    principal, attemptId: fields.attemptId,
+    ...(includeChat ? { chat: fields.chat as OwnerElevenLabsDialogueChatContext } : {}) });
+}
+
+function isOwnerElevenLabsDialoguePolicy(value: unknown): value is OwnerElevenLabsDialogueOneShotPolicy {
+  try {
+    return !!value && typeof value === "object" && !types.isProxy(value) &&
+      Object.getPrototypeOf(value) === OwnerElevenLabsDialogueOneShotPolicy.prototype &&
+      getDataMethod(value, "revalidate") === OwnerElevenLabsDialogueOneShotPolicy.prototype.revalidate &&
+      getDataMethod(value, "consume") === OwnerElevenLabsDialogueOneShotPolicy.prototype.consume;
+  } catch { return false; }
+}
+
+function validateOwnerElevenLabsDialogueOperation(
+  input: Readonly<OwnerElevenLabsDialogueStartInput>
+): OwnerElevenLabsDialogueCandidateBinding {
+  try {
+    const binding = input.preparer.inspectCandidate(input.candidate);
+    const profile = getOwnerElevenLabsDialogueSourceProfile();
+    if (!binding || !OWNER_ELEVENLABS_DIALOGUE_MODELS.has(binding.model_id) || binding.attempt_id !== input.attemptId ||
+        !sameGenerationPrincipal(binding.principal, input.principal) || input.candidate.model_id !== binding.model_id ||
+        input.candidate.mode !== "text_to_dialogue" || input.candidate.voice_epoch !== binding.voice_epoch ||
+        input.candidate.expires_at !== binding.expires_at || input.candidate.intent_fingerprint !== binding.intent_fingerprint ||
+        input.candidate.profile_schema_hash !== binding.profile_schema_hash ||
+        input.candidate.profile_id !== profile.profile_id || input.candidate.profile_schema_hash !== schemaHash(profile) ||
+        input.candidate.public_catalog_sha256 !== profile.source_binding.public_catalog_sha256 ||
+        input.candidate.form_sha256 !== profile.source_binding.form_module.sha256 ||
+        input.candidate.dispatch_allowed !== false || input.candidate.generation_allowed !== false ||
+        input.candidate.backend_acceptance !== "UNPROVEN") throw null;
+    input.preparer.revalidateCandidate({ candidate: input.candidate, attemptId: input.attemptId, principal: input.principal });
+    const receipt = Reflect.apply(OwnerElevenLabsDialogueOneShotPolicy.prototype.revalidate, input.oneShotPolicy, [{
+      candidate: input.candidate, permit: input.permit, attemptId: input.attemptId, principal: input.principal
+    }]) as OwnerElevenLabsDialogueOneShotReceipt;
+    if (receipt.status !== "revalidated" || receipt.dispatch_allowed !== false || receipt.backend_acceptance !== "UNPROVEN" ||
+        receipt.intent_fingerprint !== binding.intent_fingerprint) throw null;
+    return binding;
+  } catch { throw ownerElevenLabsDialogueError("CANDIDATE_INVALID"); }
+}
+
+function validateOwnerElevenLabsDialoguePrivateRequest(
+  value: unknown, state: OwnerElevenLabsDialogueChatState
+): OwnerElevenLabsDialoguePrivateRequest {
+  try {
+    const request = readExactDataRecord(value, ["prompt", "settings"], ["prompt", "settings"]);
+    const settings = readExactDataRecord(request.settings,
+      ["model_type", "mode", "inputs", "chars_count", "stability", "similarity_boost", "language_code"],
+      ["model_type", "mode", "inputs", "chars_count"]);
+    const preparedRequest = getOwnerElevenLabsDialoguePrivateRequestForPolicy(state.operation.candidate);
+    const expectedSettings = preparedRequest.settings;
+    const inputs = settings.inputs as unknown[];
+    let charsCount = 0;
+    const expectedInputs = expectedSettings.inputs;
+    if (typeof request.prompt !== "string" || request.prompt.length > MAX_PROMPT_BYTES ||
+        request.prompt.length !== state.operation.candidate.prompt_length ||
+        request.prompt !== preparedRequest.prompt ||
+        settings.model_type !== state.modelId || settings.mode !== "text_to_dialogue" ||
+        !Array.isArray(inputs) || types.isProxy(inputs) || inputs.length !== state.operation.candidate.line_count ||
+        inputs.length !== expectedInputs.length || Reflect.ownKeys(settings).length !== Reflect.ownKeys(expectedSettings).length ||
+        !Number.isSafeInteger(settings.chars_count) || settings.chars_count !== state.operation.candidate.chars_count ||
+        !Object.isFrozen(inputs)) throw null;
+    for (const key of ["model_type", "mode", "inputs", "chars_count", "stability", "similarity_boost", "language_code"] as const) {
+      if (Object.hasOwn(settings, key) !== Object.hasOwn(expectedSettings, key) ||
+          (key !== "inputs" && Object.hasOwn(settings, key) && settings[key] !== expectedSettings[key])) throw null;
+    }
+    for (let index = 0; index < inputs.length; index += 1) {
+      const line = readExactDataRecord(inputs[index], ["name", "text", "voice_id"], ["name", "text", "voice_id"]);
+      const expected = expectedInputs[index]!;
+      if (line.name !== expected.name || line.text !== expected.text || line.voice_id !== expected.voice_id ||
+          typeof line.text !== "string") throw null;
+      charsCount += line.text.length;
+    }
+    if (settings.chars_count !== charsCount) throw null;
+    return Object.freeze({ prompt: request.prompt, settings: settings as unknown as OwnerElevenLabsDialoguePrivateRequest["settings"] });
+  } catch { throw ownerElevenLabsDialogueError("CANDIDATE_INVALID"); }
+}
+
+function ownerElevenLabsDialogueChats(client: SyntxChatHttpClient): Map<string, OwnerElevenLabsDialogueChatState> {
+  let chats = OWNER_ELEVENLABS_DIALOGUE_CHATS.get(client);
+  if (!chats) { chats = new Map(); OWNER_ELEVENLABS_DIALOGUE_CHATS.set(client, chats); }
+  return chats;
+}
+
+function ownerElevenLabsDialogueChatState(
+  client: SyntxChatHttpClient, value: unknown
+): OwnerElevenLabsDialogueChatState {
+  if (!isOwnerElevenLabsDialogueChatContext(value)) throw ownerElevenLabsDialogueError("CHAT_CONTEXT_INVALID");
+  const state = OWNER_ELEVENLABS_DIALOGUE_CHAT_CONTEXTS.get(value);
+  if (!state || state.client !== client || state.chat !== value || ownerElevenLabsDialogueChats(client).get(value.chat_uuid) !== state) {
+    throw ownerElevenLabsDialogueError("CHAT_CONTEXT_INVALID");
+  }
+  return state;
+}
+
+function validateOwnerElevenLabsDialogueChatStillBound(state: OwnerElevenLabsDialogueChatState): void {
+  if (state.phase === "AVAILABLE") {
+    try { validateOwnerElevenLabsDialogueOperation(state.operation); }
+    catch { throw ownerElevenLabsDialogueError("CHAT_CONTEXT_INVALID"); }
+  }
+}
+
+function emptyOwnerElevenLabsDialogueHistory(
+  status: OwnerElevenLabsDialogueMessageCandidates["status"], calls: number, gap: string,
+  ownerAck: OwnerElevenLabsDialogueMessageCandidates["owner_ack_status"] = "MISSING",
+  providerChatId: string | null = null,
+  pageStatus: OwnerElevenLabsDialogueMessageCandidates["history_page_status"] =
+    status === "PENDING" ? "COMPLETE" : status === "UNVERIFIED" ? "UNVERIFIED" : "INCOMPLETE"
+): OwnerElevenLabsDialogueMessageCandidates {
+  return Object.freeze({ status, owner_ack_status: ownerAck, history_binding_status: "UNVERIFIED",
+    history_page_status: pageStatus, history_get_calls: calls, provider_chat_id: providerChatId,
+    owner_echo_message_id: null, contexts: Object.freeze([]), gaps: Object.freeze([gap]), backend_acceptance: "UNPROVEN" });
 }
 
 function snapshotOwnerElevenLabsTtsStartInput(value: unknown, includeChat = false): Readonly<OwnerElevenLabsTtsStartInput & { chat?: OwnerElevenLabsTtsChatContext }> {

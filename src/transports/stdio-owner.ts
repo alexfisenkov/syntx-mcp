@@ -241,11 +241,13 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   );
   const ownerWanT2vVideosEnabled = readOwnerWanT2vVideosFlag(process.env.SYNTX_OWNER_WAN_T2V_VIDEOS);
   const ownerElevenLabsTtsEnabled = readOwnerElevenLabsTtsFlag(process.env.SYNTX_OWNER_ELEVENLABS_TTS);
+  const ownerElevenLabsDialogueEnabled = readOwnerFlag("SYNTX_OWNER_ELEVENLABS_DIALOGUE");
   const ownerSunoGenerationEnabled = readOwnerSunoGenerationFlag(process.env.SYNTX_OWNER_SUNO_GENERATION);
   const ownerLumaT2vEnabled = readOwnerLumaT2vFlag(process.env.SYNTX_OWNER_LUMA_T2V);
   const ownerHailuo01T2vEnabled = readOwnerHailuo01T2vFlag(process.env.SYNTX_OWNER_HAILUO01_T2V);
   const ownerHailuo01DirectorT2vEnabled = readOwnerHailuo01DirectorT2vFlag(process.env.SYNTX_OWNER_HAILUO01_DIRECTOR_T2V);
   const ownerHailuo23T2vEnabled = readOwnerHailuo23T2vFlag(process.env.SYNTX_OWNER_HAILUO23_T2V);
+  const ownerHailuo02T2vEnabled = readOwnerFlag("SYNTX_OWNER_HAILUO02_T2V");
   const ownerVideo2AudioEnabled = readOwnerVideo2AudioFlag(process.env.SYNTX_OWNER_VIDEO2AUDIO);
   const ownerFluxImageReferencesEnabled = readOwnerFluxImageReferencesFlag(
     process.env.SYNTX_OWNER_FLUX_IMAGE_REFERENCES
@@ -273,12 +275,12 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         ownerKontextImageReferencesEnabled || ownerWanImageReferencesEnabled || ownerStandardImageReferencesEnabled ||
         ownerRunwayImageReferencesEnabled || ownerSeedreamImageReferencesEnabled || ownerSeedreamEditorImageReferencesEnabled ||
         ownerWanT2vVideosEnabled ||
-        ownerElevenLabsTtsEnabled ||
+        ownerElevenLabsTtsEnabled || ownerElevenLabsDialogueEnabled ||
         ownerSunoGenerationEnabled ||
         ownerLumaT2vEnabled ||
         ownerHailuo01T2vEnabled ||
         ownerHailuo01DirectorT2vEnabled ||
-        ownerHailuo23T2vEnabled ||
+        ownerHailuo23T2vEnabled || ownerHailuo02T2vEnabled ||
         ownerVideo2AudioEnabled ||
         ownerFluxImageReferencesEnabled || ownerSoulImageReferencesEnabled ||
         ownerIdeogramImageReferencesEnabled || ownerWanT2iImageEnabled || ownerBananaInpaintImageReferencesEnabled)) {
@@ -335,11 +337,13 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerSeedreamEditorImageReferencesEnabled,
       ownerWanT2vVideosEnabled,
       ownerElevenLabsTtsEnabled,
+      ownerElevenLabsDialogueEnabled,
       ownerSunoGenerationEnabled,
       ownerLumaT2vEnabled,
       ownerHailuo01T2vEnabled,
       ownerHailuo01DirectorT2vEnabled,
       ownerHailuo23T2vEnabled,
+      ownerHailuo02T2vEnabled,
       ownerVideo2AudioEnabled,
       ownerFluxImageReferencesEnabled,
       ownerIdeogramImageReferencesEnabled,
@@ -370,11 +374,13 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const seedreamEditorImageReferencesService = runtime.serverOptions.ownerSeedreamEditorImageReferences?.generationService;
       const wanT2vVideosService = runtime.serverOptions.ownerWanT2vVideos?.generationService;
       const elevenLabsTtsService = runtime.serverOptions.ownerElevenLabsTts?.generationService;
+      const elevenLabsDialogueService = runtime.serverOptions.ownerElevenLabsDialogue?.generationService;
       const sunoGenerationService = runtime.serverOptions.ownerSunoGeneration?.generationService;
       const lumaT2vGenerationService = runtime.serverOptions.ownerLumaT2v?.generationService;
       const hailuo01T2vGenerationService = runtime.serverOptions.ownerHailuo01T2v?.generationService;
       const hailuo01DirectorT2vGenerationService = runtime.serverOptions.ownerHailuo01DirectorT2v?.generationService;
       const hailuo23T2vGenerationService = runtime.serverOptions.ownerHailuo23T2v?.generationService;
+      const hailuo02T2vGenerationService = runtime.serverOptions.ownerHailuo02T2v?.generationService;
       const video2AudioGenerationService = runtime.serverOptions.ownerVideo2Audio?.generationService;
       const fluxImageReferencesService = runtime.serverOptions.ownerFluxImageReferences?.generationService;
       const ideogramImageReferencesService = runtime.serverOptions.ownerIdeogramImageReferences?.generationService;
@@ -387,12 +393,12 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runwayImageReferencesService === undefined && seedreamImageReferencesService === undefined &&
           seedreamEditorImageReferencesService === undefined &&
           wanT2vVideosService === undefined &&
-          elevenLabsTtsService === undefined &&
+          elevenLabsTtsService === undefined && elevenLabsDialogueService === undefined &&
           sunoGenerationService === undefined &&
           lumaT2vGenerationService === undefined &&
           hailuo01T2vGenerationService === undefined &&
           hailuo01DirectorT2vGenerationService === undefined &&
-          hailuo23T2vGenerationService === undefined &&
+          hailuo23T2vGenerationService === undefined && hailuo02T2vGenerationService === undefined &&
           video2AudioGenerationService === undefined &&
           fluxImageReferencesService === undefined && ideogramImageReferencesService === undefined &&
           bananaInpaintImageGenerationService === undefined) {
@@ -423,8 +429,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         soulImageGenerationService,
         soulImageGenerationService !== undefined || wanT2iImageGenerationService !== undefined ||
           bananaInpaintImageGenerationService !== undefined || seedreamEditorImageReferencesService !== undefined ||
-          elevenLabsTtsService !== undefined || sunoGenerationService !== undefined || lumaT2vGenerationService !== undefined ||
-          hailuo01T2vGenerationService !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined ||
+          elevenLabsTtsService !== undefined || elevenLabsDialogueService !== undefined || sunoGenerationService !== undefined || lumaT2vGenerationService !== undefined ||
+          hailuo01T2vGenerationService !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined || hailuo02T2vGenerationService !== undefined ||
           video2AudioGenerationService !== undefined,
         wanT2iImageGenerationService,
         bananaInpaintImageGenerationService,
@@ -436,7 +442,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerHailuo01T2vLifecycle,
         runtime.ownerHailuo01DirectorT2vLifecycle,
         runtime.ownerHailuo23T2vLifecycle,
-        runtime.ownerVideo2AudioLifecycle
+        runtime.ownerVideo2AudioLifecycle,
+        runtime.ownerHailuo02T2vLifecycle,
+        runtime.ownerElevenLabsDialogueLifecycle
       );
       await server.connect(profileTransport);
       return;
@@ -485,11 +493,13 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const seedreamEditorImageReferencesService = runtime.serverOptions.ownerSeedreamEditorImageReferences?.generationService;
       const wanT2vVideosService = runtime.serverOptions.ownerWanT2vVideos?.generationService;
       const elevenLabsTtsService = runtime.serverOptions.ownerElevenLabsTts?.generationService;
+      const elevenLabsDialogueService = runtime.serverOptions.ownerElevenLabsDialogue?.generationService;
       const sunoGenerationService = runtime.serverOptions.ownerSunoGeneration?.generationService;
       const lumaT2vGenerationService = runtime.serverOptions.ownerLumaT2v?.generationService;
       const hailuo01T2vGenerationService = runtime.serverOptions.ownerHailuo01T2v?.generationService;
       const hailuo01DirectorT2vGenerationService = runtime.serverOptions.ownerHailuo01DirectorT2v?.generationService;
       const hailuo23T2vGenerationService = runtime.serverOptions.ownerHailuo23T2v?.generationService;
+      const hailuo02T2vGenerationService = runtime.serverOptions.ownerHailuo02T2v?.generationService;
       const video2AudioGenerationService = runtime.serverOptions.ownerVideo2Audio?.generationService;
       const fluxImageReferencesService = runtime.serverOptions.ownerFluxImageReferences?.generationService;
       const ideogramImageReferencesService = runtime.serverOptions.ownerIdeogramImageReferences?.generationService;
@@ -502,12 +512,12 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runwayImageReferencesService === undefined && seedreamImageReferencesService === undefined &&
           seedreamEditorImageReferencesService === undefined &&
           wanT2vVideosService === undefined &&
-          elevenLabsTtsService === undefined &&
+          elevenLabsTtsService === undefined && elevenLabsDialogueService === undefined &&
           sunoGenerationService === undefined &&
           lumaT2vGenerationService === undefined &&
           hailuo01T2vGenerationService === undefined &&
           hailuo01DirectorT2vGenerationService === undefined &&
-          hailuo23T2vGenerationService === undefined &&
+          hailuo23T2vGenerationService === undefined && hailuo02T2vGenerationService === undefined &&
           video2AudioGenerationService === undefined &&
           fluxImageReferencesService === undefined && ideogramImageReferencesService === undefined &&
           bananaInpaintImageGenerationService === undefined) {
@@ -535,8 +545,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           soulImageGenerationService,
           soulImageGenerationService !== undefined || wanT2iImageGenerationService !== undefined ||
             bananaInpaintImageGenerationService !== undefined || seedreamEditorImageReferencesService !== undefined ||
-            elevenLabsTtsService !== undefined || sunoGenerationService !== undefined || lumaT2vGenerationService !== undefined ||
-          hailuo01T2vGenerationService !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined ||
+            elevenLabsTtsService !== undefined || elevenLabsDialogueService !== undefined || sunoGenerationService !== undefined || lumaT2vGenerationService !== undefined ||
+          hailuo01T2vGenerationService !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined || hailuo02T2vGenerationService !== undefined ||
           video2AudioGenerationService !== undefined,
           wanT2iImageGenerationService,
           bananaInpaintImageGenerationService,
@@ -548,7 +558,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerHailuo01T2vLifecycle,
           runtime.ownerHailuo01DirectorT2vLifecycle,
           runtime.ownerHailuo23T2vLifecycle,
-          runtime.ownerVideo2AudioLifecycle
+          runtime.ownerVideo2AudioLifecycle,
+          runtime.ownerHailuo02T2vLifecycle,
+          runtime.ownerElevenLabsDialogueLifecycle
         );
       }
     } else {
@@ -598,6 +610,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerHailuo01DirectorT2vLifecycle,
         runtime.ownerHailuo23T2vLifecycle,
         runtime.ownerVideo2AudioLifecycle,
+        runtime.ownerHailuo02T2vLifecycle,
+        runtime.ownerElevenLabsDialogueLifecycle,
         runtime.serverOptions.ownerFluxImageReferences?.generationService,
         runtime.serverOptions.ownerIdeogramImageReferences?.generationService,
         runtime.serverOptions.ownerBananaInpaintImageReferences?.generationService]) {
@@ -793,7 +807,9 @@ export function closeOwnerReadServicesOnTransportEof(
   ownerHailuo01T2vLifecycle?: { close(): Promise<void> } | undefined,
   ownerHailuo01DirectorT2vLifecycle?: { close(): Promise<void> } | undefined,
   ownerHailuo23T2vLifecycle?: { close(): Promise<void> } | undefined,
-  ownerVideo2AudioLifecycle?: { close(): Promise<void> } | undefined
+  ownerVideo2AudioLifecycle?: { close(): Promise<void> } | undefined,
+  ownerHailuo02T2vLifecycle?: { close(): Promise<void> } | undefined,
+  ownerElevenLabsDialogueLifecycle?: { close(): Promise<void> } | undefined
 ): () => Promise<void> {
   if (soulImageGenerationService === undefined && imageService === undefined && grokService === undefined && soulShapeService === undefined &&
       soulStyleOptionsService === undefined && clarityUpscaleService === undefined && magnificUpscaleService === undefined &&
@@ -805,7 +821,7 @@ export function closeOwnerReadServicesOnTransportEof(
       bananaInpaintImageGenerationService === undefined && seedreamEditorImageReferencesLifecycle === undefined &&
       wanT2vVideosLifecycle === undefined && elevenLabsTtsLifecycle === undefined && ownerSunoGenerationLifecycle === undefined &&
       ownerLumaT2vLifecycle === undefined && ownerHailuo01T2vLifecycle === undefined && ownerHailuo01DirectorT2vLifecycle === undefined &&
-      ownerHailuo23T2vLifecycle === undefined && ownerVideo2AudioLifecycle === undefined) {
+      ownerHailuo23T2vLifecycle === undefined && ownerVideo2AudioLifecycle === undefined && ownerHailuo02T2vLifecycle === undefined && ownerElevenLabsDialogueLifecycle === undefined) {
     throw new Error("OWNER_READ_SERVICE_REQUIRED");
   }
   return closeOwnerImageReferenceServiceOnTransportEof(
@@ -816,7 +832,7 @@ export function closeOwnerReadServicesOnTransportEof(
         for (const service of [soulImageGenerationService, wanT2iImageGenerationService, bananaInpaintImageGenerationService,
           seedreamEditorImageReferencesLifecycle, wanT2vVideosLifecycle, elevenLabsTtsLifecycle, ownerSunoGenerationLifecycle,
           ownerLumaT2vLifecycle, ownerHailuo01T2vLifecycle,
-          ownerHailuo01DirectorT2vLifecycle, ownerHailuo23T2vLifecycle, ownerVideo2AudioLifecycle,
+          ownerHailuo01DirectorT2vLifecycle, ownerHailuo23T2vLifecycle, ownerVideo2AudioLifecycle, ownerHailuo02T2vLifecycle, ownerElevenLabsDialogueLifecycle,
           imageService, grokService, soulShapeService, soulStyleOptionsService,
           clarityUpscaleService, magnificUpscaleService, kontextImageReferencesService, wanImageReferencesService,
           standardImageReferencesService, runwayImageReferencesService, seedreamImageReferencesService,

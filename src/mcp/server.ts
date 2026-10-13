@@ -158,6 +158,9 @@ import { registerSyntxOwnerWanT2iTools, type RegisterSyntxOwnerWanT2iToolsOption
 import type { OwnerWanT2vGenerationService } from "../application/owner-wan-t2v-generation-service.js";
 import { registerSyntxOwnerWanT2vVideoTools, type RegisterSyntxOwnerWanT2vVideoToolsOptions } from "./owner-wan-t2v-video-tools.js";
 import type { OwnerElevenLabsTtsGenerationService } from "../application/owner-elevenlabs-tts-generation-service.js";
+import type { OwnerElevenLabsDialogueGenerationService } from "../application/owner-elevenlabs-dialogue-generation-service.js";
+import { registerSyntxOwnerElevenLabsDialogueTools } from "./owner-elevenlabs-dialogue-tools.js";
+import { registerSyntxOwnerElevenLabsVoiceTools } from "./owner-elevenlabs-voice-tools.js";
 import type { OwnerElevenLabsVoiceReferenceService } from "../application/owner-elevenlabs-voice-reference-service.js";
 import {
   registerSyntxOwnerElevenLabsTtsTools,
@@ -176,6 +179,8 @@ import type { OwnerHailuo01DirectorT2vGenerationService } from "../application/o
 import { registerSyntxOwnerHailuo01DirectorT2vTools } from "./owner-hailuo01-director-t2v-tool.js";
 import type { OwnerHailuo23T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerHailuo23T2vTools } from "./owner-hailuo23-t2v-tool.js";
+import type { OwnerHailuo02T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { registerSyntxOwnerHailuo02T2vTools } from "./owner-hailuo02-t2v-tools.js";
 import type { OwnerVideo2AudioSourceProfile } from "../application/owner-video2audio-source-profile.js";
 import type { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import type { OwnerVideo2AudioGenerationService } from "../application/owner-video2audio-generation-service.js";
@@ -322,6 +327,12 @@ export interface OwnerElevenLabsTtsServiceComposition extends RegisterSyntxOwner
   readonly generationService: OwnerElevenLabsTtsGenerationService;
 }
 
+/** Dialogue and TTS share owner-bound voice references; no duplicate voice-list tool. */
+export interface OwnerElevenLabsDialogueServiceComposition {
+  readonly voiceReferenceService: OwnerElevenLabsVoiceReferenceService;
+  readonly generationService: OwnerElevenLabsDialogueGenerationService;
+}
+
 /** Explicit owner-local Suno generate and recovery tools; omitted from default and HTTP servers. */
 export interface OwnerSunoGenerationServiceComposition extends RegisterSyntxOwnerSunoGenerationToolsOptions {
   readonly generationService: OwnerSunoGenerationService;
@@ -348,6 +359,12 @@ export interface OwnerHailuo01DirectorT2vServiceComposition {
 /** Optional owner-local reviewed Hailuo 2.3 T2V tools; omitted from default and HTTP servers. */
 export interface OwnerHailuo23T2vServiceComposition {
   readonly generationService: Pick<OwnerHailuo23T2vGenerationService,
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+}
+
+/** Source-reviewed Hailuo-02 no-reference video tools, explicitly opted in on owner stdio. */
+export interface OwnerHailuo02T2vServiceComposition {
+  readonly generationService: Pick<OwnerHailuo02T2vGenerationService,
     "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
 }
 
@@ -420,6 +437,7 @@ export interface CreateMcpServerOptions {
   ownerWanT2vVideos?: OwnerWanT2vVideoServiceComposition | undefined;
   /** Explicit owner-local ElevenLabs TTS and voice-reference tools; omitted from default and HTTP servers. */
   ownerElevenLabsTts?: OwnerElevenLabsTtsServiceComposition | undefined;
+  ownerElevenLabsDialogue?: OwnerElevenLabsDialogueServiceComposition | undefined;
   /** Explicit owner-local Suno generate and recovery tools; omitted from default and HTTP servers. */
   ownerSunoGeneration?: OwnerSunoGenerationServiceComposition | undefined;
   /** Explicit owner-local reviewed Luma T2V tools; omitted from default and HTTP servers. */
@@ -430,6 +448,7 @@ export interface CreateMcpServerOptions {
   ownerHailuo01DirectorT2v?: OwnerHailuo01DirectorT2vServiceComposition | undefined;
   /** Explicit owner-local reviewed Hailuo 2.3 T2V tools; only injected by opted-in owner stdio. */
   ownerHailuo23T2v?: OwnerHailuo23T2vServiceComposition | undefined;
+  ownerHailuo02T2v?: OwnerHailuo02T2vServiceComposition | undefined;
   /** Explicit owner-local Video2Audio tools; omitted from default and HTTP servers. */
   ownerVideo2Audio?: OwnerVideo2AudioServiceComposition | undefined;
   /** Optional host-supplied, version-bound static evidence; never reads files or contacts SYNTX. */
@@ -566,8 +585,8 @@ export function createMcpServer(
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
-        options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
-        options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerVideo2Audio)) {
+        options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
+        options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerVideo2Audio)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
   if (options.generationContractRegistry != null && options.generationContractRegistryV2 != null) {
@@ -1018,6 +1037,10 @@ export function createMcpServer(
   if (options.ownerElevenLabsTts) {
     registerSyntxOwnerElevenLabsTtsTools(server, options.ownerElevenLabsTts);
   }
+  if (options.ownerElevenLabsDialogue) {
+    if (!options.ownerElevenLabsTts) registerSyntxOwnerElevenLabsVoiceTools(server, options.ownerElevenLabsDialogue.voiceReferenceService);
+    registerSyntxOwnerElevenLabsDialogueTools(server, options.ownerElevenLabsDialogue.generationService);
+  }
   if (options.ownerSunoGeneration) {
     registerSyntxOwnerSunoGenerationTools(server, options.ownerSunoGeneration);
   }
@@ -1032,6 +1055,9 @@ export function createMcpServer(
   }
   if (options.ownerHailuo23T2v) {
     registerSyntxOwnerHailuo23T2vTools(server, { service: options.ownerHailuo23T2v.generationService });
+  }
+  if (options.ownerHailuo02T2v) {
+    registerSyntxOwnerHailuo02T2vTools(server, { service: options.ownerHailuo02T2v.generationService });
   }
   if (options.ownerVideo2Audio) {
     registerSyntxOwnerVideo2AudioTools(server, options.ownerVideo2Audio);

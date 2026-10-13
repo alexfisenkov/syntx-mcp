@@ -295,8 +295,13 @@ test("candidate rejects accessor-shaped input and is synchronously invalid after
       typeof error === "object" && error !== null && Reflect.get(error, "code") === "INVALID_REQUEST");
     assert.equal(getterCalls, 0);
     await assert.rejects(preparer.prepare({ attemptId: ATTEMPT, principal: PRINCIPAL,
-      input: { ...baseIntent, reference_strength: 0.7 } }), (error: unknown) =>
+      input: { ...baseIntent, reference_strength: 0.6 } }), (error: unknown) =>
       typeof error === "object" && error !== null && Reflect.get(error, "code") === "INVALID_REQUEST");
+    const fixedStrength = await preparer.prepare({ attemptId: ATTEMPT, principal: PRINCIPAL,
+      input: { ...baseIntent, reference_strength: 0.7 } });
+    assert.equal(fixedStrength.reference_strength, "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN");
+    assert.equal((fixedStrength.parameters as Record<string, unknown>).reference_strength, 0.7);
+    assert.equal((fixedStrength.request as { settings: Record<string, unknown> }).settings.reference_strength, 0.7);
     const candidate = await preparer.prepare({ attemptId: ATTEMPT, principal: PRINCIPAL, input: baseIntent });
     await preparer.close();
     assert.equal(preparer.isPreparedCandidateForPrincipal(candidate, { attemptId: ATTEMPT, principal: PRINCIPAL }), false);

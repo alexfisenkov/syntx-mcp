@@ -104,6 +104,7 @@ import { OwnerWanT2iGenerationService } from "../application/owner-wan-t2i-gener
 import { OwnerWanT2vGenerationService } from "../application/owner-wan-t2v-generation-service.js";
 import { OwnerElevenLabsVoiceReferenceService } from "../application/owner-elevenlabs-voice-reference-service.js";
 import { OwnerElevenLabsTtsGenerationService } from "../application/owner-elevenlabs-tts-generation-service.js";
+import { OwnerElevenLabsDialogueGenerationService } from "../application/owner-elevenlabs-dialogue-generation-service.js";
 import { OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION } from "../application/owner-elevenlabs-generation-parameters.js";
 import { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
 import { OWNER_SUNO_GENERATION_PUBLIC_VERSION } from "../application/owner-suno-generation-parameters.js";
@@ -114,6 +115,8 @@ import { OwnerHailuo01DirectorT2vGenerationService } from "../application/owner-
 import { createOwnerHailuo01DirectorT2vProfile } from "../application/owner-hailuo01-director-t2v-profile.js";
 import { OwnerHailuo23T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerHailuo23T2vProfile } from "../application/owner-hailuo23-t2v-profile.js";
+import { OwnerHailuo02T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { createOwnerHailuo02T2vProfile } from "../application/owner-hailuo02-t2v-profile.js";
 import { createOwnerVideo2AudioSourceProfile } from "../application/owner-video2audio-source-profile.js";
 import { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import { createOwnerVideo2AudioRequestPreparer } from "../application/owner-video2audio-request-preparer.js";
@@ -163,6 +166,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerWanT2vVideosEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the pinned private ElevenLabs TTS tools. */
   ownerElevenLabsTtsEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for ordered ElevenLabs multi-voice dialogue. */
+  ownerElevenLabsDialogueEnabled?: boolean;
   /** Explicit owner-stdio opt-in for private Suno generation and recovery tools. */
   ownerSunoGenerationEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the reviewed Luma T2V contract tools. */
@@ -173,6 +178,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerHailuo01DirectorT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the sealed, reviewed Hailuo 2.3 T2V profile. */
   ownerHailuo23T2vEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for Hailuo-02 source-reviewed no-reference generation. */
+  ownerHailuo02T2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for Video2Audio upload, generation, and GET-only recovery. */
   ownerVideo2AudioEnabled?: boolean;
   /** Explicit owner-stdio opt-in for private Banana Inpaint uploads and generation. */
@@ -1116,7 +1123,7 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ generationService, lifecycle });
       })()
     : undefined;
-  const ownerElevenLabsTts = options.ownerElevenLabsTtsEnabled === true
+  const ownerElevenLabsShared = options.ownerElevenLabsTtsEnabled === true || options.ownerElevenLabsDialogueEnabled === true
     ? (() => {
         const elevenLabsCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
           OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION,
@@ -1133,6 +1140,7 @@ export function createObservedOwnerRuntime(
         };
         let voiceReferenceService: OwnerElevenLabsVoiceReferenceService | undefined;
         let generationService: OwnerElevenLabsTtsGenerationService | undefined;
+        let dialogueService: OwnerElevenLabsDialogueGenerationService | undefined;
         try {
           voiceReferenceService = new OwnerElevenLabsVoiceReferenceService({
             binding: authBinding,
@@ -1140,7 +1148,7 @@ export function createObservedOwnerRuntime(
             resolveClient: createReadClient,
             now
           });
-          generationService = new OwnerElevenLabsTtsGenerationService({
+          if (options.ownerElevenLabsTtsEnabled === true) generationService = new OwnerElevenLabsTtsGenerationService({
             binding: authBinding,
             linkService,
             catalog: elevenLabsCatalog,
@@ -1151,15 +1159,23 @@ export function createObservedOwnerRuntime(
             createModelAccessService: (attemptId: string) => new ModelAccessService(elevenLabsCatalog, createReadClient(attemptId), now),
             now
           });
+          if (options.ownerElevenLabsDialogueEnabled === true) dialogueService = new OwnerElevenLabsDialogueGenerationService({
+            binding: authBinding, linkService, catalog: elevenLabsCatalog,
+            catalog_version: OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION, voiceReferenceService,
+            resolveChatClient: resolveElevenLabsChatClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(elevenLabsCatalog, createReadClient(attemptId), now),
+            now
+          });
         } catch (error) {
           const cleanup = (async () => {
             const errors: unknown[] = [];
-            for (const close of [() => generationService?.close(), () => voiceReferenceService?.close()]) {
+            for (const close of [() => generationService?.close(), () => dialogueService?.close(), () => voiceReferenceService?.close()]) {
               try { await close(); } catch (closeError) { errors.push(closeError); }
             }
             clientsByAttempt.clear();
             if (errors.length === 1) throw errors[0];
-            if (errors.length > 1) throw new AggregateError(errors, "ElevenLabs TTS startup cleanup failed.");
+            if (errors.length > 1) throw new AggregateError(errors, "ElevenLabs media startup cleanup failed.");
           })();
           if (error !== null && (typeof error === "object" || typeof error === "function")) {
             OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
@@ -1170,28 +1186,37 @@ export function createObservedOwnerRuntime(
           async invalidateAttempt(attemptId: string): Promise<void> {
             const errors: unknown[] = [];
             for (const invalidate of [
-              () => generationService!.invalidateAttempt(attemptId),
+              () => generationService?.invalidateAttempt(attemptId),
+              () => dialogueService?.invalidateAttempt(attemptId),
               () => voiceReferenceService!.invalidateAttempt(attemptId)
             ]) {
               try { await invalidate(); } catch (error) { errors.push(error); }
             }
             clientsByAttempt.delete(attemptId);
             if (errors.length === 1) throw errors[0];
-            if (errors.length > 1) throw new AggregateError(errors, "ElevenLabs TTS attempt drain failed.");
+            if (errors.length > 1) throw new AggregateError(errors, "ElevenLabs media attempt drain failed.");
           },
           async close(): Promise<void> {
             const errors: unknown[] = [];
-            for (const close of [() => generationService!.close(), () => voiceReferenceService!.close()]) {
+            for (const close of [() => generationService?.close(), () => dialogueService?.close(), () => voiceReferenceService!.close()]) {
               try { await close(); } catch (error) { errors.push(error); }
             }
             clientsByAttempt.clear();
             if (errors.length === 1) throw errors[0];
-            if (errors.length > 1) throw new AggregateError(errors, "ElevenLabs TTS services did not close cleanly.");
+            if (errors.length > 1) throw new AggregateError(errors, "ElevenLabs media services did not close cleanly.");
           }
         });
-        return Object.freeze({ voiceReferenceService, generationService, lifecycle });
+        return Object.freeze({ voiceReferenceService, generationService, dialogueService, lifecycle });
       })()
     : undefined;
+  const ownerElevenLabsTts = ownerElevenLabsShared?.generationService === undefined ? undefined : Object.freeze({
+    voiceReferenceService: ownerElevenLabsShared.voiceReferenceService!, generationService: ownerElevenLabsShared.generationService,
+    lifecycle: ownerElevenLabsShared.lifecycle
+  });
+  const ownerElevenLabsDialogue = ownerElevenLabsShared?.dialogueService === undefined ? undefined : Object.freeze({
+    voiceReferenceService: ownerElevenLabsShared.voiceReferenceService!, generationService: ownerElevenLabsShared.dialogueService,
+    lifecycle: ownerElevenLabsShared.lifecycle
+  });
   const ownerSunoGeneration = options.ownerSunoGenerationEnabled === true
     ? (() => {
         const sunoCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
@@ -1401,6 +1426,43 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ profile, generationService, lifecycle });
       })()
     : undefined;
+  const ownerHailuo02T2v = options.ownerHailuo02T2vEnabled === true
+    ? (() => {
+        const profile = createOwnerHailuo02T2vProfile(options.catalogDirectory);
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveHailuo02ChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_HAILUO02_T2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        let generationService: OwnerHailuo02T2vGenerationService;
+        try {
+          generationService = new OwnerHailuo02T2vGenerationService({
+            profile, binding: authBinding, linkService,
+            resolveSubscription: (attemptId, signal) => createReadClient(attemptId).getSubscription(signal),
+            resolveModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            resolveChatClient: resolveHailuo02ChatClient, now
+          });
+        } catch (error) { clientsByAttempt.clear(); throw error; }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            try { await generationService.close(); }
+            finally { clientsByAttempt.clear(); }
+          }
+        });
+        return Object.freeze({ profile, generationService, lifecycle });
+      })()
+    : undefined;
   const ownerVideo2Audio = options.ownerVideo2AudioEnabled === true
     ? (() => {
         const profile = createOwnerVideo2AudioSourceProfile(options.catalogDirectory);
@@ -1466,11 +1528,12 @@ export function createObservedOwnerRuntime(
     : undefined;
   const ownerAuthLinkService: Pick<PerUserLinkService, "createAttempt" | "issueHandoff" | "checkAttempt" | "revoke"> =
     ownerSoulImageReferences === undefined && ownerGrokT2iImageReferences === undefined && ownerWanT2iImageReferences === undefined &&
-      ownerWanT2vVideos === undefined && ownerElevenLabsTts === undefined && ownerSunoGeneration === undefined &&
+      ownerWanT2vVideos === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerSunoGeneration === undefined &&
       ownerLumaT2v === undefined &&
       ownerHailuo01T2v === undefined &&
       ownerHailuo01DirectorT2v === undefined &&
       ownerHailuo23T2v === undefined &&
+      ownerHailuo02T2v === undefined &&
       ownerVideo2Audio === undefined &&
       ownerUniImageReferences === undefined && ownerWanImageReferences === undefined && ownerStandardImageReferences === undefined &&
       ownerRunwayImageReferences === undefined && ownerSeedreamImageReferences === undefined &&
@@ -1498,6 +1561,10 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerElevenLabsTts.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerElevenLabsDialogue !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerElevenLabsDialogue.lifecycle.invalidateAttempt(attemptId);
+            }
             if (ownerSunoGeneration !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerSunoGeneration.lifecycle.invalidateAttempt(attemptId);
@@ -1517,6 +1584,10 @@ export function createObservedOwnerRuntime(
             if (ownerHailuo23T2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerHailuo23T2v.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerHailuo02T2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerHailuo02T2v.lifecycle.invalidateAttempt(attemptId);
             }
             if (ownerVideo2Audio !== undefined) {
               await linkService.getStatus(binding, attemptId);
@@ -1545,11 +1616,13 @@ export function createObservedOwnerRuntime(
         ownerWanT2iImageReferences === undefined && ownerUniImageReferences === undefined &&
         ownerWanT2vVideos === undefined &&
         ownerElevenLabsTts === undefined &&
+        ownerElevenLabsDialogue === undefined &&
         ownerSunoGeneration === undefined &&
         ownerLumaT2v === undefined &&
         ownerHailuo01T2v === undefined &&
         ownerHailuo01DirectorT2v === undefined &&
         ownerHailuo23T2v === undefined &&
+        ownerHailuo02T2v === undefined &&
         ownerVideo2Audio === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
@@ -1567,6 +1640,9 @@ export function createObservedOwnerRuntime(
           if (ownerElevenLabsTts !== undefined) {
             try { await ownerElevenLabsTts.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
+          if (ownerElevenLabsDialogue !== undefined) {
+            try { await ownerElevenLabsDialogue.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
           if (ownerSunoGeneration !== undefined) {
             try { await ownerSunoGeneration.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
@@ -1581,6 +1657,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerHailuo23T2v !== undefined) {
             try { await ownerHailuo23T2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerHailuo02T2v !== undefined) {
+            try { await ownerHailuo02T2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerVideo2Audio !== undefined) {
             try { await ownerVideo2Audio.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -1662,6 +1741,10 @@ export function createObservedOwnerRuntime(
         generationService: ownerElevenLabsTts.generationService
       }
     }),
+    ...(ownerElevenLabsDialogue === undefined ? {} : { ownerElevenLabsDialogue: {
+      voiceReferenceService: ownerElevenLabsDialogue.voiceReferenceService,
+      generationService: ownerElevenLabsDialogue.generationService
+    } }),
     ...(ownerSunoGeneration === undefined ? {} : {
       ownerSunoGeneration: { generationService: ownerSunoGeneration.generationService }
     }),
@@ -1669,6 +1752,7 @@ export function createObservedOwnerRuntime(
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2v: { generationService: ownerHailuo01T2v.generationService } }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2v: { generationService: ownerHailuo01DirectorT2v.generationService } }),
     ...(ownerHailuo23T2v === undefined ? {} : { ownerHailuo23T2v: { generationService: ownerHailuo23T2v.generationService } }),
+    ...(ownerHailuo02T2v === undefined ? {} : { ownerHailuo02T2v: { generationService: ownerHailuo02T2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
     ...(ownerSoulCatalogShape === undefined ? {} : { ownerSoulCatalogShape }),
     ...(ownerSoulStyleOptions === undefined ? {} : { ownerSoulStyleOptions }),
@@ -1706,11 +1790,13 @@ export function createObservedOwnerRuntime(
     }),
     ...(ownerWanT2vVideos === undefined ? {} : { ownerWanT2vVideosLifecycle: ownerWanT2vVideos.lifecycle }),
     ...(ownerElevenLabsTts === undefined ? {} : { ownerElevenLabsTtsLifecycle: ownerElevenLabsTts.lifecycle }),
+    ...(ownerElevenLabsDialogue === undefined ? {} : { ownerElevenLabsDialogueLifecycle: ownerElevenLabsDialogue.lifecycle }),
     ...(ownerSunoGeneration === undefined ? {} : { ownerSunoGenerationLifecycle: ownerSunoGeneration.lifecycle }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2vLifecycle: ownerLumaT2v.lifecycle }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2vLifecycle: ownerHailuo01T2v.lifecycle }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2vLifecycle: ownerHailuo01DirectorT2v.lifecycle }),
     ...(ownerHailuo23T2v === undefined ? {} : { ownerHailuo23T2vLifecycle: ownerHailuo23T2v.lifecycle }),
+    ...(ownerHailuo02T2v === undefined ? {} : { ownerHailuo02T2vLifecycle: ownerHailuo02T2v.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle })
   };
 }

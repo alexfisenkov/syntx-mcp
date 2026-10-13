@@ -17,9 +17,12 @@ import {
 } from "../application/owner-elevenlabs-tts-generation-service.js";
 import {
   OwnerElevenLabsVoiceReferenceService,
-  OwnerElevenLabsVoiceReferenceServiceError,
-  type OwnerElevenLabsVoiceReferenceServiceErrorCode
 } from "../application/owner-elevenlabs-voice-reference-service.js";
+import { isOwnerElevenLabsVoiceReferenceService, OWNER_ELEVENLABS_VOICE_LIST_INPUT_SCHEMA,
+  OWNER_ELEVENLABS_VOICE_LIST_OUTPUT_SCHEMA, registerSyntxOwnerElevenLabsVoiceTools,
+  SYNTX_OWNER_LIST_ELEVENLABS_VOICE_REFERENCES_TOOL_NAME } from "./owner-elevenlabs-voice-tools.js";
+
+export { registerSyntxOwnerElevenLabsVoiceTools } from "./owner-elevenlabs-voice-tools.js";
 
 const SOURCE = getOwnerElevenLabsGenerationParameterProfile();
 const MODELS = OWNER_ELEVENLABS_TTS_MODEL_IDS;
@@ -29,10 +32,9 @@ const RECOVERY_ID = /^elevenlabs_tts_recovery_[0-9a-f-]{36}$/u;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
 const MAX_ARTIFACTS = 4_096;
 const PAGE_SIZE = 64;
-const NATIVE_LIST_VOICES = OwnerElevenLabsVoiceReferenceService.prototype.listVoices;
 
 export const SYNTX_GET_ELEVENLABS_TTS_PARAMETERS_TOOL_NAME = "syntx_get_elevenlabs_tts_parameters" as const;
-export const SYNTX_OWNER_LIST_ELEVENLABS_VOICE_REFERENCES_TOOL_NAME = "syntx_owner_list_elevenlabs_voice_references" as const;
+export { SYNTX_OWNER_LIST_ELEVENLABS_VOICE_REFERENCES_TOOL_NAME };
 export const SYNTX_OWNER_GENERATE_ELEVENLABS_TTS_TOOL_NAME = "syntx_owner_generate_elevenlabs_tts" as const;
 export const SYNTX_OWNER_RECONCILE_ELEVENLABS_TTS_TOOL_NAME = "syntx_owner_reconcile_elevenlabs_tts" as const;
 export const SYNTX_OWNER_LIST_ELEVENLABS_TTS_RECOVERIES_TOOL_NAME = "syntx_owner_list_elevenlabs_tts_recoveries" as const;
@@ -97,7 +99,7 @@ const generateInputSchema = z.object({
   }
 }).meta({ oneOf: generateJsonSchema.oneOf });
 const parametersInputSchema = z.object({}).strict();
-const listVoicesInputSchema = z.object({ link_attempt_id: attemptSchema }).strict();
+const listVoicesInputSchema = OWNER_ELEVENLABS_VOICE_LIST_INPUT_SCHEMA;
 const reconcileInputSchema = z.object({ link_attempt_id: attemptSchema, recovery_id: recoveryIdSchema }).strict();
 const listRecoveriesInputSchema = z.object({ link_attempt_id: attemptSchema, limit: z.number().int().min(1).max(128).optional() }).strict();
 const resultPageInputSchema = z.object({ link_attempt_id: attemptSchema, recovery_id: recoveryIdSchema,
@@ -117,12 +119,7 @@ const sourceOutputSchema = z.object({
     voice_reference: z.literal("EXPIRING_OWNER_BOUND_OPAQUE_REFERENCE"), language_code: z.literal("auto_only_for_v4_models") }).strict(),
   effective_defaults: z.literal("UNKNOWN"), runtime_usable: z.literal(false), backend_acceptance: z.literal("UNPROVEN")
 }).strict();
-const voiceOutputSchema = z.object({
-  status: z.literal("available"), page: z.literal(1), page_size: z.literal(10), total: z.number().int().nonnegative().nullable(),
-  has_more: z.boolean().nullable(), coverage: z.literal("PARTIAL_PAGE_ONLY"),
-  source_confidence: z.literal("CURRENT_SOURCE_ROUTE"), ownership_confidence: z.literal("UNPROVEN"),
-  voices: z.array(z.object({ voice_ref: voiceReferenceSchema, name: z.string().min(1).max(256), expires_in_seconds: z.number().int().min(0).max(900) }).strict()).max(10)
-}).strict();
+const voiceOutputSchema = OWNER_ELEVENLABS_VOICE_LIST_OUTPUT_SCHEMA;
 const diagnosticSchema = z.object({ phase: z.enum(["VALIDATE_REQUEST", "RESOLVE_PRINCIPAL", "PREPARE_CANDIDATE", "PREFLIGHT",
   "CHAT_CREATE", "GENERATION_POST", "POST_ACK_KNOWN", "HISTORY_GET", "RESULT_GET", "RESULT_BINDING"]),
   post_started: z.boolean(), ack_known: z.boolean(), history_status: z.enum(["NOT_READ", "PENDING", "COMPLETE", "INCOMPLETE", "UNVERIFIED"]),
@@ -176,19 +173,7 @@ export function registerSyntxOwnerElevenLabsTtsTools(server: McpServer,
     annotations: { title: "Get ElevenLabs TTS parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async () => structured(parseOutput(sourceOutputSchema, sourceProjection())));
 
-  server.registerTool(SYNTX_OWNER_LIST_ELEVENLABS_VOICE_REFERENCES_TOOL_NAME, {
-    title: "List owner ElevenLabs voice references", description: "Lists one bounded owner-authorized page. Returns expiring opaque references and display names, never provider voice IDs or preview URLs.",
-    inputSchema: listVoicesInputSchema, outputSchema: voiceOutputSchema,
-    annotations: { title: "List ElevenLabs voice references", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }
-  }, async (input, { signal }) => {
-    const parsed = listVoicesInputSchema.safeParse(snapshotSafeInput(input));
-    if (!parsed.success) return voiceErrorResult(undefined, "INVALID_REQUEST");
-    try {
-      const result = await options.voiceReferenceService.listVoices({ attemptId: parsed.data.link_attempt_id, signal });
-      const safe = { ...result, voices: result.voices.map(({ voice_ref, name, expires_in_seconds }) => ({ voice_ref, name, expires_in_seconds })) };
-      return structured(parseOutput(voiceOutputSchema, safe));
-    } catch (error) { return voiceErrorResult(error, "VOICE_LIST_UNAVAILABLE"); }
-  });
+  registerSyntxOwnerElevenLabsVoiceTools(server, options.voiceReferenceService);
 
   server.registerTool(SYNTX_OWNER_GENERATE_ELEVENLABS_TTS_TOOL_NAME, {
     title: "Generate ElevenLabs TTS audio", description: "Submits one explicit TTS request for an exact linked owner attempt. An uncertain result is not safe to retry; reconcile its recovery instead.",
@@ -256,13 +241,6 @@ const GENERATION_MESSAGES: Record<OwnerElevenLabsTtsGenerationServiceErrorCode, 
   OUTCOME_UNKNOWN: "The ElevenLabs TTS request may have been dispatched; reconcile its recovery and do not retry.",
   RECOVERY_NOT_FOUND: "The ElevenLabs TTS recovery is unavailable or expired."
 };
-const VOICE_MESSAGES: Record<OwnerElevenLabsVoiceReferenceServiceErrorCode, string> = {
-  INVALID_REQUEST: "The voice-reference request is invalid.", PRINCIPAL_NOT_LINKED: "A currently linked owner attempt is required.",
-  NATIVE_CLIENT_INVALID: "The native voice-list client is unavailable.", VOICE_LIST_UNAVAILABLE: "The owner voice list is unavailable.",
-  VOICE_REFERENCE_UNAVAILABLE: "The opaque voice reference is unavailable.", VOICE_REFERENCE_EXPIRED: "The opaque voice reference has expired.",
-  SERVICE_BUSY: "The owner voice-reference service is busy.", CAPACITY_EXCEEDED: "The owner voice-reference capacity is full.",
-  SERVICE_CLOSED: "The owner voice-reference service is closed.", REQUEST_ABORTED: "The voice-reference request was cancelled."
-};
 
 function boundedPrompt(max: number) {
   return z.string().min(1).max(max).refine((value) => value.trim().length > 0 && isWellFormedUnicode(value),
@@ -300,13 +278,8 @@ function sourceProjection() {
 function snapshotOptions(value: unknown): RegisterSyntxOwnerElevenLabsTtsToolsOptions {
   const fields = readExactRecord(value, ["generationService", "voiceReferenceService"]);
   if (!isOwnerElevenLabsTtsGenerationService(fields.generationService) ||
-      !isExactVoiceService(fields.voiceReferenceService)) throw new Error("ELEVENLABS_TTS_SERVICE_COMPOSITION_INVALID");
+      !isOwnerElevenLabsVoiceReferenceService(fields.voiceReferenceService)) throw new Error("ELEVENLABS_TTS_SERVICE_COMPOSITION_INVALID");
   return Object.freeze({ generationService: fields.generationService, voiceReferenceService: fields.voiceReferenceService });
-}
-function isExactVoiceService(value: unknown): value is OwnerElevenLabsVoiceReferenceService {
-  if (!value || typeof value !== "object" || types.isProxy(value) || Object.getPrototypeOf(value) !== OwnerElevenLabsVoiceReferenceService.prototype) return false;
-  return Object.getOwnPropertyDescriptor(OwnerElevenLabsVoiceReferenceService.prototype, "listVoices")?.value === NATIVE_LIST_VOICES &&
-    !Object.hasOwn(value, "listVoices");
 }
 function readExactRecord(value: unknown, expected: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== "object" || types.isProxy(value) || Array.isArray(value)) throw new TypeError("INVALID_RECORD");
@@ -363,11 +336,6 @@ function generationErrorResult(error: unknown, fallback: OwnerElevenLabsTtsGener
   }
   return errorResult({ error: { code, message: GENERATION_MESSAGES[code], ...(code === "OUTCOME_UNKNOWN" && recovery ? { recovery_id: recovery } : {}) } });
 }
-function voiceErrorResult(error: unknown, fallback: OwnerElevenLabsVoiceReferenceServiceErrorCode): CallToolResult {
-  const code = isVoiceError(error) && Object.hasOwn(VOICE_MESSAGES, ownData(error, "code") as string)
-    ? ownData(error, "code") as OwnerElevenLabsVoiceReferenceServiceErrorCode : fallback;
-  return errorResult({ error: { code, message: VOICE_MESSAGES[code] } });
-}
 function safeRecoveryListErrorCode(error: unknown): "INVALID_REQUEST" | "SERVICE_BUSY" | "SERVICE_CLOSED" | "PRINCIPAL_NOT_LINKED" {
   if (!isServiceError(error)) return "SERVICE_BUSY";
   const code = ownData(error, "code");
@@ -380,9 +348,6 @@ function recoveryListError(code: "INVALID_REQUEST" | "SERVICE_BUSY" | "SERVICE_C
 }
 function isServiceError(value: unknown): value is OwnerElevenLabsTtsGenerationServiceError {
   return Boolean(value) && typeof value === "object" && !types.isProxy(value) && value instanceof OwnerElevenLabsTtsGenerationServiceError;
-}
-function isVoiceError(value: unknown): value is OwnerElevenLabsVoiceReferenceServiceError {
-  return Boolean(value) && typeof value === "object" && !types.isProxy(value) && value instanceof OwnerElevenLabsVoiceReferenceServiceError;
 }
 function ownData(value: object, key: string): unknown { const descriptor = Object.getOwnPropertyDescriptor(value, key); return descriptor && "value" in descriptor ? descriptor.value : undefined; }
 function isWellFormedUnicode(value: string): boolean {

@@ -44,7 +44,12 @@ test("binds the complete explicit Soul image intent to e551 and exact retained s
   assert.equal(profile.character_selection.server_reference_id_type, "UNOBSERVED_EMPTY_LIST");
 
   assert.equal(profile.reference_strength.initializer_value, 0.7);
+  assert.equal(profile.reference_strength.source_profile_id, "owner-soul-reference-strength-source-profile-v1");
+  assert.equal(profile.reference_strength.source_build_id, "1791904852");
   assert.equal(profile.reference_strength.visible_control, false);
+  assert.equal(profile.reference_strength.request_control, "OPTIONAL_EXPLICIT_FIXED_INITIALIZER_ONLY");
+  assert.deepEqual(profile.reference_strength.allowed_explicit_values, [0.7]);
+  assert.equal(profile.reference_strength.omitted_behavior, "KEEP_EXISTING_SETTINGS_PAYLOAD_UNCHANGED");
   assert.equal(profile.reference_strength.removed_by_fixed_cache_prune, false);
   assert.equal(profile.reference_strength.effective_value, "UNPROVEN");
   assert.equal(profile.reference_strength.backend_acceptance, "UNPROVEN");

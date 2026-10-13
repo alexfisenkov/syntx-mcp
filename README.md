@@ -14,6 +14,14 @@ ElevenLabs TTS/Suno audio workflows. Точные группы и настрой
 в каталоге не означает, что каждое её поле или вариант доступен для dispatch.
 Некоторые параметры остаются source-only или явно недопущены к запуску.
 
+Дополнительно вводятся owner opt-in `SYNTX_OWNER_HAILUO02_T2V` для Hailuo 02
+text-to-video (три пары; reference-input на 512 не включён) и
+`SYNTX_OWNER_ELEVENLABS_DIALOGUE` для ElevenLabs dialogue (три модели в заданном
+порядке, пять tools и один общий voice). Soul принимает необязательный
+`reference_strength` только со значением `0.7`, если его передали явно. Defaults
+и прежние payload сохраняются. Это интеграции уровня исходного кода;
+подтверждения приёма запросов провайдерами нет.
+
 Это не покрытие всех моделей или всех комбинаций controls. Локальные тесты и
 отдельные UI/provider observations не доказывают доступность, стоимость или
 приём каждого запроса; полноценная HTTPS-установка и restart-durable recovery
@@ -77,10 +85,12 @@ Telegram или генерации и не меняет исходники/lockf
 SDK-сценарии установленного пакета. Старые личные provider-proof помечаются
 `NOT_DISTRIBUTED`, а не подменяются фиктивными подтверждениями.
 
-Workflow GitHub Actions настроен для Ubuntu, macOS и Windows на Node 22.13.0 и
-24.21.0; полный suite запускается на Ubuntu/24.21.0. Workflow запускается
-вручную и не получает аккаунты или secrets; его synthetic tests не должны
-выполнять загрузки или генерацию.
+Workflow GitHub Actions запускается вручную без аккаунтов и secrets. По
+умолчанию он проверяет только изменённое media-покрытие на Linux/Node 24.21.0:
+build, целевые synthetic tests, public manifest/read-safety и Gitleaks. Полная
+portability-матрица Ubuntu, macOS и Windows на Node 22.13.0 и 24.21.0, включая
+полный suite на Ubuntu/24.21.0, запускается отдельным выбором `full`.
+Synthetic tests не должны выполнять загрузки или генерацию.
 
 ## Подключение owner media
 

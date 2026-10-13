@@ -31,6 +31,13 @@ import {
   type OwnerHailuo23T2vSourceContract
 } from "./owner-hailuo23-t2v-profile.js";
 import {
+  OWNER_HAILUO02_T2V_CONTRACT_REGISTRY_VERSION,
+  isAuthenticOwnerHailuo02T2vProfile,
+  type OwnerHailuo02T2vDuration,
+  type OwnerHailuo02T2vResolution,
+  type OwnerHailuo02T2vSourceContract
+} from "./owner-hailuo02-t2v-profile.js";
+import {
   OwnerContractMediaError,
   OwnerContractMediaService,
   type OwnerContractMediaClient,
@@ -81,6 +88,13 @@ export interface OwnerHailuo23T2vGenerationInput {
   readonly prompt: string;
   readonly resolution: OwnerHailuo23T2vResolution;
   readonly video_duration: OwnerHailuo23T2vDuration;
+}
+
+export interface OwnerHailuo02T2vGenerationInput {
+  readonly attemptId: string;
+  readonly prompt: string;
+  readonly resolution: OwnerHailuo02T2vResolution;
+  readonly video_duration: OwnerHailuo02T2vDuration;
 }
 
 export interface OwnerReviewedNoReferenceT2vGenerationOutput extends OwnerContractMediaResult {
@@ -497,6 +511,34 @@ export class OwnerHailuo23T2vGenerationService {
   getParametersSource(): OwnerHailuo23T2vSourceContract { return this.#engine.getParametersSource(); }
   getReviewedContract() { return this.#engine.getReviewedContract(); }
   generate(input: OwnerHailuo23T2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.generate(input, signal);
+  }
+  reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.reconcile(input, signal);
+  }
+  listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
+    return this.#engine.listRecoveries(attemptId, limit);
+  }
+  invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
+  close(): Promise<void> { return this.#engine.close(); }
+}
+
+/** Thin flat Hailuo 02 ABI over the shared reviewed no-reference T2V engine. */
+export class OwnerHailuo02T2vGenerationService {
+  readonly #engine: OwnerReviewedNoReferenceT2vEngine<OwnerHailuo02T2vSourceContract>;
+
+  constructor(options: OwnerReviewedNoReferenceT2vServiceOptions<OwnerHailuo02T2vSourceContract>) {
+    if (!isAuthenticOwnerHailuo02T2vProfile(options.profile) ||
+        options.profile.registryVersion !== OWNER_HAILUO02_T2V_CONTRACT_REGISTRY_VERSION ||
+        contentAddressedVersion(options.profile.registry) !== OWNER_HAILUO02_T2V_CONTRACT_REGISTRY_VERSION) {
+      throw new Error("OWNER_REVIEWED_T2V_PROFILE_INVALID");
+    }
+    this.#engine = new OwnerReviewedNoReferenceT2vEngine(options);
+  }
+
+  getParametersSource(): OwnerHailuo02T2vSourceContract { return this.#engine.getParametersSource(); }
+  getReviewedContract() { return this.#engine.getReviewedContract(); }
+  generate(input: OwnerHailuo02T2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
     return this.#engine.generate(input, signal);
   }
   reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {

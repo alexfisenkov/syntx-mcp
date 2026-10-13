@@ -9,7 +9,8 @@ import {
   OwnerSoulImageRequestPreparer,
   type OwnerSoulImagePreparedCandidate
 } from "./owner-soul-image-request-preparer.js";
-import type { OwnerSoulGenerationQuality, OwnerSoulGenerationResolution } from "./owner-soul-generation-parameters.js";
+import type { OwnerSoulGenerationQuality, OwnerSoulGenerationResolution, OwnerSoulGenerationReferenceStrengthMode } from "./owner-soul-generation-parameters.js";
+import { OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE } from "./owner-soul-reference-strength-source-profile.js";
 import { getOwnerSoulImageSourceProfile, type OwnerSoulImageSourceProfile } from "./owner-soul-image-source-profile.js";
 
 const MODEL_ID = "higgsfield-soul" as const;
@@ -52,7 +53,7 @@ export interface OwnerSoulImageOneShotPermit {
   readonly cost_inputs: Readonly<{ quality: OwnerSoulGenerationQuality; resolution: OwnerSoulGenerationResolution; batch_size: 1 | 4 }>;
   readonly cost_confidence: "SOURCE_JOINED_COST2_QUERY_FIELDS_NOT_QUOTE_BILLING_OR_HARDCAP";
   readonly source_projection_confidence: "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY";
-  readonly reference_strength: "UNRESOLVED_UNCONTROLLED_WIRE_FIELD";
+  readonly reference_strength: OwnerSoulGenerationReferenceStrengthMode;
   readonly expires_at_ms: number;
 }
 
@@ -145,7 +146,7 @@ export function createOwnerSoulImageOneShotPermit(input: CreateOwnerSoulImageOne
     cost_inputs: snapshot.costInputs,
     cost_confidence: "SOURCE_JOINED_COST2_QUERY_FIELDS_NOT_QUOTE_BILLING_OR_HARDCAP" as const,
     source_projection_confidence: "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY" as const,
-    reference_strength: "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" as const,
+    reference_strength: candidate.reference_strength,
     expires_at_ms: expiresAt
   });
 
@@ -185,7 +186,7 @@ export function consumeOwnerSoulImageOneShotPermit(input: ConsumeOwnerSoulImageO
       !isDeepStrictEqual(permit.cost_routing, { ai_name: MODEL_ID, model_type: MODEL_ID }) ||
       permit.cost_confidence !== "SOURCE_JOINED_COST2_QUERY_FIELDS_NOT_QUOTE_BILLING_OR_HARDCAP" ||
       permit.source_projection_confidence !== "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY" ||
-      permit.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" || permit.dispatch_allowed !== false ||
+      permit.reference_strength !== candidate.reference_strength || permit.dispatch_allowed !== false ||
       permit.backend_acceptance !== "UNPROVEN" || permit.provider_execution !== false || permit.expires_at_ms !== state.expiresAt ||
       permit.catalog_version !== state.catalogVersion || permit.model_id !== MODEL_ID || permit.ai_name !== MODEL_ID ||
       permit.model_type !== MODEL_ID || permit.status !== "NOMINAL_ONE_SHOT") fail("CANDIDATE_MISMATCH");
@@ -226,7 +227,10 @@ function readProfile(candidate: OwnerSoulImagePreparedCandidate, catalog: Discov
       candidate.profile_schema_hash !== profile.profile_schema_hash || !isDeepStrictEqual(candidate.source_binding, profile.source_binding) ||
       candidate.dispatch_allowed !== false || candidate.backend_acceptance !== "UNPROVEN" || candidate.provider_execution !== false ||
       candidate.status !== "PREPARED_SOURCE_SHAPED" || candidate.source_projection_confidence !== "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY" ||
-      candidate.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" || profile.dispatch_allowed !== false ||
+      (candidate.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" && candidate.reference_strength !== "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN") ||
+      profile.reference_strength.request_control !== "OPTIONAL_EXPLICIT_FIXED_INITIALIZER_ONLY" ||
+      !isDeepStrictEqual(profile.reference_strength.allowed_explicit_values, [OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE]) ||
+      profile.reference_strength.omitted_behavior !== "KEEP_EXISTING_SETTINGS_PAYLOAD_UNCHANGED" || profile.dispatch_allowed !== false ||
       profile.runtime_activation !== false || profile.backend_acceptance !== "UNPROVEN" || profile.generation_readiness !== "SOURCE_PROFILE_ONLY_NOT_GENERATION_ADMISSION" ||
       !isDeepStrictEqual(profile.cost_policy.cost_input_keys, COST_KEYS) ||
       profile.cost_policy.projector !== "projectOwnerSoulImageCostParameters" ||
@@ -255,12 +259,13 @@ function snapshotCandidate(candidate: OwnerSoulImagePreparedCandidate, profile: 
     if (typeof request.prompt !== "string" || request.prompt.trim().length === 0 ||
         Buffer.byteLength(request.prompt, "utf8") > promptPolicy.local_utf8_max_bytes ||
         /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(request.prompt)) fail("CANDIDATE_MISMATCH");
-    const parameters = exactFrozenRecord(candidate.parameters, ["quality", "resolution", "batch_size", "enhance_prompt", "seed", "style", "character"]);
+    const parameters = exactFrozenRecord(candidate.parameters, ["quality", "resolution", "batch_size", "enhance_prompt", "seed", "style", "character"], ["reference_strength"]);
     const selection = exactFrozenRecord(candidate.selection, ["style", "character"]);
     const style = exactFrozenRecord(parameters.style, parameters.style && (parameters.style as Record<string, unknown>).kind === "selected" ? ["kind", "strength"] : ["kind"]);
     const character = exactFrozenRecord(parameters.character, ["kind"]);
     const settings = exactFrozenRecord(request.settings, ["n", "model_type", "quality", "resolution", "batch_size", "enhance_prompt", "seed",
-      "style_id", "reference_id", "file_urls"], ["style_strength"]);
+      "style_id", "reference_id", "file_urls"], ["style_strength", "reference_strength"]);
+    const referenceStrengthRequested = candidate.reference_strength === "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN";
     if (candidateFields.request !== requestDescriptor.value || selection.style !== style.kind || selection.character !== character.kind ||
         !["none", "selected"].includes(style.kind as string) || !["none", "selected"].includes(character.kind as string) ||
         parameters.quality !== "720p" && parameters.quality !== "1080p" ||
@@ -271,7 +276,11 @@ function snapshotCandidate(candidate: OwnerSoulImagePreparedCandidate, profile: 
         settings.resolution !== parameters.resolution || settings.batch_size !== parameters.batch_size ||
         settings.enhance_prompt !== parameters.enhance_prompt || settings.seed !== parameters.seed ||
         !Array.isArray(settings.file_urls) || isProxy(settings.file_urls) || !Object.isFrozen(settings.file_urls) || settings.file_urls.length !== 0 ||
-        Object.hasOwn(settings, "version") || Object.hasOwn(settings, "reference_strength") ||
+        Object.hasOwn(settings, "version") ||
+        referenceStrengthRequested !== Object.hasOwn(parameters, "reference_strength") ||
+        referenceStrengthRequested !== Object.hasOwn(settings, "reference_strength") ||
+        (referenceStrengthRequested && (parameters.reference_strength !== OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE ||
+          settings.reference_strength !== OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE)) ||
         !isDeepStrictEqual(candidate.cost_routing, { ai_name: MODEL_ID, model_type: MODEL_ID }) ||
         !isExactFrozenRecord(candidate.cost_inputs, COST_KEYS) || candidate.cost_inputs.quality !== parameters.quality ||
         candidate.cost_inputs.resolution !== parameters.resolution || candidate.cost_inputs.batch_size !== parameters.batch_size ||

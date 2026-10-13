@@ -40,7 +40,10 @@ skills/       переносимый updater
 - npm ci; npm run typecheck; npm run build; npm test.
 - npm run package:smoke:public — отдельный clean-installed SDK gate.
 - Gitleaks8.30.1 нужен developer secret tests, не обычному runtime.
-- CI: workflow_dispatch, три ОС × Node22.13/24.21; full suite/Linux24 отдельно.
+- CI: manual `workflow_dispatch`, default `changed-media` (Linux/Node24.21,
+  targeted media command plus public manifest/read-safety and Gitleaks); choose
+  `full` for the existing three-OS × Node22.13/24.21 portability matrix and
+  full suite/Linux24. Neither scope uses provider credentials or paid media.
 
 <!-- Реальные команды build/test/lint/validate и изменённый runtime-сценарий.
      Не выдумывай команды, которых в проекте нет. -->

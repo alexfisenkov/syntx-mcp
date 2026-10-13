@@ -75,7 +75,7 @@ test("rejects cross-pairs, unknown cost/version/model overrides, raw IDs, nonfin
     { ...base, model_type: "higgsfield-soul" },
     { ...base, ai_name: "higgsfield-soul" },
     { ...base, source_profile_hash: `sha256:${"a".repeat(64)}` },
-    { ...base, reference_strength: 0.7 },
+    { ...base, reference_strength: 0.6 },
     { ...base, raw: true },
     { ...base, file_urls: [] },
     { ...base, seed: Number.POSITIVE_INFINITY },
@@ -95,4 +95,13 @@ test("rejects cross-pairs, unknown cost/version/model overrides, raw IDs, nonfin
   });
   assert.throws(() => project(accessor));
   assert.equal(getterCalls, 0);
+});
+
+test("keeps the opt-in source-fixed reference_strength out of cost query parameters", async () => {
+  const module = await import(moduleUrl) as Record<string, unknown>;
+  const project = module.projectOwnerSoulImageCostParameters as (input: unknown) => Record<string, any>;
+  const result = project({ prompt: "explicit cost request", quality: "720p", resolution: "2048x1152", batch_size: 1,
+    enhance_prompt: false, seed: null, style: { kind: "none" }, character: { kind: "none" }, reference_strength: 0.7 });
+  assert.deepEqual(result.cost_inputs, { quality: "720p", resolution: "2048x1152", batch_size: 1 });
+  assert.equal(result.source_binding.generation_wire_bound, false);
 });

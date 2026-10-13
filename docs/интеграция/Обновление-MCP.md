@@ -6,6 +6,13 @@
 
 ## Проверка изменений
 
+GitHub Actions запускается вручную. Обычный scope `changed-media` собирает
+проект на Linux/Node 24.21.0 и выполняет только целевые media synthetic tests,
+проверку public manifest/read-safety и Gitleaks. Выберите `full` для прежней
+матрицы Ubuntu/macOS/Windows × Node 22.13.0/24.21.0 и полного Linux suite.
+Оба scope остаются synthetic: они не подтверждают приём запросов провайдером,
+не используют аккаунты и не запускают платную генерацию.
+
 В комплект входит [syntx-mcp-update](../../skills/syntx-mcp-update/SKILL.md).
 Его инструкции доступны также через read-only MCP resources:
 

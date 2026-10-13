@@ -518,7 +518,7 @@ test("refuses expired DATE_ONLY subscriptions, denied model access, and stale ac
   }
 });
 
-test("rejects hidden reference_strength and version fields before account or model-access reads", async () => {
+test("rejects unobserved raw version fields before account or model-access reads", async () => {
   const fixture = createFixture();
   let service: { generate(input: unknown, signal?: AbortSignal): Promise<Record<string, unknown>>; close(): Promise<void> } | undefined;
   try {
@@ -529,7 +529,7 @@ test("rejects hidden reference_strength and version fields before account or mod
       resolveChatClient: () => fixture.chatClient, createAccountStatusService: fixture.createAccountStatusService,
       createModelAccessService: fixture.createModelAccessService, now: () => fixture.now });
     const explicit = { prompt: "do not guess hidden source fields", quality: "720p", resolution: "2048x1152", batch_size: 1,
-      enhance_prompt: false, seed: null, style: { kind: "none" }, character: { kind: "none" }, reference_strength: 0.7, version: "v1" };
+      enhance_prompt: false, seed: null, style: { kind: "none" }, character: { kind: "none" }, version: "v1" };
     assert.throws(() => service!.generate({ attemptId: ATTEMPT, input: explicit }), (error: unknown) =>
       Reflect.get(error as object, "code") === "INVALID_REQUEST");
     assert.equal(fixture.counters.accountFactories, 0);

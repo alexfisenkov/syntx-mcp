@@ -1,4 +1,5 @@
 import { isProxy } from "node:util/types";
+import { OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE, type OwnerSoulReferenceStrengthProfileStatus } from "./owner-soul-reference-strength-source-profile.js";
 
 const MODEL_ID = "higgsfield-soul" as const;
 const MODEL_TYPE = "higgsfield-soul" as const;
@@ -79,7 +80,13 @@ const SOURCE_PARAMETERS = deepFreeze({
     reference_id_ui_prop_types: Object.freeze(["string", "number"] as const),
     actual_server_reference_id_type: "UNOBSERVED_EMPTY_LIST"
   },
-  reference_strength: "UNRESOLVED_UNCONTROLLED_WIRE_FIELD",
+  reference_strength: {
+    mode: "OPTIONAL_EXPLICIT_FIXED_INITIALIZER_ONLY",
+    source_initializer_value: OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE,
+    accepted_input_values: Object.freeze([OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE] as const),
+    omitted_behavior: "KEEP_EXISTING_SETTINGS_PAYLOAD_UNCHANGED",
+    provider_acceptance: "UNPROVEN"
+  },
   fixed_settings: { n: 1 },
   dispatch_allowed: false,
   generation_readiness: "BLOCKED_SOURCE_OR_BACKEND_GATES"
@@ -87,6 +94,7 @@ const SOURCE_PARAMETERS = deepFreeze({
 
 export type OwnerSoulGenerationQuality = keyof typeof QUALITY_RESOLUTION_PAIRS;
 export type OwnerSoulGenerationResolution = (typeof QUALITY_RESOLUTION_PAIRS)[OwnerSoulGenerationQuality][number];
+export type OwnerSoulGenerationReferenceStrengthMode = OwnerSoulReferenceStrengthProfileStatus;
 
 export type OwnerSoulGenerationStyleSelection =
   | { readonly kind: "none" }
@@ -105,6 +113,8 @@ export interface OwnerSoulGenerationParametersInput {
   readonly seed: number | null;
   readonly style: OwnerSoulGenerationStyleSelection;
   readonly character: OwnerSoulGenerationCharacterSelection;
+  /** Optional opt-in to the sole source-observed initializer; arbitrary values are not admitted. */
+  readonly reference_strength?: typeof OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE;
 }
 
 export interface OwnerSoulGenerationCatalogSnapshot {
@@ -122,7 +132,7 @@ export interface OwnerSoulGenerationParametersResult {
   readonly model: { readonly model_id: typeof MODEL_ID; readonly ai_name: typeof MODEL_ID; readonly model_type: string; readonly catalog_version: typeof CATALOG_VERSION };
   readonly source_pins: typeof SOURCE_PARAMETERS.source_pins;
   readonly fixed_settings: typeof SOURCE_PARAMETERS.fixed_settings;
-  readonly reference_strength: typeof SOURCE_PARAMETERS.reference_strength;
+  readonly reference_strength: OwnerSoulReferenceStrengthProfileStatus;
   readonly dispatch_allowed: false;
   readonly generation_readiness: typeof SOURCE_PARAMETERS.generation_readiness;
 }
@@ -148,7 +158,7 @@ export function normalizeOwnerSoulGenerationParameters(
 ): OwnerSoulGenerationParametersResult {
   const fields = readExactRecord(input, [
     "prompt", "quality", "resolution", "batch_size", "enhance_prompt", "seed", "style", "character"
-  ]);
+  ], ["reference_strength"]);
   if (typeof fields.prompt !== "string" || fields.prompt.trim().length === 0 ||
       Buffer.byteLength(fields.prompt, "utf8") > MAX_PROMPT_UTF8_BYTES || PROMPT_FORBIDDEN_CONTROLS.test(fields.prompt)) {
     invalidParameters();
@@ -162,6 +172,7 @@ export function normalizeOwnerSoulGenerationParameters(
   }
   const style = normalizeStyleSelection(fields.style);
   const character = normalizeCharacterSelection(fields.character);
+  if (Object.hasOwn(fields, "reference_strength") && fields.reference_strength !== OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE) invalidParameters();
   const modelType = resolveModelType(catalog);
   const normalizedIntent = Object.freeze({
     prompt: fields.prompt,
@@ -171,14 +182,17 @@ export function normalizeOwnerSoulGenerationParameters(
     enhance_prompt: fields.enhance_prompt,
     seed: fields.seed,
     style,
-    character
+    character,
+    ...(fields.reference_strength === OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE
+      ? { reference_strength: OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE } : {})
   }) as Readonly<OwnerSoulGenerationParametersInput>;
   return Object.freeze({
     intent: normalizedIntent,
     model: Object.freeze({ model_id: MODEL_ID, ai_name: MODEL_ID, model_type: modelType, catalog_version: CATALOG_VERSION }),
     source_pins: SOURCE_PARAMETERS.source_pins,
     fixed_settings: SOURCE_PARAMETERS.fixed_settings,
-    reference_strength: SOURCE_PARAMETERS.reference_strength,
+    reference_strength: fields.reference_strength === OWNER_SOUL_REFERENCE_STRENGTH_SOURCE_VALUE
+      ? "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN" : "UNRESOLVED_UNCONTROLLED_WIRE_FIELD",
     dispatch_allowed: false,
     generation_readiness: SOURCE_PARAMETERS.generation_readiness
   });
@@ -223,9 +237,11 @@ function resolveModelType(catalog: OwnerSoulGenerationCatalogSnapshot | undefine
   return upstreamId;
 }
 
-function readExactRecord(value: unknown, requiredKeys: readonly string[]): Record<string, unknown> {
+function readExactRecord(value: unknown, requiredKeys: readonly string[], optionalKeys: readonly string[] = []): Record<string, unknown> {
   const record = readRecord(value);
-  assertExactKeys(record, requiredKeys);
+  const allowedKeys = [...requiredKeys, ...optionalKeys];
+  const keys = Object.keys(record);
+  if (requiredKeys.some((key) => !Object.hasOwn(record, key)) || keys.some((key) => !allowedKeys.includes(key))) invalidParameters();
   return record;
 }
 

@@ -2,13 +2,66 @@ name: Verify
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: Checks to run for this manual workflow
+        type: choice
+        required: true
+        default: changed-media
+        options:
+          - changed-media
+          - full
 
 permissions:
   contents: read
 
 jobs:
+  changed-media:
+    name: Changed media / Linux / Node 24.21.0
+    if: inputs.scope == 'changed-media'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install pinned Gitleaks for public source checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          scanner_dir="$RUNNER_TEMP/syntx-gitleaks-8.30.1"
+          mkdir -p "$scanner_dir"
+          curl --fail --location --silent --show-error --max-time 90 \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            -o "$scanner_dir/gitleaks.tar.gz"
+          printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' "$scanner_dir/gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf "$scanner_dir/gitleaks.tar.gz" -C "$scanner_dir" gitleaks
+          "$scanner_dir/gitleaks" version
+          printf '%s\n' "$scanner_dir" >> "$GITHUB_PATH"
+
+      - name: Verify changed media coverage
+        run: npm run test:media:changed
+
+      - name: Verify public manifest hashes, read safety, and secrets
+        run: node --test tests/public-secret-scan.test.mjs
+
   portability:
     name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    if: inputs.scope == 'full'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:

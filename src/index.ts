@@ -1420,6 +1420,33 @@ export type {
 export {
   OwnerElevenLabsTtsGenerationServiceError
 } from "./application/owner-elevenlabs-tts-generation-service.js";
+export {
+  createOwnerHailuo02T2vProfile,
+  OWNER_HAILUO02_T2V_CONTRACT_VARIANT_ID,
+  OWNER_HAILUO02_T2V_CONTRACT_REGISTRY_VERSION
+} from "./application/owner-hailuo02-t2v-profile.js";
+export type {
+  OwnerHailuo02T2vProfile,
+  OwnerHailuo02T2vSourceContract
+} from "./application/owner-hailuo02-t2v-profile.js";
+export { OwnerHailuo02T2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export type { OwnerHailuo02T2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export {
+  OwnerElevenLabsDialogueGenerationService,
+  OwnerElevenLabsDialogueGenerationServiceError
+} from "./application/owner-elevenlabs-dialogue-generation-service.js";
+export type {
+  OwnerElevenLabsDialogueGenerationServiceOptions,
+  OwnerElevenLabsDialogueGenerationResult,
+  OwnerElevenLabsDialogueGenerateInput
+} from "./application/owner-elevenlabs-dialogue-generation-service.js";
+export { registerSyntxOwnerElevenLabsDialogueTools,
+  SYNTX_OWNER_ELEVENLABS_DIALOGUE_TOOL_NAMES } from "./mcp/owner-elevenlabs-dialogue-tools.js";
+export { registerSyntxOwnerElevenLabsVoiceTools } from "./mcp/owner-elevenlabs-voice-tools.js";
+export {
+  registerSyntxOwnerHailuo02T2vTools,
+  SYNTX_OWNER_HAILUO02_T2V_TOOL_NAMES
+} from "./mcp/owner-hailuo02-t2v-tools.js";
 export type {
   OwnerElevenLabsTtsGenerationPhase,
   OwnerElevenLabsTtsGenerationDiagnostic,

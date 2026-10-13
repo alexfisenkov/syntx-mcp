@@ -68,6 +68,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node == '24.21.0'
         run: npm test
 
-      - name: Public clean package and installed SDK checks
+      - name: Prepare npm registry cache (no provider access)
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.21.0'
+        run: npm run package:cache:prime -- --confirm-registry-fetch
+
+      - name: Public clean package and installed SDK checks (offline)
         if: matrix.os == 'ubuntu-latest' && matrix.node == '24.21.0'
         run: npm run package:smoke:public

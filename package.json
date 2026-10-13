@@ -100,6 +100,7 @@
     "settings:generic:sync-versioned": "npm run build && node scripts/sync-versioned-generic-form-result.mjs",
     "package:smoke": "npm run build && node scripts/check-package-install.mjs",
     "package:smoke:public": "npm run build && node scripts/check-package-install.mjs --public-source",
+    "package:cache:prime": "node scripts/prime-package-test-cache.mjs",
     "live:owner:smoke": "npm run build && node scripts/live-owner-smoke.mjs --confirm-live-owner-smoke",
     "live:owner:chat-smoke": "npm run build && node scripts/live-owner-chat-smoke.mjs --confirm-live-owner-chat-smoke",
     "live:owner:account-status-smoke": "npm run build && node scripts/live-owner-account-status-smoke.mjs --confirm-live-owner-account-status-smoke",

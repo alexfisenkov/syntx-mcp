@@ -1,0 +1,486 @@
+{
+  "schema_version": "1.1.0",
+  "catalog_kind": "OBSERVED_NORMALIZED_SETTINGS_IR_PARSER_CANARY",
+  "evidence_level": "STATIC_CLIENT_OBSERVATION",
+  "runtime_usable": false,
+  "generated_at": "2026-09-02T21:00:08.402Z",
+  "scope": {
+    "kind": "EXACT_MODEL_SET",
+    "model_ids": [
+      "banana",
+      "banana2",
+      "banana3",
+      "banana3_light"
+    ]
+  },
+  "source_inventory": {
+    "canonical_sha256": "sha256:ef0664760b57870c49e3d6d6261f695bbbd1168ef964ee93e7109c1222c4af74",
+    "build_id": "1788368942",
+    "public_catalog_hashes": {
+      "ai": "sha256:88971d1d90021803facef5177016bd69ac2335fd2d9b619865c75bec9be02775",
+      "models": "sha256:4d79bae5266c1d226d962ec4bb1681eb44bc66f914ea3d61583880ffd52052d0",
+      "llm_models": "sha256:094b0a60009f48827b3431574ebc4de66c9d416faf603bcd929a17de6e81d33a"
+    }
+  },
+  "compiler": {
+    "parser_profile": "STATIC_SETTINGS_V1",
+    "compilation_status": "PARTIAL_COMPILED",
+    "engine": {
+      "name": "typescript",
+      "version": "5.9.3",
+      "implementation_sha256": "sha256:d053c0cf41c8263cc1f34e794cd7dcb6e1f883dede08d6508c769c703307fe3a",
+      "execution_mode": "SYNTAX_ONLY_NO_VENDOR_EXECUTION",
+      "type_checking": false,
+      "emit": false,
+      "import_resolution": false
+    },
+    "vendor_code_executed": false,
+    "vendor_source_persisted": false
+  },
+  "forms": [
+    {
+      "form_id": "banana",
+      "public_ai_ref": {
+        "aggregate_ai_sha256": "sha256:88971d1d90021803facef5177016bd69ac2335fd2d9b619865c75bec9be02775",
+        "key": "value",
+        "ai_name": "banana",
+        "canonical_sha256": "sha256:5e347fa0b3578eb467809291df4d07962b561df0908cbb0a212820d44fc73b74"
+      },
+      "inventory_form_ref": {
+        "ai_name": "banana",
+        "form_id": "banana",
+        "canonical_sha256": "sha256:87853d85191771f9b00f149f6da384f1e835852df33eaa3443fac0e92482f63e"
+      },
+      "source_ref": {
+        "provider_javascript_sha256": "sha256:bacf79070d2a48c362a9c53db2974ed11c2b27c2fe044ca4db5145f752cba3e3",
+        "provider_source_map_sha256": "sha256:ccca0693ac8d11a790c0b994c8df32e3453afc0e5f7b121709f410147c97186c",
+        "source_index": 0,
+        "source_path": "/src/components/chat/forms/settings/banana.vue",
+        "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d"
+      },
+      "completeness": "PARTIAL",
+      "projections": {
+        "defaults": {
+          "status": "BLOCKED",
+          "proof_scope": "STATIC_CANDIDATES_ONLY_NOT_RUNTIME_SEMANTICS",
+          "static_candidates": [
+            {
+              "path": [
+                "aspect_ratio"
+              ],
+              "value": "9:16",
+              "locator": {
+                "source_index": 0,
+                "source_path": "/src/components/chat/forms/settings/banana.vue",
+                "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+                "line": 27,
+                "column": 25,
+                "node_kind": "ObjectLiteralExpression"
+              }
+            },
+            {
+              "path": [
+                "image_size"
+              ],
+              "value": "2K",
+              "locator": {
+                "source_index": 0,
+                "source_path": "/src/components/chat/forms/settings/banana.vue",
+                "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+                "line": 27,
+                "column": 25,
+                "node_kind": "ObjectLiteralExpression"
+              }
+            }
+          ]
+        },
+        "controls": {
+          "status": "BLOCKED",
+          "proof_scope": "STATIC_CANDIDATES_ONLY_NOT_RUNTIME_SEMANTICS",
+          "static_candidates": [
+            {
+              "path": [
+                "format"
+              ],
+              "value": [
+                "aspect_ratio"
+              ],
+              "locator": {
+                "source_index": 0,
+                "source_path": "/src/components/chat/forms/settings/banana.vue",
+                "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+                "line": 56,
+                "column": 7,
+                "node_kind": "VariableDeclaration"
+              }
+            }
+          ]
+        },
+        "conditional_rules": {
+          "status": "BLOCKED"
+        },
+        "watch_rules": {
+          "status": "BLOCKED"
+        },
+        "computed_rules": {
+          "status": "BLOCKED"
+        },
+        "payload_projection": {
+          "status": "BLOCKED"
+        }
+      },
+      "blockers": [
+        {
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 34,
+            "column": 26,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 70,
+            "column": 25,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 74,
+            "column": 26,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 116,
+            "column": 20,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 154,
+            "column": 22,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 169,
+            "column": 3,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "SOURCE_PATTERN_NOT_RECOGNIZED",
+          "projection": "conditional_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 2,
+            "column": 1,
+            "node_kind": "SourceFile"
+          }
+        },
+        {
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "conditional_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 227,
+            "column": 13,
+            "node_kind": "VueVIfDirective"
+          }
+        },
+        {
+          "code": "SOURCE_PATTERN_NOT_RECOGNIZED",
+          "projection": "controls",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 2,
+            "column": 1,
+            "node_kind": "SourceFile"
+          }
+        },
+        {
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "controls",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 227,
+            "column": 13,
+            "node_kind": "VueVIfDirective"
+          }
+        },
+        {
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "defaults",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 28,
+            "column": 15,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "defaults",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 28,
+            "column": 15,
+            "node_kind": "PropertyAccessExpression"
+          }
+        },
+        {
+          "code": "BACKEND_RUNTIME_EQUIVALENCE_UNVERIFIED",
+          "projection": "payload_projection",
+          "locator": null
+        },
+        {
+          "code": "PAYLOAD_PROJECTION_UNVERIFIED",
+          "projection": "payload_projection",
+          "locator": null
+        },
+        {
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 47,
+            "column": 1,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 91,
+            "column": 1,
+            "node_kind": "CallExpression"
+          }
+        },
+        {
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules",
+          "locator": {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/banana.vue",
+            "source_content_sha256": "sha256:435781e5e5ca6b395377ed66715f9522c5118094bebd6a5b44e87f58095ddf7d",
+            "line": 129,
+            "column": 1,
+            "node_kind": "CallExpression"
+          }
+        }
+      ],
+      "runtime_usable": false
+    }
+  ],
+  "models": [
+    {
+      "model_id": "banana",
+      "ai_name": "banana",
+      "active": true,
+      "evidence_class": "LITERAL_REFERENCE_EVIDENCE",
+      "form_ref": {
+        "form_id": "banana"
+      },
+      "public_model_ref": {
+        "aggregate_models_sha256": "sha256:4d79bae5266c1d226d962ec4bb1681eb44bc66f914ea3d61583880ffd52052d0",
+        "key": "value",
+        "model_id": "banana",
+        "canonical_sha256": "sha256:24ad4d2630ba2fb516f5173745b106e656e464407466f4abcd4d298000d57433"
+      },
+      "completeness": "PARTIAL",
+      "cost_projection": {
+        "status": "PROVEN",
+        "proof_scope": "PARAMETER_OWNERSHIP_CLASSIFICATION_ONLY",
+        "server_derived": [
+          "ai_name",
+          "model_type"
+        ],
+        "caller_supplied_candidates": []
+      },
+      "blockers": [
+        {
+          "code": "BACKEND_RUNTIME_EQUIVALENCE_UNVERIFIED",
+          "projection": "cost_projection",
+          "locator": null
+        }
+      ],
+      "runtime_usable": false
+    },
+    {
+      "model_id": "banana2",
+      "ai_name": "banana",
+      "active": true,
+      "evidence_class": "LITERAL_REFERENCE_EVIDENCE",
+      "form_ref": {
+        "form_id": "banana"
+      },
+      "public_model_ref": {
+        "aggregate_models_sha256": "sha256:4d79bae5266c1d226d962ec4bb1681eb44bc66f914ea3d61583880ffd52052d0",
+        "key": "value",
+        "model_id": "banana2",
+        "canonical_sha256": "sha256:655c538c22ee5e3fbcc80d33159b60ab54366c0400b1710335d14f3c752ce391"
+      },
+      "completeness": "PARTIAL",
+      "cost_projection": {
+        "status": "PROVEN",
+        "proof_scope": "PARAMETER_OWNERSHIP_CLASSIFICATION_ONLY",
+        "server_derived": [
+          "ai_name",
+          "model_type"
+        ],
+        "caller_supplied_candidates": [
+          "image_size"
+        ]
+      },
+      "blockers": [
+        {
+          "code": "BACKEND_RUNTIME_EQUIVALENCE_UNVERIFIED",
+          "projection": "cost_projection",
+          "locator": null
+        }
+      ],
+      "runtime_usable": false
+    },
+    {
+      "model_id": "banana3",
+      "ai_name": "banana",
+      "active": true,
+      "evidence_class": "LITERAL_REFERENCE_EVIDENCE",
+      "form_ref": {
+        "form_id": "banana"
+      },
+      "public_model_ref": {
+        "aggregate_models_sha256": "sha256:4d79bae5266c1d226d962ec4bb1681eb44bc66f914ea3d61583880ffd52052d0",
+        "key": "value",
+        "model_id": "banana3",
+        "canonical_sha256": "sha256:cf1887a3ef4a3f8969e7de07138537ed2f0398fe7c631bd5a6b654f440d3fa51"
+      },
+      "completeness": "PARTIAL",
+      "cost_projection": {
+        "status": "PROVEN",
+        "proof_scope": "PARAMETER_OWNERSHIP_CLASSIFICATION_ONLY",
+        "server_derived": [
+          "ai_name",
+          "model_type"
+        ],
+        "caller_supplied_candidates": [
+          "image_size"
+        ]
+      },
+      "blockers": [
+        {
+          "code": "BACKEND_RUNTIME_EQUIVALENCE_UNVERIFIED",
+          "projection": "cost_projection",
+          "locator": null
+        }
+      ],
+      "runtime_usable": false
+    },
+    {
+      "model_id": "banana3_light",
+      "ai_name": "banana",
+      "active": true,
+      "evidence_class": "LITERAL_REFERENCE_EVIDENCE",
+      "form_ref": {
+        "form_id": "banana"
+      },
+      "public_model_ref": {
+        "aggregate_models_sha256": "sha256:4d79bae5266c1d226d962ec4bb1681eb44bc66f914ea3d61583880ffd52052d0",
+        "key": "value",
+        "model_id": "banana3_light",
+        "canonical_sha256": "sha256:1a46d59b71ff4277e2ca688dc8890faadeb5610e09590213f698b631e03099e9"
+      },
+      "completeness": "PARTIAL",
+      "cost_projection": {
+        "status": "PROVEN",
+        "proof_scope": "PARAMETER_OWNERSHIP_CLASSIFICATION_ONLY",
+        "server_derived": [
+          "ai_name",
+          "model_type"
+        ],
+        "caller_supplied_candidates": [
+          "image_size"
+        ]
+      },
+      "blockers": [
+        {
+          "code": "BACKEND_RUNTIME_EQUIVALENCE_UNVERIFIED",
+          "projection": "cost_projection",
+          "locator": null
+        }
+      ],
+      "runtime_usable": false
+    }
+  ],
+  "summary": {
+    "scoped_models": 4,
+    "compiled_forms": 1,
+    "partial_forms": 1,
+    "partial_models": 4,
+    "proven_projections": 0,
+    "absent_proven_projections": 0,
+    "blocked_projections": 6,
+    "blocked_projections_with_static_candidates": 2,
+    "form_blockers": 17,
+    "model_blockers": 4,
+    "runtime_usable_models": 0
+  },
+  "limitations": [
+    "FRONTEND_EVIDENCE_IS_NOT_A_BACKEND_CONTRACT",
+    "NO_GENERATION_OR_AUTH_CALLS_PERFORMED",
+    "PARTIAL_COMPILATION_HAS_EXPLICIT_BLOCKERS",
+    "PAYLOAD_AND_BACKEND_EQUIVALENCE_UNVERIFIED"
+  ]
+}

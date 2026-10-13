@@ -1,0 +1,2694 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_kind": "WAN_FINITE_GETTER_SOURCE_CANDIDATES",
+  "evidence_scope": "PARTIAL_STATIC_SOURCE_CANDIDATE",
+  "runtime_usable": false,
+  "backend_acceptance": false,
+  "source_persisted": false,
+  "public_version": "sha256-e5517ee56db2cf5939de51b2e1d835249ec201eefc80d8a805487b82063c1989.json",
+  "settings_version": "sha256-00f46710febbeffcaa99d49d3c213aca305706921607db2269f04c5e33381d61.json",
+  "build_id": "1791467421",
+  "model_ids": [
+    "wan_25_i2v_preview",
+    "wan_25_t2v_preview",
+    "wan_26_i2v",
+    "wan_26_i2v_flash",
+    "wan_26_r2v",
+    "wan_26_r2v_flash",
+    "wan_26_t2v",
+    "wan_27_i2v",
+    "wan_27_r2v",
+    "wan_27_t2v",
+    "wan_27_videoedit"
+  ],
+  "target_fields": [
+    "aspect_ratio",
+    "resolution",
+    "video_duration"
+  ],
+  "source_identities": [
+    {
+      "module_name": "app.js",
+      "url": "https://syntx.ai/assets/1791467421/app.js",
+      "bytes": 2445534,
+      "sha256": "sha256:0b12fd2028bf81fd8c8482adb807fd8f14d092a3c26d2e60e718418147f8d0cf",
+      "bom_present": false
+    },
+    {
+      "module_name": "settings3.js",
+      "url": "https://syntx.ai/assets/1791467421/settings3.js",
+      "bytes": 4123,
+      "sha256": "sha256:cbf76cc326616566ae9132655802af9a8c16261a42b7796b1809f9958ea2cdfe",
+      "bom_present": false
+    },
+    {
+      "module_name": "wan-video.js",
+      "url": "https://syntx.ai/assets/1791467421/wan-video.js",
+      "bytes": 19503,
+      "sha256": "sha256:aae2be04ca8a814db7dfb93717a234f55922b4b9f0ebc3eccd517c9d82f46119",
+      "bom_present": false
+    }
+  ],
+  "controls": [
+    {
+      "field": "model_type",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNCONDITIONAL_SOURCE"
+        }
+      ],
+      "guards": [],
+      "source_line": 1,
+      "source_column": 12937
+    },
+    {
+      "field": "aspect_ratio",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNKNOWN"
+        }
+      ],
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "ELSE",
+          "source_line": 1
+        }
+      ],
+      "source_line": 1,
+      "source_column": 13838
+    },
+    {
+      "field": "resolution",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNCONDITIONAL_SOURCE"
+        }
+      ],
+      "guards": [],
+      "source_line": 1,
+      "source_column": 14087
+    },
+    {
+      "field": "video_duration",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNKNOWN"
+        }
+      ],
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "source_line": 1
+        },
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "source_line": 1
+        }
+      ],
+      "source_line": 1,
+      "source_column": 14947
+    },
+    {
+      "field": "video_duration",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNKNOWN"
+        }
+      ],
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "ELSE",
+          "source_line": 1
+        },
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "source_line": 1
+        }
+      ],
+      "source_line": 1,
+      "source_column": 15260
+    },
+    {
+      "field": "video_duration",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNKNOWN"
+        }
+      ],
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "ELSE",
+          "source_line": 1
+        },
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "ELSE",
+          "source_line": 1
+        }
+      ],
+      "source_line": 1,
+      "source_column": 15636
+    },
+    {
+      "field": "prompt_extend",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNKNOWN"
+        }
+      ],
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "source_line": 1
+        }
+      ],
+      "source_line": 1,
+      "source_column": 16429
+    },
+    {
+      "field": "shot_type",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNKNOWN"
+        }
+      ],
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "source_line": 1
+        }
+      ],
+      "source_line": 1,
+      "source_column": 16918
+    },
+    {
+      "field": "audio_setting",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNKNOWN"
+        }
+      ],
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "source_line": 1
+        }
+      ],
+      "source_line": 1,
+      "source_column": 17451
+    },
+    {
+      "field": "seed",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNCONDITIONAL_SOURCE"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNCONDITIONAL_SOURCE"
+        }
+      ],
+      "guards": [],
+      "source_line": 1,
+      "source_column": 17875
+    },
+    {
+      "field": "native_audio",
+      "options": {
+        "status": "DYNAMIC",
+        "values": [],
+        "producer": "UNKNOWN"
+      },
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "DYNAMIC",
+          "values": []
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "DYNAMIC",
+          "values": []
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "UNKNOWN"
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "UNKNOWN"
+        }
+      ],
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "source_line": 1
+        },
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "source_line": 1
+        }
+      ],
+      "source_line": 1,
+      "source_column": 18481
+    }
+  ],
+  "render_list_candidates": [],
+  "source_diagnostics": {
+    "imports_by_module": [
+      {
+        "module_name": "app.js",
+        "bindings": []
+      },
+      {
+        "module_name": "settings3.js",
+        "bindings": [
+          {
+            "specifier": "./app.js",
+            "imported_name": "b6",
+            "local_name": "V",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "a",
+            "local_name": "F",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "o",
+            "local_name": "D",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "aq",
+            "local_name": "w",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "q",
+            "local_name": "I",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "w",
+            "local_name": "S",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "X",
+            "local_name": "C",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "c2",
+            "local_name": "d",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "a9",
+            "local_name": "E",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./video.js",
+            "imported_name": "a",
+            "local_name": "P",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./video.js",
+            "imported_name": "u",
+            "local_name": "O",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./audio.js",
+            "imported_name": "u",
+            "local_name": "U",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./NewSessionButton.js",
+            "imported_name": "f",
+            "local_name": "_",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./NewSessionButton.js",
+            "imported_name": "s",
+            "local_name": "q",
+            "kind": "NAMED"
+          }
+        ]
+      },
+      {
+        "module_name": "wan-video.js",
+        "bindings": [
+          {
+            "specifier": "./AiSelectTeleport.js",
+            "imported_name": "_",
+            "local_name": "ot",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "aY",
+            "local_name": "it",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "w",
+            "local_name": "U",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "K",
+            "local_name": "nt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "I",
+            "local_name": "r",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "r",
+            "local_name": "B",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "_",
+            "local_name": "st",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "l",
+            "local_name": "lt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "b6",
+            "local_name": "rt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "a",
+            "local_name": "ut",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "a9",
+            "local_name": "dt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "v",
+            "local_name": "N",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "x",
+            "local_name": "c",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "y",
+            "local_name": "w",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "z",
+            "local_name": "f",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "G",
+            "local_name": "g",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "C",
+            "local_name": "i",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "F",
+            "local_name": "F",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "a3",
+            "local_name": "mt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "D",
+            "local_name": "z",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "U",
+            "local_name": "K",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "ax",
+            "local_name": "se",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "aj",
+            "local_name": "vt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "a8",
+            "local_name": "ct",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "Y",
+            "local_name": "pt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./app.js",
+            "imported_name": "V",
+            "local_name": "ft",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./NewSessionButton.js",
+            "imported_name": "s",
+            "local_name": "gt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./NewSessionButton.js",
+            "imported_name": "f",
+            "local_name": "_t",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./video.js",
+            "imported_name": "a",
+            "local_name": "Ae",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./cost2.js",
+            "imported_name": "u",
+            "local_name": "ht",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./settings3.js",
+            "imported_name": "u",
+            "local_name": "yt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./Card.js",
+            "imported_name": "S",
+            "local_name": "Fe",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./Card.js",
+            "imported_name": "C",
+            "local_name": "he",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./Card.js",
+            "imported_name": "L",
+            "local_name": "Vt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./FooterBack.js",
+            "imported_name": "F",
+            "local_name": "wt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./SelectModel.js",
+            "imported_name": "_",
+            "local_name": "bt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./AspectRatio.js",
+            "imported_name": "A",
+            "local_name": "St",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./Reference.js",
+            "imported_name": "R",
+            "local_name": "kt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./SliderForm.js",
+            "imported_name": "S",
+            "local_name": "Ue",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./ReferenceCard.js",
+            "imported_name": "u",
+            "local_name": "Ct",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./ReferenceCard.js",
+            "imported_name": "R",
+            "local_name": "xt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./VideoSegmentSelector.js",
+            "imported_name": "t",
+            "local_name": "Rt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./VideoSegmentSelector.js",
+            "imported_name": "V",
+            "local_name": "Tt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./fileUploader.js",
+            "imported_name": "t",
+            "local_name": "Dt",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./duration.js",
+            "imported_name": "g",
+            "local_name": "Ft",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./useEnrichFileMetaWithDuration.js",
+            "imported_name": "c",
+            "local_name": "Ut",
+            "kind": "NAMED"
+          },
+          {
+            "specifier": "./RandomSeed.js",
+            "imported_name": "R",
+            "local_name": "Pt",
+            "kind": "NAMED"
+          }
+        ]
+      }
+    ],
+    "dependency_bindings": [
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "b6",
+        "local_name": "V",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "a",
+        "local_name": "F",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "o",
+        "local_name": "D",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "aq",
+        "local_name": "w",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "q",
+        "local_name": "I",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "w",
+        "local_name": "S",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "X",
+        "local_name": "C",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "c2",
+        "local_name": "d",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./app.js",
+        "imported_name": "a9",
+        "local_name": "E",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./video.js",
+        "imported_name": "a",
+        "local_name": "P",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./video.js",
+        "imported_name": "u",
+        "local_name": "O",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./audio.js",
+        "imported_name": "u",
+        "local_name": "U",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./NewSessionButton.js",
+        "imported_name": "f",
+        "local_name": "_",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "settings3.js",
+        "specifier": "./NewSessionButton.js",
+        "imported_name": "s",
+        "local_name": "q",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./AiSelectTeleport.js",
+        "imported_name": "_",
+        "local_name": "ot",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "aY",
+        "local_name": "it",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "w",
+        "local_name": "U",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "K",
+        "local_name": "nt",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "I",
+        "local_name": "r",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "r",
+        "local_name": "B",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "_",
+        "local_name": "st",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "l",
+        "local_name": "lt",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "b6",
+        "local_name": "rt",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "a",
+        "local_name": "ut",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "a9",
+        "local_name": "dt",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "v",
+        "local_name": "N",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "x",
+        "local_name": "c",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "y",
+        "local_name": "w",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "z",
+        "local_name": "f",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "G",
+        "local_name": "g",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "C",
+        "local_name": "i",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "F",
+        "local_name": "F",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "a3",
+        "local_name": "mt",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "D",
+        "local_name": "z",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "U",
+        "local_name": "K",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "ax",
+        "local_name": "se",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "aj",
+        "local_name": "vt",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "a8",
+        "local_name": "ct",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "Y",
+        "local_name": "pt",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./app.js",
+        "imported_name": "V",
+        "local_name": "ft",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./NewSessionButton.js",
+        "imported_name": "s",
+        "local_name": "gt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./NewSessionButton.js",
+        "imported_name": "f",
+        "local_name": "_t",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./video.js",
+        "imported_name": "a",
+        "local_name": "Ae",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./cost2.js",
+        "imported_name": "u",
+        "local_name": "ht",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./settings3.js",
+        "imported_name": "u",
+        "local_name": "yt",
+        "status": "HASH_PINNED_EXPORT_MATCH"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./Card.js",
+        "imported_name": "S",
+        "local_name": "Fe",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./Card.js",
+        "imported_name": "C",
+        "local_name": "he",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./Card.js",
+        "imported_name": "L",
+        "local_name": "Vt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./FooterBack.js",
+        "imported_name": "F",
+        "local_name": "wt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./SelectModel.js",
+        "imported_name": "_",
+        "local_name": "bt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./AspectRatio.js",
+        "imported_name": "A",
+        "local_name": "St",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./Reference.js",
+        "imported_name": "R",
+        "local_name": "kt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./SliderForm.js",
+        "imported_name": "S",
+        "local_name": "Ue",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./ReferenceCard.js",
+        "imported_name": "u",
+        "local_name": "Ct",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./ReferenceCard.js",
+        "imported_name": "R",
+        "local_name": "xt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./VideoSegmentSelector.js",
+        "imported_name": "t",
+        "local_name": "Rt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./VideoSegmentSelector.js",
+        "imported_name": "V",
+        "local_name": "Tt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./fileUploader.js",
+        "imported_name": "t",
+        "local_name": "Dt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./duration.js",
+        "imported_name": "g",
+        "local_name": "Ft",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./useEnrichFileMetaWithDuration.js",
+        "imported_name": "c",
+        "local_name": "Ut",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      },
+      {
+        "importer_module": "wan-video.js",
+        "specifier": "./RandomSeed.js",
+        "imported_name": "R",
+        "local_name": "Pt",
+        "status": "UNRESOLVED_MODULE_NOT_FETCHED"
+      }
+    ],
+    "app_export_names": [
+      "$",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U",
+      "V",
+      "W",
+      "X",
+      "Y",
+      "Z",
+      "_",
+      "a",
+      "a$",
+      "a0",
+      "a1",
+      "a2",
+      "a3",
+      "a4",
+      "a5",
+      "a6",
+      "a7",
+      "a8",
+      "a9",
+      "aA",
+      "aB",
+      "aC",
+      "aD",
+      "aE",
+      "aF",
+      "aG",
+      "aH",
+      "aI",
+      "aJ",
+      "aK",
+      "aL",
+      "aM",
+      "aN",
+      "aO",
+      "aP",
+      "aQ",
+      "aR",
+      "aS",
+      "aT",
+      "aU",
+      "aV",
+      "aW",
+      "aX",
+      "aY",
+      "aZ",
+      "a_",
+      "aa",
+      "ab",
+      "ac",
+      "ad",
+      "ae",
+      "af",
+      "ag",
+      "ah",
+      "ai",
+      "aj",
+      "ak",
+      "al",
+      "am",
+      "an",
+      "ao",
+      "ap",
+      "aq",
+      "ar",
+      "as",
+      "at",
+      "au",
+      "av",
+      "aw",
+      "ax",
+      "ay",
+      "az",
+      "b",
+      "b$",
+      "b0",
+      "b1",
+      "b2",
+      "b3",
+      "b4",
+      "b5",
+      "b6",
+      "b7",
+      "b8",
+      "b9",
+      "bA",
+      "bB",
+      "bC",
+      "bD",
+      "bE",
+      "bF",
+      "bG",
+      "bH",
+      "bI",
+      "bJ",
+      "bK",
+      "bL",
+      "bM",
+      "bN",
+      "bO",
+      "bP",
+      "bQ",
+      "bR",
+      "bS",
+      "bT",
+      "bU",
+      "bV",
+      "bW",
+      "bX",
+      "bY",
+      "bZ",
+      "b_",
+      "ba",
+      "bb",
+      "bc",
+      "bd",
+      "be",
+      "bf",
+      "bg",
+      "bh",
+      "bi",
+      "bj",
+      "bk",
+      "bl",
+      "bm",
+      "bn",
+      "bo",
+      "bp",
+      "bq",
+      "br",
+      "bs",
+      "bt",
+      "bu",
+      "bv",
+      "bw",
+      "bx",
+      "by",
+      "bz",
+      "c",
+      "c0",
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c6",
+      "c7",
+      "c8",
+      "c9",
+      "ca",
+      "cb",
+      "cc",
+      "cd",
+      "ce",
+      "cf",
+      "cg",
+      "ch",
+      "ci",
+      "cj",
+      "ck",
+      "cl",
+      "cm",
+      "cn",
+      "co",
+      "cp",
+      "d",
+      "e",
+      "f",
+      "g",
+      "h",
+      "i",
+      "j",
+      "k",
+      "l",
+      "m",
+      "n",
+      "o",
+      "p",
+      "q",
+      "r",
+      "s",
+      "t",
+      "u",
+      "v",
+      "w",
+      "x",
+      "y",
+      "z"
+    ],
+    "field_producers": [
+      {
+        "field": "model_type",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "aspect_ratio",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "resolution",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "video_duration",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "video_duration",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "video_duration",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "prompt_extend",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "shot_type",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "audio_setting",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "seed",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      },
+      {
+        "field": "native_audio",
+        "options_expression_kind": null,
+        "options_identifiers": [],
+        "options_callee": null,
+        "options_binding_status": "IMPORTED_OR_UNBOUND",
+        "options_binding": null,
+        "child_render_list": []
+      }
+    ]
+  },
+  "unresolved_imports": [
+    {
+      "module_name": "settings3.js",
+      "specifier": "./video.js"
+    },
+    {
+      "module_name": "settings3.js",
+      "specifier": "./video.js"
+    },
+    {
+      "module_name": "settings3.js",
+      "specifier": "./audio.js"
+    },
+    {
+      "module_name": "settings3.js",
+      "specifier": "./NewSessionButton.js"
+    },
+    {
+      "module_name": "settings3.js",
+      "specifier": "./NewSessionButton.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./AiSelectTeleport.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./NewSessionButton.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./NewSessionButton.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./video.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./cost2.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./Card.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./Card.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./Card.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./FooterBack.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./SelectModel.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./AspectRatio.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./Reference.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./SliderForm.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./ReferenceCard.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./ReferenceCard.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./VideoSegmentSelector.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./VideoSegmentSelector.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./fileUploader.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./duration.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./useEnrichFileMetaWithDuration.js"
+    },
+    {
+      "module_name": "wan-video.js",
+      "specifier": "./RandomSeed.js"
+    }
+  ],
+  "limitations": [
+    "Literal options/getter values and child renderList inputs are UI-source candidates only; no backend wire acceptance is inferred.",
+    "Finite local bindings are limited to AST-resolved const/getters; parameter, let/var, imported, dynamic, ambiguous, or unsupported expressions remain unknown.",
+    "UI null/auto choices, guarded options, UI defaults, and effective backend defaults are separate; backend defaults remain UNKNOWN.",
+    "No other import source was fetched or executed; unresolved dependency bindings remain unknown.",
+    "This artifact is not a reviewed executable V2 contract or live runtime proof."
+  ],
+  "observed_at": "2026-10-08T23:36:10.669Z"
+}

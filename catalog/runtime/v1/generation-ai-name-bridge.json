@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "public_samples_catalog_version": "2026-09-02.public-sample.1",
+  "public_samples_sha256": "sha256:8b76e38734df5c4616f89119ae39ea13e30a07dced24f83cebe781910a2d1663",
+  "public_catalog_source_hashes": {
+    "ai": "sha256:88971d1d90021803facef5177016bd69ac2335fd2d9b619865c75bec9be02775",
+    "llm_models": "sha256:094b0a60009f48827b3431574ebc4de66c9d416faf603bcd929a17de6e81d33a",
+    "models": "sha256:4d79bae5266c1d226d962ec4bb1681eb44bc66f914ea3d61583880ffd52052d0"
+  },
+  "checked_at": "2026-09-04T05:58:36.000Z",
+  "entries": [
+    {
+      "model_id": "nano-banana-pro",
+      "ai_name": "banana",
+      "source_note": "public-samples.json display_name 'Nano Banana PRO', family 'Nano Banana'; official-public-api.json ai[].label 'Nano Banana' with ai[].value/models[].ai_name 'banana' (models[] family for banana2/banana3/banana3_light); modality image matches on both sides"
+    },
+    {
+      "model_id": "veo-omni-flash",
+      "ai_name": "veo3",
+      "source_note": "public-samples.json display_name 'Veo Omni Flash', family 'Veo'; official-public-api.json ai[].label 'Google Veo' with ai[].value/models[].ai_name 'veo3' (models[] includes the variant labeled 'Veo Omni Flash 1.1', value 'veo_omni'); modality video matches on both sides"
+    },
+    {
+      "model_id": "suno",
+      "ai_name": "suno",
+      "source_note": "public-samples.json display_name 'SUNO', family 'Suno'; official-public-api.json ai[].label 'Suno' with ai[].value/models[].ai_name 'suno' (models[] carries the V3_5..V5_5 version variants); modality audio matches on both sides"
+    }
+  ]
+}

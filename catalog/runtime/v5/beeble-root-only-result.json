@@ -1,0 +1,2230 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_kind": "OBSERVED_SETTINGS_ROOT_ONLY_WITH_AUXILIARIES",
+  "runtime_usable": false,
+  "compilation_status": "PARTIAL_COMPILED",
+  "generated_at": "2026-09-04T10:59:57.165Z",
+  "scope": {
+    "form_id": "beeble",
+    "ai_name": "beeble",
+    "model_ids": [
+      "switchx"
+    ],
+    "root_source_ref_id": "settings-source-f0b1afb2e1be98ec8e3af47065ed8764588836ce4beae082cbda6bddda38a2bc",
+    "auxiliary_source_ref_ids": [
+      "settings-source-b3b4429ceabb608778ee467c579b34ff54c4477bef951fdd21fdb007ce822a79"
+    ],
+    "source_observed_at": "2026-09-02T21:00:08.402Z",
+    "bindings": [
+      {
+        "bytes": 346255,
+        "sha256": "sha256:9c6efd56855346f40fbcef3fae4d0da276ff6c1b40087e9cf5bd6e7c641aa2b4",
+        "name": "public_catalog"
+      },
+      {
+        "bytes": 410925,
+        "sha256": "sha256:e567ad6cad0a2c1945172c6880fb2d664878ba98594fe7da89e410e2b8ed8924",
+        "name": "inventory"
+      },
+      {
+        "bytes": 428390,
+        "sha256": "sha256:611196c4245adf1a4d7860cc1ad183192dc074ececd538bdbf99b65efe5bad06",
+        "name": "census"
+      }
+    ],
+    "javascript": {
+      "bytes": 16847,
+      "sha256": "sha256:98eda0b6e4b2840a9324ced4d34d9633041965a3dcf9801652ccc6b1baf06744",
+      "url": "https://syntx.ai/assets/1788368942/beeble.js"
+    },
+    "source_map": {
+      "bytes": 50529,
+      "sha256": "sha256:f4afb4bb5f96f83c2d406d8e8f1e7b958bbdeeab08dd66c326e3deeb47e648c9",
+      "url": "https://syntx.ai/assets/1788368942/beeble.js.map"
+    },
+    "sources": [
+      {
+        "source_ref_id": "settings-source-b3b4429ceabb608778ee467c579b34ff54c4477bef951fdd21fdb007ce822a79",
+        "role": "AUXILIARY",
+        "source_index": 0,
+        "source_path": "/src/components/chat/forms/settings/components/beeble/MaskEditor.vue",
+        "source_content_sha256": "sha256:4119e1b024549103abbf41a43417c7d19fed6a38c42be677e3b9536aa9f64c5d"
+      },
+      {
+        "source_ref_id": "settings-source-f0b1afb2e1be98ec8e3af47065ed8764588836ce4beae082cbda6bddda38a2bc",
+        "role": "ROOT",
+        "source_index": 1,
+        "source_path": "/src/components/chat/forms/settings/beeble.vue",
+        "source_content_sha256": "sha256:cc90ded16dc2f048f109659bcdeb4ff33a0ba1a46aa8660a4185d33d224fb73d"
+      }
+    ]
+  },
+  "verification": {
+    "status": "ALL_DECLARED_PINNED_BYTES_MATCHED",
+    "fetched_artifacts": 2,
+    "verified_source_ref_ids": [
+      "settings-source-b3b4429ceabb608778ee467c579b34ff54c4477bef951fdd21fdb007ce822a79",
+      "settings-source-f0b1afb2e1be98ec8e3af47065ed8764588836ce4beae082cbda6bddda38a2bc"
+    ]
+  },
+  "root_results": [
+    {
+      "model_id": "switchx",
+      "source_ref_id": "settings-source-f0b1afb2e1be98ec8e3af47065ed8764588836ce4beae082cbda6bddda38a2bc",
+      "proof_scope": "ROOT_FILE_MODEL_CONTEXT_ONLY",
+      "compiler_status": "PARTIAL",
+      "bindings": {
+        "SCOPE": {
+          "status": "PROVEN",
+          "value": "video",
+          "locator": {
+            "node_kind": "VariableDeclaration",
+            "line": 22,
+            "column": 7
+          }
+        },
+        "AI_NAME": {
+          "status": "PROVEN",
+          "value": "beeble",
+          "locator": {
+            "node_kind": "VariableDeclaration",
+            "line": 23,
+            "column": 7
+          }
+        },
+        "settingsGroups": {
+          "status": "PROVEN",
+          "value": {
+            "parameters": [
+              "mask_mode"
+            ],
+            "quality": [
+              "resolution"
+            ]
+          },
+          "locator": {
+            "node_kind": "VariableDeclaration",
+            "line": 44,
+            "column": 7
+          }
+        },
+        "defaultSettings": {
+          "status": "BLOCKED",
+          "blocker_codes": [
+            "MODEL_CONDITION_NOT_INTERPRETED"
+          ],
+          "locator": {
+            "node_kind": "PropertyAccessExpression",
+            "line": 36,
+            "column": 5
+          },
+          "candidates": {
+            "frame_rate": 24,
+            "mask_mode": "auto",
+            "mask_urls": [],
+            "resolution": "720P",
+            "video_duration": 0
+          },
+          "candidates_locator": {
+            "node_kind": "ObjectLiteralExpression",
+            "line": 34,
+            "column": 25
+          }
+        },
+        "controls": {
+          "status": "BLOCKED",
+          "blocker_codes": [
+            "BINDING_ABSENCE_UNPROVEN"
+          ],
+          "locator": {
+            "node_kind": "SourceFile",
+            "line": 2,
+            "column": 1
+          }
+        },
+        "conditionalRules": {
+          "status": "BLOCKED",
+          "blocker_codes": [
+            "BINDING_ABSENCE_UNPROVEN"
+          ],
+          "locator": {
+            "node_kind": "SourceFile",
+            "line": 2,
+            "column": 1
+          }
+        }
+      },
+      "blockers": [
+        {
+          "node_kind": "SourceFile",
+          "line": 2,
+          "column": 1,
+          "code": "BINDING_ABSENCE_UNPROVEN",
+          "projection": "conditionalRules"
+        },
+        {
+          "node_kind": "SourceFile",
+          "line": 2,
+          "column": 1,
+          "code": "BINDING_ABSENCE_UNPROVEN",
+          "projection": "controls"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 2,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 3,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 4,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 5,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 6,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 7,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 8,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 9,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 10,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 11,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 12,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 13,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 14,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 15,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 16,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 17,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 18,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 19,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ImportDeclaration",
+          "line": 20,
+          "column": 1,
+          "code": "IMPORT_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "VariableDeclaration",
+          "line": 25,
+          "column": 7,
+          "code": "DESTRUCTURED_BINDING_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 25,
+          "column": 15,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 27,
+          "column": 26,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 28,
+          "column": 24,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 29,
+          "column": 23,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 31,
+          "column": 17,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 32,
+          "column": 23,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 36,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "defaultSettings"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 36,
+          "column": 5,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "defaultSettings"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 36,
+          "column": 5,
+          "code": "MODEL_CONDITION_NOT_INTERPRETED",
+          "projection": "defaultSettings"
+        },
+        {
+          "node_kind": "VariableDeclaration",
+          "line": 52,
+          "column": 7,
+          "code": "DESTRUCTURED_BINDING_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 61,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 63,
+          "column": 27,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 64,
+          "column": 1,
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 67,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 67,
+          "column": 31,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 72,
+          "column": 27,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 72,
+          "column": 27,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 73,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 75,
+          "column": 30,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 75,
+          "column": 30,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 76,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 79,
+          "column": 16,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 81,
+          "column": 1,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 90,
+          "column": 23,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 91,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 92,
+          "column": 5,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 94,
+          "column": 7,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 94,
+          "column": 29,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 94,
+          "column": 38,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 94,
+          "column": 38,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 97,
+          "column": 27,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 98,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 98,
+          "column": 28,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 100,
+          "column": 26,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 101,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 102,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 108,
+          "column": 29,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 109,
+          "column": 17,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 110,
+          "column": 18,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 111,
+          "column": 25,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 112,
+          "column": 23,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 116,
+          "column": 26,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 118,
+          "column": 22,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 118,
+          "column": 22,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 118,
+          "column": 37,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 120,
+          "column": 26,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 120,
+          "column": 26,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ElementAccessExpression",
+          "line": 123,
+          "column": 7,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 126,
+          "column": 31,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 126,
+          "column": 31,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 129,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 133,
+          "column": 24,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 134,
+          "column": 16,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 135,
+          "column": 16,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "TemplateExpression",
+          "line": 137,
+          "column": 10,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 137,
+          "column": 21,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 140,
+          "column": 24,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 140,
+          "column": 24,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 141,
+          "column": 3,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "TemplateExpression",
+          "line": 142,
+          "column": 10,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 142,
+          "column": 13,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 142,
+          "column": 57,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 147,
+          "column": 26,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 148,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 150,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 150,
+          "column": 46,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 153,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 156,
+          "column": 22,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 157,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 158,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 160,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 160,
+          "column": 46,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 161,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 165,
+          "column": 26,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 167,
+          "column": 18,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 167,
+          "column": 18,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 168,
+          "column": 8,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 169,
+          "column": 8,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 170,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 174,
+          "column": 18,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 174,
+          "column": 18,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 175,
+          "column": 22,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 175,
+          "column": 22,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 176,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 178,
+          "column": 20,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 178,
+          "column": 20,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 182,
+          "column": 28,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 182,
+          "column": 28,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 184,
+          "column": 3,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ElementAccessExpression",
+          "line": 185,
+          "column": 10,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 185,
+          "column": 10,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 188,
+          "column": 19,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 189,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 192,
+          "column": 24,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 193,
+          "column": 3,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 194,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 197,
+          "column": 14,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 198,
+          "column": 22,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 200,
+          "column": 23,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 201,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 202,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 203,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 204,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 207,
+          "column": 20,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 208,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 209,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 217,
+          "column": 19,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 218,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 219,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 220,
+          "column": 3,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 224,
+          "column": 15,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 224,
+          "column": 15,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 227,
+          "column": 18,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 228,
+          "column": 24,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 229,
+          "column": 11,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 231,
+          "column": 13,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 231,
+          "column": 35,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 232,
+          "column": 15,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 232,
+          "column": 15,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 237,
+          "column": 16,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 240,
+          "column": 18,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 241,
+          "column": 9,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 241,
+          "column": 13,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 242,
+          "column": 18,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 242,
+          "column": 18,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 244,
+          "column": 16,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 249,
+          "column": 18,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 250,
+          "column": 9,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 253,
+          "column": 16,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 258,
+          "column": 18,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 259,
+          "column": 9,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 262,
+          "column": 16,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 267,
+          "column": 1,
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 270,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "AwaitExpression",
+          "line": 271,
+          "column": 5,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 271,
+          "column": 11,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 272,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 277,
+          "column": 1,
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules"
+        },
+        {
+          "node_kind": "AwaitExpression",
+          "line": 280,
+          "column": 5,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 280,
+          "column": 11,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 281,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 288,
+          "column": 23,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 289,
+          "column": 23,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 290,
+          "column": 5,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 291,
+          "column": 7,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 291,
+          "column": 50,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 295,
+          "column": 17,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 296,
+          "column": 3,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 297,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 298,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 299,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 300,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 301,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 302,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "TryStatement",
+          "line": 308,
+          "column": 3,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "AwaitExpression",
+          "line": 309,
+          "column": 18,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 309,
+          "column": 24,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 310,
+          "column": 5,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 311,
+          "column": 7,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 311,
+          "column": 32,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 312,
+          "column": 7,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 316,
+          "column": 9,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 319,
+          "column": 7,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 322,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "FirstStatement",
+          "line": 325,
+          "column": 3,
+          "code": "NON_CONST_BINDING_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 325,
+          "column": 36,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 326,
+          "column": 3,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 326,
+          "column": 7,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 327,
+          "column": 5,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 328,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 332,
+          "column": 3,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "TryStatement",
+          "line": 333,
+          "column": 5,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "VariableDeclaration",
+          "line": 334,
+          "column": 13,
+          "code": "DESTRUCTURED_BINDING_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "AwaitExpression",
+          "line": 334,
+          "column": 35,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 334,
+          "column": 41,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 335,
+          "column": 7,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 335,
+          "column": 18,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 336,
+          "column": 9,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 337,
+          "column": 9,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 337,
+          "column": 48,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 339,
+          "column": 7,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 339,
+          "column": 11,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 340,
+          "column": 9,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 342,
+          "column": 9,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 343,
+          "column": 11,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 344,
+          "column": 11,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 345,
+          "column": 11,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 354,
+          "column": 1,
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 356,
+          "column": 9,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "FirstStatement",
+          "line": 364,
+          "column": 1,
+          "code": "NON_CONST_BINDING_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "VariableDeclaration",
+          "line": 364,
+          "column": 5,
+          "code": "NON_CONST_BINDING_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 364,
+          "column": 21,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 365,
+          "column": 1,
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 366,
+          "column": 9,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 369,
+          "column": 5,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 369,
+          "column": 18,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "IfStatement",
+          "line": 370,
+          "column": 5,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "BinaryExpression",
+          "line": 371,
+          "column": 7,
+          "code": "MUTATION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 372,
+          "column": 7,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 378,
+          "column": 1,
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 381,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "AwaitExpression",
+          "line": 382,
+          "column": 5,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 382,
+          "column": 11,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 383,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 388,
+          "column": 1,
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules"
+        },
+        {
+          "node_kind": "AwaitExpression",
+          "line": 389,
+          "column": 3,
+          "code": "UNSUPPORTED_SYNTAX_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 389,
+          "column": 9,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 390,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 394,
+          "column": 1,
+          "code": "WATCH_RULE_NOT_INTERPRETED",
+          "projection": "watch_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 397,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 400,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 401,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 402,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 404,
+          "column": 26,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "PropertyAccessExpression",
+          "line": 404,
+          "column": 26,
+          "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 404,
+          "column": 38,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 405,
+          "column": 5,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 411,
+          "column": 27,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 411,
+          "column": 27,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 416,
+          "column": 1,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 418,
+          "column": 3,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 424,
+          "column": 25,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 424,
+          "column": 25,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 426,
+          "column": 12,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 428,
+          "column": 18,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 431,
+          "column": 12,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 433,
+          "column": 18,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 436,
+          "column": 12,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 438,
+          "column": 18,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 441,
+          "column": 12,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 443,
+          "column": 18,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "ArrowFunction",
+          "line": 448,
+          "column": 21,
+          "code": "FUNCTION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 449,
+          "column": 3,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 453,
+          "column": 22,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "computed_rules"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 453,
+          "column": 22,
+          "code": "COMPUTED_RULE_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 456,
+          "column": 12,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 461,
+          "column": 12,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "CallExpression",
+          "line": 472,
+          "column": 1,
+          "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+          "projection": "source"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 564,
+          "column": 23,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 573,
+          "column": 23,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 582,
+          "column": 23,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 613,
+          "column": 21,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 659,
+          "column": 15,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 667,
+          "column": 13,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 675,
+          "column": 13,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 686,
+          "column": 23,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        },
+        {
+          "node_kind": "VueVIfDirective",
+          "line": 712,
+          "column": 13,
+          "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+          "projection": "template_control_flow"
+        }
+      ]
+    }
+  ],
+  "closure": {
+    "status": "OPEN",
+    "blockers": [
+      {
+        "code": "AUXILIARY_SOURCE_NOT_COMPILED",
+        "source_ref_id": "settings-source-b3b4429ceabb608778ee467c579b34ff54c4477bef951fdd21fdb007ce822a79",
+        "compilation_status": "NOT_COMPILED"
+      },
+      {
+        "code": "DEPENDENCY_GRAPH_UNRESOLVED"
+      },
+      {
+        "code": "PAYLOAD_PROJECTION_UNVERIFIED"
+      },
+      {
+        "code": "BACKEND_RUNTIME_EQUIVALENCE_UNVERIFIED"
+      }
+    ]
+  },
+  "coverage": {
+    "declared_source_refs": 2,
+    "verified_source_refs": 2,
+    "compiled_source_units": 1,
+    "uncompiled_auxiliary_source_refs": 1,
+    "compiled_model_contexts": 1
+  },
+  "toolchain": {
+    "implementation_components": [
+      {
+        "bytes": 44166,
+        "sha256": "sha256:8b6f150edbb579c55b1495f68b6408e600b30b2379c8ae5ea2a5b93586e5ef4d",
+        "name": "checkout.package-lock.json"
+      },
+      {
+        "bytes": 5759,
+        "sha256": "sha256:6d867c927b2495f541ff85c65d64a47bf309595b6690b0859b5dc98575119c2b",
+        "name": "checkout.package.json"
+      },
+      {
+        "bytes": 5210,
+        "sha256": "sha256:623498260132cd1abfa18df035b77799e92e4da13f4de0d6df023d869ea9b1bd",
+        "name": "checkout.scripts.lock-signal-cleanup.mjs"
+      },
+      {
+        "bytes": 9679,
+        "sha256": "sha256:16bf0a8b695a18b48acb247129646071cb9fd6e9fcf0aff0846c33c6cb4edb77",
+        "name": "checkout.scripts.settings-v5-root-only.mjs"
+      },
+      {
+        "bytes": 29604,
+        "sha256": "sha256:840b1055a7d476691c7d59b2feaad6f52fad206107acb2229b0265a92b6e23f4",
+        "name": "checkout.scripts.sync-normalized-settings-parser-generic-form-result.mjs"
+      },
+      {
+        "bytes": 680,
+        "sha256": "sha256:bc3828703084d8b592b5e8a91f660a3aca82bca4353069942edc0a388665ddde",
+        "name": "checkout.tsconfig.json"
+      },
+      {
+        "bytes": 3620,
+        "sha256": "sha256:822ef7ca6452205657b6288b066481ecf508bfbf43455d715cf7d3ec457561e6",
+        "name": "external.typescript.package-metadata"
+      },
+      {
+        "bytes": 4065,
+        "sha256": "sha256:5a1983857f982cc7d69336f32053ac7e38780de313d9e18ca3f7b9b7f2f94298",
+        "name": "external.zod.package-metadata"
+      },
+      {
+        "bytes": 51765,
+        "sha256": "sha256:46133ec78626a0fd2a6351914630392079125c36b42b2434b7fd07818905a2e4",
+        "name": "module.src.catalog.normalized-settings-parser-census-manifest.js"
+      },
+      {
+        "bytes": 16066,
+        "sha256": "sha256:e01e9d746f16b35471c05a3040dad5841b488352a53ad8b49af6243b117a23fe",
+        "name": "module.src.catalog.normalized-settings-parser-generic-form-vocabulary.js"
+      },
+      {
+        "bytes": 14147,
+        "sha256": "sha256:e0a6e8e9ec6747d145a85240bd0d3039f87a4f4271dbb6972f17963c170ec51b",
+        "name": "module.src.catalog.settings-root-only-result-v5.js"
+      },
+      {
+        "bytes": 79128,
+        "sha256": "sha256:93cfcc170fd64ac40e3d98c77f2e0d91c0c9845f575e15a7ceab9384e9cc2a4a",
+        "name": "module.src.catalog.settings-source-inventory.js"
+      },
+      {
+        "bytes": 19868,
+        "sha256": "sha256:eeb015bf2425b07eb8a810219e182cb915e17beb9c767183b1b22a32a4ee4ebc",
+        "name": "module.src.catalog.syntx-public-catalog.js"
+      },
+      {
+        "bytes": 7440,
+        "sha256": "sha256:83450c30d64add7c948ee8f4296954e001091c9947dab7dda9149ea462697fd1",
+        "name": "module.tools.settings-ir.immutable-json-snapshot.js"
+      },
+      {
+        "bytes": 58752,
+        "sha256": "sha256:430d7f7c0888bda4ee0ae889d3962b69f5f0b16376d0024a60fd74046e555005",
+        "name": "module.tools.settings-ir.static-settings-compiler.js"
+      },
+      {
+        "bytes": 5669,
+        "sha256": "sha256:27ae0345a36571564a5ed8992233fac18b50ce5b60d491dfec99070422361117",
+        "name": "module.tools.settings-ir.v5.compile-root-only.js"
+      },
+      {
+        "bytes": 6430,
+        "sha256": "sha256:1b18372d27fe37ef72a16bd9056b11d2250ee5654552496c126e2bac6e976155",
+        "name": "module.tools.settings-ir.v5.implementation-graph.js"
+      },
+      {
+        "bytes": 16641,
+        "sha256": "sha256:baecb7ba7df7fc6a72f317557e2cdf0a9f7ccec284e5990abf0118e8f2eea588",
+        "name": "module.tools.settings-ir.v5.pinned-root-bundle.js"
+      },
+      {
+        "bytes": 2455,
+        "sha256": "sha256:8b5cd954c8da4eed8a92c4a75d26631da49b2200302aaa988bcb0171652de295",
+        "name": "module.tools.settings-ir.v5.root-only-result-toolchain.js"
+      },
+      {
+        "bytes": 7,
+        "sha256": "sha256:a77aa5816b06277b0c8ea1416af5f4e2a7f9e8ff24d4c82e8ada8c2f19607a26",
+        "name": "runtime.node"
+      },
+      {
+        "bytes": 57097,
+        "sha256": "sha256:fc9c586554e9c224b01d67a3c7252746ef701650f5ae5df4f361e971dfcee63d",
+        "name": "source.src.catalog.normalized-settings-parser-census-manifest.ts"
+      },
+      {
+        "bytes": 16776,
+        "sha256": "sha256:9493e7cf3b8e01589771ce19bc1c71e5970507c8b0469364e30ed66ae9740b21",
+        "name": "source.src.catalog.normalized-settings-parser-generic-form-vocabulary.ts"
+      },
+      {
+        "bytes": 13785,
+        "sha256": "sha256:f61575c02d4e76aece7d57a27ebbe44c51a2556f0b496cd40a756afdcb2aca99",
+        "name": "source.src.catalog.settings-root-only-result-v5.ts"
+      },
+      {
+        "bytes": 79874,
+        "sha256": "sha256:ee654a980bf762e311d14862e575fca4f2e957ac880c3d902c279ada3188f0b9",
+        "name": "source.src.catalog.settings-source-inventory.ts"
+      },
+      {
+        "bytes": 20345,
+        "sha256": "sha256:a39510845fda7c75627285e468235ca7c5526b5bbe2c7fd910f7981c7149602f",
+        "name": "source.src.catalog.syntx-public-catalog.ts"
+      },
+      {
+        "bytes": 8886,
+        "sha256": "sha256:5302a7927c16e949e7ed54c773b3301260f60a10e16a30a334fca68f570c86f5",
+        "name": "source.tools.settings-ir.immutable-json-snapshot.ts"
+      },
+      {
+        "bytes": 63216,
+        "sha256": "sha256:e196673d2071f892a413a7b8af7f4e8c4cdea0bf28316e987a12301742492870",
+        "name": "source.tools.settings-ir.static-settings-compiler.ts"
+      },
+      {
+        "bytes": 5698,
+        "sha256": "sha256:6c0f0a0722b28e1f87d56047c8dc277e40952582694580710c5062eb34197f0b",
+        "name": "source.tools.settings-ir.v5.compile-root-only.ts"
+      },
+      {
+        "bytes": 6064,
+        "sha256": "sha256:ab5fd955d35ba2e60c63aa7dea0b9ca70383d7c950e20b92944e34ca972f2ebd",
+        "name": "source.tools.settings-ir.v5.implementation-graph.ts"
+      },
+      {
+        "bytes": 17878,
+        "sha256": "sha256:4cc158c284f11604d1278651782630216de08da2715b4f7861d71fd6c61bb86b",
+        "name": "source.tools.settings-ir.v5.pinned-root-bundle.ts"
+      },
+      {
+        "bytes": 2614,
+        "sha256": "sha256:8eb22435b522a06500b4fcd802a42026e22ddf75f8ab65d02164986c4fb89fae",
+        "name": "source.tools.settings-ir.v5.root-only-result-toolchain.ts"
+      }
+    ],
+    "implementation_set_sha256": "sha256:cc57ee962a960ba0b487777f2622ae9a77f379354b3960f496b041264b7cfdf1"
+  }
+}

@@ -1,0 +1,205 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_version": "2026-09-02.frontend-1788368942",
+  "source_build": "https://syntx.ai/assets/1788368942/",
+  "public_catalog_source_hashes": {
+    "ai": "sha256:88971d1d90021803facef5177016bd69ac2335fd2d9b619865c75bec9be02775",
+    "llm_models": "sha256:094b0a60009f48827b3431574ebc4de66c9d416faf603bcd929a17de6e81d33a",
+    "models": "sha256:4d79bae5266c1d226d962ec4bb1681eb44bc66f914ea3d61583880ffd52052d0"
+  },
+  "source_artifacts": [
+    {
+      "url": "https://syntx.ai/assets/1788368942/text.js",
+      "sha256": "sha256:af429b5ed4d1383030055d8dd41605c5ba07eb772dae3228b9330464c3d9b41d"
+    },
+    {
+      "url": "https://syntx.ai/assets/1788368942/image.js",
+      "sha256": "sha256:e780c9183add31fa20cf2bbe84d1b8e4f96441a85cc9d553adc0a79450fb0376"
+    },
+    {
+      "url": "https://syntx.ai/assets/1788368942/video.js",
+      "sha256": "sha256:04b23ed32e637379b192f5a8067fda2b5ec1bb34a9307ca04f16ccdcf0d3fc14"
+    },
+    {
+      "url": "https://syntx.ai/assets/1788368942/audio.js",
+      "sha256": "sha256:67f26ceb190180afede3d1f5c65c1d541f4915477bb40421a599aa0a6737b1b2"
+    },
+    {
+      "url": "https://syntx.ai/assets/1788368942/useEnrichFileMetaWithDuration.js",
+      "sha256": "sha256:b2b6e26c5e49709ab37a342cc24bf405fbb30c57461fa6307dc020294957cadc"
+    }
+  ],
+  "checked_at": "2026-09-02T18:27:45.035Z",
+  "entries": [
+    {
+      "model_id": "gpt-5-nano-2025-08-07",
+      "ai_name": "chatgpt",
+      "operation_id": "generate-text",
+      "modality": "text",
+      "route_profile": "llm",
+      "evidence": "STATIC_CLIENT",
+      "runtime_usable": false,
+      "cost_parameter_names": [],
+      "source_artifact_urls": [
+        "https://syntx.ai/assets/1788368942/text.js",
+        "https://syntx.ai/assets/1788368942/useEnrichFileMetaWithDuration.js"
+      ],
+      "request_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "prompt": { "type": "string", "minLength": 1, "maxLength": 200000 },
+          "thinking": { "type": "boolean", "default": false },
+          "plan": { "type": "boolean", "default": false },
+          "deep_research": { "type": "boolean", "default": false },
+          "tools": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 160 },
+            "maxItems": 64,
+            "uniqueItems": true
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "object_type": { "type": "string", "enum": ["image", "file"] },
+                "object_url": { "type": "string", "format": "uri", "maxLength": 4096 }
+              },
+              "required": ["object_type", "object_url"]
+            },
+            "maxItems": 20
+          }
+        },
+        "required": ["prompt"]
+      },
+      "schema_hash": "sha256:7d5f09324a1b3728f7a7f7f51cc4d8845f91c4ac23e3b53c764b09e460a57b05",
+      "create_status": "STATIC_CLIENT",
+      "status_status": "STATIC_CLIENT",
+      "result_status": "STATIC_CLIENT",
+      "cancel_mode": "STATIC_TEXT_ONLY",
+      "notes": [
+        "Candidate canary only; no positive generation response has been live-verified.",
+        "Public catalogs disagree on free/type semantics, so no free-use claim is made."
+      ]
+    },
+    {
+      "model_id": "banana3_light",
+      "ai_name": "banana",
+      "operation_id": "generate-image",
+      "modality": "image",
+      "route_profile": "design",
+      "evidence": "STATIC_CLIENT",
+      "runtime_usable": false,
+      "cost_parameter_names": ["image_size"],
+      "source_artifact_urls": [
+        "https://syntx.ai/assets/1788368942/image.js",
+        "https://syntx.ai/assets/1788368942/useEnrichFileMetaWithDuration.js"
+      ],
+      "request_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "prompt": { "type": "string", "minLength": 1, "maxLength": 200000 },
+          "n": { "type": "integer", "const": 1, "default": 1 },
+          "image_size": { "type": "string", "const": "1K", "default": "1K" },
+          "image_urls": {
+            "type": "array",
+            "items": { "type": "string", "format": "uri", "maxLength": 4096 },
+            "maxItems": 14
+          }
+        },
+        "required": ["prompt", "n", "image_size"]
+      },
+      "schema_hash": "sha256:ce7d1499349db72286aaf5266bf9bbc06b67f3fff5974330da0f1cc55434d873",
+      "create_status": "STATIC_CLIENT",
+      "status_status": "STATIC_CLIENT",
+      "result_status": "STATIC_CLIENT",
+      "cancel_mode": "OPEN",
+      "notes": [
+        "Candidate canary only; the exact positive response and artifact schema are not live-verified.",
+        "The 1K value is observed in the current first-party light-model UI path."
+      ]
+    },
+    {
+      "model_id": "eleven_multilingual_v2",
+      "ai_name": "elevenlabs",
+      "operation_id": "generate-audio",
+      "modality": "audio",
+      "route_profile": "audio",
+      "evidence": "STATIC_CLIENT",
+      "runtime_usable": false,
+      "cost_parameter_names": ["chars_count", "mode"],
+      "source_artifact_urls": [
+        "https://syntx.ai/assets/1788368942/audio.js",
+        "https://syntx.ai/assets/1788368942/useEnrichFileMetaWithDuration.js"
+      ],
+      "request_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "prompt": { "type": "string", "minLength": 1, "maxLength": 5000 },
+          "mode": { "type": "string", "const": "text_to_speech" },
+          "file_urls": {
+            "type": "array",
+            "items": { "type": "string", "format": "uri", "maxLength": 4096 },
+            "maxItems": 0
+          }
+        },
+        "required": ["prompt", "mode"]
+      },
+      "schema_hash": "sha256:b154355b5e66675b11989dd5c65a567910f58fcc2ebbe4e18ca3c5bbf62fd727",
+      "create_status": "STATIC_CLIENT",
+      "status_status": "STATIC_CLIENT",
+      "result_status": "STATIC_CLIENT",
+      "cancel_mode": "OPEN",
+      "notes": [
+        "Candidate canary only; voice-specific required fields may still exist in the UI contract.",
+        "chars_count is derived locally from prompt length for price observation."
+      ]
+    },
+    {
+      "model_id": "hailuo-2.3-fast",
+      "ai_name": "hailuo-minimax",
+      "operation_id": "generate-video",
+      "modality": "video",
+      "route_profile": "video",
+      "evidence": "STATIC_CLIENT",
+      "runtime_usable": false,
+      "cost_parameter_names": ["resolution", "video_duration"],
+      "source_artifact_urls": [
+        "https://syntx.ai/assets/1788368942/video.js",
+        "https://syntx.ai/assets/1788368942/useEnrichFileMetaWithDuration.js"
+      ],
+      "request_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "prompt": { "type": "string", "minLength": 1, "maxLength": 200000 },
+          "resolution": { "type": "string", "enum": ["768p", "1080p"] },
+          "video_duration": { "type": "integer", "enum": [6, 10] },
+          "image_urls": {
+            "type": "array",
+            "items": { "type": "string", "format": "uri", "maxLength": 4096 },
+            "maxItems": 1
+          }
+        },
+        "required": ["prompt", "resolution", "video_duration"]
+      },
+      "schema_hash": "sha256:4e0d2dd2e5e0f5b11aaf5172d405bf057c19d2f69aa256d14e770cdba6638b6c",
+      "create_status": "STATIC_CLIENT",
+      "status_status": "STATIC_CLIENT",
+      "result_status": "STATIC_CLIENT",
+      "cancel_mode": "OPEN",
+      "notes": [
+        "Candidate canary only; duration and resolution enums are static-client observations.",
+        "No positive create, terminal result, billing, or cancellation response is live-verified."
+      ]
+    }
+  ]
+}

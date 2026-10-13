@@ -1,0 +1,183 @@
+{
+  "schema_version": "1.0.0",
+  "ticket": "48",
+  "catalog_kind": "WAN_RESOLUTION_RATIO_CANDIDATES",
+  "evidence_scope": "PARTIAL_STATIC_UI_CANDIDATE",
+  "runtime_usable": false,
+  "backend_acceptance": false,
+  "source_persisted": false,
+  "public_version": "sha256-e5517ee56db2cf5939de51b2e1d835249ec201eefc80d8a805487b82063c1989.json",
+  "settings_version": "sha256-00f46710febbeffcaa99d49d3c213aca305706921607db2269f04c5e33381d61.json",
+  "build_id": "1791467421",
+  "model_ids": [
+    "wan_25_i2v_preview",
+    "wan_25_t2v_preview",
+    "wan_26_i2v",
+    "wan_26_i2v_flash",
+    "wan_26_r2v",
+    "wan_26_r2v_flash",
+    "wan_26_t2v",
+    "wan_27_i2v",
+    "wan_27_r2v",
+    "wan_27_t2v",
+    "wan_27_videoedit"
+  ],
+  "target_fields": [
+    "resolution",
+    "aspect_ratio"
+  ],
+  "source_identity": {
+    "module_name": "wan-video.js",
+    "bytes": 19503,
+    "sha256": "sha256:aae2be04ca8a814db7dfb93717a234f55922b4b9f0ebc3eccd517c9d82f46119"
+  },
+  "source_facts_sha256": "sha256:d79e57d2aa83a070dd48c091ae7dcc32eeca51fa3d418b746c0f723b51de3fd3",
+  "controls": [
+    {
+      "field": "resolution",
+      "model_options": [
+        {
+          "model_id": "wan_25_i2v_preview",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "480P",
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_25_t2v_preview",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "480P",
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_26_i2v",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_26_i2v_flash",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_26_r2v",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_26_r2v_flash",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_26_t2v",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_27_i2v",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_27_r2v",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_27_t2v",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "model_id": "wan_27_videoedit",
+          "status": "FINITE_SOURCE_CANDIDATE",
+          "values": [
+            "720P",
+            "1080P"
+          ]
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN"
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": "UNKNOWN"
+    },
+    {
+      "field": "aspect_ratio",
+      "ratio_prop": [
+        "He",
+        "value"
+      ],
+      "branches": [
+        {
+          "when": {
+            "field": "resolution",
+            "operator": "===",
+            "value": "480P"
+          },
+          "allowed_values": [
+            "16:9",
+            "9:16",
+            "1:1"
+          ]
+        },
+        {
+          "when": {
+            "field": "resolution",
+            "operator": "!==",
+            "value": "480P"
+          },
+          "allowed_values": [
+            "16:9",
+            "9:16",
+            "1:1",
+            "4:3",
+            "3:4"
+          ]
+        }
+      ],
+      "ui_default_candidate": {
+        "status": "UNKNOWN"
+      },
+      "backend_default": "UNKNOWN",
+      "model_applicability": "UNKNOWN"
+    }
+  ],
+  "limitations": [
+    "The facts are exact normalized AST findings for the pinned WAN source; they do not prove Vue wrapper or exported-component semantics.",
+    "Values are static UI candidates only; backend acceptance, defaults, visibility, dispatch, and runtime usability remain unverified.",
+    "This bounded result covers resolution and aspect_ratio only; WAN settings coverage remains open."
+  ],
+  "observed_at": "2026-10-09T00:00:00.000Z"
+}

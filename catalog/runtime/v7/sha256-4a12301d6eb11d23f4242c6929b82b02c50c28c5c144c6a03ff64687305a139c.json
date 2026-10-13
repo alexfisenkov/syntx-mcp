@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "ALTERNATE_IDENTITY_BINDING",
+  "profile_fingerprint": "5c8bc60a43dddb7afb45c701b654957d9f085b7ac468e0e3a910bb4739832f94",
+  "helper_result_version": "sha256-c579821472e481f2c1050f3ce2340e0b6d8c8fe8d499685ae03bc337101ed31a.json",
+  "census_manifest_sha256": "sha256:611196c4245adf1a4d7860cc1ad183192dc074ececd538bdbf99b65efe5bad06",
+  "observed_at": "2026-09-05T18:38:21.854Z",
+  "runtime_usable": false,
+  "entries": [
+    {
+      "form_id": "hailuo-minimax",
+      "ai_name": "hailuo-minimax",
+      "identity_source": "CURATED_ALTERNATE_CONSTANT_NAME",
+      "value_collides_with_model_ids": true,
+      "evidence": {
+        "helper_module_name": "video.js",
+        "source_path": "/src/components/chat/forms/settings/data/hailuo/constants.js",
+        "source_content_sha256": "sha256:c26bb52ade40c3c9c696ede891a3d1de9f08fef34ae06fb2c8a7678138aa5243",
+        "constant_scope": "module",
+        "constant_name": "MINIMAX_MODEL_NAME",
+        "locator": {
+          "line": 1,
+          "column": 14
+        }
+      }
+    },
+    {
+      "form_id": "luma-image",
+      "ai_name": "luma_image",
+      "identity_source": "CURATED_ALTERNATE_CONSTANT_NAME",
+      "value_collides_with_model_ids": false,
+      "evidence": {
+        "helper_module_name": "useLuma.js",
+        "source_path": "/src/components/chat/forms/settings/composables/useLuma.js",
+        "source_content_sha256": "sha256:aa7a473ceaedf9f2373837dd1d95662d171495fa37ba619b57e226475d16840e",
+        "constant_scope": "module",
+        "constant_name": "LUMA_AI_NAME",
+        "locator": {
+          "line": 14,
+          "column": 14
+        }
+      }
+    }
+  ]
+}

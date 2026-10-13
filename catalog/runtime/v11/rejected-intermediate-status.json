@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "record_kind": "REJECTED_INTERMEDIATE_EVIDENCE_ARTIFACTS",
+  "recorded_at_utc": "2026-10-08T16:59:49Z",
+  "production_consumable": false,
+  "records": [
+    {
+      "path": "catalog/runtime/v11/static-form-control-analysis-v1.6-e5517ee5-87e96b78-26627f87a943cc9a.json",
+      "sha256": "sha256:26627f87a943cc9a2a40ca159217f3e2e7f26232d58a9d5d5b9469d05d43ec50",
+      "bytes": 199770,
+      "status": "REJECTED_UNBOUND_MODEL_IDS",
+      "reason": "The four refreshed form rows retained model_ids as empty arrays. Their source controls were present in raw AST evidence, but were not associated with exact catalog model rows in the derived projection.",
+      "superseded_by": {
+        "path": "catalog/runtime/v11/static-form-control-analysis-v1.6-e5517ee5-87e96b78-097959987e8cb737.json",
+        "sha256": "sha256:097959987e8cb737249d53cce8a3281f34958c8f1a5f6bbc66e4f4d8eda054a2"
+      },
+      "exact_original_bytes_restored": true
+    },
+    {
+      "path": "catalog/runtime/v11/static-generation-parameter-schema-v1.2-e5517ee5-87e96b78-9418c5f634d500a1.json",
+      "sha256": "sha256:9418c5f634d500a16a788d7125baad59c1467b10772b0200c0a088427cd174a5",
+      "bytes": 569563,
+      "status": "REJECTED_MISSING_FOUR_FORM_MODEL_BINDINGS",
+      "reason": "Because the corresponding intermediate analysis omitted model_ids for the four refreshed forms, this projection omitted their UI field evidence from the 10 exact image/video model rows. It must not be treated as complete current evidence.",
+      "superseded_by": {
+        "path": "catalog/runtime/v11/static-generation-parameter-schema-v1.2-e5517ee5-87e96b78-7cfe38ace55eadde.json",
+        "sha256": "sha256:7cfe38ace55eadde73f5e14716b5263b8da41d122eaba3d914c15c7d7ca13d26"
+      },
+      "exact_original_bytes_restored": true
+    }
+  ]
+}

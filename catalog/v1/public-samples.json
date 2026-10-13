@@ -1,0 +1,187 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_version": "2026-09-02.public-sample.1",
+  "catalog_kind": "PUBLIC_SAMPLE",
+  "runtime_usable": false,
+  "coverage_status": "PARTIAL",
+  "checked_at": "2026-09-02",
+  "models": [
+    {
+      "id": "veo-omni-flash",
+      "upstream_id": null,
+      "upstream_id_status": "UNKNOWN",
+      "display_name": "Veo Omni Flash",
+      "family": "Veo",
+      "modalities": [
+        "video"
+      ],
+      "coverage_status": "PARTIAL",
+      "first_seen": "2026-09-02",
+      "last_seen": "2026-09-02",
+      "removed_at": null,
+      "source": {
+        "url": "https://docs.syntx.ai/en/%F0%9F%8E%AC-Video/%F0%9F%8C%90-Veo-Omni-Flash",
+        "kind": "public_documentation",
+        "checked_at": "2026-09-02",
+        "coverage_status": "PARTIAL"
+      },
+      "operations": [
+        {
+          "id": "text-to-video",
+          "display_name": "Text to video",
+          "input_modalities": [
+            "text"
+          ],
+          "output_modality": "video",
+          "coverage_status": "PARTIAL",
+          "runtime_status": "UNVERIFIED",
+          "runtime_provenance_status": "UNKNOWN",
+          "cost_status": "UNKNOWN",
+          "plan_status": "UNKNOWN",
+          "parameters_schema_profile": "PUBLIC_SAMPLE_STRING_ONLY",
+          "schema_hash": "sha256:d1189cd67a6f8f32f02531221d3b442cea7437da37584de687fb0b198a65afbb",
+          "parameters_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Text description of the requested video."
+              },
+              "quality": {
+                "type": "string",
+                "enum": [
+                  "720p",
+                  "1080p",
+                  "4K"
+                ],
+                "description": "Quality options documented for text-to-video generation."
+              }
+            },
+            "required": [
+              "prompt"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "nano-banana-pro",
+      "upstream_id": null,
+      "upstream_id_status": "UNKNOWN",
+      "display_name": "Nano Banana PRO",
+      "family": "Nano Banana",
+      "modalities": [
+        "image"
+      ],
+      "coverage_status": "PARTIAL",
+      "first_seen": "2026-09-02",
+      "last_seen": "2026-09-02",
+      "removed_at": null,
+      "source": {
+        "url": "https://docs.syntx.ai/%D0%98%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8-(%D0%9E%D1%81%D1%82%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5)/%F0%9F%9B%A0-%D0%9E%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5-%D0%98%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D0%BE%D0%B2",
+        "kind": "public_documentation",
+        "checked_at": "2026-09-02",
+        "coverage_status": "PARTIAL"
+      },
+      "operations": [
+        {
+          "id": "text-to-image",
+          "display_name": "Text to image",
+          "input_modalities": [
+            "text"
+          ],
+          "output_modality": "image",
+          "coverage_status": "PARTIAL",
+          "runtime_status": "UNVERIFIED",
+          "runtime_provenance_status": "UNKNOWN",
+          "cost_status": "UNKNOWN",
+          "plan_status": "UNKNOWN",
+          "parameters_schema_profile": "PUBLIC_SAMPLE_STRING_ONLY",
+          "schema_hash": "sha256:330f8b869cbc0ed1f7553586964e9b35bf6c928b7443c4ebd53a5a047b509896",
+          "parameters_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Text description of the requested image."
+              }
+            },
+            "required": [
+              "prompt"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "suno",
+      "upstream_id": null,
+      "upstream_id_status": "UNKNOWN",
+      "display_name": "SUNO",
+      "family": "Suno",
+      "modalities": [
+        "audio"
+      ],
+      "coverage_status": "PARTIAL",
+      "first_seen": "2026-09-02",
+      "last_seen": "2026-09-02",
+      "removed_at": null,
+      "source": {
+        "url": "https://docs.syntx.ai/%F0%9F%94%8A-%D0%90%D1%83%D0%B4%D0%B8%D0%BE/%F0%9F%8E%B8-SUNO",
+        "kind": "public_documentation",
+        "checked_at": "2026-09-02",
+        "coverage_status": "PARTIAL"
+      },
+      "operations": [
+        {
+          "id": "standard-text-to-music",
+          "display_name": "Standard text to music",
+          "input_modalities": [
+            "text"
+          ],
+          "output_modality": "audio",
+          "coverage_status": "PARTIAL",
+          "runtime_status": "UNVERIFIED",
+          "runtime_provenance_status": "UNKNOWN",
+          "cost_status": "UNKNOWN",
+          "plan_status": "UNKNOWN",
+          "parameters_schema_profile": "PUBLIC_SAMPLE_STRING_ONLY",
+          "schema_hash": "sha256:826e01ea659cf1982643ee93fd9c93c0ffbd5871ea18e6c9f954b6f3be15a29e",
+          "parameters_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Text request describing the song to generate in standard mode."
+              },
+              "model_version": {
+                "type": "string",
+                "enum": [
+                  "V3.5",
+                  "V4.0",
+                  "V4.5",
+                  "V4.5+",
+                  "V5",
+                  "V5.5"
+                ],
+                "description": "Model versions listed in the public SUNO guide."
+              }
+            },
+            "required": [
+              "prompt"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

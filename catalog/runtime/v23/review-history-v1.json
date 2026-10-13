@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_kind": "WAN_CONDITIONAL_SOURCE_CANDIDATE_REVIEW_HISTORY",
+  "selection_effect": "NONE",
+  "entries": [
+    {
+      "artifact_ref": "catalog/runtime/v23/sha256-ae7dd573c5808e894c268aca64f6e693517ecf9e97b324e838ab3b9267fae963.json",
+      "artifact_sha256": "sha256:ae7dd573c5808e894c268aca64f6e693517ecf9e97b324e838ab3b9267fae963",
+      "review_status": "REJECTED",
+      "superseded_by": "catalog/runtime/v23/sha256-0dcf1e91d775c88c4e513b05c6f3e90ddc43dfebf355c0af0089158984bb6014.json",
+      "reasons": [
+        "SAME_LINE_CONTROLS_COLLAPSED_BY_FIELD_LINE_KEY",
+        "FLAT_CONSTANT_LOOKUP_CROSSED_SHADOWED_SCOPES",
+        "PARTIAL_GUARD_EVIDENCE_COULD_CLAIM_MODEL_APPLICABILITY",
+        "LOGICAL_RIGHT_HAND_CONTROL_MISCLASSIFIED_UNCONDITIONAL"
+      ],
+      "runtime_usable": false,
+      "backend_acceptance": false
+    },
+    {
+      "artifact_ref": "catalog/runtime/v23/sha256-0dcf1e91d775c88c4e513b05c6f3e90ddc43dfebf355c0af0089158984bb6014.json",
+      "artifact_sha256": "sha256:0dcf1e91d775c88c4e513b05c6f3e90ddc43dfebf355c0af0089158984bb6014",
+      "review_status": "REVIEWED_PARTIAL_STRUCTURAL_ONLY",
+      "source_public_version": "sha256-e5517ee56db2cf5939de51b2e1d835249ec201eefc80d8a805487b82063c1989.json",
+      "source_settings_version": "sha256-00f46710febbeffcaa99d49d3c213aca305706921607db2269f04c5e33381d61.json",
+      "build_id": "1791467421",
+      "model_count": 11,
+      "control_instance_count": 11,
+      "distinct_field_count": 9,
+      "runtime_usable": false,
+      "backend_acceptance": false,
+      "source_identities": [
+        { "module_name": "app.js", "bytes": 2445534, "sha256": "sha256:0b12fd2028bf81fd8c8482adb807fd8f14d092a3c26d2e60e718418147f8d0cf", "bom_present": false },
+        { "module_name": "settings3.js", "bytes": 4123, "sha256": "sha256:cbf76cc326616566ae9132655802af9a8c16261a42b7796b1809f9958ea2cdfe", "bom_present": false },
+        { "module_name": "wan-video.js", "bytes": 19503, "sha256": "sha256:aae2be04ca8a814db7dfb93717a234f55922b4b9f0ebc3eccd517c9d82f46119", "bom_present": false }
+      ],
+      "limitations": [
+        "Options and conditional model guards remain unknown or dynamic.",
+        "App/helper dependency closure is unresolved.",
+        "Does not assert effective UI visibility, backend acceptance, executable V2 settings, or all WAN settings."
+      ]
+    }
+  ]
+}

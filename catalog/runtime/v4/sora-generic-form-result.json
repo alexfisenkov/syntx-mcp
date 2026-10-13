@@ -1,0 +1,537 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_kind": "OBSERVED_NORMALIZED_SETTINGS_IR_GENERIC_FORM_RESULT",
+  "evidence_level": "STATIC_PINNED_SOURCE_COMPILATION",
+  "runtime_usable": false,
+  "generated_at": "2026-09-04T02:48:05.938Z",
+  "source_observed_at": "2026-09-04T02:48:05.911Z",
+  "bindings": {
+    "census_manifest": {
+      "schema_version": "2.0.0",
+      "catalog_kind": "OBSERVED_NORMALIZED_SETTINGS_IR_PARSER_CENSUS_MANIFEST",
+      "artifact_bytes": 428390,
+      "artifact_sha256": "sha256:611196c4245adf1a4d7860cc1ad183192dc074ececd538bdbf99b65efe5bad06",
+      "generated_at": "2026-09-02T21:00:08.402Z",
+      "cohort_sha256": "sha256:8c8b4bc02272e3fddd3d11dcc24cb903b66a3ff13848c2ea4085b852d7b8e959",
+      "public_catalog_sha256": "sha256:0353e9e078bd53f4d5ca4748151408cbd163fdc93d21b6ff977511f086a4c9d0",
+      "source_inventory_sha256": "sha256:ef0664760b57870c49e3d6d6261f695bbbd1168ef964ee93e7109c1222c4af74"
+    }
+  },
+  "scope": {
+    "kind": "SINGLE_FORM_NO_AUXILIARIES_V1",
+    "form_id": "sora",
+    "ai_name": "sora",
+    "model_ids": [
+      "sora_1",
+      "sora_2",
+      "sora_2_pro"
+    ],
+    "root_source_ref_id": "settings-source-466a367717d5d595a2aa64acb9b4a7b03fc74cc943a8bfb3a36819d136a4e132"
+  },
+  "source_verification": {
+    "status": "PINNED_SOURCE_BYTES_REFETCHED_AND_MATCHED",
+    "source_ref_id": "settings-source-466a367717d5d595a2aa64acb9b4a7b03fc74cc943a8bfb3a36819d136a4e132",
+    "fetched_artifacts": 2,
+    "verification_status": "JS_MAP_AND_SOURCE_HASH_MATCHED",
+    "compilation_input": true,
+    "vendor_source_persisted": false
+  },
+  "form": {
+    "form_id": "sora",
+    "source_ref": {
+      "provider_javascript_sha256": "sha256:be52877942e3e6ed75acdb6ab2dacfd6e6104a4d69d4e4b8ffeb359a6db2b3d2",
+      "provider_source_map_sha256": "sha256:cb7bbbcaf0b2a952b00c24e4bcca7424d2a74b6905739c061b45cdef61848883",
+      "source_index": 0,
+      "source_path": "/src/components/chat/forms/settings/sora.vue",
+      "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72"
+    },
+    "completeness": "PARTIAL",
+    "projections": {
+      "computed_rules": {
+        "status": "BLOCKED"
+      },
+      "conditional_rules": {
+        "status": "BLOCKED"
+      },
+      "controls": {
+        "status": "BLOCKED",
+        "proof_scope": "STATIC_CANDIDATES_ONLY_NOT_RUNTIME_SEMANTICS",
+        "static_candidates": [
+          {
+            "path": [
+              "format"
+            ],
+            "value": [
+              "aspect_ratio"
+            ],
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/sora.vue",
+              "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+              "line": 247,
+              "column": 7,
+              "node_kind": "VariableDeclaration"
+            }
+          },
+          {
+            "path": [
+              "parameters"
+            ],
+            "value": [
+              "video_duration"
+            ],
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/sora.vue",
+              "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+              "line": 247,
+              "column": 7,
+              "node_kind": "VariableDeclaration"
+            }
+          },
+          {
+            "path": [
+              "quality"
+            ],
+            "value": [
+              "quality"
+            ],
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/sora.vue",
+              "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+              "line": 247,
+              "column": 7,
+              "node_kind": "VariableDeclaration"
+            }
+          }
+        ]
+      },
+      "defaults": {
+        "status": "BLOCKED",
+        "proof_scope": "STATIC_CANDIDATES_ONLY_NOT_RUNTIME_SEMANTICS",
+        "static_candidates": [
+          {
+            "path": [
+              "aspect_ratio"
+            ],
+            "value": "16:9",
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/sora.vue",
+              "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+              "line": 40,
+              "column": 25,
+              "node_kind": "ObjectLiteralExpression"
+            }
+          },
+          {
+            "path": [
+              "gen_type"
+            ],
+            "value": "text2video",
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/sora.vue",
+              "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+              "line": 40,
+              "column": 25,
+              "node_kind": "ObjectLiteralExpression"
+            }
+          },
+          {
+            "path": [
+              "quality"
+            ],
+            "value": 720,
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/sora.vue",
+              "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+              "line": 40,
+              "column": 25,
+              "node_kind": "ObjectLiteralExpression"
+            }
+          },
+          {
+            "path": [
+              "video_duration"
+            ],
+            "value": 10,
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/sora.vue",
+              "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+              "line": 40,
+              "column": 25,
+              "node_kind": "ObjectLiteralExpression"
+            }
+          }
+        ]
+      },
+      "payload_projection": {
+        "status": "BLOCKED"
+      },
+      "watch_rules": {
+        "status": "BLOCKED"
+      }
+    },
+    "blockers": [
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 75,
+          "column": 22,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 110,
+          "column": 19,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 119,
+          "column": 18,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 155,
+          "column": 16,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 172,
+          "column": 30,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 178,
+          "column": 16,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 202,
+          "column": 25,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 233,
+          "column": 22,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 254,
+          "column": 25,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 257,
+          "column": 26,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 260,
+          "column": 29,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "SOURCE_PATTERN_NOT_RECOGNIZED",
+        "projection": "conditional_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 2,
+          "column": 1,
+          "node_kind": "SourceFile"
+        }
+      },
+      {
+        "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+        "projection": "conditional_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 376,
+          "column": 13,
+          "node_kind": "VueVIfDirective"
+        }
+      },
+      {
+        "code": "SOURCE_PATTERN_NOT_RECOGNIZED",
+        "projection": "controls",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 2,
+          "column": 1,
+          "node_kind": "SourceFile"
+        }
+      },
+      {
+        "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+        "projection": "controls",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 376,
+          "column": 13,
+          "node_kind": "VueVIfDirective"
+        }
+      },
+      {
+        "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+        "projection": "defaults",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 41,
+          "column": 15,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+        "projection": "defaults",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 41,
+          "column": 15,
+          "node_kind": "PropertyAccessExpression"
+        }
+      },
+      {
+        "code": "BACKEND_RUNTIME_EQUIVALENCE_UNVERIFIED",
+        "projection": "payload_projection",
+        "locator": null
+      },
+      {
+        "code": "PAYLOAD_PROJECTION_UNVERIFIED",
+        "projection": "payload_projection",
+        "locator": null
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 67,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 79,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 134,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/sora.vue",
+          "source_content_sha256": "sha256:ab4d54b772790871a22e42b1ee2f80f4a7d078ec04cd70e46512f948ee265b72",
+          "line": 185,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      }
+    ],
+    "runtime_usable": false
+  },
+  "toolchain": {
+    "parser_profile": "STATIC_SETTINGS_V1",
+    "compilation_status": "PARTIAL_COMPILED",
+    "engine": {
+      "name": "typescript",
+      "version": "5.9.3",
+      "implementation_sha256": "sha256:a9f4db6b5e787445255030f221a4f5b5914fd3b8a6e4a58212361078bb36badc",
+      "execution_mode": "SYNTAX_ONLY_NO_VENDOR_EXECUTION",
+      "type_checking": false,
+      "emit": false,
+      "import_resolution": false
+    },
+    "implementation_hash_algorithm": "FRAMED_COMPONENT_BYTES_SHA256_V1",
+    "implementation_components": [
+      {
+        "name": "generic-form-adapter",
+        "bytes": 27954,
+        "sha256": "sha256:0b2c62785895f2959719eb18f2df511949c45be1644e678d5223dde68e2da519"
+      },
+      {
+        "name": "generic-form-adapter-input-from-manifest",
+        "bytes": 6412,
+        "sha256": "sha256:f8d2543a4d4ef2dfe7cd16cce139a3cac526eedf52d64e9e9a7d18ec38828bbb"
+      },
+      {
+        "name": "generic-form-result-toolchain",
+        "bytes": 26407,
+        "sha256": "sha256:e9c217e07230f0b2bfea4bb328e642b7a429e80cacf6b31f71e0e191b0737bee"
+      },
+      {
+        "name": "immutable-json-snapshot",
+        "bytes": 7440,
+        "sha256": "sha256:44945a97b032f9fb021c8e24ac0c6b2e62f2f9d8203320b380e1a8d9ef6180d6"
+      },
+      {
+        "name": "normalized-generic-form-result",
+        "bytes": 40901,
+        "sha256": "sha256:f5ebddacedda39e8c38baafeeec53875964c5f37e18ca805a19ffc05e1570f59"
+      },
+      {
+        "name": "pinned-settings-source-loader",
+        "bytes": 17738,
+        "sha256": "sha256:b19cab45385aca3132cec2b1e8791a4453529a4a4abc50733727feef003d20f1"
+      },
+      {
+        "name": "static-settings-compiler",
+        "bytes": 58752,
+        "sha256": "sha256:fe9b9078ea1ba7fbbe064b65c8bb349f5f521f4666c0fcaf140a240884e25ee8"
+      },
+      {
+        "name": "typescript-runtime",
+        "bytes": 9112572,
+        "sha256": "sha256:e137207cb37639802af85067922577f3a944bb041134180cca21829fd034c6bc"
+      }
+    ],
+    "implementation_set_sha256": "sha256:ea5434357a0903bf5c99008ef0d889db3e1c87db2e4ece9f51f397aab3006395",
+    "vendor_code_executed": false
+  },
+  "result": {
+    "verification_status": "EXACT_RECOMPILED_ADAPTER_OUTPUT_MATCH",
+    "summary": {
+      "scoped_models": 3,
+      "partial_forms": 1,
+      "partial_models": 3,
+      "proven_projections": 0,
+      "absent_proven_projections": 0,
+      "blocked_projections": 6,
+      "blocked_projections_with_static_candidates": 2,
+      "form_blockers": 23,
+      "runtime_usable_models": 0
+    }
+  },
+  "coverage": {
+    "c0_forms": 42,
+    "declared_forms": 1,
+    "unscoped_c0_forms": 41,
+    "c0_models": 192,
+    "declared_models": 3,
+    "unscoped_c0_models": 189,
+    "c0_source_refs": 123,
+    "declared_source_refs": 1,
+    "verified_source_refs": 1,
+    "compiled_source_units": 1,
+    "unscoped_c0_source_refs": 122
+  },
+  "limitations": [
+    "DECLARED_SUBSET_ONLY_NOT_FULL_COHORT",
+    "FRONTEND_EVIDENCE_IS_NOT_A_BACKEND_CONTRACT",
+    "PINNED_BUILD_MATCH_IS_NOT_ACTIVE_BUILD_DISCOVERY",
+    "PAYLOAD_AND_BACKEND_EQUIVALENCE_UNVERIFIED",
+    "NO_GENERATION_OR_AUTH_CALLS_PERFORMED"
+  ]
+}

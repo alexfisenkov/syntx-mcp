@@ -1,0 +1,900 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_kind": "WAN_CONDITIONAL_SOURCE_CANDIDATES",
+  "runtime_usable": false,
+  "backend_acceptance": false,
+  "source_persisted": false,
+  "public_version": "sha256-e5517ee56db2cf5939de51b2e1d835249ec201eefc80d8a805487b82063c1989.json",
+  "settings_version": "sha256-00f46710febbeffcaa99d49d3c213aca305706921607db2269f04c5e33381d61.json",
+  "build_id": "1791467421",
+  "sources": [
+    {
+      "module_name": "app.js",
+      "url": "https://syntx.ai/assets/1791467421/app.js",
+      "bytes": 2445534,
+      "sha256": "sha256:0b12fd2028bf81fd8c8482adb807fd8f14d092a3c26d2e60e718418147f8d0cf",
+      "bom_present": false
+    },
+    {
+      "module_name": "settings3.js",
+      "url": "https://syntx.ai/assets/1791467421/settings3.js",
+      "bytes": 4123,
+      "sha256": "sha256:cbf76cc326616566ae9132655802af9a8c16261a42b7796b1809f9958ea2cdfe",
+      "bom_present": false
+    },
+    {
+      "module_name": "wan-video.js",
+      "url": "https://syntx.ai/assets/1791467421/wan-video.js",
+      "bytes": 19503,
+      "sha256": "sha256:aae2be04ca8a814db7dfb93717a234f55922b4b9f0ebc3eccd517c9d82f46119",
+      "bom_present": false
+    }
+  ],
+  "dependency_trace": {
+    "app_binding": "UNRESOLVED",
+    "imported_modules": [
+      "./AiSelect.js",
+      "./AiSelectTeleport.js",
+      "./AspectRatio.js",
+      "./AudioPlayerDialog.js",
+      "./Avatar.js",
+      "./Card.js",
+      "./EmptyData.js",
+      "./FooterBack.js",
+      "./Logo.js",
+      "./NewSessionButton.js",
+      "./RandomSeed.js",
+      "./Reference.js",
+      "./ReferenceCard.js",
+      "./SelectModel.js",
+      "./Settings2.js",
+      "./SliderForm.js",
+      "./UploadDropdown.js",
+      "./VideoControls.js",
+      "./VideoPlayback.js",
+      "./VideoSegmentSelector.js",
+      "./VideoTrimButton.js",
+      "./app.js",
+      "./aspectRatioList.js",
+      "./audio.js",
+      "./cost.js",
+      "./cost2.js",
+      "./duration.js",
+      "./fileUploader.js",
+      "./filmstrip.js",
+      "./formatPlanDate.js",
+      "./index12.js",
+      "./index13.js",
+      "./isTouchDevice.js",
+      "./lodash.js",
+      "./notification.js",
+      "./select.js",
+      "./settings3.js",
+      "./text.js",
+      "./thumbnail.js",
+      "./useAvailableLocales.js",
+      "./useEnrichFileMetaWithDuration.js",
+      "./useOverlayScrollbar.js",
+      "./useUploadDropzone.js",
+      "./video.js"
+    ],
+    "unresolved_imports": [
+      "./AiSelect.js",
+      "./AiSelectTeleport.js",
+      "./AspectRatio.js",
+      "./AudioPlayerDialog.js",
+      "./Avatar.js",
+      "./Card.js",
+      "./EmptyData.js",
+      "./FooterBack.js",
+      "./Logo.js",
+      "./NewSessionButton.js",
+      "./RandomSeed.js",
+      "./Reference.js",
+      "./ReferenceCard.js",
+      "./SelectModel.js",
+      "./Settings2.js",
+      "./SliderForm.js",
+      "./UploadDropdown.js",
+      "./VideoControls.js",
+      "./VideoPlayback.js",
+      "./VideoSegmentSelector.js",
+      "./VideoTrimButton.js",
+      "./aspectRatioList.js",
+      "./audio.js",
+      "./cost.js",
+      "./cost2.js",
+      "./duration.js",
+      "./fileUploader.js",
+      "./filmstrip.js",
+      "./formatPlanDate.js",
+      "./index12.js",
+      "./index13.js",
+      "./isTouchDevice.js",
+      "./lodash.js",
+      "./notification.js",
+      "./select.js",
+      "./text.js",
+      "./thumbnail.js",
+      "./useAvailableLocales.js",
+      "./useEnrichFileMetaWithDuration.js",
+      "./useOverlayScrollbar.js",
+      "./useUploadDropzone.js",
+      "./video.js"
+    ]
+  },
+  "controls": [
+    {
+      "field": "model_type",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNCONDITIONAL_SOURCE",
+      "guards": [],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 12937
+    },
+    {
+      "field": "aspect_ratio",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNKNOWN",
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "ELSE",
+          "line": 1
+        }
+      ],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 13838
+    },
+    {
+      "field": "resolution",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNCONDITIONAL_SOURCE",
+      "guards": [],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 14087
+    },
+    {
+      "field": "video_duration",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNKNOWN",
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "line": 1
+        },
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "line": 1
+        }
+      ],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 14947
+    },
+    {
+      "field": "video_duration",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNKNOWN",
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "ELSE",
+          "line": 1
+        },
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "line": 1
+        }
+      ],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 15260
+    },
+    {
+      "field": "video_duration",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNKNOWN",
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "ELSE",
+          "line": 1
+        },
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "ELSE",
+          "line": 1
+        }
+      ],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 15636
+    },
+    {
+      "field": "prompt_extend",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNKNOWN",
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "line": 1
+        }
+      ],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 16429
+    },
+    {
+      "field": "shot_type",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNKNOWN",
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "line": 1
+        }
+      ],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 16918
+    },
+    {
+      "field": "audio_setting",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNKNOWN",
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "line": 1
+        }
+      ],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 17451
+    },
+    {
+      "field": "seed",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNCONDITIONAL_SOURCE",
+      "guards": [],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 17875
+    },
+    {
+      "field": "native_audio",
+      "options_status": "DYNAMIC",
+      "option_values": [],
+      "options_nullable": false,
+      "required": "UNKNOWN",
+      "rendered": "UNKNOWN",
+      "guards": [
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "line": 1
+        },
+        {
+          "model_type": null,
+          "operator": "UNRESOLVED",
+          "value": null,
+          "branch": "THEN",
+          "line": 1
+        }
+      ],
+      "default_status": "UNKNOWN",
+      "source_line": 1,
+      "source_column": 18481
+    }
+  ],
+  "models": [
+    {
+      "model_id": "wan_25_i2v_preview",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_25_t2v_preview",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_26_i2v",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_26_i2v_flash",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_26_r2v",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_26_r2v_flash",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_26_t2v",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_27_i2v",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_27_r2v",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_27_t2v",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "model_id": "wan_27_videoedit",
+      "controls": [
+        {
+          "field": "model_type",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "aspect_ratio",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "resolution",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "video_duration",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "prompt_extend",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "shot_type",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "audio_setting",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "field": "seed",
+          "applicability": "UNCONDITIONAL_CONTROL"
+        },
+        {
+          "field": "native_audio",
+          "applicability": "UNKNOWN"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Static source candidates are not backend-accepted wire values or effective defaults.",
+    "Vendor JavaScript was parsed as AST only and never executed.",
+    "Imported modules not in the three hash-pinned sources remain unresolved.",
+    "Public upload and cost metadata are not UI enums or wire-schema proof."
+  ],
+  "observed_at": "2026-10-08T23:00:02.683Z"
+}

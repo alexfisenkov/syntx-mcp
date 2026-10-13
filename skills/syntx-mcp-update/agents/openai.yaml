@@ -1,0 +1,6 @@
+interface:
+  display_name: "SYNTX MCP maintenance"
+  short_description: "Update catalog and settings evidence safely"
+  default_prompt: "Use $syntx-mcp-update to compare the current SYNTX catalog and map affected settings coverage."
+policy:
+  allow_implicit_invocation: true

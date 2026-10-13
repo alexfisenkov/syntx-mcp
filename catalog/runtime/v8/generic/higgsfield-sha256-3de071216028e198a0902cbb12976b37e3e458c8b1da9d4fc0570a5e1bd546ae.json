@@ -1,0 +1,484 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_kind": "OBSERVED_NORMALIZED_SETTINGS_IR_GENERIC_FORM_RESULT",
+  "evidence_level": "STATIC_PINNED_SOURCE_COMPILATION",
+  "runtime_usable": false,
+  "generated_at": "2026-09-13T07:24:23.279Z",
+  "source_observed_at": "2026-09-13T07:24:23.260Z",
+  "bindings": {
+    "census_manifest": {
+      "schema_version": "2.0.0",
+      "catalog_kind": "OBSERVED_NORMALIZED_SETTINGS_IR_PARSER_CENSUS_MANIFEST",
+      "artifact_bytes": 435270,
+      "artifact_sha256": "sha256:6a30fd2ece7cdbe07dc578d75345434b485cdf78142bd23a79f91c34c6f5215c",
+      "generated_at": "2026-09-13T06:48:51.032Z",
+      "cohort_sha256": "sha256:30ae65e0da456a67b5252d1ac6fa5772848ee43771cf50c3745b22fc0d033053",
+      "public_catalog_sha256": "sha256:e284ad0ad5500f35af91cbc74b98844cfb86fada22ae227f019c50c3d7ba18e1",
+      "source_inventory_sha256": "sha256:a5fa27c736a955d2a5436127922ff5e9a36311e19e58a55875904d3015cd8424"
+    }
+  },
+  "scope": {
+    "kind": "SINGLE_FORM_NO_AUXILIARIES_V1",
+    "form_id": "higgsfield",
+    "ai_name": "higgsfield",
+    "model_ids": [
+      "dop-lite",
+      "dop-turbo"
+    ],
+    "root_source_ref_id": "settings-source-95293c6f71615b353993d5606d6713a507ab0893ecda4e94d8e1bcc3957c8b74"
+  },
+  "source_verification": {
+    "status": "PINNED_SOURCE_BYTES_REFETCHED_AND_MATCHED",
+    "source_ref_id": "settings-source-95293c6f71615b353993d5606d6713a507ab0893ecda4e94d8e1bcc3957c8b74",
+    "fetched_artifacts": 2,
+    "verification_status": "JS_MAP_AND_SOURCE_HASH_MATCHED",
+    "compilation_input": true,
+    "vendor_source_persisted": false
+  },
+  "form": {
+    "form_id": "higgsfield",
+    "source_ref": {
+      "provider_javascript_sha256": "sha256:9f0a91a230259347d8c227e8aa5b05ee8a0dd491dd1d0619cd71b1f7abf7d1e7",
+      "provider_source_map_sha256": "sha256:be12169adf7854fc4616fb953775da261ef8eb6394a35a568df27281bc22c9fd",
+      "source_index": 0,
+      "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+      "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0"
+    },
+    "completeness": "PARTIAL",
+    "projections": {
+      "computed_rules": {
+        "status": "BLOCKED"
+      },
+      "conditional_rules": {
+        "status": "BLOCKED"
+      },
+      "controls": {
+        "status": "BLOCKED",
+        "proof_scope": "STATIC_CANDIDATES_ONLY_NOT_RUNTIME_SEMANTICS",
+        "static_candidates": [
+          {
+            "path": [
+              "additional"
+            ],
+            "value": [
+              "enhance_prompt"
+            ],
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+              "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+              "line": 57,
+              "column": 7,
+              "node_kind": "VariableDeclaration"
+            }
+          },
+          {
+            "path": [
+              "quality"
+            ],
+            "value": [
+              "motions"
+            ],
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+              "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+              "line": 57,
+              "column": 7,
+              "node_kind": "VariableDeclaration"
+            }
+          },
+          {
+            "path": [
+              "style"
+            ],
+            "value": [
+              "motions"
+            ],
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+              "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+              "line": 57,
+              "column": 7,
+              "node_kind": "VariableDeclaration"
+            }
+          }
+        ]
+      },
+      "defaults": {
+        "status": "BLOCKED",
+        "proof_scope": "STATIC_CANDIDATES_ONLY_NOT_RUNTIME_SEMANTICS",
+        "static_candidates": [
+          {
+            "path": [
+              "enhance_prompt"
+            ],
+            "value": true,
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+              "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+              "line": 32,
+              "column": 25,
+              "node_kind": "ObjectLiteralExpression"
+            }
+          },
+          {
+            "path": [
+              "motions"
+            ],
+            "value": [],
+            "locator": {
+              "source_index": 0,
+              "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+              "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+              "line": 32,
+              "column": 25,
+              "node_kind": "ObjectLiteralExpression"
+            }
+          }
+        ]
+      },
+      "payload_projection": {
+        "status": "BLOCKED"
+      },
+      "watch_rules": {
+        "status": "BLOCKED"
+      }
+    },
+    "blockers": [
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 71,
+          "column": 25,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 73,
+          "column": 27,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 77,
+          "column": 30,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 81,
+          "column": 15,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 199,
+          "column": 23,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "COMPUTED_RULE_NOT_INTERPRETED",
+        "projection": "computed_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 203,
+          "column": 22,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "SOURCE_PATTERN_NOT_RECOGNIZED",
+        "projection": "conditional_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 2,
+          "column": 1,
+          "node_kind": "SourceFile"
+        }
+      },
+      {
+        "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+        "projection": "conditional_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 290,
+          "column": 13,
+          "node_kind": "VueVIfDirective"
+        }
+      },
+      {
+        "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+        "projection": "conditional_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 298,
+          "column": 18,
+          "node_kind": "VueVIfDirective"
+        }
+      },
+      {
+        "code": "SOURCE_PATTERN_NOT_RECOGNIZED",
+        "projection": "controls",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 2,
+          "column": 1,
+          "node_kind": "SourceFile"
+        }
+      },
+      {
+        "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+        "projection": "controls",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 290,
+          "column": 13,
+          "node_kind": "VueVIfDirective"
+        }
+      },
+      {
+        "code": "TEMPLATE_CONTROL_FLOW_NOT_COMPILED",
+        "projection": "controls",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 298,
+          "column": 18,
+          "node_kind": "VueVIfDirective"
+        }
+      },
+      {
+        "code": "CALL_EXPRESSION_NOT_INTERPRETED",
+        "projection": "defaults",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 33,
+          "column": 15,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "DYNAMIC_MEMBER_ACCESS_NOT_INTERPRETED",
+        "projection": "defaults",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 33,
+          "column": 15,
+          "node_kind": "PropertyAccessExpression"
+        }
+      },
+      {
+        "code": "BACKEND_RUNTIME_EQUIVALENCE_UNVERIFIED",
+        "projection": "payload_projection",
+        "locator": null
+      },
+      {
+        "code": "PAYLOAD_PROJECTION_UNVERIFIED",
+        "projection": "payload_projection",
+        "locator": null
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 49,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 96,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 113,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 184,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      },
+      {
+        "code": "WATCH_RULE_NOT_INTERPRETED",
+        "projection": "watch_rules",
+        "locator": {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/higgsfield.vue",
+          "source_content_sha256": "sha256:fb0c9129e2f5e05b5a510670fc25296170d877ffc5ee4f5a5a91457272e255d0",
+          "line": 190,
+          "column": 1,
+          "node_kind": "CallExpression"
+        }
+      }
+    ],
+    "runtime_usable": false
+  },
+  "toolchain": {
+    "parser_profile": "STATIC_SETTINGS_V1",
+    "compilation_status": "PARTIAL_COMPILED",
+    "engine": {
+      "name": "typescript",
+      "version": "5.9.3",
+      "implementation_sha256": "sha256:a9f4db6b5e787445255030f221a4f5b5914fd3b8a6e4a58212361078bb36badc",
+      "execution_mode": "SYNTAX_ONLY_NO_VENDOR_EXECUTION",
+      "type_checking": false,
+      "emit": false,
+      "import_resolution": false
+    },
+    "implementation_hash_algorithm": "FRAMED_COMPONENT_BYTES_SHA256_V1",
+    "implementation_components": [
+      {
+        "name": "generic-form-adapter",
+        "bytes": 27954,
+        "sha256": "sha256:0b2c62785895f2959719eb18f2df511949c45be1644e678d5223dde68e2da519"
+      },
+      {
+        "name": "generic-form-adapter-input-from-manifest",
+        "bytes": 6412,
+        "sha256": "sha256:f8d2543a4d4ef2dfe7cd16cce139a3cac526eedf52d64e9e9a7d18ec38828bbb"
+      },
+      {
+        "name": "generic-form-result-toolchain",
+        "bytes": 26407,
+        "sha256": "sha256:e9c217e07230f0b2bfea4bb328e642b7a429e80cacf6b31f71e0e191b0737bee"
+      },
+      {
+        "name": "immutable-json-snapshot",
+        "bytes": 7440,
+        "sha256": "sha256:44945a97b032f9fb021c8e24ac0c6b2e62f2f9d8203320b380e1a8d9ef6180d6"
+      },
+      {
+        "name": "normalized-generic-form-result",
+        "bytes": 40901,
+        "sha256": "sha256:f5ebddacedda39e8c38baafeeec53875964c5f37e18ca805a19ffc05e1570f59"
+      },
+      {
+        "name": "pinned-settings-source-loader",
+        "bytes": 17738,
+        "sha256": "sha256:b19cab45385aca3132cec2b1e8791a4453529a4a4abc50733727feef003d20f1"
+      },
+      {
+        "name": "static-settings-compiler",
+        "bytes": 58752,
+        "sha256": "sha256:fe9b9078ea1ba7fbbe064b65c8bb349f5f521f4666c0fcaf140a240884e25ee8"
+      },
+      {
+        "name": "typescript-runtime",
+        "bytes": 9112572,
+        "sha256": "sha256:e137207cb37639802af85067922577f3a944bb041134180cca21829fd034c6bc"
+      }
+    ],
+    "implementation_set_sha256": "sha256:ea5434357a0903bf5c99008ef0d889db3e1c87db2e4ece9f51f397aab3006395",
+    "vendor_code_executed": false
+  },
+  "result": {
+    "verification_status": "EXACT_RECOMPILED_ADAPTER_OUTPUT_MATCH",
+    "summary": {
+      "scoped_models": 2,
+      "partial_forms": 1,
+      "partial_models": 2,
+      "proven_projections": 0,
+      "absent_proven_projections": 0,
+      "blocked_projections": 6,
+      "blocked_projections_with_static_candidates": 2,
+      "form_blockers": 21,
+      "runtime_usable_models": 0
+    }
+  },
+  "coverage": {
+    "c0_forms": 42,
+    "declared_forms": 1,
+    "unscoped_c0_forms": 41,
+    "c0_models": 197,
+    "declared_models": 2,
+    "unscoped_c0_models": 195,
+    "c0_source_refs": 124,
+    "declared_source_refs": 1,
+    "verified_source_refs": 1,
+    "compiled_source_units": 1,
+    "unscoped_c0_source_refs": 123
+  },
+  "limitations": [
+    "DECLARED_SUBSET_ONLY_NOT_FULL_COHORT",
+    "FRONTEND_EVIDENCE_IS_NOT_A_BACKEND_CONTRACT",
+    "PINNED_BUILD_MATCH_IS_NOT_ACTIVE_BUILD_DISCOVERY",
+    "PAYLOAD_AND_BACKEND_EQUIVALENCE_UNVERIFIED",
+    "NO_GENERATION_OR_AUTH_CALLS_PERFORMED"
+  ]
+}

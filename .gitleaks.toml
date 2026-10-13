@@ -1,0 +1,107 @@
+[extend]
+useDefault = true
+
+# Public manifest hashes are exempted only on a hash-map entry-shaped line in
+# the exact manifest locations. The publication-manifest validator must run
+# before this scan: it enforces the closed schema, included-path key set, and
+# SHA-256 format/content correspondence.
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Validated public manifest file_sha256 entries only"
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^publication-manifest\.json$''',
+  '''^\.публикация/checkout/publication-manifest\.json$'''
+]
+regexes = [
+  '''^\s*"[^"]+"\s*:\s*"[a-f0-9]{64}",?\s*$'''
+]
+
+# These are exact synthetic values in the matching fixture field and exact
+# public test path; do not broaden to all tests or all idempotency keys.
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Exact synthetic owner fixture in its source-shape test"
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^tests/live-owner-soul-shape-stdio-acceptance\.test\.mjs$''',
+  '''^\.публикация/checkout/tests/live-owner-soul-shape-stdio-acceptance\.test\.mjs$'''
+]
+regexes = ['''\bsecretOwnerId\s*=\s*["\x27]\x73\x79\x6e\x74\x68\x65\x74\x69\x63\x2d\x6f\x77\x6e\x65\x72\x2d\x69\x64\x2d\x74\x65\x73\x74\x2d\x30\x30\x31["\x27]''']
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Exact cancel fixture idempotency key in its MCP job test"
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^tests/mcp-syntx-job-id\.test\.ts$''',
+  '''^dist/tests/mcp-syntx-job-id\.test\.js$''',
+  '''^\.публикация/checkout/tests/mcp-syntx-job-id\.test\.ts$''',
+  '''^\.публикация/checkout/dist/tests/mcp-syntx-job-id\.test\.js$'''
+]
+regexes = ['''\bidempotency_key\s*:\s*["\x27]\x63\x61\x6e\x63\x65\x6c\x5f\x66\x69\x78\x74\x75\x72\x65\x5f\x30\x30\x31["\x27]''']
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Exact aggregate-bound fixture idempotency key in its owner service test"
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^tests/owner-durable-live-service\.test\.ts$''',
+  '''^dist/tests/owner-durable-live-service\.test\.js$''',
+  '''^\.публикация/checkout/tests/owner-durable-live-service\.test\.ts$''',
+  '''^\.публикация/checkout/dist/tests/owner-durable-live-service\.test\.js$'''
+]
+regexes = ['''\bidempotency_key\s*:\s*["\x27]\x61\x67\x67\x72\x65\x67\x61\x74\x65\x2d\x62\x79\x74\x65\x2d\x62\x6f\x75\x6e\x64\x2d\x31["\x27]''']
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Exact cancellation-store fixture key in its test"
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^tests/sqlite-generation-cancel-attempt-store\.test\.ts$''',
+  '''^dist/tests/sqlite-generation-cancel-attempt-store\.test\.js$''',
+  '''^\.публикация/checkout/tests/sqlite-generation-cancel-attempt-store\.test\.ts$''',
+  '''^\.публикация/checkout/dist/tests/sqlite-generation-cancel-attempt-store\.test\.js$'''
+]
+regexes = ['''\bidempotency_key\s*:\s*["\x27]\x67\x65\x6e\x65\x72\x61\x74\x69\x6f\x6e\x5f\x6b\x65\x79\x5f\x6a\x6f\x62\x32["\x27]''']
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Exact transaction-store idempotency fixtures in their test"
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^tests/sqlite-generation-transaction-store\.test\.ts$''',
+  '''^dist/tests/sqlite-generation-transaction-store\.test\.js$''',
+  '''^\.публикация/checkout/tests/sqlite-generation-transaction-store\.test\.ts$''',
+  '''^\.публикация/checkout/dist/tests/sqlite-generation-transaction-store\.test\.js$'''
+]
+regexes = [
+  '''\bidempotency_key\s*:\s*["\x27]\x69\x64\x65\x6d\x70\x6f\x74\x65\x6e\x63\x79\x5f\x6f\x70\x61\x71\x75\x65\x5f\x30\x30\x32["\x27]''',
+  '''\bidempotency_key\s*:\s*["\x27]\x69\x64\x65\x6d\x70\x6f\x74\x65\x6e\x63\x79\x5f\x6f\x74\x68\x65\x72\x5f\x30\x30\x32["\x27]''',
+  '''\bidempotency_key\s*:\s*["\x27]\x69\x64\x65\x6d\x70\x6f\x74\x65\x6e\x63\x79\x5f\x69\x6e\x76\x61\x6c\x69\x64\x5f\x30\x30\x32["\x27]''',
+  '''\bidempotency_key\s*:\s*["\x27]\x69\x64\x65\x6d\x70\x6f\x74\x65\x6e\x63\x79\x5f\x76\x32\x5f\x62\x5f\x69\x6e\x74\x65\x72\x72\x75\x70\x74\x65\x64\x5f\x30\x30\x32["\x27]''',
+  '''\bidempotency_key\s*:\s*["\x27]\x69\x64\x65\x6d\x70\x6f\x74\x65\x6e\x63\x79\x5f\x74\x65\x73\x74\x5f\x30\x30\x31["\x27]'''
+]
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Exact cancellation adapter fixtures in their upstream test"
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^tests/syntx-upstream-adapter\.test\.ts$''',
+  '''^dist/tests/syntx-upstream-adapter\.test\.js$''',
+  '''^\.публикация/checkout/tests/syntx-upstream-adapter\.test\.ts$''',
+  '''^\.публикация/checkout/dist/tests/syntx-upstream-adapter\.test\.js$'''
+]
+regexes = [
+  '''\bidempotency_key\s*:\s*["\x27]\x63\x61\x6e\x63\x65\x6c\x5f\x69\x64\x65\x6d\x5f\x30\x31\x31\x5f\x6f\x74\x68\x65\x72["\x27]''',
+  '''\bidempotency_key\s*:\s*["\x27]\x63\x61\x6e\x63\x65\x6c\x5f\x69\x64\x65\x6d\x5f\x30\x31\x32["\x27]''',
+  '''\bidempotency_key\s*:\s*["\x27]\x6f\x77\x6e\x65\x72\x2d\x75\x6e\x63\x61\x70\x70\x65\x64\x2d\x69\x64\x65\x6d\x2d\x30\x30\x30\x31["\x27]'''
+]

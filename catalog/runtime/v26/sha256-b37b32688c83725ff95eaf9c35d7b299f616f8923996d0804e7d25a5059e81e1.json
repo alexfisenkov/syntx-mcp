@@ -1,0 +1,350 @@
+{
+  "schema_version": "1.0.0",
+  "ticket": "65",
+  "catalog_kind": "HAILUO_RESOLUTION_DURATION_SOURCE_CANDIDATES",
+  "evidence_scope": "STATIC_FRONTEND_UI_CANDIDATES",
+  "runtime_usable": false,
+  "backend_acceptance": false,
+  "source_persisted": false,
+  "public_version": "sha256-e5517ee56db2cf5939de51b2e1d835249ec201eefc80d8a805487b82063c1989.json",
+  "settings_version": "sha256-00f46710febbeffcaa99d49d3c213aca305706921607db2269f04c5e33381d61.json",
+  "build_id": "1791467421",
+  "source_identity": {
+    "module_name": "hailuo-minimax.js",
+    "url": "https://syntx.ai/assets/1791467421/hailuo-minimax.js",
+    "bytes": 13501,
+    "sha256": "sha256:cb839f2df681fdd0043cb73a477fb4576aef830f37d6d87418b422a17e5a3cb9"
+  },
+  "source_fact_tree_sha256": "sha256:f70555b7b51db72e5f7d0eb33023945c9bdc1af59ea342a40a577a9d3d117f97",
+  "provenance": {
+    "client_fetch_utc_exact": null,
+    "client_fetch_utc_capture_status": "NOT_LATCHED_AT_FETCH",
+    "client_fetch_utc_estimate": "2026-10-09T01:45:33Z",
+    "response_date_utc": "2026-10-09T01:45:33Z",
+    "response_date_utc_role": "HTTP_DATE_ESTIMATE_ONLY",
+    "anonymous_get_count": 1,
+    "body_written_or_printed": false
+  },
+  "dynamic_selector": {
+    "source": "getModelsByAiName(provider_name).filter(model.value !== provider_name)",
+    "provider_name": "hailuo-minimax",
+    "membership_runtime_verified": false
+  },
+  "cohort": [
+    {
+      "model_id": "hailuo-01",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-01",
+        "label": "Hailuo-01"
+      },
+      "selector_binding": "DYNAMIC_SOURCE_CANDIDATE",
+      "resolution_candidates_status": "FINITE_UI_CANDIDATE",
+      "resolution_candidates": [
+        {
+          "value": "720p",
+          "durations": [
+            6
+          ]
+        }
+      ],
+      "duration_control": {
+        "kind": "select",
+        "values": [
+          6
+        ]
+      },
+      "form_reset_candidate": {
+        "resolution": "720p",
+        "video_duration": 6
+      },
+      "aspect_ratio_visibility": "UNKNOWN"
+    },
+    {
+      "model_id": "hailuo-01-director",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-01-director",
+        "label": "Hailuo-01 Director"
+      },
+      "selector_binding": "DYNAMIC_SOURCE_CANDIDATE",
+      "resolution_candidates_status": "FINITE_UI_CANDIDATE",
+      "resolution_candidates": [
+        {
+          "value": "720p",
+          "durations": [
+            6
+          ]
+        }
+      ],
+      "duration_control": {
+        "kind": "select",
+        "values": [
+          6
+        ]
+      },
+      "form_reset_candidate": {
+        "resolution": "720p",
+        "video_duration": 6
+      },
+      "aspect_ratio_visibility": "UNKNOWN"
+    },
+    {
+      "model_id": "hailuo-01-live",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-01-live",
+        "label": "Hailuo-01 Live"
+      },
+      "selector_binding": "DYNAMIC_SOURCE_CANDIDATE",
+      "resolution_candidates_status": "FINITE_UI_CANDIDATE",
+      "resolution_candidates": [
+        {
+          "value": "720p",
+          "durations": [
+            6
+          ]
+        }
+      ],
+      "duration_control": {
+        "kind": "select",
+        "values": [
+          6
+        ]
+      },
+      "form_reset_candidate": {
+        "resolution": "720p",
+        "video_duration": 6
+      },
+      "aspect_ratio_visibility": "UNKNOWN"
+    },
+    {
+      "model_id": "hailuo-01-live-character",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-01-live-character",
+        "label": "Hailuo-01 Live Character"
+      },
+      "selector_binding": "DYNAMIC_SOURCE_CANDIDATE",
+      "resolution_candidates_status": "FINITE_UI_CANDIDATE",
+      "resolution_candidates": [
+        {
+          "value": "720p",
+          "durations": [
+            6
+          ]
+        }
+      ],
+      "duration_control": {
+        "kind": "select",
+        "values": [
+          6
+        ]
+      },
+      "form_reset_candidate": {
+        "resolution": "720p",
+        "video_duration": 6
+      },
+      "aspect_ratio_visibility": "UNKNOWN"
+    },
+    {
+      "model_id": "hailuo-02",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-02",
+        "label": "Hailuo-02"
+      },
+      "selector_binding": "DYNAMIC_SOURCE_CANDIDATE",
+      "resolution_candidates_status": "FINITE_UI_CANDIDATE",
+      "resolution_candidates": [
+        {
+          "value": "512p",
+          "durations": [
+            6,
+            10
+          ]
+        },
+        {
+          "value": "768p",
+          "durations": [
+            6,
+            10
+          ]
+        },
+        {
+          "value": "1080p",
+          "durations": [
+            6
+          ]
+        }
+      ],
+      "duration_control": {
+        "kind": "select",
+        "values": [
+          6,
+          10
+        ]
+      },
+      "form_reset_candidate": {
+        "resolution": "768p",
+        "video_duration": 6
+      },
+      "aspect_ratio_visibility": "UNKNOWN"
+    },
+    {
+      "model_id": "hailuo-2.3",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-2.3",
+        "label": "Hailuo 2.3"
+      },
+      "selector_binding": "DYNAMIC_SOURCE_CANDIDATE",
+      "resolution_candidates_status": "FINITE_UI_CANDIDATE",
+      "resolution_candidates": [
+        {
+          "value": "768p",
+          "durations": [
+            6,
+            10
+          ]
+        },
+        {
+          "value": "1080p",
+          "durations": [
+            6
+          ]
+        }
+      ],
+      "duration_control": {
+        "kind": "select",
+        "values": [
+          6,
+          10
+        ]
+      },
+      "form_reset_candidate": {
+        "resolution": "768p",
+        "video_duration": 6
+      },
+      "aspect_ratio_visibility": "UNKNOWN"
+    },
+    {
+      "model_id": "hailuo-2.3-fast",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-2.3-fast",
+        "label": "Hailuo 2.3 Fast"
+      },
+      "selector_binding": "DYNAMIC_SOURCE_CANDIDATE",
+      "resolution_candidates_status": "FINITE_UI_CANDIDATE",
+      "resolution_candidates": [
+        {
+          "value": "768p",
+          "durations": [
+            6,
+            10
+          ]
+        },
+        {
+          "value": "1080p",
+          "durations": [
+            6
+          ]
+        }
+      ],
+      "duration_control": {
+        "kind": "select",
+        "values": [
+          6,
+          10
+        ]
+      },
+      "form_reset_candidate": {
+        "resolution": "768p",
+        "video_duration": 6
+      },
+      "aspect_ratio_visibility": "UNKNOWN"
+    },
+    {
+      "model_id": "hailuo-3.0",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-3.0",
+        "label": "Hailuo 3.0"
+      },
+      "selector_binding": "DYNAMIC_SOURCE_CANDIDATE",
+      "resolution_candidates_status": "FINITE_UI_CANDIDATE",
+      "resolution_candidates": [
+        {
+          "value": "768p",
+          "durations": [
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ]
+        },
+        {
+          "value": "2K",
+          "durations": [
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ]
+        }
+      ],
+      "duration_control": {
+        "kind": "integer_slider",
+        "min": 4,
+        "max": 15,
+        "step": 1,
+        "ui_reset_candidate": 5
+      },
+      "form_reset_candidate": {
+        "resolution": "2K",
+        "video_duration": 5
+      },
+      "aspect_ratio_visibility": "UNKNOWN"
+    },
+    {
+      "model_id": "hailuo-minimax",
+      "public_binding": {
+        "ai_name": "hailuo-minimax",
+        "value": "hailuo-minimax",
+        "label": "Hailuo MiniMax"
+      },
+      "selector_binding": "EXCLUDED_BY_VALUE_FILTER",
+      "resolution_candidates_status": "UNRESOLVED",
+      "resolution_candidates": [],
+      "duration_control": null,
+      "form_reset_candidate": null,
+      "aspect_ratio_visibility": "UNKNOWN"
+    }
+  ],
+  "unresolved": {
+    "aspect_ratio_per_model_visibility": "UNKNOWN",
+    "backend_defaults": "UNKNOWN",
+    "requiredness": "UNKNOWN",
+    "cost": "UNKNOWN",
+    "operation_id": "NOT_PRESENT_IN_PINNED_CATALOG"
+  },
+  "generated_at": "2026-10-09T02:35:36.733Z",
+  "reviewed_at": "2026-10-09T02:35:36Z"
+}

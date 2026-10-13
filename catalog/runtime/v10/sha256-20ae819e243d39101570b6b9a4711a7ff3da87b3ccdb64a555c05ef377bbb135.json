@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "kind": "STATIC_SFC_HELPER_GRAPH_RESULT",
+  "public_version": "sha256-666d92aa4baa59ae21c210f9296a23ef73a01f4a2af0ce7e4e3d9fa9c55e6293.json",
+  "settings_version": "sha256-38887915375c724b247ebe82e111b30f88c60c41f7d3e864bb43b4b38988cdec.json",
+  "observed_at": "2026-09-12T22:47:00.722Z",
+  "build_id": "1789134564",
+  "form_id": "veo-3",
+  "provider_source_path": "/src/components/chat/forms/settings/veo-3.vue",
+  "provider_source_sha256": "sha256:ddc014236434e16ccc996e9b97bb0b322eeab47117b7c19212e17a8d6286f7dc",
+  "provider": {
+    "javascript": {
+      "role": "PROVIDER_FORM",
+      "kind": "JAVASCRIPT",
+      "module_name": "veo-3.js",
+      "form_id": "veo-3",
+      "url": "https://syntx.ai/assets/1789134564/veo-3.js",
+      "content_type": "application/javascript",
+      "bytes": 17094,
+      "sha256": "sha256:af52ecacdef1167889bf81841f4f6e7324e69e9f49690f06c26a4b390c8bd868",
+      "source_map": null
+    },
+    "source_map": {
+      "role": "PROVIDER_FORM",
+      "kind": "SOURCE_MAP_V3",
+      "module_name": "veo-3.js",
+      "form_id": "veo-3",
+      "url": "https://syntx.ai/assets/1789134564/veo-3.js.map",
+      "content_type": "application/octet-stream",
+      "bytes": 50378,
+      "sha256": "sha256:455d44e946a75e957052c6186cccd38e8d17f67e61534bfaecc1d7f2edd03ce6",
+      "source_map": {
+        "version": 3,
+        "file": "veo-3.js",
+        "source_count": 2,
+        "sources_content_count": 2,
+        "settings_source_count": 2,
+        "settings_sources": [
+          {
+            "source_index": 0,
+            "source_path": "/src/components/chat/forms/settings/components/veo-3/VideoEditor.vue",
+            "source_content_sha256": "sha256:8f27f6585d3214b81f2c1127144c1533447fcbaecafbde384dc1b3c0862e7902"
+          },
+          {
+            "source_index": 1,
+            "source_path": "/src/components/chat/forms/settings/veo-3.vue",
+            "source_content_sha256": "sha256:ddc014236434e16ccc996e9b97bb0b322eeab47117b7c19212e17a8d6286f7dc"
+          }
+        ]
+      }
+    }
+  },
+  "graph": {
+    "profile": "STATIC_SFC_HELPER_GRAPH_V1",
+    "form_id": "veo-3",
+    "provider_source_sha256": "sha256:ddc014236434e16ccc996e9b97bb0b322eeab47117b7c19212e17a8d6286f7dc",
+    "nodes": [
+      {
+        "module_name": "veo-3.js",
+        "source_path": "/src/components/chat/forms/settings/veo-3.vue",
+        "source_content_sha256": "sha256:ddc014236434e16ccc996e9b97bb0b322eeab47117b7c19212e17a8d6286f7dc",
+        "relation": "PROVIDER_ROOT"
+      },
+      {
+        "module_name": "AiSelectTeleport.js",
+        "source_path": "/src/components/chat/forms/settings/components/AiSelectTeleport.vue",
+        "source_content_sha256": "sha256:41fbb062f7b09df23722d36914c775f96850c7156a850920e88138866934abd2",
+        "relation": "DIRECT_IMPORT"
+      },
+      {
+        "module_name": "cost2.js",
+        "source_path": "/src/components/chat/forms/settings/composables/cost.js",
+        "source_content_sha256": "sha256:c65330b9d3dcc4ce579278578ad209cee76ea970687ace80627a22e1ae7b1dcc",
+        "relation": "DIRECT_IMPORT"
+      },
+      {
+        "module_name": "SelectModel.js",
+        "source_path": "/src/components/chat/forms/settings/components/SelectModel.vue",
+        "source_content_sha256": "sha256:974e6001ad09b32d5abd22a0d6caf5d59d176c95fb3ffae95438ece81eaf5c26",
+        "relation": "DIRECT_IMPORT"
+      },
+      {
+        "module_name": "settings3.js",
+        "source_path": "/src/components/chat/forms/settings/composables/settings.js",
+        "source_content_sha256": "sha256:a3ed09629bd0e447d9f4b97a14afb222b5ae26f9f98af4b2d223dc985c8118e3",
+        "relation": "DIRECT_IMPORT"
+      },
+      {
+        "module_name": "FooterBack.js",
+        "source_path": "/src/components/chat/forms/settings/components/settings/components/FooterBack.vue",
+        "source_content_sha256": "sha256:3c5a63597967bb9af5a9b2cf74777a6faee30397dca34cb89df1c31a5620ac5d",
+        "relation": "DIRECT_IMPORT"
+      },
+      {
+        "module_name": "ReferenceCard.js",
+        "source_path": "/src/components/chat/forms/settings/components/wan-references/ReferenceCard.vue",
+        "source_content_sha256": "sha256:c00b74acff21d84516335807acc66b8f44458e02f8d3af803c5bb64101745840",
+        "relation": "DIRECT_IMPORT"
+      },
+      {
+        "module_name": "quality.js",
+        "source_path": "/src/components/chat/forms/settings/data/veo/quality.js",
+        "source_content_sha256": "sha256:a2c6bb5737cd35a6575f9dfe8295443b1cc24425fb9125937b99bcf666e1c345",
+        "relation": "DIRECT_IMPORT"
+      },
+      {
+        "module_name": "constants.js",
+        "source_path": "/src/components/chat/forms/settings/data/veo/constants.js",
+        "source_content_sha256": "sha256:5e827e6d8017603ac6e842c5d1092a470054e74c62d7f729779b825060694e48",
+        "relation": "DIRECT_IMPORT"
+      }
+    ],
+    "unresolved_imports": [
+      {
+        "specifier": "vue-i18n",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 2,
+          "column": 25
+        }
+      },
+      {
+        "specifier": "@S/ai/models",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 4,
+          "column": 34
+        }
+      },
+      {
+        "specifier": "vue-router",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 5,
+          "column": 26
+        }
+      },
+      {
+        "specifier": "@vueuse/core",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 6,
+          "column": 47
+        }
+      },
+      {
+        "specifier": "vue",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 7,
+          "column": 74
+        }
+      },
+      {
+        "specifier": "@S/ai/settings",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 10,
+          "column": 36
+        }
+      },
+      {
+        "specifier": "@S/ai/video",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 12,
+          "column": 33
+        }
+      },
+      {
+        "specifier": "@S/file-storage",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 13,
+          "column": 37
+        }
+      },
+      {
+        "specifier": "@S/ai/messages",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 14,
+          "column": 36
+        }
+      },
+      {
+        "specifier": "./components/AspectRatio",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 15,
+          "column": 25
+        }
+      },
+      {
+        "specifier": "./components/ImageCropper",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 16,
+          "column": 26
+        }
+      },
+      {
+        "specifier": "element-plus",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 17,
+          "column": 27
+        }
+      },
+      {
+        "specifier": "./components/settings/Layout",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 18,
+          "column": 20
+        }
+      },
+      {
+        "specifier": "./components/settings/Section",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 19,
+          "column": 21
+        }
+      },
+      {
+        "specifier": "./components/settings/Card",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 20,
+          "column": 18
+        }
+      },
+      {
+        "specifier": "@C/chat/forms/settings/components/veo-3/VideoEditor.vue",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 22,
+          "column": 25
+        }
+      },
+      {
+        "specifier": "@CO/useI2vReferences.js",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 24,
+          "column": 47
+        }
+      },
+      {
+        "specifier": "@/utils/index.js",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 32,
+          "column": 37
+        }
+      },
+      {
+        "specifier": "@S/file-attach",
+        "kind": "IMPORT_DECLARATION",
+        "locator": {
+          "line": 33,
+          "column": 36
+        }
+      }
+    ],
+    "blockers": [
+      "IMPORT_HELPER_NOT_DECLARED",
+      "IMPORT_NON_RELATIVE_UNRESOLVED"
+    ],
+    "runtime_usable": false,
+    "vendor_code_executed": false,
+    "source_persisted": false
+  },
+  "runtime_usable": false,
+  "vendor_code_executed": false,
+  "source_persisted": false
+}

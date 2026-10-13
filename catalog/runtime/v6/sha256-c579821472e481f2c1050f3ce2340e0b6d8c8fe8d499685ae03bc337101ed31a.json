@@ -1,0 +1,1172 @@
+{
+  "schema_version": 1,
+  "kind": "HELPER_CONSTANT_INITIALIZERS",
+  "public_version": "sha256-75fa89113113cd83447e36064aa871f91dda43d9c3c16fc5c1e96364f974d7b8.json",
+  "settings_version": "sha256-89e53b19ffe9af02c902e59be481b8c7245555c6f45aeaa3d56222e2ed539f62.json",
+  "observed_at": "2026-09-05T10:57:09.152Z",
+  "build_id": "1788524349",
+  "runtime_usable": false,
+  "closure": "OPEN",
+  "model_binding": "NOT_PROVEN",
+  "root_forms_compiled": false,
+  "toolchain": {
+    "scope": "RECORDED_FILES_ONLY",
+    "typescript_version": "5.9.3",
+    "files": [
+      {
+        "path": "dist/src/catalog/public-catalog-history.js",
+        "sha256": "sha256:12b6bba61173cbd2f2ca6caf58308c781173fd1b059d6e83e180f9b359b83d8e"
+      },
+      {
+        "path": "dist/src/catalog/settings-source-history.js",
+        "sha256": "sha256:b0b894a10a8792a526933aed87062c1803a0c63ca04486ecde92f8a3bf8a92cd"
+      },
+      {
+        "path": "dist/src/catalog/settings-source-inventory.js",
+        "sha256": "sha256:93cfcc170fd64ac40e3d98c77f2e0d91c0c9845f575e15a7ceab9384e9cc2a4a"
+      },
+      {
+        "path": "dist/src/catalog/syntx-public-catalog.js",
+        "sha256": "sha256:eeb015bf2425b07eb8a810219e182cb915e17beb9c767183b1b22a32a4ee4ebc"
+      },
+      {
+        "path": "dist/src/transports/is-main.js",
+        "sha256": "sha256:917c3237b1d0494832b11dfde52f9ee0a65dfc53c02511d1db25e1613daa3ef5"
+      },
+      {
+        "path": "dist/tools/settings-ir/immutable-json-snapshot.js",
+        "sha256": "sha256:83450c30d64add7c948ee8f4296954e001091c9947dab7dda9149ea462697fd1"
+      },
+      {
+        "path": "dist/tools/settings-ir/v6/helper-constants-result.js",
+        "sha256": "sha256:c4069e81ecd9b65a74729f28bc2a5094572ef78f29d48853983fb427bc403997"
+      },
+      {
+        "path": "dist/tools/settings-ir/v6/pinned-helper-bundle.js",
+        "sha256": "sha256:f396111e3c5131e6454dfadb3d0b94d34b5aeaae8baeed4f63c910a42b00b679"
+      },
+      {
+        "path": "dist/tools/settings-ir/v6/static-esm-constants.js",
+        "sha256": "sha256:9e86e0862712f16203cc0e2fcf92ec6c7fdd1893c4450c4b70e97361215304d0"
+      },
+      {
+        "path": "scripts/settings-helper-constants.mjs",
+        "sha256": "sha256:bcfe794d8f4728cd80a51d957d3fc391a94d5a8152452efd44e0ee7b6896f0b6"
+      },
+      {
+        "path": "src/catalog/public-catalog-history.ts",
+        "sha256": "sha256:36d49a26d69de06d594dbb4b30676b0586705384f2a06db2ae7932421f558504"
+      },
+      {
+        "path": "src/catalog/settings-source-history.ts",
+        "sha256": "sha256:4dbd6a1c2feac2dd6f48ec79e4d4d7e18b2b3ad3ca1081ccb0c5ec32f1e1280b"
+      },
+      {
+        "path": "src/catalog/settings-source-inventory.ts",
+        "sha256": "sha256:ee654a980bf762e311d14862e575fca4f2e957ac880c3d902c279ada3188f0b9"
+      },
+      {
+        "path": "src/catalog/syntx-public-catalog.ts",
+        "sha256": "sha256:a39510845fda7c75627285e468235ca7c5526b5bbe2c7fd910f7981c7149602f"
+      },
+      {
+        "path": "src/transports/is-main.ts",
+        "sha256": "sha256:60623b886f78077808cf913b9865e43cc41c544ca1a9f096004fd3e137b83b7d"
+      },
+      {
+        "path": "tools/settings-ir/immutable-json-snapshot.ts",
+        "sha256": "sha256:5302a7927c16e949e7ed54c773b3301260f60a10e16a30a334fca68f570c86f5"
+      },
+      {
+        "path": "tools/settings-ir/v6/helper-constants-result.ts",
+        "sha256": "sha256:1ca64e3a6af6c4543486155c981c1f9f1559ef2a506677e99ace1ce1b256f51f"
+      },
+      {
+        "path": "tools/settings-ir/v6/pinned-helper-bundle.ts",
+        "sha256": "sha256:5abeb9052b8d27834d1b75cbb81fca8f20b8443ae81d85f31e226fbe910a82c5"
+      },
+      {
+        "path": "tools/settings-ir/v6/static-esm-constants.ts",
+        "sha256": "sha256:4f0d157117225610076010048fb9e21942e0a1911edfed626e3f93363f07bd1a"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "module_name": "video.js",
+      "scope": {
+        "role": "DIRECT_SETTINGS_HELPER",
+        "form_id": null,
+        "module_name": "video.js",
+        "build": {
+          "id": "1788524349",
+          "base_url": "https://syntx.ai/assets/1788524349/"
+        },
+        "javascript": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "JAVASCRIPT",
+          "module_name": "video.js",
+          "url": "https://syntx.ai/assets/1788524349/video.js",
+          "content_type": "application/javascript",
+          "bytes": 3218,
+          "sha256": "sha256:766f91ef4986b5eca42d045f13b33d5a1d643acbbcc06afbd8e4e0772d96e183",
+          "source_map": null
+        },
+        "source_map": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "SOURCE_MAP_V3",
+          "module_name": "video.js",
+          "url": "https://syntx.ai/assets/1788524349/video.js.map",
+          "content_type": "application/octet-stream",
+          "bytes": 13252,
+          "sha256": "sha256:3c28fc59ba683af0846d6428c859c8daabf354afe8ca71c3d13d25a5f697c0f7",
+          "source_map": {
+            "version": 3,
+            "file": "video.js",
+            "source_count": 2,
+            "sources_content_count": 2,
+            "settings_source_count": 1,
+            "settings_sources": [
+              {
+                "source_index": 0,
+                "source_path": "/src/components/chat/forms/settings/data/hailuo/constants.js",
+                "source_content_sha256": "sha256:c26bb52ade40c3c9c696ede891a3d1de9f08fef34ae06fb2c8a7678138aa5243"
+              }
+            ]
+          }
+        }
+      },
+      "sources": [
+        {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/data/hailuo/constants.js",
+          "source_content_sha256": "sha256:c26bb52ade40c3c9c696ede891a3d1de9f08fef34ae06fb2c8a7678138aa5243",
+          "local_function_scopes": "NOT_REQUESTED",
+          "constants": {
+            "profile": "STATIC_ESM_CONSTANTS_V1",
+            "proof_scope": "DECLARATION_INITIALIZERS_ONLY",
+            "runtime_usable": false,
+            "vendor_code_executed": false,
+            "source_persisted": false,
+            "records": [
+              {
+                "scope": "module",
+                "name": "MINIMAX_MODEL_NAME",
+                "exported": true,
+                "locator": {
+                  "line": 1,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "hailuo-minimax"
+              },
+              {
+                "scope": "module",
+                "name": "RESOLUTION",
+                "exported": true,
+                "locator": {
+                  "line": 3,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "512p": "512p",
+                  "720p": "720p",
+                  "768p": "768p",
+                  "1080p": "1080p"
+                }
+              },
+              {
+                "scope": "module",
+                "name": "DURATION",
+                "exported": true,
+                "locator": {
+                  "line": 10,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "6s": 6,
+                  "10s": 10
+                }
+              },
+              {
+                "scope": "module",
+                "name": "MODEL",
+                "exported": true,
+                "locator": {
+                  "line": 15,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "01": "hailuo-01",
+                  "01_LIVE": "hailuo-01-live",
+                  "01_DIRECTOR": "hailuo-01-director",
+                  "02": "hailuo-02",
+                  "2_3": "hailuo-2.3",
+                  "2_3_FAST": "hailuo-2.3-fast",
+                  "3_0": "hailuo-3.0"
+                }
+              },
+              {
+                "scope": "module",
+                "name": "FIXED_MODELS",
+                "exported": true,
+                "locator": {
+                  "line": 25,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "MUTATION_OR_ESCAPE_REFERENCE"
+              },
+              {
+                "scope": "module",
+                "name": "MODEL_RESOLUTIONS",
+                "exported": true,
+                "locator": {
+                  "line": 31,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "MUTATION_OR_ESCAPE_REFERENCE"
+              },
+              {
+                "scope": "module",
+                "name": "RESOLUTION_DURATIONS",
+                "exported": true,
+                "locator": {
+                  "line": 40,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "512p": [
+                    6,
+                    10
+                  ],
+                  "720p": [
+                    6
+                  ],
+                  "768p": [
+                    6,
+                    10
+                  ],
+                  "1080p": [
+                    6
+                  ]
+                }
+              },
+              {
+                "scope": "module",
+                "name": "HAILUO_30",
+                "exported": true,
+                "locator": {
+                  "line": 47,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "MUTATION_OR_ESCAPE_REFERENCE"
+              },
+              {
+                "scope": "module",
+                "name": "MODE_OMNI_REFERENCES",
+                "exported": true,
+                "locator": {
+                  "line": 49,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "omni-references"
+              },
+              {
+                "scope": "module",
+                "name": "MODE_FRAMES",
+                "exported": true,
+                "locator": {
+                  "line": 50,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "frames"
+              },
+              {
+                "scope": "module",
+                "name": "MODES_30",
+                "exported": true,
+                "locator": {
+                  "line": 51,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "omni-references",
+                  "frames"
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "RESOLUTION_30_DEFAULT",
+                "exported": true,
+                "locator": {
+                  "line": 53,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "2K"
+              },
+              {
+                "scope": "module",
+                "name": "RESOLUTIONS_30",
+                "exported": true,
+                "locator": {
+                  "line": 54,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "768p",
+                  "2K"
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "AUTO_RATIO",
+                "exported": true,
+                "locator": {
+                  "line": 56,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "auto"
+              },
+              {
+                "scope": "module",
+                "name": "AUTO_RATIO_LABEL",
+                "exported": true,
+                "locator": {
+                  "line": 57,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "Auto"
+              },
+              {
+                "scope": "module",
+                "name": "DEFAULT_RATIO_30",
+                "exported": true,
+                "locator": {
+                  "line": 58,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "16:9"
+              },
+              {
+                "scope": "module",
+                "name": "RATIOS_30",
+                "exported": true,
+                "locator": {
+                  "line": 59,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "auto",
+                  "21:9",
+                  "16:9",
+                  "4:3",
+                  "1:1",
+                  "3:4",
+                  "9:16"
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "DURATION_30_MIN",
+                "exported": true,
+                "locator": {
+                  "line": 69,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 4
+              },
+              {
+                "scope": "module",
+                "name": "DURATION_30_MAX",
+                "exported": true,
+                "locator": {
+                  "line": 70,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 15
+              },
+              {
+                "scope": "module",
+                "name": "DURATION_30_DEFAULT",
+                "exported": true,
+                "locator": {
+                  "line": 71,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 5
+              },
+              {
+                "scope": "module",
+                "name": "OMNI_TOTAL_FILES_30",
+                "exported": true,
+                "locator": {
+                  "line": 73,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 12
+              },
+              {
+                "scope": "module",
+                "name": "OMNI_FILE_LIMIT_30",
+                "exported": true,
+                "locator": {
+                  "line": 75,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "images": 9,
+                  "videos": 3,
+                  "audios": 3,
+                  "total": 12
+                }
+              },
+              {
+                "scope": "module",
+                "name": "OMNI_MEDIA_TYPES_30",
+                "exported": true,
+                "locator": {
+                  "line": 81,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "images",
+                  "videos",
+                  "audios"
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "OMNI_MIN_VIDEO_SECONDS_30",
+                "exported": true,
+                "locator": {
+                  "line": 82,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 2
+              },
+              {
+                "scope": "module",
+                "name": "OMNI_MAX_VIDEO_SECONDS_30",
+                "exported": true,
+                "locator": {
+                  "line": 83,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 15
+              },
+              {
+                "scope": "module",
+                "name": "OMNI_MIN_AUDIO_SECONDS_30",
+                "exported": true,
+                "locator": {
+                  "line": 84,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 2
+              },
+              {
+                "scope": "module",
+                "name": "OMNI_MAX_AUDIO_SECONDS_30",
+                "exported": true,
+                "locator": {
+                  "line": 85,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 15
+              },
+              {
+                "scope": "module",
+                "name": "MAX_PROMPT_LENGTH_30",
+                "exported": true,
+                "locator": {
+                  "line": 87,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 7000
+              },
+              {
+                "scope": "module",
+                "name": "IMAGE_MIN_SIDE_30",
+                "exported": true,
+                "locator": {
+                  "line": 89,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 256
+              },
+              {
+                "scope": "module",
+                "name": "IMAGE_MAX_SIDE_30",
+                "exported": true,
+                "locator": {
+                  "line": 90,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 5760
+              },
+              {
+                "scope": "module",
+                "name": "IMAGE_MIN_ASPECT_RATIO_30",
+                "exported": true,
+                "locator": {
+                  "line": 91,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 0.4
+              },
+              {
+                "scope": "module",
+                "name": "IMAGE_MAX_ASPECT_RATIO_30",
+                "exported": true,
+                "locator": {
+                  "line": 92,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 2.5
+              },
+              {
+                "scope": "module",
+                "name": "MAX_FILE_SIZE_30",
+                "exported": true,
+                "locator": {
+                  "line": 94,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "images": 31457280,
+                  "videos": 52428800,
+                  "audios": 15728640
+                }
+              },
+              {
+                "scope": "module",
+                "name": "FRAMES_FILE_LIMIT_30",
+                "exported": true,
+                "locator": {
+                  "line": 99,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "images": 2
+                }
+              },
+              {
+                "scope": "module",
+                "name": "FRAMES_MEDIA_TYPES_30",
+                "exported": true,
+                "locator": {
+                  "line": 100,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "images"
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "isHailuo30",
+                "exported": true,
+                "locator": {
+                  "line": 102,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "module",
+                "name": "isHailuo30Frames",
+                "exported": true,
+                "locator": {
+                  "line": 104,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module_name": "useLuma.js",
+      "scope": {
+        "role": "DIRECT_SETTINGS_HELPER",
+        "form_id": null,
+        "module_name": "useLuma.js",
+        "build": {
+          "id": "1788524349",
+          "base_url": "https://syntx.ai/assets/1788524349/"
+        },
+        "javascript": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "JAVASCRIPT",
+          "module_name": "useLuma.js",
+          "url": "https://syntx.ai/assets/1788524349/useLuma.js",
+          "content_type": "application/javascript",
+          "bytes": 4865,
+          "sha256": "sha256:d1fed049e9fe327d39d1f0bdf031db6a00ca607ccf93c86afb7584693754ed17",
+          "source_map": null
+        },
+        "source_map": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "SOURCE_MAP_V3",
+          "module_name": "useLuma.js",
+          "url": "https://syntx.ai/assets/1788524349/useLuma.js.map",
+          "content_type": "application/octet-stream",
+          "bytes": 18765,
+          "sha256": "sha256:001e5ca594dc022ae1fd3ab0ed9010d978647100dd2a27ff8bcae1d2c00136f1",
+          "source_map": {
+            "version": 3,
+            "file": "useLuma.js",
+            "source_count": 2,
+            "sources_content_count": 2,
+            "settings_source_count": 2,
+            "settings_sources": [
+              {
+                "source_index": 0,
+                "source_path": "/src/components/chat/forms/settings/data/luma-image/payload.ts",
+                "source_content_sha256": "sha256:4be00fe1b5238dba8e45ed579f7bd4daadbbae97e006d223085c7896ac553996"
+              },
+              {
+                "source_index": 1,
+                "source_path": "/src/components/chat/forms/settings/composables/useLuma.js",
+                "source_content_sha256": "sha256:aa7a473ceaedf9f2373837dd1d95662d171495fa37ba619b57e226475d16840e"
+              }
+            ]
+          }
+        }
+      },
+      "sources": [
+        {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/data/luma-image/payload.ts",
+          "source_content_sha256": "sha256:4be00fe1b5238dba8e45ed579f7bd4daadbbae97e006d223085c7896ac553996",
+          "local_function_scopes": "NOT_REQUESTED",
+          "constants": {
+            "profile": "STATIC_ESM_CONSTANTS_V1",
+            "proof_scope": "DECLARATION_INITIALIZERS_ONLY",
+            "runtime_usable": false,
+            "vendor_code_executed": false,
+            "source_persisted": false,
+            "records": [
+              {
+                "scope": "module",
+                "name": "UNI_1_FIELDS",
+                "exported": false,
+                "locator": {
+                  "line": 11,
+                  "column": 7
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "model_type",
+                  "aspect_ratio",
+                  "seed",
+                  "mode"
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "FIELDS_BY_MODEL",
+                "exported": false,
+                "locator": {
+                  "line": 13,
+                  "column": 7
+                },
+                "status": "BLOCKED",
+                "blocker": "MUTATION_OR_ESCAPE_REFERENCE"
+              },
+              {
+                "scope": "module",
+                "name": "filterLumaImageSettings",
+                "exported": true,
+                "locator": {
+                  "line": 19,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              }
+            ]
+          }
+        },
+        {
+          "source_index": 1,
+          "source_path": "/src/components/chat/forms/settings/composables/useLuma.js",
+          "source_content_sha256": "sha256:aa7a473ceaedf9f2373837dd1d95662d171495fa37ba619b57e226475d16840e",
+          "local_function_scopes": "COMPILED",
+          "constants": {
+            "profile": "STATIC_ESM_CONSTANTS_V1",
+            "proof_scope": "DECLARATION_INITIALIZERS_ONLY",
+            "runtime_usable": false,
+            "vendor_code_executed": false,
+            "source_persisted": false,
+            "records": [
+              {
+                "scope": "module",
+                "name": "LUMA_SCOPE",
+                "exported": true,
+                "locator": {
+                  "line": 13,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "image"
+              },
+              {
+                "scope": "module",
+                "name": "LUMA_AI_NAME",
+                "exported": true,
+                "locator": {
+                  "line": 14,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "luma_image"
+              },
+              {
+                "scope": "module",
+                "name": "LUMA_MODEL_CONFIG",
+                "exported": true,
+                "locator": {
+                  "line": 16,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "uni-1": {
+                    "fileCountLimit": 9,
+                    "promptPolicy": "required",
+                    "fileMentions": true,
+                    "showAspectRatio": true,
+                    "showStyle": true,
+                    "showMainImage": false,
+                    "showInvertMask": false,
+                    "showSeed": true
+                  },
+                  "uni-1.1-modify-image": {
+                    "fileCountLimit": 8,
+                    "promptPolicy": "required",
+                    "fileMentions": true,
+                    "showAspectRatio": false,
+                    "showStyle": true,
+                    "showMainImage": true,
+                    "showInvertMask": false,
+                    "showSeed": true
+                  },
+                  "uni-1.1-remove-background": {
+                    "fileCountLimit": 1,
+                    "promptPolicy": "optional",
+                    "placeholder": "chat.input.luma-image-placeholder-removeBackground",
+                    "fileMentions": false,
+                    "showAspectRatio": false,
+                    "showStyle": false,
+                    "showMainImage": false,
+                    "showInvertMask": true,
+                    "showSeed": false
+                  }
+                }
+              },
+              {
+                "scope": "module",
+                "name": "getFileUrl",
+                "exported": false,
+                "locator": {
+                  "line": 52,
+                  "column": 7
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "module",
+                "name": "splitLumaModifyRetryFiles",
+                "exported": true,
+                "locator": {
+                  "line": 57,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "module",
+                "name": "sameFiles",
+                "exported": false,
+                "locator": {
+                  "line": 78,
+                  "column": 7
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "module",
+                "name": "hasRequiredLumaFiles",
+                "exported": true,
+                "locator": {
+                  "line": 82,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "module",
+                "name": "useLumaSettings",
+                "exported": true,
+                "locator": {
+                  "line": 95,
+                  "column": 1
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "module",
+                "name": "useLumaFiles",
+                "exported": true,
+                "locator": {
+                  "line": 343,
+                  "column": 1
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "t",
+                "exported": false,
+                "locator": {
+                  "line": 96,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "DESTRUCTURING_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "$aiModelsStore",
+                "exported": false,
+                "locator": {
+                  "line": 98,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "$aiSettingsStore",
+                "exported": false,
+                "locator": {
+                  "line": 99,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "$aiImageStore",
+                "exported": false,
+                "locator": {
+                  "line": 100,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "defaultSettings",
+                "exported": false,
+                "locator": {
+                  "line": 102,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "OPTIONAL_ACCESS_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "mainImage",
+                "exported": false,
+                "locator": {
+                  "line": 111,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "selectedModel",
+                "exported": false,
+                "locator": {
+                  "line": 150,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "modelConfig",
+                "exported": false,
+                "locator": {
+                  "line": 152,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "resetMainImage",
+                "exported": false,
+                "locator": {
+                  "line": 156,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "restoreModifyImageRetryFiles",
+                "exported": false,
+                "locator": {
+                  "line": 162,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "setDefault",
+                "exported": false,
+                "locator": {
+                  "line": 170,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "DESTRUCTURING_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "checkSettingAvailability",
+                "exported": false,
+                "locator": {
+                  "line": 170,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "DESTRUCTURING_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "setSettingsByModel",
+                "exported": false,
+                "locator": {
+                  "line": 170,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "DESTRUCTURING_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "resetPartial",
+                "exported": false,
+                "locator": {
+                  "line": 170,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "DESTRUCTURING_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "models",
+                "exported": false,
+                "locator": {
+                  "line": 177,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "styleOptions",
+                "exported": false,
+                "locator": {
+                  "line": 186,
+                  "column": 9
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  {
+                    "label": "Auto",
+                    "value": "auto"
+                  },
+                  {
+                    "label": "Manga",
+                    "value": "manga"
+                  }
+                ]
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "settingsGroups",
+                "exported": false,
+                "locator": {
+                  "line": 191,
+                  "column": 9
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "format": [
+                    "aspect_ratio"
+                  ],
+                  "style": [
+                    "mode",
+                    "mref"
+                  ],
+                  "additional": [
+                    "invert_mask",
+                    "seed"
+                  ]
+                }
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "checkGroupChanged",
+                "exported": false,
+                "locator": {
+                  "line": 197,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "isFormatChanged",
+                "exported": false,
+                "locator": {
+                  "line": 205,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "isStyleChanged",
+                "exported": false,
+                "locator": {
+                  "line": 209,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "isAdditionalChanged",
+                "exported": false,
+                "locator": {
+                  "line": 213,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "portraitRatios",
+                "exported": false,
+                "locator": {
+                  "line": 259,
+                  "column": 9
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "9:16",
+                  "2:3",
+                  "1:2",
+                  "1:3"
+                ]
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "ratios",
+                "exported": false,
+                "locator": {
+                  "line": 261,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "useLumaSettings",
+                "name": "sectionsList",
+                "exported": false,
+                "locator": {
+                  "line": 307,
+                  "column": 9
+                },
+                "status": "BLOCKED",
+                "blocker": "EXPRESSION_NOT_INTERPRETED"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

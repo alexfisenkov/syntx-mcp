@@ -1,0 +1,478 @@
+{
+  "schema_version": 1,
+  "kind": "VIDEO_HELPER_STATIC_EXTRACTION",
+  "public_version": "sha256-666d92aa4baa59ae21c210f9296a23ef73a01f4a2af0ce7e4e3d9fa9c55e6293.json",
+  "settings_version": "sha256-38887915375c724b247ebe82e111b30f88c60c41f7d3e864bb43b4b38988cdec.json",
+  "observed_at": "2026-09-12T22:23:40.727Z",
+  "build_id": "1789134564",
+  "runtime_usable": false,
+  "closure": "OPEN",
+  "model_binding": "NOT_PROVEN",
+  "proof_scope": "DECLARATION_INITIALIZERS_ONLY",
+  "modules": [
+    {
+      "module_name": "constants.js",
+      "scope": {
+        "role": "DIRECT_SETTINGS_HELPER",
+        "form_id": null,
+        "module_name": "constants.js",
+        "build": {
+          "id": "1789134564",
+          "base_url": "https://syntx.ai/assets/1789134564/"
+        },
+        "javascript": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "JAVASCRIPT",
+          "module_name": "constants.js",
+          "url": "https://syntx.ai/assets/1789134564/constants.js",
+          "content_type": "application/javascript",
+          "bytes": 213,
+          "sha256": "sha256:135925cf506243dec0c2fd5ede32ad6d6d8795f85791f7e8e3db4c13490b3eeb",
+          "source_map": null
+        },
+        "source_map": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "SOURCE_MAP_V3",
+          "module_name": "constants.js",
+          "url": "https://syntx.ai/assets/1789134564/constants.js.map",
+          "content_type": "application/octet-stream",
+          "bytes": 1521,
+          "sha256": "sha256:09626667e4d07a6d3334967f4ab0939ba9eb558c741c4ee72babc7d5b77f0b77",
+          "source_map": {
+            "version": 3,
+            "file": "constants.js",
+            "source_count": 1,
+            "sources_content_count": 1,
+            "settings_source_count": 1,
+            "settings_sources": [
+              {
+                "source_index": 0,
+                "source_path": "/src/components/chat/forms/settings/data/veo/constants.js",
+                "source_content_sha256": "sha256:5e827e6d8017603ac6e842c5d1092a470054e74c62d7f729779b825060694e48"
+              }
+            ]
+          }
+        }
+      },
+      "sources": [
+        {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/data/veo/constants.js",
+          "source_content_sha256": "sha256:5e827e6d8017603ac6e842c5d1092a470054e74c62d7f729779b825060694e48",
+          "local_function_scopes": "NOT_REQUESTED",
+          "constants": {
+            "profile": "STATIC_ESM_CONSTANTS_V1",
+            "proof_scope": "DECLARATION_INITIALIZERS_ONLY",
+            "runtime_usable": false,
+            "vendor_code_executed": false,
+            "source_persisted": false,
+            "records": [
+              {
+                "scope": "module",
+                "name": "VEO_3_FAST_RELAX",
+                "exported": true,
+                "locator": {
+                  "line": 1,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "veo3fast_r"
+              },
+              {
+                "scope": "module",
+                "name": "VEO_OMNI",
+                "exported": true,
+                "locator": {
+                  "line": 2,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "veo_omni"
+              },
+              {
+                "scope": "module",
+                "name": "VEO_OMNI_MODE_VIDEO_REF",
+                "exported": true,
+                "locator": {
+                  "line": 5,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "video_ref"
+              },
+              {
+                "scope": "module",
+                "name": "VEO_OMNI_DURATIONS",
+                "exported": true,
+                "locator": {
+                  "line": 8,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  4,
+                  6,
+                  8,
+                  10
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "OMNI_FREE_DURATIONS_BY_UPSCALE",
+                "exported": false,
+                "locator": {
+                  "line": 12,
+                  "column": 7
+                },
+                "status": "BLOCKED",
+                "blocker": "MUTATION_OR_ESCAPE_REFERENCE"
+              },
+              {
+                "scope": "module",
+                "name": "isVeoOmniFreeCombo",
+                "exported": true,
+                "locator": {
+                  "line": 21,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module_name": "quality.js",
+      "scope": {
+        "role": "DIRECT_SETTINGS_HELPER",
+        "form_id": null,
+        "module_name": "quality.js",
+        "build": {
+          "id": "1789134564",
+          "base_url": "https://syntx.ai/assets/1789134564/"
+        },
+        "javascript": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "JAVASCRIPT",
+          "module_name": "quality.js",
+          "url": "https://syntx.ai/assets/1789134564/quality.js",
+          "content_type": "application/javascript",
+          "bytes": 132,
+          "sha256": "sha256:7a38ef339db6700d1ccf7fe5a5be23e56722144f216e1db29bf7ff07b8849bf4",
+          "source_map": null
+        },
+        "source_map": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "SOURCE_MAP_V3",
+          "module_name": "quality.js",
+          "url": "https://syntx.ai/assets/1789134564/quality.js.map",
+          "content_type": "application/octet-stream",
+          "bytes": 998,
+          "sha256": "sha256:348e30bcc4857df1150e2a747a48d659907a8488c6f6ec31edb3c5a44aea3cba",
+          "source_map": {
+            "version": 3,
+            "file": "quality.js",
+            "source_count": 1,
+            "sources_content_count": 1,
+            "settings_source_count": 1,
+            "settings_sources": [
+              {
+                "source_index": 0,
+                "source_path": "/src/components/chat/forms/settings/data/veo/quality.js",
+                "source_content_sha256": "sha256:a2c6bb5737cd35a6575f9dfe8295443b1cc24425fb9125937b99bcf666e1c345"
+              }
+            ]
+          }
+        }
+      },
+      "sources": [
+        {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/data/veo/quality.js",
+          "source_content_sha256": "sha256:a2c6bb5737cd35a6575f9dfe8295443b1cc24425fb9125937b99bcf666e1c345",
+          "local_function_scopes": "NOT_REQUESTED",
+          "constants": {
+            "profile": "STATIC_ESM_CONSTANTS_V1",
+            "proof_scope": "DECLARATION_INITIALIZERS_ONLY",
+            "runtime_usable": false,
+            "vendor_code_executed": false,
+            "source_persisted": false,
+            "records": [
+              {
+                "scope": "module",
+                "name": "VEO_QUALITY_LABELS",
+                "exported": true,
+                "locator": {
+                  "line": 4,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": {
+                  "0": "720p",
+                  "1": "1080p",
+                  "2": "4K",
+                  "3": "360p Draft"
+                }
+              },
+              {
+                "scope": "module",
+                "name": "getVeoQualityOptions",
+                "exported": true,
+                "locator": {
+                  "line": 12,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "module_name": "constants2.js",
+      "scope": {
+        "role": "DIRECT_SETTINGS_HELPER",
+        "form_id": null,
+        "module_name": "constants2.js",
+        "build": {
+          "id": "1789134564",
+          "base_url": "https://syntx.ai/assets/1789134564/"
+        },
+        "javascript": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "JAVASCRIPT",
+          "module_name": "constants2.js",
+          "url": "https://syntx.ai/assets/1789134564/constants2.js",
+          "content_type": "application/javascript",
+          "bytes": 254,
+          "sha256": "sha256:02a83baaef8976bf755e4cb6460419cdb8f6e7d07aa5ef7728412699a9f942e4",
+          "source_map": null
+        },
+        "source_map": {
+          "role": "DIRECT_SETTINGS_HELPER",
+          "form_id": null,
+          "kind": "SOURCE_MAP_V3",
+          "module_name": "constants2.js",
+          "url": "https://syntx.ai/assets/1789134564/constants2.js.map",
+          "content_type": "application/octet-stream",
+          "bytes": 1391,
+          "sha256": "sha256:e953ea9f1cafde35b5d536bee829c8ceac7573cccca117a478e8e2463eb11399",
+          "source_map": {
+            "version": 3,
+            "file": "constants2.js",
+            "source_count": 1,
+            "sources_content_count": 1,
+            "settings_source_count": 1,
+            "settings_sources": [
+              {
+                "source_index": 0,
+                "source_path": "/src/components/chat/forms/settings/data/seedance/constants.js",
+                "source_content_sha256": "sha256:4abf1c3960055a9de7ba562f084981d2f3db467487d97cd92cce14db5fa581d9"
+              }
+            ]
+          }
+        }
+      },
+      "sources": [
+        {
+          "source_index": 0,
+          "source_path": "/src/components/chat/forms/settings/data/seedance/constants.js",
+          "source_content_sha256": "sha256:4abf1c3960055a9de7ba562f084981d2f3db467487d97cd92cce14db5fa581d9",
+          "local_function_scopes": "NOT_REQUESTED",
+          "constants": {
+            "profile": "STATIC_ESM_CONSTANTS_V1",
+            "proof_scope": "DECLARATION_INITIALIZERS_ONLY",
+            "runtime_usable": false,
+            "vendor_code_executed": false,
+            "source_persisted": false,
+            "records": [
+              {
+                "scope": "module",
+                "name": "SEEDANCE_25",
+                "exported": true,
+                "locator": {
+                  "line": 1,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "seedance-2.5"
+              },
+              {
+                "scope": "module",
+                "name": "SEEDANCE_20",
+                "exported": true,
+                "locator": {
+                  "line": 2,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "seedance-2.0"
+              },
+              {
+                "scope": "module",
+                "name": "MODE_OMNI_REFERENCES",
+                "exported": true,
+                "locator": {
+                  "line": 4,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "omni-references"
+              },
+              {
+                "scope": "module",
+                "name": "MODE_FRAMES",
+                "exported": true,
+                "locator": {
+                  "line": 5,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "frames"
+              },
+              {
+                "scope": "module",
+                "name": "MODE_EDIT",
+                "exported": true,
+                "locator": {
+                  "line": 6,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "edit"
+              },
+              {
+                "scope": "module",
+                "name": "MODE_EXTEND",
+                "exported": true,
+                "locator": {
+                  "line": 7,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "extend"
+              },
+              {
+                "scope": "module",
+                "name": "MODES_25",
+                "exported": true,
+                "locator": {
+                  "line": 8,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "omni-references",
+                  "frames",
+                  "extend",
+                  "edit"
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "ADAPTIVE_RATIO",
+                "exported": true,
+                "locator": {
+                  "line": 15,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": "adaptive"
+              },
+              {
+                "scope": "module",
+                "name": "DURATION_AUTO",
+                "exported": true,
+                "locator": {
+                  "line": 17,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 0
+              },
+              {
+                "scope": "module",
+                "name": "DURATION_25_MIN",
+                "exported": true,
+                "locator": {
+                  "line": 18,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 4
+              },
+              {
+                "scope": "module",
+                "name": "DURATION_25_MAX",
+                "exported": true,
+                "locator": {
+                  "line": 19,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 30
+              },
+              {
+                "scope": "module",
+                "name": "DURATION_25_DEFAULT",
+                "exported": true,
+                "locator": {
+                  "line": 20,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": 5
+              },
+              {
+                "scope": "module",
+                "name": "RESOLUTIONS_25",
+                "exported": true,
+                "locator": {
+                  "line": 22,
+                  "column": 14
+                },
+                "status": "STATIC_VALUE",
+                "value": [
+                  "480p",
+                  "720p",
+                  "1080p"
+                ]
+              },
+              {
+                "scope": "module",
+                "name": "isSeedance25",
+                "exported": true,
+                "locator": {
+                  "line": 24,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              },
+              {
+                "scope": "module",
+                "name": "isSeedance25Frames",
+                "exported": true,
+                "locator": {
+                  "line": 26,
+                  "column": 14
+                },
+                "status": "BLOCKED",
+                "blocker": "FUNCTION_NOT_INTERPRETED"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

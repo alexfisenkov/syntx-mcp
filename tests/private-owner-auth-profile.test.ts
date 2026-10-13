@@ -145,7 +145,9 @@ test("private profile configuration rejects repo, root, control-character, symli
 
 test("repository profile paths are rejected before any database is opened", (t) => {
   const { root, keyFilePath } = createProfileFixture(t);
-  const insideRepository = mkdtempSync(join(process.cwd(), ".черновики", "owner-auth-scope-"));
+  const draftsDirectory = join(process.cwd(), ".черновики");
+  mkdirSync(draftsDirectory, { recursive: true, mode: 0o700 });
+  const insideRepository = mkdtempSync(join(draftsDirectory, "owner-auth-scope-"));
   chmodSync(insideRepository, 0o700);
   t.after(() => rmSync(insideRepository, { recursive: true, force: true }));
   assert.throws(() => resolvePrivateOwnerAuthProfileConfig({

@@ -31,6 +31,15 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Prepare private synthetic test temporary directory
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24.21.0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci_temp="$HOME/syntx-ci-tmp-${{ github.run_id }}-${{ github.run_attempt }}"
+          mkdir -m 700 "$ci_temp"
+          printf 'TMPDIR=%s\n' "$ci_temp" >> "$GITHUB_ENV"
+
       - name: Install pinned Gitleaks for the full synthetic suite
         if: matrix.os == 'ubuntu-latest' && matrix.node == '24.21.0'
         shell: bash

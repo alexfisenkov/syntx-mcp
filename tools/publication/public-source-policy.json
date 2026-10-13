@@ -11,6 +11,7 @@
     "tools"
   ],
   "included_files": [
+    ".gitattributes",
     ".gitleaks.toml",
     "LICENSE",
     "package-lock.json",

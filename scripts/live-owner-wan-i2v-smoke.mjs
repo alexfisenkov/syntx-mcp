@@ -29,7 +29,9 @@ if (process.argv.length !== 3 || process.argv[2] !== CONFIRM_FLAG) {
 }
 
 async function run() {
+  stage = "platform";
   if (process.platform !== "darwin") throw new Error("unsupported platform");
+  stage = "runtime";
   const runtime = createObservedOwnerRuntime({ requestTimeoutMs: 30_000 });
   const server = createMcpServer(runtime.application, runtime.serverOptions);
   const client = new Client({ name: "syntx-owner-wan-i2v-smoke", version: "1" });

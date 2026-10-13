@@ -103,7 +103,7 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
   assert.equal(server.command, "/node/bin/node");
   assert.equal(server.args.length, 1);
   assert.equal(server.args[0], resolve(SCRIPT_PATH, "..", "..", "dist", "src", "transports", "stdio-owner.js"));
-  assert.equal(server.args[0].endsWith("dist/src/transports/stdio-owner.js"), true);
+  assert.equal(server.args[0].endsWith(join("dist", "src", "transports", "stdio-owner.js")), true);
   assert.deepEqual(Object.fromEntries(ENABLED_FLAGS.map((flag) => [flag, server.env[flag]])),
     Object.fromEntries(ENABLED_FLAGS.map((flag) => [flag, "1"])));
   assert.deepEqual(Object.fromEntries(DISABLED_FLAGS.map((flag) => [flag, server.env[flag]])),
@@ -312,7 +312,27 @@ test("package smoke requires a separate installed Video2Audio synthetic SDK flow
   assert.ok(checker.includes("video2audio_installed="), "Video2Audio synthetic checker summary prefix is missing");
 });
 
-test("isolated Luma, Hailuo, Director, and Hailuo 2.3 SDK fixtures verify synthetic flows and void AuthStore close", async () => {
+test("Node24-pinned installed SDK fixtures verify all synthetic flows; other versions assert the explicit guard", async () => {
+  if (process.versions.node !== "24.21.0") {
+    const [luma, hailuo, director, hailuo23] = await Promise.all([
+      import("../scripts/check-installed-luma-t2v-flow.mjs"),
+      import("../scripts/check-installed-hailuo01-t2v-flow.mjs"),
+      import("../scripts/check-installed-hailuo01-director-t2v-flow.mjs"),
+      import("../scripts/check-installed-hailuo23-t2v-flow.mjs")
+    ]);
+    const probePath = resolve(tmpdir(), "node24-pinned-checker-version-probe");
+    const checks = [
+      [luma.assertInstalledLumaT2vFlow, "INSTALLED_LUMA_T2V_NODE24_21_REQUIRED"],
+      [hailuo.assertInstalledHailuo01T2vFlow, "INSTALLED_HAILUO01_T2V_NODE24_21_REQUIRED"],
+      [director.assertInstalledHailuo01DirectorT2vFlow, "INSTALLED_HAILUO01_DIRECTOR_T2V_NODE24_21_REQUIRED"],
+      [hailuo23.assertInstalledHailuo23T2vFlow, "INSTALLED_HAILUO23_T2V_NODE24_21_REQUIRED"]
+    ];
+    for (const [check, code] of checks) {
+      await assert.rejects(() => check(probePath, probePath, new Set()), (error) => error?.code === code);
+    }
+    return;
+  }
+
   const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
   const temporaryRoot = mkdtempSync(join(tmpdir(), "luma-t2v-isolated-checker-"));
   const isolatedPackage = join(temporaryRoot, "package");
@@ -522,5 +542,64 @@ test("isolated Luma, Hailuo, Director, and Hailuo 2.3 SDK fixtures verify synthe
       /^video2audio_installed=ISOLATED_VIDEO2AUDIO_SYNTHETIC_CALLTOOL_PASS/u);
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test("compiled MCP startup, initialize, and tools/list remain network-free on supported Node versions", async () => {
+  const [runtimeModule, serverModule, sdkClientModule, sdkTransportModule, sdkStdioModule] = await Promise.all([
+    import("../dist/src/runtime/observed-owner-runtime.js"),
+    import("../dist/src/mcp/server.js"),
+    import("@modelcontextprotocol/sdk/client/index.js"),
+    import("@modelcontextprotocol/sdk/inMemory.js"),
+    import("@modelcontextprotocol/sdk/client/stdio.js")
+  ]);
+  let networkCalls = 0;
+  const runtime = runtimeModule.createObservedOwnerRuntime({
+    fetchImpl: async () => {
+      networkCalls += 1;
+      throw new Error("MCP initialization and tools/list must be local-only.");
+    }
+  });
+  const server = serverModule.createMcpServer(runtime.application, runtime.serverOptions);
+  const client = new sdkClientModule.Client({ name: "cross-version-startup-smoke", version: "1.0.0" }, { capabilities: {} });
+  const [clientTransport, serverTransport] = sdkTransportModule.InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    assert.equal(client.getServerVersion()?.name, "syntx-mcp");
+    assert.equal(typeof client.getServerVersion()?.version, "string");
+    const names = (await client.listTools()).tools.map(({ name }) => name);
+    assert.equal(names.includes("syntx_search_models"), true);
+    assert.equal(names.includes("syntx_owner_generate_luma_t2v"), false);
+    assert.equal(networkCalls, 0);
+  } finally {
+    await client.close();
+    await server.close();
+    if (typeof runtime.authStore?.close === "function") await Promise.resolve(runtime.authStore.close());
+  }
+
+  const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+  const stdioOwnerPath = join(projectRoot, "dist", "src", "transports", "stdio-owner.js");
+  const permittedChildEnvironment = new Set([
+    "path", "systemroot", "windir", "temp", "tmp", "userprofile", "appdata", "localappdata", "comspec", "pathext"
+  ]);
+  const childEnvironment = Object.fromEntries(Object.entries(process.env)
+    .filter(([name]) => permittedChildEnvironment.has(name.toLowerCase())));
+  const stdioTransport = new sdkStdioModule.StdioClientTransport({
+    command: process.execPath,
+    args: [stdioOwnerPath],
+    cwd: projectRoot,
+    env: childEnvironment,
+    stderr: "pipe"
+  });
+  const stdioClient = new sdkClientModule.Client({ name: "cross-version-stdio-startup-smoke", version: "1.0.0" }, { capabilities: {} });
+  try {
+    await stdioClient.connect(stdioTransport);
+    assert.equal(stdioClient.getServerVersion()?.name, "syntx-mcp");
+    const stdioNames = (await stdioClient.listTools()).tools.map(({ name }) => name);
+    assert.equal(stdioNames.includes("syntx_search_models"), true);
+    assert.equal(stdioNames.includes("syntx_owner_generate_luma_t2v"), false);
+  } finally {
+    await stdioClient.close();
   }
 });

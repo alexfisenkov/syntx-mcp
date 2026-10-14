@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test dist/tests/owner-kling-i2v-parameters.test.js dist/tests/owner-kling-i2v-input-policy.test.js dist/tests/owner-kling-i2v-wire-source.test.js dist/tests/owner-kling-i2v-reference-service.test.js dist/tests/owner-kling-i2v-reference-capture.test.js dist/tests/owner-kling-i2v-generation-context.test.js dist/tests/owner-kling-i2v-generation-service.test.js dist/tests/owner-kling-i2v-tools.test.js dist/tests/owner-kling-i2v-runtime-composition.test.js tests/owner-kling-i2v-media-config.test.mjs",
+    "test:media:changed": "node --test dist/tests/uploaded-files-response-budget-1380.test.js",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

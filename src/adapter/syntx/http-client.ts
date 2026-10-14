@@ -27,6 +27,8 @@ const RESERVED_PARAMETER_KEYS = new Set([
   "constructor"
 ]);
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const DEFAULT_MAX_RESPONSE_BYTES = 64 * 1024;
+const DEFAULT_UPLOADED_FILES_MAX_RESPONSE_BYTES = 256 * 1024;
 const SAFE_UPLOAD_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/u;
 const UPLOAD_MIME_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp",
@@ -217,12 +219,14 @@ export class SyntxHttpClient {
   readonly #fetch: typeof fetch;
   readonly #requestTimeoutMs: number;
   readonly #maxResponseBytes: number;
+  readonly #uploadedFilesMaxResponseBytes: number;
 
   constructor(options: SyntxHttpClientOptions) {
     this.#credentialBroker = options.credentialBroker;
     this.#fetch = options.fetchImpl ?? globalThis.fetch;
     this.#requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
-    this.#maxResponseBytes = options.maxResponseBytes ?? 64 * 1024;
+    this.#maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    this.#uploadedFilesMaxResponseBytes = options.maxResponseBytes ?? DEFAULT_UPLOADED_FILES_MAX_RESPONSE_BYTES;
 
     if (
       !Number.isInteger(this.#requestTimeoutMs) ||
@@ -290,7 +294,7 @@ export class SyntxHttpClient {
           ...(item.created_at === undefined ? {} : { created_at: item.created_at })
         }))
       };
-    }, signal);
+    }, signal, JSON.parse, this.#uploadedFilesMaxResponseBytes);
   }
 
   async listElevenLabsVoices(
@@ -386,7 +390,8 @@ export class SyntxHttpClient {
     url: URL,
     decode: (raw: unknown) => T,
     signal?: AbortSignal,
-    parse: (text: string) => unknown = JSON.parse
+    parse: (text: string) => unknown = JSON.parse,
+    responseByteLimit = this.#maxResponseBytes
   ): Promise<T> {
     const deadline = new AbsoluteRequestDeadline(
       this.#requestTimeoutMs,
@@ -399,7 +404,7 @@ export class SyntxHttpClient {
         async (credential) => {
           deadline.throwIfAborted();
           validateCredential(credential);
-          return this.#request(url, credential, deadline, decode, parse);
+          return this.#request(url, credential, deadline, decode, parse, responseByteLimit);
         }
       );
       return await deadline.waitFor(brokerOperation);
@@ -419,7 +424,8 @@ export class SyntxHttpClient {
     credential: string,
     deadline: AbsoluteRequestDeadline,
     decode: (raw: unknown) => T,
-    parse: (text: string) => unknown
+    parse: (text: string) => unknown,
+    responseByteLimit: number
   ): Promise<T> {
     assertReadUrl(url);
 
@@ -466,7 +472,7 @@ export class SyntxHttpClient {
       const bytes = await deadline.waitFor(
         readBoundedBody(
           response,
-          this.#maxResponseBytes,
+          responseByteLimit,
           deadline.signal
         )
       );

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "9829fc03477f58c4c96289391403091b9bcd1ef6",
+  "source_commit": "3ecbac16e21129a827313ba3ed765e9f0829411a",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2540,7 +2540,7 @@
     "tests/owner-wan27-r2v-native-upload-1528.test.ts": "5fedf0dfdff87cb4a20784890b6757d0c6c2018bacdd3759b32b4f65dd9d16fd",
     "tests/owner-wan27-r2v-original-probe-1519.test.ts": "505e210892ed73e20466ca6832f8488c1236766a5ad2da3f613dbba9e94cdd28",
     "tests/owner-wan27-r2v-reference-service-1534.test.ts": "07829e82c6ebd86a48b4690a414f4badff8d7d1ce2e567ef641a83044373dd1d",
-    "tests/owner-wan27-r2v-video-crop-1525.test.ts": "fdbe3985ba7fe2410e462392340943edc67ef29df70c4d76cb7b16c7d5a8c3f2",
+    "tests/owner-wan27-r2v-video-crop-1525.test.ts": "27420d2dd0334be56976e608402afd3d1f4e8f522bc7191ca5b23a3b0217888f",
     "tests/owner-wan27-r2v-video-selection-1522.test.ts": "2469d342353fe456bfc2598a52fefc0035d85b1f15513eb2470e850cb1811c92",
     "tests/package-install-image-family-admission.test.mjs": "e5031f29f4236bc2689b1dfd4c0d739197265ca061a6949ee9784ea7e8a3ba3a",
     "tests/package-install-kontext-smoke.test.mjs": "158975f7fb491fbab354c02af03c08902809cd54e6a977141ce0f2d8a3c6788e",

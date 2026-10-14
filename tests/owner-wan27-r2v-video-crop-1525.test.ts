@@ -77,7 +77,8 @@ test("fixed local processor accepts only an authentic selection bound to its exa
       { codec_type: "video", codec_name: "h264", width: 320, height: 240, avg_frame_rate: "24/1", nb_read_frames: "24", duration: "1.000000" },
       { codec_type: "audio", codec_name: "aac" }
     ], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2" } });
-    await writeFile(fakeFfmpeg, "#!/bin/sh\nfor arg do out=$arg; done\n[ \"$(stat -f %Lp \"$out\")\" = 600 ] || exit 31\nprintf 'synthetic crop bytes' > \"$out\"\n", { mode: 0o700 });
+    const statMode = process.platform === "darwin" ? 'stat -f %Lp "$out"' : 'stat -c %a "$out"';
+    await writeFile(fakeFfmpeg, `#!/bin/sh\nfor arg do out=$arg; done\n[ "$(${statMode})" = 600 ] || exit 31\nprintf 'synthetic crop bytes' > "$out"\n`, { mode: 0o700 });
     await writeFile(fakeFfprobe, `#!/bin/sh\nprintf '%s' '${output}'\n`, { mode: 0o700 });
     await chmod(fakeFfmpeg, 0o700); await chmod(fakeFfprobe, 0o700);
     const processor = createOwnerWan27R2vVideoCropProcessor({ ffmpegPath: fakeFfmpeg, ffprobePath: fakeFfprobe });

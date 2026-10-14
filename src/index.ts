@@ -58,7 +58,7 @@ export {
   modelCatalogSchema
 } from "./catalog/catalog.js";
 export { createMcpServer, TOOL_NAMES } from "./mcp/server.js";
-export type { CreateMcpServerOptions } from "./mcp/server.js";
+export type { CreateMcpServerOptions, OwnerKlingI2vServiceComposition } from "./mcp/server.js";
 export {
   registerSyntxRuntimeCoverageTool,
   SYNTX_RUNTIME_COVERAGE_TOOL_NAME,
@@ -1522,6 +1522,55 @@ export {
   SYNTX_OWNER_RECONCILE_KLING_T2V_TOOL_NAME,
   SYNTX_OWNER_LIST_KLING_T2V_RECOVERIES_TOOL_NAME
 } from "./mcp/owner-kling-t2v-tools.js";
+export {
+  registerSyntxOwnerKlingI2vTools,
+  OWNER_KLING_I2V_TOOL_NAMES,
+  SYNTX_OWNER_GET_KLING_I2V_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_KLING_I2V_IMAGE_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_KLING_I2V_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_KLING_I2V_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_KLING_I2V_RECOVERIES_TOOL_NAME
+} from "./mcp/owner-kling-i2v-tools.js";
+export type { RegisterSyntxOwnerKlingI2vToolsOptions } from "./mcp/owner-kling-i2v-tools.js";
+export {
+  OwnerKlingI2VImageReferenceService,
+  OwnerKlingI2VImageReferenceServiceError
+} from "./application/owner-kling-i2v-reference-service.js";
+export type {
+  OwnerKlingI2VImageReferenceServiceOptions,
+  OwnerKlingI2VImageUploadInput,
+  OwnerKlingI2VImageUploadReceipt,
+  OwnerKlingI2VImageReferenceServiceErrorCode
+} from "./application/owner-kling-i2v-reference-service.js";
+export {
+  OwnerKlingI2vGenerationService,
+  OwnerKlingI2vGenerationServiceError
+} from "./application/owner-kling-i2v-generation-service.js";
+export type {
+  OwnerKlingI2vGenerationServiceOptions,
+  OwnerKlingI2vGenerateInput,
+  OwnerKlingI2vReconcileInput,
+  OwnerKlingI2vListInput,
+  OwnerKlingI2vGenerationOutput,
+  OwnerKlingI2vGenerationRecoveryListItem,
+  OwnerKlingI2vGenerationStatus,
+  OwnerKlingI2vGenerationArtifact,
+  OwnerKlingI2vGenerationDiagnostic,
+  OwnerKlingI2vGenerationServiceErrorCode
+} from "./application/owner-kling-i2v-generation-service.js";
+export {
+  getOwnerKlingI2vParametersSource,
+  normalizeOwnerKlingI2vParameters,
+  OWNER_KLING_I2V_SOURCE_PINS,
+  OwnerKlingI2vParametersError
+} from "./application/owner-kling-i2v-parameters.js";
+export type {
+  OwnerKlingI2vParametersSource,
+  OwnerKlingI2vNormalizedParameters,
+  OwnerKlingI2vVersion,
+  OwnerKlingI2vMode,
+  OwnerKlingI2vParametersErrorCode
+} from "./application/owner-kling-i2v-parameters.js";
 export {
   createOwnerVeoT2vProfile,
   OWNER_VEO_T2V_CONTRACT_VARIANT_IDS,

@@ -728,11 +728,11 @@ function matchesInProgress(entry: InProgressMessage, contract: OwnerContractMedi
   return entry.object_type === contract.modality && entry.model_type === contract.model_type;
 }
 
-function uniqueOwnedChatBotMessageId(
+export function uniqueOwnedChatBotMessageId(
   history: ChatMessageHistorySnapshot,
   chatUuid: string,
   echoedMessageId: string,
-  contract: OwnerContractMediaContractContext
+  contract: Pick<OwnerContractMediaContractContext, "modality" | "model_type">
 ): string | null {
   if (!isSafeIdentifier(chatUuid) || !isSafeIdentifier(echoedMessageId) ||
       history?.complete !== true || history.page !== 1 || history.page_size !== 10 ||
@@ -762,9 +762,9 @@ function uniqueOwnedChatBotMessageId(
   return bot.message_id;
 }
 
-function verifiedArtifacts(
+export function verifiedArtifacts(
   message: RedactedMessageEnvelope,
-  contract: OwnerContractMediaContractContext,
+  contract: Pick<OwnerContractMediaContractContext, "modality" | "model_type" | "mime_types">,
   chatUuid: string,
   messageId: string
 ): SafeArtifactMetadata[] {

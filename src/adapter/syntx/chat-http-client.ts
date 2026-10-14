@@ -128,6 +128,12 @@ import {
   type OwnerBananaInpaintOriginalMimeType
 } from "../../application/owner-banana-inpaint-original-validator.js";
 import { validateOwnerBananaInpaintPaintedCompositeUploadData } from "../../application/owner-banana-inpaint-painted-composite-input-validator.js";
+import { validateOwnerKlingI2VImageBytes } from "../../application/owner-kling-i2v-input-policy.js";
+import {
+  consumeOwnerKlingI2vGenerationContext,
+  withCapturedOwnerKlingI2vGenerationContext
+} from "../../application/owner-kling-i2v-generation-context.js";
+import { readOwnerKlingI2VUploadReferenceForClient, type OwnerKlingI2VUploadContext } from "./kling-i2v-upload-context.js";
 import { validateOwnerSeedreamEditorDrawingUploadData } from "../../application/owner-seedream-editor-drawing-input-validator.js";
 import {
   type OwnerSeedreamEditorImageCandidateBinding,
@@ -401,6 +407,7 @@ const MAX_BANANA_INPAINT_PAINTED_COMPOSITE_UPLOAD_BYTES = 50 * 1024 * 1024;
 const MAX_BANANA_INPAINT_AUXILIARY_UPLOAD_BYTES = 50 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_ORIGINAL_UPLOAD_BYTES = 30 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_DRAWING_UPLOAD_BYTES = 32 * 1024 * 1024;
+const MAX_KLING_I2V_IMAGE_UPLOAD_BYTES = 30 * 1024 * 1024;
 const BANANA_INPAINT_ORIGINAL_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_PAINTED_COMPOSITE_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_AUXILIARY_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
@@ -2111,6 +2118,11 @@ export class SyntxChatHttpClient {
     const parsed = createChatResponseSchema.safeParse(raw);
     if (!parsed.success) throw protocolError();
     return { chat_uuid: parsed.data.uuid };
+  }
+
+  /** Fixed internal chat creation for the owner Kling Image-to-Video bridge. */
+  async createOwnerKlingI2vVideoChat(signal?: AbortSignal): Promise<CreateChatReceipt> {
+    return this.createChat("video", "Kling Image-to-Video", signal);
   }
 
   /** Fixed owner-image-upscaler chat scope; callers cannot choose a scope value. */
@@ -4192,6 +4204,33 @@ export class SyntxChatHttpClient {
     );
   }
 
+  /** Consumes a nominal one-shot owner context and binds its same-client image upload. */
+  async startOwnerKlingI2vVideoWithContext(
+    context: unknown,
+    signal?: AbortSignal
+  ): Promise<MediaGenerationReceipt> {
+    const outcome = await withCapturedOwnerKlingI2vGenerationContext(this, context, async (uploadContext, captureSignal) => {
+      try {
+        const request = consumeOwnerKlingI2vGenerationContext(this, context);
+        if (request.uploadContext !== uploadContext) throw invalidRequest();
+        const reference = readOwnerKlingI2VUploadReferenceForClient(this, uploadContext as OwnerKlingI2VUploadContext);
+        if (!reference) throw invalidRequest();
+        const settings = sanitizeSettings({ ...request.settings, file_urls: [{ type: "image", url: reference.url }] });
+        return Object.freeze({ receipt: await this.#startMedia(
+          "video/generate",
+          "kling",
+          request.chat_id,
+          { chat_id: request.chat_id, prompt: request.prompt, settings },
+          captureSignal
+        ) });
+      } catch (error) {
+        return Object.freeze({ error });
+      }
+    }, signal);
+    if ("error" in outcome) throw outcome.error;
+    return outcome.receipt;
+  }
+
   async startAudio(
     request: StartAudioRequest,
     signal?: AbortSignal
@@ -5897,6 +5936,36 @@ export class SyntxChatHttpClient {
       return parseInternalUploadReferences(raw);
     } catch {
       throw protocolError();
+    }
+  }
+
+  /** Dedicated Kling I2V single-image upload; its 30 MiB guard does not widen the generic 10 MiB path. */
+  async uploadKlingI2VImageReference(
+    request: unknown,
+    destination: SyntxUploadDestination,
+    signal?: AbortSignal
+  ): Promise<InternalUploadReference> {
+    if (destination !== "uploaded" && destination !== "hidden") throw invalidRequest();
+    let validated: ReturnType<typeof validateOwnerKlingI2VImageBytes>;
+    try { validated = validateOwnerKlingI2VImageBytes(request); }
+    catch { throw invalidRequest(); }
+    if (validated.size > MAX_KLING_I2V_IMAGE_UPLOAD_BYTES) throw invalidRequest();
+    const bytes = validated.bytes;
+    let form: FormData | undefined;
+    try {
+      form = this.#buildUploadForm({
+        bytes,
+        filename: validated.filename,
+        mime_type: validated.mime_type,
+        destination,
+        check_duplicates: true,
+        model_type: "kling_image2video"
+      }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      return parseStandardImageUploadReference(raw, validated.mime_type, validated.size);
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
     }
   }
 

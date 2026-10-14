@@ -36,6 +36,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_SEEDANCE20_T2V",
   "SYNTX_OWNER_VIDEO2AUDIO",
   "SYNTX_OWNER_KLING_T2V",
+  "SYNTX_OWNER_KLING_I2V",
   "SYNTX_OWNER_VEO_T2V",
   "SYNTX_OWNER_GROK_T2V",
   "SYNTX_OWNER_HAILUO_LIVE_T2V"
@@ -64,6 +65,7 @@ const HELP_TEXT = [
   "",
   "Without the exact confirmation flag, no configuration is emitted.",
   "This command does not edit client settings, read credentials, log in, or call the network.",
+  "The confirmed owner-stdio config enables Kling I2V with SYNTX_OWNER_KLING_I2V=1.",
   "The emitted tools can perform paid generation only when explicitly called by the client."
 ].join("\n") + "\n";
 

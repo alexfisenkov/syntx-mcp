@@ -3,6 +3,11 @@ import { types } from "node:util";
 import type { OwnerContractMediaContractContext } from "./owner-contract-media.js";
 import type { GenerationContractStatus } from "../domain/generation-contract.js";
 import {
+  buildOwnerReviewedVideoRecoveryDiagnostic,
+  type OwnerReviewedVideoRecoveryDiagnostic,
+  type OwnerReviewedVideoRecoveryDiagnosticInput
+} from "./owner-reviewed-video-recovery-diagnostic.js";
+import {
   ownerReviewedContractProbePolicyBindsRecovery,
   type OwnerReviewedContractMediaPolicy
 } from "./owner-contract-probe-policy.js";
@@ -65,6 +70,9 @@ export interface OwnerContractMediaRecoveryStoreLike {
   get(recoveryId: string, attemptId: string): OwnerContractMediaRecoveryRecord | undefined;
   list(attemptId: string, limit?: number): readonly OwnerContractMediaRecoveryListItem[];
   updateMessageId(recoveryId: string, attemptId: string, messageId: string): void;
+  updateDiagnostic?(recoveryId: string, attemptId: string, diagnostic: OwnerReviewedVideoRecoveryDiagnosticInput): void;
+  getDiagnostic?(recoveryId: string, attemptId: string): OwnerReviewedVideoRecoveryDiagnostic | undefined;
+  getDiagnosticInput?(recoveryId: string, attemptId: string): OwnerReviewedVideoRecoveryDiagnosticInput | undefined;
   remove(recoveryId: string, attemptId: string): void;
   close?(): void;
 }
@@ -76,6 +84,7 @@ export interface OwnerContractMediaRecoveryStoreLike {
  */
 export class OwnerContractMediaRecoveryStore implements OwnerContractMediaRecoveryStoreLike {
   readonly #records = new Map<string, OwnerContractMediaRecoveryRecord>();
+  readonly #diagnostics = new Map<string, Readonly<{ attemptId: string; input: OwnerReviewedVideoRecoveryDiagnosticInput }>>();
   readonly #ttlMs: number;
   readonly #maxRecords: number;
   readonly #now: () => number;
@@ -104,6 +113,7 @@ export class OwnerContractMediaRecoveryStore implements OwnerContractMediaRecove
       const oldest = this.#records.keys().next().value;
       if (oldest === undefined) break;
       this.#records.delete(oldest);
+      this.#diagnostics.delete(oldest);
     }
 
     const record = Object.freeze({
@@ -118,6 +128,19 @@ export class OwnerContractMediaRecoveryStore implements OwnerContractMediaRecove
       created_at: new Date(now).toISOString()
     });
     this.#records.set(record.recovery_id, record);
+    if (record.modality === "video") this.#diagnostics.set(record.recovery_id, Object.freeze({
+      attemptId: input.attemptId,
+      input: Object.freeze({
+        phase: "POST_CALL_STARTED",
+        post_disposition: "NOT_REACHED",
+        ack_observation: "NOT_OBSERVED",
+        history_observation: "NOT_READ",
+        result_binding_observation: "NOT_READ",
+        last_safe_error_code: null,
+        no_artifact_reason: "NOT_CAPTURED",
+        poll_usage: Object.freeze({ history_get_calls: 0, in_progress_get_calls: 0, result_get_calls: 0 })
+      })
+    }));
     return record;
   }
 
@@ -147,7 +170,45 @@ export class OwnerContractMediaRecoveryStore implements OwnerContractMediaRecove
 
   remove(recoveryId: string, attemptId: string): void {
     const record = this.#records.get(recoveryId);
-    if (record?.attempt_id === attemptId) this.#records.delete(recoveryId);
+    if (record?.attempt_id === attemptId) {
+      this.#records.delete(recoveryId);
+      this.#diagnostics.delete(recoveryId);
+    }
+  }
+
+  updateDiagnostic(recoveryId: string, attemptId: string, input: OwnerReviewedVideoRecoveryDiagnosticInput): void {
+    const record = this.get(recoveryId, attemptId);
+    if (!record || record.attempt_id !== attemptId || record.modality !== "video") return;
+    const diagnostic = buildOwnerReviewedVideoRecoveryDiagnostic(input);
+    this.#diagnostics.set(recoveryId, Object.freeze({
+      attemptId,
+      input: Object.freeze({
+        phase: diagnostic.phase,
+        post_disposition: diagnostic.post_disposition,
+        ack_observation: diagnostic.ack_observation,
+        history_observation: diagnostic.history_observation,
+        result_binding_observation: diagnostic.result_binding_observation,
+        last_safe_error_code: diagnostic.last_safe_error_code,
+        no_artifact_reason: diagnostic.no_artifact_reason,
+        poll_usage: Object.freeze({
+          history_get_calls: input.poll_usage.history_get_calls,
+          in_progress_get_calls: input.poll_usage.in_progress_get_calls,
+          result_get_calls: input.poll_usage.result_get_calls
+        })
+      })
+    }));
+  }
+
+  getDiagnostic(recoveryId: string, attemptId: string): OwnerReviewedVideoRecoveryDiagnostic | undefined {
+    const input = this.getDiagnosticInput(recoveryId, attemptId);
+    return input === undefined ? undefined : buildOwnerReviewedVideoRecoveryDiagnostic(input);
+  }
+
+  getDiagnosticInput(recoveryId: string, attemptId: string): OwnerReviewedVideoRecoveryDiagnosticInput | undefined {
+    if (!this.get(recoveryId, attemptId)) return undefined;
+    const entry = this.#diagnostics.get(recoveryId);
+    if (entry?.attemptId !== attemptId) return undefined;
+    return entry.input;
   }
 
   updateMessageId(recoveryId: string, attemptId: string, messageId: string): void {
@@ -159,11 +220,14 @@ export class OwnerContractMediaRecoveryStore implements OwnerContractMediaRecove
 
   size(): number { return this.#records.size; }
 
-  close(): void { this.#records.clear(); }
+  close(): void { this.#records.clear(); this.#diagnostics.clear(); }
 
   private prune(now: number): void {
     for (const [recoveryId, record] of this.#records) {
-      if (now - Date.parse(record.created_at) >= this.#ttlMs) this.#records.delete(recoveryId);
+      if (now - Date.parse(record.created_at) >= this.#ttlMs) {
+        this.#records.delete(recoveryId);
+        this.#diagnostics.delete(recoveryId);
+      }
     }
   }
 }

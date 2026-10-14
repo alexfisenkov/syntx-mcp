@@ -1504,6 +1504,15 @@ export {
   SYNTX_OWNER_HAILUO_LIVE_T2V_TOOL_NAMES
 } from "./mcp/owner-hailuo-live-t2v-tools.js";
 export {
+  OWNER_REVIEWED_VIDEO_RECOVERY_DIAGNOSTIC_MODEL_IDS,
+  SYNTX_OWNER_GET_VIDEO_RECOVERY_DIAGNOSTIC_TOOL_NAME,
+  registerSyntxOwnerReviewedVideoRecoveryDiagnosticTools
+} from "./mcp/owner-reviewed-video-recovery-diagnostic-tools.js";
+export type {
+  OwnerReviewedVideoRecoveryDiagnosticModelId,
+  RegisterSyntxOwnerReviewedVideoRecoveryDiagnosticToolsOptions
+} from "./mcp/owner-reviewed-video-recovery-diagnostic-tools.js";
+export {
   OwnerElevenLabsDialogueGenerationService,
   OwnerElevenLabsDialogueGenerationServiceError
 } from "./application/owner-elevenlabs-dialogue-generation-service.js";

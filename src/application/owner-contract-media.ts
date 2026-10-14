@@ -33,6 +33,10 @@ import type {
   OwnerContractMediaRecoveryRecord,
   OwnerContractMediaRecoveryStoreLike
 } from "./owner-contract-media-recovery.js";
+import type {
+  OwnerReviewedVideoRecoveryDiagnostic,
+  OwnerReviewedVideoRecoveryDiagnosticInput
+} from "./owner-reviewed-video-recovery-diagnostic.js";
 import {
   consumeOwnerReviewedContractProbePolicy,
   ownerReviewedContractProbePolicyAllowsDispatch,
@@ -178,6 +182,10 @@ export interface ReconcileOwnerContractMediaInput {
   readonly signal?: AbortSignal;
 }
 
+type RecoveryPollCounter = "history_get_calls" | "in_progress_get_calls" | "result_get_calls";
+type RecoveryObservation = (patch: Partial<Omit<OwnerReviewedVideoRecoveryDiagnosticInput, "poll_usage">>, counter?: RecoveryPollCounter) => void;
+const ignoreRecoveryObservation: RecoveryObservation = () => undefined;
+
 /**
  * Owner-only prepared-media lifecycle. Contract validation, catalog binding,
  * and subscription preflight belong before this service. This layer accepts
@@ -241,36 +249,60 @@ export class OwnerContractMediaService {
         ...(input.probePolicy === undefined ? {} : { probePolicy: input.probePolicy }),
         now: this.#now()
       }).recovery_id;
+      let diagnostic = this.#recoveryStore.getDiagnosticInput?.(recoveryId, input.attemptId);
+      const observe: RecoveryObservation = (patch, counter) => {
+        if (diagnostic === undefined) return;
+        diagnostic = {
+          ...diagnostic,
+          ...patch,
+          poll_usage: {
+            ...diagnostic.poll_usage,
+            ...(counter === undefined ? {} : { [counter]: diagnostic.poll_usage[counter] + 1 })
+          }
+        };
+        try { this.#recoveryStore.updateDiagnostic?.(recoveryId!, input.attemptId, diagnostic); } catch { /* Diagnostics never control dispatch or recovery. */ }
+      };
       deadline.throwIfAborted();
       if (input.beforeDispatch !== undefined) {
         await waitWithDeadline(deadline, () => input.beforeDispatch!(deadline.signal));
       }
       deadline.throwIfAborted();
       dispatchPossible = true;
-      const dispatch = await waitWithDeadline(deadline, () => this.dispatch(input.client, input.prepared, createdChatUuid, deadline.signal));
+      const dispatch = await waitWithDeadline(deadline, () => {
+        observe({ phase: "POST_CALL_STARTED", post_disposition: "MAY_HAVE_BEEN_SENT" });
+        return this.dispatch(input.client, input.prepared, createdChatUuid, deadline.signal);
+      });
       const echoedMessageId = isSafeIdentifier(dispatch?.message_id) ? dispatch.message_id : null;
-      if (echoedMessageId === null || dispatch.chat_uuid !== createdChatUuid) throw mediaError("OUTCOME_UNKNOWN");
+      if (echoedMessageId === null || dispatch.chat_uuid !== createdChatUuid) {
+        observe({ ack_observation: "INVALID_OR_MISSING_ECHO" });
+        throw mediaError("OUTCOME_UNKNOWN");
+      }
+      observe({ post_disposition: "VALID_ECHO_OBSERVED", ack_observation: "VALID_ECHO_OBSERVED", phase: "POST_ACK_KNOWN" });
       this.#recoveryStore.updateMessageId(recoveryId, input.attemptId, echoedMessageId);
 
       // The dispatch receipt id may already address a completed bot message.
       // If it is only the caller echo, strict DTO identity/MIME checks reject
       // it and the normal bot-message discovery continues below.
       try {
-        const receiptMessage = await waitWithDeadline(deadline, () => input.client.getMessage(createdChatUuid, echoedMessageId, deadline.signal));
+        const receiptMessage = await observedCall(deadline, observe, "RECEIPT_RESULT_GET", "result_get_calls",
+          () => input.client.getMessage(createdChatUuid, echoedMessageId, deadline.signal));
         const receiptArtifacts = verifiedArtifacts(receiptMessage, input.contract, createdChatUuid, echoedMessageId);
+        observe({ phase: "RESULT_BINDING", result_binding_observation: receiptArtifacts.length > 0 ? "READ_VERIFIED_ARTIFACT" : "READ_NO_VERIFIED_ARTIFACT",
+          ...(receiptArtifacts.length === 0 ? { no_artifact_reason: "NOT_CAPTURED" as const } : {}) });
         if (receiptArtifacts.length > 0) {
           try { this.#recoveryStore.remove(recoveryId, input.attemptId); } catch { /* TTL bounds an unused private handle. */ }
           return resultFor(input.contract, receiptArtifacts);
         }
+        observe({ no_artifact_reason: "KNOWN_RECEIPT_HAS_NO_VERIFIED_ARTIFACT" });
       } catch {
         deadline.throwIfAborted();
       }
 
       const historyMessageId = input.client.listMessageCandidates === undefined
         ? null
-        : await this.resolveHistoryMessageId(input.client, input.contract, chatUuid, echoedMessageId, deadline);
+        : await this.resolveHistoryMessageId(input.client, input.contract, chatUuid, echoedMessageId, deadline, observe);
       const botMessageId = historyMessageId ?? await this.waitForBotMessageId(
-        input.client, input.contract, chatUuid, echoedMessageId, deadline
+        input.client, input.contract, chatUuid, echoedMessageId, deadline, observe
       );
       const artifacts = await this.waitForArtifacts(
         input.client,
@@ -278,8 +310,10 @@ export class OwnerContractMediaService {
         chatUuid,
         botMessageId,
         Math.ceil(timeoutMs / RESULT_POLL_DELAY_MS),
-        deadline
+        deadline,
+        observe
       );
+      observe({ phase: "RESULT_BINDING", result_binding_observation: artifacts.length > 0 ? "READ_VERIFIED_ARTIFACT" : "READ_NO_VERIFIED_ARTIFACT" });
       if (artifacts.length === 0) throw mediaError("OUTCOME_UNKNOWN");
       try { this.#recoveryStore.remove(recoveryId, input.attemptId); } catch { /* TTL bounds an unused private handle. */ }
       return resultFor(input.contract, artifacts);
@@ -293,6 +327,12 @@ export class OwnerContractMediaService {
       }
       if (error instanceof OwnerContractMediaError && error.code === "OUTCOME_UNKNOWN" && error.recoveryId) throw error;
       if (recoveryId === null) throw mediaError("OUTCOME_UNKNOWN");
+      const diagnostic = this.#recoveryStore.getDiagnosticInput?.(recoveryId, input.attemptId);
+      if (diagnostic !== undefined) {
+        try { this.#recoveryStore.updateDiagnostic?.(recoveryId, input.attemptId, {
+          ...diagnostic, last_safe_error_code: "OUTCOME_UNKNOWN"
+        }); } catch { /* Diagnostics never replace the safe generation outcome. */ }
+      }
       throw mediaError("OUTCOME_UNKNOWN", recoveryId);
     } finally {
       deadline.close();
@@ -455,41 +495,67 @@ export class OwnerContractMediaService {
         (!liveContract && !reviewedRecovery)) throw mediaError("RECOVERY_NOT_FOUND");
     const record = this.#recoveryStore.get(input.recoveryId, input.attemptId);
     if (!record || !sameRecoveryContract(record, input.contract)) throw mediaError("RECOVERY_NOT_FOUND");
+    let diagnostic = this.#recoveryStore.getDiagnosticInput?.(input.recoveryId, input.attemptId);
+    const observe: RecoveryObservation = (patch, counter) => {
+      if (diagnostic === undefined) return;
+      diagnostic = {
+        ...diagnostic,
+        ...patch,
+        poll_usage: {
+          ...diagnostic.poll_usage,
+          ...(counter === undefined ? {} : { [counter]: diagnostic.poll_usage[counter] + 1 })
+        }
+      };
+      try { this.#recoveryStore.updateDiagnostic?.(input.recoveryId, input.attemptId, diagnostic); } catch { /* Diagnostics never control reconciliation. */ }
+    };
+    observe({ phase: "RECOVERY_GET" });
 
     const deadline = new AbsoluteRequestDeadline(this.timeoutFor(input.contract.modality), input.signal, () => mediaError("OUTCOME_UNKNOWN", input.recoveryId));
     try {
       let artifacts: SafeArtifactMetadata[] = [];
       if (record.message_id !== null) {
         try {
-          const message = await waitWithDeadline(deadline, () => input.client.getMessage(record.chat_uuid, record.message_id!, deadline.signal));
+          const message = await observedCall(deadline, observe, "RECEIPT_RESULT_GET", "result_get_calls",
+            () => input.client.getMessage(record.chat_uuid, record.message_id!, deadline.signal));
           artifacts = verifiedArtifacts(message, input.contract, record.chat_uuid, record.message_id);
+          observe({ phase: "RESULT_BINDING", result_binding_observation: artifacts.length > 0 ? "READ_VERIFIED_ARTIFACT" : "READ_NO_VERIFIED_ARTIFACT",
+            ...(artifacts.length === 0 ? { no_artifact_reason: "NOT_CAPTURED" as const } : {}) });
+          if (artifacts.length === 0) observe({ no_artifact_reason: "KNOWN_RECEIPT_HAS_NO_VERIFIED_ARTIFACT" });
         } catch {
           deadline.throwIfAborted();
         }
       }
       if (artifacts.length === 0) {
         if (record.message_id !== null && input.client.listMessageCandidates !== undefined) {
-          const history = await waitWithDeadline(deadline, () => input.client.listMessageCandidates!(
+          const history = await observedCall(deadline, observe, "HISTORY_GET", "history_get_calls", () => input.client.listMessageCandidates!(
             record.chat_uuid, record.message_id!, deadline.signal
           ));
           const historyMessageId = uniqueOwnedChatBotMessageId(history, record.chat_uuid, record.message_id, input.contract);
+          observe({ phase: "HISTORY_BINDING", history_observation: historyMessageId === null ? "READ_NO_UNIQUE_BINDING" : "READ_UNIQUE_BINDING" });
+          if (historyMessageId === null) observe({ no_artifact_reason: "HISTORY_HAS_NO_UNIQUE_BINDING" });
           if (historyMessageId !== null) {
-            const message = await waitWithDeadline(deadline, () => input.client.getMessage(
+            const message = await observedCall(deadline, observe, "RESULT_GET", "result_get_calls", () => input.client.getMessage(
               record.chat_uuid, historyMessageId, deadline.signal
             ));
             artifacts = verifiedArtifacts(message, input.contract, record.chat_uuid, historyMessageId);
+            observe({ phase: "RESULT_BINDING", result_binding_observation: artifacts.length > 0 ? "READ_VERIFIED_ARTIFACT" : "READ_NO_VERIFIED_ARTIFACT" });
           }
         }
       }
       if (artifacts.length === 0) {
-        const entries = await waitWithDeadline(deadline, () => input.client.listInProgress(record.chat_uuid, deadline.signal));
+        const entries = await observedCall(deadline, observe, "IN_PROGRESS_GET", "in_progress_get_calls",
+          () => input.client.listInProgress(record.chat_uuid, deadline.signal));
         const candidates = entries
           .filter((entry) => isSafeIdentifier(entry.message_id) && matchesInProgress(entry, input.contract))
           .slice(0, MAX_RECOVERY_CANDIDATES);
+        if (candidates.length === 0) observe({ no_artifact_reason: "NO_IN_PROGRESS_BOT_MATCH" });
         for (const entry of candidates) {
           deadline.throwIfAborted();
-          const message = await waitWithDeadline(deadline, () => input.client.getMessage(record.chat_uuid, entry.message_id, deadline.signal));
+          const message = await observedCall(deadline, observe, "RESULT_GET", "result_get_calls",
+            () => input.client.getMessage(record.chat_uuid, entry.message_id, deadline.signal));
           artifacts = verifiedArtifacts(message, input.contract, record.chat_uuid, entry.message_id);
+          observe({ phase: "RESULT_BINDING", result_binding_observation: artifacts.length > 0 ? "READ_VERIFIED_ARTIFACT" : "READ_NO_VERIFIED_ARTIFACT",
+            ...(artifacts.length === 0 ? { no_artifact_reason: "NOT_CAPTURED" as const } : {}) });
           if (artifacts.length > 0) break;
         }
       }
@@ -497,6 +563,11 @@ export class OwnerContractMediaService {
       return resultFor(input.contract, artifacts);
     } catch (error) {
       if (error instanceof OwnerContractMediaError && error.code === "RECOVERY_NOT_FOUND") throw error;
+      if (diagnostic !== undefined) {
+        try { this.#recoveryStore.updateDiagnostic?.(input.recoveryId, input.attemptId, {
+          ...diagnostic, last_safe_error_code: "OUTCOME_UNKNOWN"
+        }); } catch { /* Diagnostics never replace the safe recovery outcome. */ }
+      }
       throw mediaError("OUTCOME_UNKNOWN", record.recovery_id);
     } finally {
       deadline.close();
@@ -506,6 +577,11 @@ export class OwnerContractMediaService {
   /** Bounded local-only lookup after a client may have lost an unknown-outcome handle. */
   listRecoveries(attemptId: string, limit = 20): readonly OwnerContractMediaRecoveryListItem[] {
     return this.#recoveryStore.list(attemptId, limit);
+  }
+
+  getRecoveryDiagnostic(attemptId: string, recoveryId: string): OwnerReviewedVideoRecoveryDiagnostic | undefined {
+    if (!validAttemptId(attemptId) || !validRecoveryId(recoveryId) || !this.#recoveryStore.get(recoveryId, attemptId)) return undefined;
+    return this.#recoveryStore.getDiagnostic?.(recoveryId, attemptId);
   }
 
   private dispatch(
@@ -551,14 +627,17 @@ export class OwnerContractMediaService {
     contract: OwnerContractMediaContractContext,
     chatUuid: string,
     echoedMessageId: string,
-    deadline: AbsoluteRequestDeadline
+    deadline: AbsoluteRequestDeadline,
+    observe: RecoveryObservation = ignoreRecoveryObservation
   ): Promise<string> {
     for (let attempt = 0; attempt < START_POLL_ATTEMPTS; attempt += 1) {
       if (attempt > 0) await waitWithDeadline(deadline, () => this.#wait(START_POLL_DELAY_MS));
-      const entries = await waitWithDeadline(deadline, () => client.listInProgress(chatUuid, deadline.signal));
+      const entries = await observedCall(deadline, observe, "IN_PROGRESS_GET", "in_progress_get_calls",
+        () => client.listInProgress(chatUuid, deadline.signal));
       const candidate = entries.find((entry) => entry.message_id !== echoedMessageId && matchesInProgress(entry, contract));
       if (candidate && isSafeIdentifier(candidate.message_id)) return candidate.message_id;
     }
+    observe({ no_artifact_reason: "NO_IN_PROGRESS_BOT_MATCH" });
     throw mediaError("OUTCOME_UNKNOWN");
   }
 
@@ -567,12 +646,16 @@ export class OwnerContractMediaService {
     contract: OwnerContractMediaContractContext,
     chatUuid: string,
     echoedMessageId: string,
-    deadline: AbsoluteRequestDeadline
+    deadline: AbsoluteRequestDeadline,
+    observe: RecoveryObservation = ignoreRecoveryObservation
   ): Promise<string | null> {
-    const history = await waitWithDeadline(deadline, () => client.listMessageCandidates!(
+    const history = await observedCall(deadline, observe, "HISTORY_GET", "history_get_calls", () => client.listMessageCandidates!(
       chatUuid, echoedMessageId, deadline.signal
     ));
-    return uniqueOwnedChatBotMessageId(history, chatUuid, echoedMessageId, contract);
+    const messageId = uniqueOwnedChatBotMessageId(history, chatUuid, echoedMessageId, contract);
+    observe({ phase: "HISTORY_BINDING", history_observation: messageId === null ? "READ_NO_UNIQUE_BINDING" : "READ_UNIQUE_BINDING" });
+    if (messageId === null) observe({ no_artifact_reason: "HISTORY_HAS_NO_UNIQUE_BINDING" });
+    return messageId;
   }
 
   private async waitForArtifacts(
@@ -581,25 +664,34 @@ export class OwnerContractMediaService {
     chatUuid: string,
     messageId: string,
     maxAttempts: number,
-    deadline: AbsoluteRequestDeadline
+    deadline: AbsoluteRequestDeadline,
+    observe: RecoveryObservation = ignoreRecoveryObservation
   ): Promise<SafeArtifactMetadata[]> {
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       if (attempt > 0) await waitWithDeadline(deadline, () => this.#wait(RESULT_POLL_DELAY_MS));
-      const message = await waitWithDeadline(deadline, () => client.getMessage(chatUuid, messageId, deadline.signal));
+      const message = await observedCall(deadline, observe, "RESULT_GET", "result_get_calls",
+        () => client.getMessage(chatUuid, messageId, deadline.signal));
       const artifacts = verifiedArtifacts(message, contract, chatUuid, messageId);
+      observe({ phase: "RESULT_BINDING", result_binding_observation: artifacts.length > 0 ? "READ_VERIFIED_ARTIFACT" : "READ_NO_VERIFIED_ARTIFACT",
+        ...(artifacts.length === 0 ? { no_artifact_reason: "NOT_CAPTURED" as const } : {}) });
       if (artifacts.length > 0) return artifacts;
-      const inProgress = await waitWithDeadline(deadline, () => client.listInProgress(chatUuid, deadline.signal));
+      const inProgress = await observedCall(deadline, observe, "IN_PROGRESS_GET", "in_progress_get_calls",
+        () => client.listInProgress(chatUuid, deadline.signal));
       const stillInProgress = inProgress.some((entry) => entry.message_id === messageId && matchesInProgress(entry, contract));
       if (!stillInProgress) {
         for (let reconciliation = 0; reconciliation < TERMINAL_RECONCILIATION_ATTEMPTS; reconciliation += 1) {
           await waitWithDeadline(deadline, () => this.#wait(TERMINAL_RECONCILIATION_DELAY_MS));
-          const reconciled = await waitWithDeadline(deadline, () => client.getMessage(chatUuid, messageId, deadline.signal));
+          const reconciled = await observedCall(deadline, observe, "RESULT_GET", "result_get_calls",
+            () => client.getMessage(chatUuid, messageId, deadline.signal));
           const lateArtifacts = verifiedArtifacts(reconciled, contract, chatUuid, messageId);
+          observe({ phase: "RESULT_BINDING", result_binding_observation: lateArtifacts.length > 0 ? "READ_VERIFIED_ARTIFACT" : "READ_NO_VERIFIED_ARTIFACT",
+            ...(lateArtifacts.length === 0 ? { no_artifact_reason: "NOT_CAPTURED" as const } : {}) });
           if (lateArtifacts.length > 0) return lateArtifacts;
         }
         throw mediaError("OUTCOME_UNKNOWN");
       }
     }
+    observe({ no_artifact_reason: "RESULT_POLL_BUDGET_EXHAUSTED" });
     throw mediaError("OUTCOME_UNKNOWN");
   }
 
@@ -845,6 +937,19 @@ function boundedTimeout(value: number | undefined, fallback: number, maximum: nu
 function waitWithDeadline<T>(deadline: AbsoluteRequestDeadline, operation: () => Promise<T>): Promise<T> {
   deadline.throwIfAborted();
   return deadline.waitFor(operation());
+}
+
+function observedCall<T>(
+  deadline: AbsoluteRequestDeadline,
+  observe: RecoveryObservation,
+  phase: OwnerReviewedVideoRecoveryDiagnosticInput["phase"],
+  counter: RecoveryPollCounter,
+  operation: () => Promise<T>
+): Promise<T> {
+  return waitWithDeadline(deadline, () => {
+    observe({ phase, no_artifact_reason: "NOT_CAPTURED" }, counter);
+    return operation();
+  });
 }
 
 function sameRecoveryContract(record: OwnerContractMediaRecoveryRecord, contract: OwnerContractMediaContractContext): boolean {

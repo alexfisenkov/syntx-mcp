@@ -95,6 +95,7 @@ test("Hailuo 2.3 MCP codecs preserve the typed result, recovery metadata, and li
     getParametersSource: () => profile.source,
     generate: async () => result,
     reconcile: async () => result,
+    getRecoveryDiagnostic: async () => { throw new Error("Diagnostic must not be called by the Hailuo 2.3 codec fixture"); },
     listRecoveries: () => [{ recovery_id: recoveryId, model_id: "hailuo-2.3", operation_id: "generate-video",
       variant_id: OWNER_HAILUO23_T2V_CONTRACT_VARIANT_ID, created_at: "2026-10-13T00:00:00.000Z" }]
   } } };

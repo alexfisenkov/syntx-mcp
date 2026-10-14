@@ -191,6 +191,11 @@ import type { OwnerGrokT2vGenerationService } from "../application/owner-reviewe
 import { registerSyntxOwnerGrokT2vTools } from "./owner-grok-t2v-tools.js";
 import type { OwnerHailuoLiveT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerHailuoLiveT2vTools } from "./owner-hailuo-live-t2v-tools.js";
+import type { OwnerReviewedVideoRecoveryDiagnostic } from "../application/owner-reviewed-video-recovery-diagnostic.js";
+import {
+  registerSyntxOwnerReviewedVideoRecoveryDiagnosticTools,
+  type OwnerReviewedVideoRecoveryDiagnosticModelId
+} from "./owner-reviewed-video-recovery-diagnostic-tools.js";
 import type { OwnerVideo2AudioSourceProfile } from "../application/owner-video2audio-source-profile.js";
 import type { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import type { OwnerVideo2AudioGenerationService } from "../application/owner-video2audio-generation-service.js";
@@ -357,55 +362,55 @@ export interface OwnerLumaT2vServiceComposition {
 /** Optional owner-local reviewed Hailuo-01 T2V tools; omitted from default and HTTP servers. */
 export interface OwnerHailuo01T2vServiceComposition {
   readonly generationService: Pick<OwnerReviewedNoReferenceT2vService,
-    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Optional owner-local reviewed Hailuo-01 Director T2V tools; omitted from default and HTTP servers. */
 export interface OwnerHailuo01DirectorT2vServiceComposition {
   readonly generationService: Pick<OwnerHailuo01DirectorT2vGenerationService,
-    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Optional owner-local reviewed Hailuo 2.3 T2V tools; omitted from default and HTTP servers. */
 export interface OwnerHailuo23T2vServiceComposition {
   readonly generationService: Pick<OwnerHailuo23T2vGenerationService,
-    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Source-reviewed Hailuo-02 no-reference video tools, explicitly opted in on owner stdio. */
 export interface OwnerHailuo02T2vServiceComposition {
   readonly generationService: Pick<OwnerHailuo02T2vGenerationService,
-    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Source-reviewed Seedance 2.0 mini/no-reference video tools, explicit owner-stdio opt-in. */
 export interface OwnerSeedance20T2vServiceComposition {
   readonly generationService: Pick<OwnerSeedance20T2vGenerationService,
-    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Source-reviewed Kling T2V and O1 family tools, explicitly opted in by owner stdio. */
 export interface OwnerKlingT2vServiceComposition {
   readonly generationService: Pick<OwnerKlingT2vGenerationService,
-    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Explicit owner-local Veo T2V tools, enabled only by owner stdio opt-in. */
 export interface OwnerVeoT2vServiceComposition {
   readonly generationService: Pick<OwnerVeoT2vGenerationService,
-    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Explicit owner-local Grok T2V tools, enabled only by owner stdio opt-in. */
 export interface OwnerGrokT2vServiceComposition {
   readonly generationService: Pick<OwnerGrokT2vGenerationService,
-    "getParametersSource" | "getReviewedContract" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "getReviewedContract" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Explicit owner-local Hailuo-01 Live T2V tools, enabled only by owner stdio opt-in. */
 export interface OwnerHailuoLiveT2vServiceComposition {
   readonly generationService: Pick<OwnerHailuoLiveT2vGenerationService,
-    "getParametersSource" | "getReviewedContract" | "generate" | "reconcile" | "listRecoveries">;
+    "getParametersSource" | "getReviewedContract" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
 /** Explicit owner-local Video2Audio original upload and generation/recovery lifecycle. */
@@ -1129,7 +1134,56 @@ export function createMcpServer(
     registerSyntxVideoEvidenceTool(server, options.videoEvidence);
   }
 
+  const ownerVideoRecoveryDiagnostics = createOwnerVideoRecoveryDiagnosticMap(options);
+  if (ownerVideoRecoveryDiagnostics.size > 0) {
+    registerSyntxOwnerReviewedVideoRecoveryDiagnosticTools(server, { diagnostics: ownerVideoRecoveryDiagnostics });
+  }
+
   return server;
+}
+
+type OwnerVideoRecoveryDiagnosticInput = Readonly<{ attemptId: string; recovery_id: string }>;
+type OwnerVideoRecoveryDiagnosticGetter = (input: OwnerVideoRecoveryDiagnosticInput) => Promise<OwnerReviewedVideoRecoveryDiagnostic>;
+type OwnerVideoRecoveryDiagnosticService = Readonly<{
+  getRecoveryDiagnostic(input: unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic>;
+}>;
+
+function createOwnerVideoRecoveryDiagnosticMap(
+  options: CreateMcpServerOptions
+): ReadonlyMap<OwnerReviewedVideoRecoveryDiagnosticModelId, OwnerVideoRecoveryDiagnosticGetter> {
+  const diagnostics = new Map<OwnerReviewedVideoRecoveryDiagnosticModelId, OwnerVideoRecoveryDiagnosticGetter>();
+  const addSingleModel = (modelId: OwnerReviewedVideoRecoveryDiagnosticModelId, service: OwnerVideoRecoveryDiagnosticService | undefined) => {
+    if (service) {
+      diagnostics.set(modelId, (input) => service.getRecoveryDiagnostic({
+        attemptId: input.attemptId,
+        recovery_id: input.recovery_id
+      }));
+    }
+  };
+  const addFamilyModel = (modelId: OwnerReviewedVideoRecoveryDiagnosticModelId, service: OwnerVideoRecoveryDiagnosticService | undefined) => {
+    if (service) {
+      diagnostics.set(modelId, (input) => service.getRecoveryDiagnostic({
+        model_id: modelId,
+        attemptId: input.attemptId,
+        recovery_id: input.recovery_id
+      }));
+    }
+  };
+
+  addSingleModel("hailuo-01", options.ownerHailuo01T2v?.generationService);
+  addSingleModel("hailuo-01-director", options.ownerHailuo01DirectorT2v?.generationService);
+  addSingleModel("hailuo-02", options.ownerHailuo02T2v?.generationService);
+  addSingleModel("hailuo-2.3", options.ownerHailuo23T2v?.generationService);
+  addSingleModel("hailuo-01-live", options.ownerHailuoLiveT2v?.generationService);
+  addSingleModel("seedance-2.0", options.ownerSeedance20T2v?.generationService);
+  addFamilyModel("kling_text2video", options.ownerKlingT2v?.generationService);
+  addFamilyModel("kling_o1_text2video", options.ownerKlingT2v?.generationService);
+  addFamilyModel("veo3", options.ownerVeoT2v?.generationService);
+  addFamilyModel("veo3fast", options.ownerVeoT2v?.generationService);
+  addFamilyModel("veo3fast_r", options.ownerVeoT2v?.generationService);
+  addSingleModel("grok_t2v", options.ownerGrokT2v?.generationService);
+
+  return diagnostics;
 }
 
 function generationInputSchema() {

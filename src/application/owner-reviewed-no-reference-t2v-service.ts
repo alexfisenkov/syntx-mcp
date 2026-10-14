@@ -77,6 +77,7 @@ import {
   type OwnerContractMediaResult
 } from "./owner-contract-media.js";
 import { OwnerContractMediaRecoveryStore } from "./owner-contract-media-recovery.js";
+import type { OwnerReviewedVideoRecoveryDiagnostic } from "./owner-reviewed-video-recovery-diagnostic.js";
 import {
   createOwnerReviewedContractCallPolicy,
   OwnerContractProbePolicyError,
@@ -322,6 +323,32 @@ class OwnerReviewedNoReferenceT2vEngine<TSource extends object> {
       recovery_id: item.recovery_id, model_id: this.#profile.modelId, operation_id: this.#profile.operationId,
       variant_id: this.#profile.variantId, created_at: item.created_at
     })));
+  }
+
+  getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    this.#assertOpen();
+    const request = snapshotRecoveryInput(input);
+    if (this.#invalidating.has(request.attemptId)) throw new OwnerReviewedNoReferenceT2vServiceError("RECOVERY_NOT_FOUND");
+    return this.#run(request.attemptId, undefined, async (signal) => {
+      const stored = this.#recoveries.get(request.recovery_id);
+      const record = this.#recoveryStore.get(request.recovery_id, request.attemptId);
+      if (!stored || !record || stored.attempt_id !== request.attemptId || stored.principal.connection_id !== request.attemptId) {
+        throw new OwnerReviewedNoReferenceT2vServiceError("RECOVERY_NOT_FOUND");
+      }
+      let current: Readonly<GenerationPrincipalRef>;
+      try { current = await this.#resolveCurrentPrincipal(request.attemptId, signal); }
+      catch {
+        this.#removeRecovery(request.recovery_id, request.attemptId);
+        throw new OwnerReviewedNoReferenceT2vServiceError("RECOVERY_NOT_FOUND");
+      }
+      if (!sameGenerationPrincipal(current, stored.principal)) {
+        this.#removeRecovery(request.recovery_id, request.attemptId);
+        throw new OwnerReviewedNoReferenceT2vServiceError("RECOVERY_NOT_FOUND");
+      }
+      const diagnostic = this.#media.getRecoveryDiagnostic(request.attemptId, request.recovery_id);
+      if (!diagnostic) throw new OwnerReviewedNoReferenceT2vServiceError("RECOVERY_NOT_FOUND");
+      return diagnostic;
+    });
   }
 
   async invalidateAttempt(attemptId: string): Promise<void> {
@@ -612,6 +639,9 @@ export class OwnerHailuo23T2vGenerationService {
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
     return this.#engine.listRecoveries(attemptId, limit);
   }
+  getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    return this.#engine.getRecoveryDiagnostic(input);
+  }
   invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
   close(): Promise<void> { return this.#engine.close(); }
 }
@@ -640,6 +670,9 @@ export class OwnerHailuo02T2vGenerationService {
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
     return this.#engine.listRecoveries(attemptId, limit);
   }
+  getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    return this.#engine.getRecoveryDiagnostic(input);
+  }
   invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
   close(): Promise<void> { return this.#engine.close(); }
 }
@@ -667,6 +700,9 @@ export class OwnerSeedance20T2vGenerationService {
   }
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
     return this.#engine.listRecoveries(attemptId, limit);
+  }
+  getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    return this.#engine.getRecoveryDiagnostic(input);
   }
   invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
   close(): Promise<void> { return this.#engine.close(); }
@@ -726,6 +762,15 @@ export class OwnerKlingT2vGenerationService {
       .slice(0, limit));
   }
 
+  getRecoveryDiagnostic(input: OwnerKlingT2vReconcileInput | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    let request: Record<string, unknown>;
+    try { request = snapshotFamilyInput(input, ["model_id", "attemptId", "recovery_id"]); }
+    catch { throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST"); }
+    const modelId = readKlingModelId(request.model_id);
+    delete request.model_id;
+    return this.#engine(modelId).getRecoveryDiagnostic(request);
+  }
+
   async invalidateAttempt(attemptId: string): Promise<void> {
     await Promise.all([...this.#engines.values()].map((engine) => engine.invalidateAttempt(attemptId)));
   }
@@ -764,6 +809,9 @@ export class OwnerHailuoLiveT2vGenerationService {
   }
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
     return this.#engine.listRecoveries(attemptId, limit);
+  }
+  getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    return this.#engine.getRecoveryDiagnostic(input);
   }
   invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
   close(): Promise<void> { return this.#engine.close(); }
@@ -825,6 +873,15 @@ export class OwnerVeoT2vGenerationService {
       .slice(0, limit));
   }
 
+  getRecoveryDiagnostic(input: OwnerVeoT2vReconcileInput | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    let request: Record<string, unknown>;
+    try { request = snapshotFamilyInput(input, ["model_id", "attemptId", "recovery_id"]); }
+    catch { throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST"); }
+    const modelId = readVeoModelId(request.model_id);
+    delete request.model_id;
+    return this.#engine(modelId).getRecoveryDiagnostic(request);
+  }
+
   async invalidateAttempt(attemptId: string): Promise<void> {
     await Promise.all([...this.#engines.values()].map((engine) => engine.invalidateAttempt(attemptId)));
   }
@@ -867,6 +924,9 @@ export class OwnerGrokT2vGenerationService {
   }
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
     return this.#engine.listRecoveries(attemptId, limit);
+  }
+  getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    return this.#engine.getRecoveryDiagnostic(input);
   }
   invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
   close(): Promise<void> { return this.#engine.close(); }

@@ -172,6 +172,7 @@ import {
 import { registerSyntxOwnerElevenLabsStsTools } from "./owner-elevenlabs-sts-tools.js";
 import { registerSyntxOwnerElevenLabsStsExistingMediaTools } from "./owner-elevenlabs-sts-existing-media-tools.js";
 import { registerSyntxOwnerTopazAstraTools, type OwnerTopazAstraServiceComposition } from "./owner-topaz-astra-tools.js";
+import { registerSyntxOwnerHailuo02I2vTools, type OwnerHailuo02I2vServiceComposition } from "./owner-hailuo02-i2v-tools.js";
 import type { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
 import {
   registerSyntxOwnerSunoGenerationTools,
@@ -527,6 +528,8 @@ export interface CreateMcpServerOptions {
   /** Explicit owner-local reviewed Hailuo 2.3 T2V tools; only injected by opted-in owner stdio. */
   ownerHailuo23T2v?: OwnerHailuo23T2vServiceComposition | undefined;
   ownerHailuo02T2v?: OwnerHailuo02T2vServiceComposition | undefined;
+  /** Explicit owner-local Hailuo-02 I2V image upload, generation, and recovery tools; omitted by default and HTTP servers. */
+  ownerHailuo02I2v?: OwnerHailuo02I2vServiceComposition | undefined;
   ownerSeedance20T2v?: OwnerSeedance20T2vServiceComposition | undefined;
   /** Explicit owner-local Kling T2V and O1 tools; omitted from default and HTTP servers. */
   ownerKlingT2v?: OwnerKlingT2vServiceComposition | undefined;
@@ -673,7 +676,7 @@ export function createMcpServer(
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
-        options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerSeedance20T2v ||
+        options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
         options.ownerKlingT2v || options.ownerKlingI2v || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
@@ -1164,6 +1167,7 @@ export function createMcpServer(
   if (options.ownerHailuo02T2v) {
     registerSyntxOwnerHailuo02T2vTools(server, { service: options.ownerHailuo02T2v.generationService });
   }
+  if (options.ownerHailuo02I2v) registerSyntxOwnerHailuo02I2vTools(server, options.ownerHailuo02I2v);
   if (options.ownerSeedance20T2v) {
     registerSyntxOwnerSeedance20T2vTools(server, { service: options.ownerSeedance20T2v.generationService });
   }

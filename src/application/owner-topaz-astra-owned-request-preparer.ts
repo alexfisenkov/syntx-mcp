@@ -156,9 +156,11 @@ export function createOwnerTopazAstraOwnedRequestPreparer(optionsInput: OwnerTop
   const stateFor = (value: unknown): CandidateState => {
     if (closed) fail("SERVICE_CLOSED");
     if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) fail("CANDIDATE_UNBOUND");
-    const state = CANDIDATES.get(value as object), now = readNow();
-    if (!state || state.candidate !== value || state.expired || state.epoch !== (epochs.get(state.attemptId) ?? 0) || now >= state.expiresAt) {
-      if (state) { state.expired = true; candidates.delete(state); }
+    const state = CANDIDATES.get(value as object);
+    if (!state || !candidates.has(state)) fail("CANDIDATE_UNBOUND");
+    const now = readNow();
+    if (state.candidate !== value || state.expired || state.epoch !== (epochs.get(state.attemptId) ?? 0) || now >= state.expiresAt) {
+      state.expired = true; candidates.delete(state);
       fail("CANDIDATE_EXPIRED");
     }
     const context = Object.freeze({ attempt_id: state.attemptId, topaz_original_handle: state.handle });

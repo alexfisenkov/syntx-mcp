@@ -282,7 +282,7 @@ function validPage(page: OwnerElevenLabsStsExistingChatPage, requested: number):
   const pages = page.total_count === 0 ? 0 : Math.ceil(page.total_count / PAGE_SIZE);
   const rows = Math.min(PAGE_SIZE, Math.max(0, page.total_count - (requested - 1) * PAGE_SIZE));
   return Number.isSafeInteger(page.total_count) && page.total_count >= 0 && page.total_pages === pages &&
-    page.has_previous === (requested > 1) && page.has_next === (requested < pages) && page.chats.length === rows &&
+    page.has_previous === (requested > 1) && page.has_next === (requested < pages) && page.chats.length <= rows &&
     (pages === 0 || requested <= pages);
 }
 function validChat(value: OwnerElevenLabsStsExistingChatContext, attempt: string, principal: Readonly<GenerationPrincipalRef>): boolean {

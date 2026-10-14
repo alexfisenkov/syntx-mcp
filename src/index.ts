@@ -319,6 +319,31 @@ export type {
 } from "./adapter/syntx/chat-http-client.js";
 export { LinkedAttemptCredentialBroker } from "./adapter/syntx/link-credential-broker.js";
 export { createObservedOwnerRuntime } from "./runtime/observed-owner-runtime.js";
+export { readOwnerHailuo02I2vFlag } from "./runtime/owner-hailuo02-i2v-stdio-config.js";
+export {
+  OwnerHailuo02I2vGenerationService,
+  OwnerHailuo02I2vGenerationServiceError,
+  OWNER_HAILUO02_I2V_GENERATION_CATALOG_VERSION
+} from "./application/owner-hailuo02-i2v-generation-service.js";
+export type {
+  OwnerHailuo02I2vGenerationServiceOptions,
+  OwnerHailuo02I2vGenerationResult,
+  OwnerHailuo02I2vGenerateInput,
+  OwnerHailuo02I2vReconcileInput,
+  OwnerHailuo02I2vRecoveryListInput,
+  OwnerHailuo02I2vResultPageInput,
+  OwnerHailuo02I2vGenerationDiagnostic,
+  OwnerHailuo02I2vGenerationServiceErrorCode
+} from "./application/owner-hailuo02-i2v-generation-service.js";
+export { OwnerHailuo02I2vImageReferenceService } from "./application/owner-hailuo02-i2v-image-reference-service.js";
+export type {
+  OwnerHailuo02I2vImageUploadInput,
+  OwnerHailuo02I2vImageUploadReceipt,
+  OwnerHailuo02I2vImageResolveInput,
+  OwnerHailuo02I2vImageResolution
+} from "./application/owner-hailuo02-i2v-image-reference-service.js";
+export { OwnerHailuo02I2vRequestPreparer, createOwnerHailuo02I2vRequestPreparer } from "./application/owner-hailuo02-i2v-request-preparer.js";
+export { OWNER_HAILUO02_I2V_SOURCE_PINS, OWNER_HAILUO02_I2V_SOURCE_PROFILE } from "./application/owner-hailuo02-i2v-source-profile.js";
 export type { ObservedOwnerRuntimeOptions } from "./runtime/observed-owner-runtime.js";
 export {
   DenyAllConfirmationStore,

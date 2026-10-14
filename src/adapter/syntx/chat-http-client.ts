@@ -4411,6 +4411,48 @@ export class SyntxChatHttpClient {
     return native.getOwnerTopazAstraNativeResult(input, packet, signal);
   }
 
+  /** Creates one owner Hailuo-02 I2V video chat from a genuine same-client image candidate. */
+  async createOwnerHailuo02I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-hailuo02-i2v-native-context.js").OwnerHailuo02I2vChatContext> {
+    assertNativeOwnerHailuo02I2v(this);
+    const native = await import("./owner-hailuo02-i2v-native-context.js");
+    const packet = createOwnerHailuo02I2vNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_HAILUO02_I2V_CREATE_CHAT, this, ["video", title, requestSignal]));
+    return native.createOwnerHailuo02I2vChat(input, packet, signal);
+  }
+
+  /** Revalidates and consumes one owned Hailuo-02 I2V permit before its sole fixed video POST. */
+  async startOwnerHailuo02I2vWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerHailuo02I2v(this);
+    const native = await import("./owner-hailuo02-i2v-native-context.js");
+    const packet = createOwnerHailuo02I2vNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "hailuo-minimax", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerHailuo02I2vWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Bounded GET-only history read for the exact owner Hailuo-02 I2V chat and POST acknowledgement. */
+  async listOwnedHailuo02I2vCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-hailuo02-i2v-native-context.js").OwnerHailuo02I2vResultCandidates> {
+    assertNativeOwnerHailuo02I2v(this);
+    const native = await import("./owner-hailuo02-i2v-native-context.js");
+    const packet = createOwnerHailuo02I2vNativeInvocation(this, "list", input,
+      async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnerHailuo02I2vCandidates(input, packet, signal);
+  }
+
+  /** Reads only an exact result context minted by this client's owned Hailuo-02 I2V history. */
+  async getOwnedHailuo02I2vResult(input: unknown, signal?: AbortSignal): Promise<import("./owner-hailuo02-i2v-native-context.js").OwnerHailuo02I2vResult> {
+    assertNativeOwnerHailuo02I2v(this);
+    const native = await import("./owner-hailuo02-i2v-native-context.js");
+    const packet = createOwnerHailuo02I2vNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) => this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL),
+        "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerHailuo02I2vResult(input, packet, signal);
+  }
+
   /** Creates one native Video2Audio chat bound to an authentic candidate, before any one-shot permit is minted. */
   async createVideo2AudioChat(input: CreateVideo2AudioChatInput | unknown, signal?: AbortSignal): Promise<OwnerVideo2AudioChatContext> {
     assertNativeOwnerVideo2AudioClient(this);
@@ -7138,6 +7180,52 @@ const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_INDEX = SyntxChatHttpClient.prototype
 const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_HISTORY = SyntxChatHttpClient.prototype.listOwnedElevenLabsStsExistingCandidates;
 const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_RESULT = SyntxChatHttpClient.prototype.getOwnedElevenLabsStsExistingResult;
 const NATIVE_OWNER_TOPAZ_ASTRA_CREATE_CHAT = SyntxChatHttpClient.prototype.createVideoUpscalerChat;
+const NATIVE_OWNER_HAILUO02_I2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_HAILUO02_I2V_UPLOAD = SyntxChatHttpClient.prototype.uploadHailuo02I2vImage;
+const NATIVE_OWNER_HAILUO02_I2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerHailuo02I2vChat;
+const NATIVE_OWNER_HAILUO02_I2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerHailuo02I2vWithOwnedCandidate;
+const NATIVE_OWNER_HAILUO02_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedHailuo02I2vCandidates;
+const NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedHailuo02I2vResult;
+type OwnerHailuo02I2vNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerHailuo02I2vNativeInvocation { readonly client: SyntxChatHttpClient; readonly method: OwnerHailuo02I2vNativeMethod; readonly input: unknown; readonly callback: Function }
+const OWNER_HAILUO02_I2V_NATIVE_INVOCATIONS = new WeakMap<object, OwnerHailuo02I2vNativeInvocation>();
+
+function createOwnerHailuo02I2vNativeInvocation(client: SyntxChatHttpClient, method: OwnerHailuo02I2vNativeMethod, input: unknown, callback: Function): object {
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_HAILUO02_I2V_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** One-use private bridge: only the fixed four native client methods can mint invocation packets. */
+export function consumeOwnerHailuo02I2vNativeInvocation(input: unknown, packet: unknown,
+  method: OwnerHailuo02I2vNativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw new Error("OWNER_HAILUO02_I2V_INVOCATION_INVALID");
+  const invocation = OWNER_HAILUO02_I2V_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerHailuo02I2vNativeClient(invocation.client)) {
+    throw new Error("OWNER_HAILUO02_I2V_INVOCATION_INVALID");
+  }
+  OWNER_HAILUO02_I2V_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerHailuo02I2v(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerHailuo02I2vNativeClient(client)) throw new Error("OWNER_HAILUO02_I2V_NATIVE_CLIENT_INVALID");
+}
+
+function isExactOwnerHailuo02I2vNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) && Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      getDataMethod(client, "createChat") === NATIVE_OWNER_HAILUO02_I2V_CREATE_CHAT &&
+      getDataMethod(client, "uploadHailuo02I2vImage") === NATIVE_OWNER_HAILUO02_I2V_UPLOAD &&
+      getDataMethod(client, "createOwnerHailuo02I2vChat") === NATIVE_OWNER_HAILUO02_I2V_NATIVE_CREATE &&
+      getDataMethod(client, "startOwnerHailuo02I2vWithOwnedCandidate") === NATIVE_OWNER_HAILUO02_I2V_NATIVE_START &&
+      getDataMethod(client, "listOwnedHailuo02I2vCandidates") === NATIVE_OWNER_HAILUO02_I2V_NATIVE_LIST &&
+      getDataMethod(client, "getOwnedHailuo02I2vResult") === NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET &&
+      SyntxChatHttpClient.prototype.uploadHailuo02I2vImage === NATIVE_OWNER_HAILUO02_I2V_UPLOAD &&
+      Reflect.get(client, "uploadHailuo02I2vImage") === NATIVE_OWNER_HAILUO02_I2V_UPLOAD;
+  } catch { return false; }
+}
+
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerTopazAstraChat;
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_START = SyntxChatHttpClient.prototype.startTopazAstraWithOwnedCandidate;
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedTopazAstraCandidates;

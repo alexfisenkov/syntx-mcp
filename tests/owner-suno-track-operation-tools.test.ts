@@ -194,9 +194,10 @@ test("genuine SDK runs base Suno, lists an opaque track, dispatches cover and ex
     const settings = requests.filter((request) => request.method === "POST" && request.path === "/api/v1/audio/generate")
       .map((request) => request.body?.settings as Record<string, unknown>);
     assert.deepEqual(settings[1], { model_type: "V6", mode: "cover", is_custom_mode: true, is_instrumental: false,
-      negative_tags: "noise", styles: "ambient", title: "Кавер", source_clip_id: "base-clip-1", source_task_id: "base-task-1" });
+      negative_tags: "noise", styles: "ambient", title: "Кавер", source_clip_id: "base-clip-1", source_task_id: "base-task-1", file_urls: [] });
     assert.deepEqual(settings[2], { model_type: "V6", mode: "extend", is_custom_mode: true, is_instrumental: false,
-      negative_tags: "noise", styles: "ambient", title: "Продление", source_clip_id: "base-clip-1", source_task_id: "base-task-1", continue_at: 12.3 });
+      negative_tags: "noise", styles: "ambient", title: "Продление", source_clip_id: "base-clip-1", source_task_id: "base-task-1",
+      continue_at: 12.3, file_urls: [] });
     const listedBeforeReconcile = await client.callTool({ name: SYNTX_OWNER_LIST_SUNO_TRACK_OPERATION_RECOVERIES_TOOL_NAME,
       arguments: { link_attempt_id: ATTEMPT } });
     assert.equal(listedBeforeReconcile.isError, undefined, JSON.stringify(listedBeforeReconcile));

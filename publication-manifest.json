@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "1fee75906837119ce7ef1909bf89ea77d85d901a",
+  "source_commit": "87c22f0d26ef4eecf38726b296f93524b2a93178",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2236,7 +2236,7 @@
     "tests/owner-suno-track-operation-package-checker.test.mjs": "933ee3554ffcac41f9c078ccdf8e0e49e4a0c37dab89c671a6ba6f35d9302cf8",
     "tests/owner-suno-track-operation-parameters.test.ts": "97ee74c8af038b9740b4d8586bbaec2a2a6b0e52c90b544ab425e6f720719552",
     "tests/owner-suno-track-operation-preparer.test.ts": "7539ef4abe66eb40e3f32a0b72997319fb1de9a2a967f5d064e69a928b8de825",
-    "tests/owner-suno-track-operation-tools.test.ts": "8b5ab7f88aad9087ad79d44beaead4cd8079bde0f4589877fa3eef9403072b80",
+    "tests/owner-suno-track-operation-tools.test.ts": "831c5c44db18a0b27c8ac2d7e862b99033ea1ca80b728a80eb2ee3386af631f8",
     "tests/owner-suno-track-package-checker.test.mjs": "dffb4ce83d18259861724cffa553e72e6e8c9fd953497b56b34aca6d6364b1b7",
     "tests/owner-suno-track-service.test.ts": "78318686811219421b3fbb6bd60d8b2c608a9f57fd8c8e0cf2b8e5e07ebb5fbd",
     "tests/owner-suno-track-tools.test.ts": "f6db556107c6849d8bffa73fcc6333865e74a29bd76e8a9967823673055eddc9",

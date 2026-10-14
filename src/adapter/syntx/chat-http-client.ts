@@ -108,6 +108,15 @@ import {
   type OwnerElevenLabsStsExistingChatContext,
   type OwnerElevenLabsStsExistingResultContext
 } from "./owner-elevenlabs-sts-existing-media.js";
+import {
+  listOwnedTopazAstraExistingChats as readTopazAstraExistingChats,
+  listOwnedTopazAstraExistingCandidates as readTopazAstraExistingCandidates,
+  getOwnedTopazAstraExistingResult as readTopazAstraExistingResult,
+  type OwnerTopazAstraExistingChatPage,
+  type OwnerTopazAstraExistingCandidates,
+  type OwnerTopazAstraExistingChatContext,
+  type OwnerTopazAstraExistingResultContext
+} from "./owner-topaz-astra-existing-media.js";
 import { readOwnerSunoTrackMetadata } from "../../application/owner-suno-track-metadata.js";
 import {
   getOwnerClarityUpscaleSourceProfile,
@@ -144,6 +153,19 @@ import {
   type ValidatedOwnerHailuo02I2vImageUpload
 } from "../../application/owner-hailuo02-i2v-image-policy.js";
 import type { OwnerHailuo02I2vImageUploadContext } from "./hailuo02-i2v-upload-context.js";
+import {
+  readValidatedOwnerWan27R2vImage,
+  type ValidatedOwnerWan27R2vImage
+} from "../../application/owner-wan27-r2v-image-policy.js";
+import {
+  copyTrustedOwnerWan27R2vVideoCropBytes,
+  type OwnerWan27R2vVideoCropReceipt
+} from "../../application/owner-wan27-r2v-video-crop.js";
+import type {
+  OwnerWan27R2vImageUploadContext,
+  OwnerWan27R2vSelectedVideoUploadContext,
+  OwnerWan27R2vUploadContext
+} from "./wan27-r2v-upload-context.js";
 import {
   consumeOwnerKlingI2vGenerationContext,
   withCapturedOwnerKlingI2vGenerationContext
@@ -448,6 +470,7 @@ const MAX_MAGNIFIC_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_KONTEXT_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_CLARITY_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_WAN_UPLOAD_BYTES = 20 * 1024 * 1024;
+const MAX_WAN27_R2V_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 const MAX_STANDARD_IMAGE_UPLOAD_BYTES = 32 * 1024 * 1024;
 const MAX_IDEOGRAM_IMAGE_UPLOAD_BYTES = 64 * 1024 * 1024;
 const MAX_GROK_IMAGINE_IMAGE_UPLOAD_BYTES = 64 * 1024 * 1024;
@@ -458,6 +481,7 @@ const MAX_SEEDREAM_EDITOR_ORIGINAL_UPLOAD_BYTES = 30 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_DRAWING_UPLOAD_BYTES = 32 * 1024 * 1024;
 const MAX_KLING_I2V_IMAGE_UPLOAD_BYTES = 30 * 1024 * 1024;
 const HAILUO02_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Hailuo02I2vUploadContextState>>();
+const WAN27_R2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan27R2vUploadContextState>>();
 const BANANA_INPAINT_ORIGINAL_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_PAINTED_COMPOSITE_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_AUXILIARY_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
@@ -566,6 +590,21 @@ const wanUploadResponseSchema = z.object({
     url: z.string().min(1).max(MAX_URL_LENGTH),
     mime_type: z.string().max(128),
     size: z.number().int().nonnegative().max(MAX_WAN_UPLOAD_BYTES),
+    status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
+  }).strip()).length(1)
+}).strip();
+
+const wan27R2vUploadResponseSchema = z.object({
+  files: z.array(z.object({
+    id: providerIdSchema.optional(),
+    file_id: providerIdSchema.optional(),
+    url: z.string().min(1).max(MAX_URL_LENGTH),
+    filename: z.string().max(256).optional(),
+    mime_type: z.string().max(128).optional(),
+    content_type: z.string().max(128).optional(),
+    size: z.number().int().nonnegative().max(MAX_WAN27_R2V_VIDEO_UPLOAD_BYTES).optional(),
+    duration: z.number().finite().nonnegative().max(30).optional(),
+    duration_seconds: z.number().finite().nonnegative().max(30).optional(),
     status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
   }).strip()).length(1)
 }).strip();
@@ -5051,6 +5090,32 @@ export class SyntxChatHttpClient {
     return await readElevenLabsStsExistingResult(context, packet, signal);
   }
 
+  /** Reads existing owner Topaz Astra chats and their exact completed video using GET only. */
+  async listOwnedTopazAstraExistingChats(input: unknown, signal?: AbortSignal): Promise<OwnerTopazAstraExistingChatPage> {
+    assertNativeOwnerTopazAstraExistingClient(this);
+    const packet = createOwnerTopazAstraExistingInvocation(this, "index", input,
+      (url, requestSignal) => this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return await readTopazAstraExistingChats(input, packet, signal);
+  }
+
+  /** Reads the full bounded history for an indexed Topaz chat; this path cannot create or generate. */
+  async listOwnedTopazAstraExistingCandidates(chat: OwnerTopazAstraExistingChatContext | unknown,
+    signal?: AbortSignal): Promise<OwnerTopazAstraExistingCandidates> {
+    assertNativeOwnerTopazAstraExistingClient(this);
+    const packet = createOwnerTopazAstraExistingInvocation(this, "history", chat,
+      (url, requestSignal) => this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return await readTopazAstraExistingCandidates(chat, packet, signal);
+  }
+
+  /** Reads exactly one result context previously minted from this owner's Topaz history. */
+  async getOwnedTopazAstraExistingResult(context: OwnerTopazAstraExistingResultContext | unknown,
+    signal?: AbortSignal): Promise<import("./owner-topaz-astra-native-context.js").OwnerTopazAstraResult> {
+    assertNativeOwnerTopazAstraExistingClient(this);
+    const packet = createOwnerTopazAstraExistingInvocation(this, "result", context,
+      (url, requestSignal) => this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return await readTopazAstraExistingResult(context, packet, signal);
+  }
+
   /** Reads one bounded page of current-owner MCP-created audio chats; it never creates chats or posts generation. */
   async listOwnedSunoExistingTrackChats(input: unknown, signal?: AbortSignal): Promise<OwnerSunoExistingTrackChatPage> {
     assertNativeOwnerSunoClient(this);
@@ -6498,6 +6563,83 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One fixed WAN 2.7 R2V image upload from a genuine local image receipt. */
+  async uploadWan27R2vImage(
+    receiptInput: ValidatedOwnerWan27R2vImage,
+    signal?: AbortSignal
+  ): Promise<OwnerWan27R2vImageUploadContext> {
+    const owned = readValidatedOwnerWan27R2vImage(receiptInput);
+    if (!owned) throw invalidRequest();
+    const bytes = owned.bytes;
+    let form: FormData | undefined;
+    try {
+      if (owned.size !== bytes.byteLength || owned.size < 1 || owned.size > MAX_WAN_UPLOAD_BYTES ||
+          !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !isWan27R2vImageMime(owned.mime_type) || !Number.isSafeInteger(owned.width) || owned.width < 240 || owned.width > 8_000 ||
+          !Number.isSafeInteger(owned.height) || owned.height < 240 || owned.height > 8_000) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type, destination: "uploaded",
+        check_duplicates: true, model_type: "wan_27_r2v" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseWan27R2vUploadReference(raw, owned.filename, owned.mime_type, owned.size);
+      const context: OwnerWan27R2vImageUploadContext = Object.freeze({ status: "uploaded", model_id: "wan_27_r2v",
+        media_type: "image", mime_type: owned.mime_type, size: owned.size, sha256: owned.sha256,
+        width: owned.width, height: owned.height });
+      WAN27_R2V_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url, mediaType: "image",
+        mimeType: owned.mime_type, size: owned.size, sha256: owned.sha256, width: owned.width, height: owned.height }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
+  /** One fixed hidden WAN 2.7 R2V upload from an authentic measured local crop. */
+  async uploadWan27R2vSelectedVideo(
+    receiptInput: OwnerWan27R2vVideoCropReceipt,
+    signal?: AbortSignal
+  ): Promise<OwnerWan27R2vSelectedVideoUploadContext> {
+    let bytes: Uint8Array;
+    try { bytes = copyTrustedOwnerWan27R2vVideoCropBytes(receiptInput); }
+    catch { throw invalidRequest(); }
+    const filename = "wan27-r2v-selected-video.mp4";
+    let form: FormData | undefined;
+    try {
+      const metadata = receiptInput.metadata;
+      const duration = metadata?.video_duration_seconds;
+      if (receiptInput.model_id !== "wan_27_r2v" || receiptInput.mime_type !== "video/mp4" ||
+          receiptInput.bytes !== bytes.byteLength || receiptInput.bytes < 1 || receiptInput.bytes > MAX_WAN27_R2V_VIDEO_UPLOAD_BYTES ||
+          !/^[a-f0-9]{64}$/u.test(receiptInput.crop_sha256) || createHash("sha256").update(bytes).digest("hex") !== receiptInput.crop_sha256 ||
+          !/^[a-f0-9]{64}$/u.test(receiptInput.source_sha256) || !metadata || !Number.isSafeInteger(metadata.width) ||
+          metadata.width < 240 || metadata.width > 8_000 || !Number.isSafeInteger(metadata.height) || metadata.height < 240 || metadata.height > 8_000 ||
+          !Number.isSafeInteger(metadata.frame_rate?.numerator) || metadata.frame_rate.numerator < 1 ||
+          !Number.isSafeInteger(metadata.frame_rate?.denominator) || metadata.frame_rate.denominator < 1 ||
+          !Number.isSafeInteger(metadata.frame_count) || metadata.frame_count < 1 || typeof duration !== "number" ||
+          !Number.isFinite(duration) || duration <= 0 || duration > 5 ||
+          Math.abs(duration - metadata.frame_count * metadata.frame_rate.denominator / metadata.frame_rate.numerator) >
+            metadata.frame_rate.denominator / metadata.frame_rate.numerator + 0.000001 || metadata.codec !== "h264" ||
+          !Number.isSafeInteger(metadata.audio_stream_count) || metadata.audio_stream_count < 0 || metadata.audio_stream_count > 16 ||
+          receiptInput.encoding_policy !== "CFR_LOCAL_ENCODING_NOT_PROVIDER_PROOF" || receiptInput.generation_permit !== false ||
+          receiptInput.owner_upload_binding !== "NOT_ESTABLISHED") throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename, mime_type: "video/mp4", destination: "hidden",
+        check_duplicates: true, model_type: "wan_27_r2v" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const frameTolerance = metadata.frame_rate.denominator / metadata.frame_rate.numerator;
+      const reference = parseWan27R2vUploadReference(raw, filename, "video/mp4", bytes.byteLength,
+        { durationSeconds: duration, frameToleranceSeconds: frameTolerance });
+      const context: OwnerWan27R2vSelectedVideoUploadContext = Object.freeze({ status: "uploaded", model_id: "wan_27_r2v",
+        media_type: "selected_video", mime_type: "video/mp4", size: bytes.byteLength,
+        sha256: receiptInput.crop_sha256, width: metadata.width, height: metadata.height,
+        video_duration_seconds: duration, source_sha256: receiptInput.source_sha256 });
+      WAN27_R2V_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url, mediaType: "selected_video",
+        mimeType: "video/mp4", size: bytes.byteLength, sha256: receiptInput.crop_sha256, width: metadata.width,
+        height: metadata.height, videoDurationSeconds: duration, sourceSha256: receiptInput.source_sha256 }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** Fixed native upload for one source-validated standard image-family input; no caller route or retry. */
   async uploadStandardImageReference(
     request: StandardImageReferenceUploadRequest,
@@ -7179,6 +7321,9 @@ const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_GET = SyntxChatHttpClient.prototype.get
 const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_INDEX = SyntxChatHttpClient.prototype.listOwnedElevenLabsStsExistingChats;
 const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_HISTORY = SyntxChatHttpClient.prototype.listOwnedElevenLabsStsExistingCandidates;
 const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_RESULT = SyntxChatHttpClient.prototype.getOwnedElevenLabsStsExistingResult;
+const NATIVE_OWNER_TOPAZ_ASTRA_EXISTING_INDEX = SyntxChatHttpClient.prototype.listOwnedTopazAstraExistingChats;
+const NATIVE_OWNER_TOPAZ_ASTRA_EXISTING_HISTORY = SyntxChatHttpClient.prototype.listOwnedTopazAstraExistingCandidates;
+const NATIVE_OWNER_TOPAZ_ASTRA_EXISTING_RESULT = SyntxChatHttpClient.prototype.getOwnedTopazAstraExistingResult;
 const NATIVE_OWNER_TOPAZ_ASTRA_CREATE_CHAT = SyntxChatHttpClient.prototype.createVideoUpscalerChat;
 const NATIVE_OWNER_HAILUO02_I2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
 const NATIVE_OWNER_HAILUO02_I2V_UPLOAD = SyntxChatHttpClient.prototype.uploadHailuo02I2vImage;
@@ -7186,6 +7331,8 @@ const NATIVE_OWNER_HAILUO02_I2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.cr
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerHailuo02I2vWithOwnedCandidate;
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedHailuo02I2vCandidates;
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedHailuo02I2vResult;
+const NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vImage;
+const NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo;
 type OwnerHailuo02I2vNativeMethod = "create" | "start" | "list" | "get";
 interface OwnerHailuo02I2vNativeInvocation { readonly client: SyntxChatHttpClient; readonly method: OwnerHailuo02I2vNativeMethod; readonly input: unknown; readonly callback: Function }
 const OWNER_HAILUO02_I2V_NATIVE_INVOCATIONS = new WeakMap<object, OwnerHailuo02I2vNativeInvocation>();
@@ -7223,6 +7370,20 @@ function isExactOwnerHailuo02I2vNativeClient(client: unknown): client is SyntxCh
       getDataMethod(client, "getOwnedHailuo02I2vResult") === NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET &&
       SyntxChatHttpClient.prototype.uploadHailuo02I2vImage === NATIVE_OWNER_HAILUO02_I2V_UPLOAD &&
       Reflect.get(client, "uploadHailuo02I2vImage") === NATIVE_OWNER_HAILUO02_I2V_UPLOAD;
+  } catch { return false; }
+}
+
+function isExactOwnerWan27R2vUploadClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !Object.hasOwn(client, "uploadWan27R2vImage") && !Object.hasOwn(client, "uploadWan27R2vSelectedVideo") &&
+      getDataMethod(client, "uploadWan27R2vImage") === NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD &&
+      getDataMethod(client, "uploadWan27R2vSelectedVideo") === NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadWan27R2vImage === NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo === NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD &&
+      Reflect.get(client, "uploadWan27R2vImage") === NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD &&
+      Reflect.get(client, "uploadWan27R2vSelectedVideo") === NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD;
   } catch { return false; }
 }
 
@@ -7308,6 +7469,37 @@ function isExactOwnerElevenLabsStsExistingClient(client: unknown): client is Syn
       Reflect.get(client, "getOwnedElevenLabsStsExistingResult") === NATIVE_OWNER_ELEVENLABS_STS_EXISTING_RESULT &&
       isExactOwnerElevenLabsStsUploadClient(client);
   } catch { return false; }
+}
+
+type OwnerTopazAstraExistingMethod = "index" | "history" | "result";
+interface OwnerTopazAstraExistingInvocation {
+  readonly client: SyntxChatHttpClient; readonly method: OwnerTopazAstraExistingMethod; readonly input: unknown;
+  readonly callback: (url: URL, signal?: AbortSignal) => Promise<unknown>;
+}
+const OWNER_TOPAZ_ASTRA_EXISTING_INVOCATIONS = new WeakMap<object, OwnerTopazAstraExistingInvocation>();
+function createOwnerTopazAstraExistingInvocation(client: SyntxChatHttpClient, method: OwnerTopazAstraExistingMethod, input: unknown,
+  callback: (url: URL, signal?: AbortSignal) => Promise<unknown>): object {
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_TOPAZ_ASTRA_EXISTING_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback })); return packet;
+}
+/** Only fixed native GET methods on an exact Topaz client can mint a single-use bridge. */
+export function consumeOwnerTopazAstraExistingInvocation(input: unknown, packet: unknown, method: OwnerTopazAstraExistingMethod): Readonly<{
+  client: SyntxChatHttpClient; get: (url: URL, signal?: AbortSignal) => Promise<unknown>
+}> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw new Error("OWNER_TOPAZ_ASTRA_EXISTING_INVOCATION_INVALID");
+  const invocation = OWNER_TOPAZ_ASTRA_EXISTING_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerTopazAstraExistingClient(invocation.client)) {
+    throw new Error("OWNER_TOPAZ_ASTRA_EXISTING_INVOCATION_INVALID");
+  }
+  OWNER_TOPAZ_ASTRA_EXISTING_INVOCATIONS.delete(packet); return Object.freeze({ client: invocation.client, get: invocation.callback });
+}
+function assertNativeOwnerTopazAstraExistingClient(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerTopazAstraExistingClient(client)) throw new Error("OWNER_TOPAZ_ASTRA_EXISTING_CLIENT_INVALID");
+}
+function isExactOwnerTopazAstraExistingClient(client: unknown): client is SyntxChatHttpClient {
+  try { return isExactOwnerTopazAstraNativeClient(client) && Reflect.get(client, "listOwnedTopazAstraExistingChats") === NATIVE_OWNER_TOPAZ_ASTRA_EXISTING_INDEX &&
+    Reflect.get(client, "listOwnedTopazAstraExistingCandidates") === NATIVE_OWNER_TOPAZ_ASTRA_EXISTING_HISTORY &&
+    Reflect.get(client, "getOwnedTopazAstraExistingResult") === NATIVE_OWNER_TOPAZ_ASTRA_EXISTING_RESULT; } catch { return false; }
 }
 type OwnerElevenLabsStsNativeMethod = "create" | "start" | "list" | "get";
 interface OwnerElevenLabsStsNativeInvocation {
@@ -9581,6 +9773,39 @@ function parseWanUploadReference(
   return Object.freeze(references[0]!);
 }
 
+function parseWan27R2vUploadReference(
+  raw: unknown,
+  expectedFilename: string,
+  expectedMimeType: OwnerWan27R2vImageUploadContext["mime_type"] | "video/mp4",
+  expectedSize: number,
+  expectedDuration?: Readonly<{ durationSeconds: number; frameToleranceSeconds: number }>
+): InternalUploadReference {
+  const parsed = wan27R2vUploadResponseSchema.safeParse(raw);
+  if (!parsed.success) throw protocolError();
+  const [receipt] = parsed.data.files;
+  if (!receipt || receipt.status?.toLowerCase() === "error" ||
+      (receipt.filename !== undefined && receipt.filename !== expectedFilename) ||
+      (receipt.mime_type !== undefined && receipt.mime_type !== expectedMimeType) ||
+      (receipt.content_type !== undefined && receipt.content_type !== expectedMimeType) ||
+      (receipt.size !== undefined && receipt.size !== expectedSize) ||
+      (receipt.duration !== undefined && (!expectedDuration || receipt.duration <= 0 ||
+        Math.abs(receipt.duration - expectedDuration.durationSeconds) > expectedDuration.frameToleranceSeconds + 0.000001)) ||
+      (receipt.duration_seconds !== undefined && (!expectedDuration || receipt.duration_seconds <= 0 ||
+        Math.abs(receipt.duration_seconds - expectedDuration.durationSeconds) > expectedDuration.frameToleranceSeconds + 0.000001)) ||
+      (receipt.id !== undefined && receipt.file_id !== undefined && String(receipt.id) !== String(receipt.file_id))) {
+    throw protocolError();
+  }
+  let references: InternalUploadReference[];
+  try { references = parseInternalUploadReferences(raw); }
+  catch { throw protocolError(); }
+  if (references.length !== 1) throw protocolError();
+  return Object.freeze(references[0]!);
+}
+
+function isWan27R2vImageMime(value: unknown): value is OwnerWan27R2vImageUploadContext["mime_type"] {
+  return value === "image/jpeg" || value === "image/png" || value === "image/bmp" || value === "image/webp";
+}
+
 function parseStandardImageUploadReference(
   raw: unknown,
   expectedMimeType: string,
@@ -9627,6 +9852,31 @@ export function readOwnerHailuo02I2vUploadReferenceForClient(
   } catch { return null; }
 }
 
+/** Reads one private R2 URL only for the frozen context minted by the exact native WAN client. */
+export function readOwnerWan27R2vUploadReferenceForClient(
+  clientInput: unknown,
+  contextInput: unknown
+): Readonly<{ readonly url: string }> | null {
+  try {
+    if (!isExactOwnerWan27R2vUploadClient(clientInput) || !contextInput || typeof contextInput !== "object" || types.isProxy(contextInput)) return null;
+    const state = WAN27_R2V_UPLOAD_CONTEXTS.get(contextInput);
+    if (!state || state.client !== clientInput || !Object.isFrozen(contextInput)) return null;
+    const context = contextInput as OwnerWan27R2vUploadContext;
+    if (context.status !== "uploaded" || context.model_id !== "wan_27_r2v" || context.media_type !== state.mediaType ||
+        context.mime_type !== state.mimeType || context.size !== state.size || !Number.isSafeInteger(context.size) || context.size < 1 ||
+        context.sha256 !== state.sha256 || !/^[a-f0-9]{64}$/u.test(context.sha256) || context.width !== state.width ||
+        !Number.isSafeInteger(context.width) || context.width < 240 || context.width > 8_000 || context.height !== state.height ||
+        !Number.isSafeInteger(context.height) || context.height < 240 || context.height > 8_000 ||
+        (state.mediaType === "selected_video" && (context.media_type !== "selected_video" ||
+          context.video_duration_seconds !== state.videoDurationSeconds || !Number.isFinite(context.video_duration_seconds) ||
+          context.video_duration_seconds <= 0 || context.video_duration_seconds > 5 ||
+          context.source_sha256 !== state.sourceSha256 || !/^[a-f0-9]{64}$/u.test(context.source_sha256))) ||
+        (state.mediaType === "image" && (context.media_type !== "image" || Object.hasOwn(context, "video_duration_seconds") ||
+          Object.hasOwn(context, "source_sha256"))) || !isSafeUploadReferenceUrl(state.url)) return null;
+    return Object.freeze({ url: state.url });
+  } catch { return null; }
+}
+
 const NATIVE_HAILUO02_I2V_UPLOAD = SyntxChatHttpClient.prototype.uploadHailuo02I2vImage;
 
 function parseHailuo02I2vUploadReference(
@@ -9666,6 +9916,19 @@ interface Hailuo02I2vUploadContextState {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
+}
+
+interface Wan27R2vUploadContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly url: string;
+  readonly mediaType: "image" | "selected_video";
+  readonly mimeType: OwnerWan27R2vImageUploadContext["mime_type"] | "video/mp4";
+  readonly size: number;
+  readonly sha256: string;
+  readonly width: number;
+  readonly height: number;
+  readonly videoDurationSeconds?: number;
+  readonly sourceSha256?: string;
 }
 
 function parseSeedreamEditorOriginalUploadReference(
@@ -9834,7 +10097,11 @@ function assertFixedUpstreamUrl(url: URL): void {
     /^\/api\/v1\/chats\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}(?:\/inprogress|\/messages|\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}|\/messages\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}\/cancel)?$/u;
   const isGeneration = url.pathname.endsWith("/generate");
   const isChatHistory = /\/chats\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}\/messages$/u.test(url.pathname);
-  const isOwnerSunoAudioChatIndex = url.pathname === "/api/v1/chats" && url.search.length > 0;
+  const isOwnerSunoAudioChatIndex = url.pathname === "/api/v1/chats" && url.searchParams.get("scope") === "audio";
+  const isOwnerTopazAstraExistingChatIndex = url.pathname === "/api/v1/chats" && url.search.length > 0 &&
+    url.searchParams.size === 3 && url.searchParams.getAll("scope").length === 1 && url.searchParams.get("scope") === "tool_video_upscaler" &&
+    url.searchParams.getAll("page").length === 1 && /^(?:[1-9]|[1-9]\d|100)$/u.test(url.searchParams.get("page") ?? "") &&
+    url.searchParams.getAll("page_size").length === 1 && url.searchParams.get("page_size") === "20";
 
   if (
     url.protocol !== "https:" ||
@@ -9857,7 +10124,7 @@ function assertFixedUpstreamUrl(url: URL): void {
       url.searchParams.getAll("page").length !== 1 || !/^(?:[1-9]|[1-9]\d|100)$/u.test(url.searchParams.get("page") ?? "") ||
       url.searchParams.getAll("page_size").length !== 1 ||
       url.searchParams.get("page_size") !== String(OWNER_SUNO_EXISTING_INDEX_PAGE_SIZE))) ||
-    (!isGeneration && !isChatHistory && !isOwnerSunoAudioChatIndex && url.search.length > 0)
+    (!isGeneration && !isChatHistory && !isOwnerSunoAudioChatIndex && !isOwnerTopazAstraExistingChatIndex && url.search.length > 0)
   ) {
     throw invalidRequest();
   }

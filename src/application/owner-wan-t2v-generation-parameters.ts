@@ -2,6 +2,7 @@ import { isProxy } from "node:util/types";
 import { isDeepStrictEqual } from "node:util";
 import { loadMaplessSettingsInventoryVersion } from "../catalog/mapless-settings-inventory.js";
 import { loadPublicCatalogVersion } from "../catalog/public-catalog-history.js";
+import { isOwnerWan27CurrentAudioAllowed, OWNER_WAN27_CURRENT_AUDIO_POLICY } from "./owner-wan27-current-audio-policy.js";
 
 export const OWNER_WAN_T2V_GENERATION_MODEL_IDS = Object.freeze([
   "wan_26_t2v", "wan_27_t2v"
@@ -61,6 +62,7 @@ export interface OwnerWanT2vGenerationSourceContract {
     sender_sha256: "sha256:b5df2329cf5fbc9e1b1289d146695954fd8576aed04818baffa6fbaaff1f73de";
     runtime_catalog_not_promoted: "e551";
   }>;
+  readonly current_audio_policy: typeof OWNER_WAN27_CURRENT_AUDIO_POLICY;
   readonly models: readonly OwnerWanT2vGenerationModelSource[];
   readonly controls: Readonly<{
     resolution: Readonly<{ values: readonly OwnerWanT2vGenerationResolution[]; effective_default: "UNKNOWN" }>;
@@ -107,6 +109,7 @@ export interface OwnerWanT2vGenerationNormalizedIntent {
     confidence: "DECLARED_KEYS_WITH_FORM_FIELD_VALUE_CANDIDATE_NOT_COST_CALLER_JOINED";
   }>;
   readonly source_pins: OwnerWanT2vGenerationSourceContract["source_pins"];
+  readonly current_audio_policy?: typeof OWNER_WAN27_CURRENT_AUDIO_POLICY;
   readonly effective_defaults: "UNKNOWN";
   readonly runtime_usable: false;
   readonly dispatch_allowed: false;
@@ -221,7 +224,7 @@ export function normalizeOwnerWanT2vGenerationParameters(input: unknown): OwnerW
       }
     });
   } else {
-    if (typeof raw.native_audio !== "boolean") invalid();
+    if (!isOwnerWan27CurrentAudioAllowed(raw.native_audio)) invalid();
     intent = deepFreeze({
       model_id: modelId,
       prompt: request.prompt,
@@ -248,6 +251,7 @@ export function normalizeOwnerWanT2vGenerationParameters(input: unknown): OwnerW
       confidence: "DECLARED_KEYS_WITH_FORM_FIELD_VALUE_CANDIDATE_NOT_COST_CALLER_JOINED" as const
     },
     source_pins: source.source_pins,
+    ...(modelId === "wan_27_t2v" ? { current_audio_policy: OWNER_WAN27_CURRENT_AUDIO_POLICY } : {}),
     effective_defaults: "UNKNOWN" as const,
     runtime_usable: false as const,
     dispatch_allowed: false as const,
@@ -257,15 +261,18 @@ export function normalizeOwnerWanT2vGenerationParameters(input: unknown): OwnerW
 
 /** Produces only a non-dispatching source wire-shape candidate; chat identity and prompt transform remain unbound. */
 export function projectOwnerWanT2vGenerationWireCandidate(input: unknown): DeepReadonly<OwnerWanT2vGenerationWireCandidate> {
-  const candidate = readExactRecord(input, [
+  const candidate = readExactRecordWithOptional(input, [
     "status", "intent", "cost_query_candidate", "source_pins", "effective_defaults",
     "runtime_usable", "dispatch_allowed", "backend_acceptance"
-  ]);
+  ], ["current_audio_policy"]);
   if (candidate.status !== "SOURCE_REVIEWED_EXPLICIT_INTENT" || candidate.effective_defaults !== "UNKNOWN" ||
       candidate.runtime_usable !== false || candidate.dispatch_allowed !== false ||
       candidate.backend_acceptance !== "UNPROVEN" || !isPlainRecord(candidate.intent)) invalid();
   const normalized = normalizeOwnerWanT2vGenerationParameters(candidate.intent);
   if (!isDeepStrictEqual(candidate.intent, normalized.intent)) invalid();
+  if (normalized.intent.model_id === "wan_27_t2v") {
+    if (!isDeepStrictEqual(candidate.current_audio_policy, OWNER_WAN27_CURRENT_AUDIO_POLICY)) invalid();
+  } else if (candidate.current_audio_policy !== undefined) invalid();
   const cost = readExactRecord(candidate.cost_query_candidate, ["keys", "values", "confidence"]);
   const costValues = readExactRecord(cost.values, ["video_duration", "resolution"]);
   if (!sameStrings(cost.keys, COST_QUERY_KEYS) || cost.confidence !==
@@ -332,6 +339,7 @@ function buildSourceContract(): DeepReadonly<OwnerWanT2vGenerationSourceContract
     return deepFreeze({
       status: "CURRENT_B066_1B48_STATIC_SOURCE_CONTRACT" as const,
       source_pins: SOURCE_PINS,
+      current_audio_policy: OWNER_WAN27_CURRENT_AUDIO_POLICY,
       models,
       controls: {
         resolution: { values: RESOLUTIONS, effective_default: "UNKNOWN" as const },
@@ -381,6 +389,19 @@ function readExactRecord(value: unknown, keys: readonly string[]): Record<string
   const actual = Reflect.ownKeys(descriptors);
   if (actual.length !== keys.length || actual.some((key) => typeof key !== "string" || !keys.includes(key) ||
       !("value" in descriptors[key]!) || descriptors[key]!.enumerable !== true)) invalid();
+  const record: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (const key of actual as string[]) record[key] = descriptors[key]!.value;
+  return record;
+}
+
+function readExactRecordWithOptional(value: unknown, required: readonly string[], optional: readonly string[]): Record<string, unknown> {
+  if (!isPlainRecord(value)) invalid();
+  let descriptors: PropertyDescriptorMap;
+  try { descriptors = Object.getOwnPropertyDescriptors(value); } catch { invalid(); }
+  const actual = Reflect.ownKeys(descriptors);
+  if (actual.length < required.length || actual.length > required.length + optional.length ||
+      required.some((key) => !actual.includes(key)) || actual.some((key) => typeof key !== "string" ||
+        (!required.includes(key) && !optional.includes(key)) || !("value" in descriptors[key]!) || descriptors[key]!.enumerable !== true)) invalid();
   const record: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
   for (const key of actual as string[]) record[key] = descriptors[key]!.value;
   return record;

@@ -146,6 +146,7 @@ import { OwnerVideo2AudioGenerationService } from "../application/owner-video2au
 import { OwnerTopazAstraOriginalReferenceService } from "../application/owner-topaz-astra-original-reference-service.js";
 import { createOwnerTopazAstraOwnedRequestPreparer } from "../application/owner-topaz-astra-owned-request-preparer.js";
 import { OwnerTopazAstraGenerationService, OWNER_TOPAZ_ASTRA_GENERATION_CATALOG_VERSION } from "../application/owner-topaz-astra-generation-service.js";
+import { OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-astra-existing-media-service.js";
 
 const LOCAL_OWNER_BINDING: AuthBinding = Object.freeze({
   tenant_id: "tenant_local_owner",
@@ -1410,8 +1411,15 @@ export function createObservedOwnerRuntime(
           now
         });
         const preparer = createOwnerTopazAstraOwnedRequestPreparer({ originalReferenceService, now });
+        let existingMediaService: OwnerTopazAstraExistingMediaService | undefined;
         let generationService: OwnerTopazAstraGenerationService;
         try {
+          existingMediaService = new OwnerTopazAstraExistingMediaService({
+            binding: authBinding,
+            genuinePerUserLinkService: linkService,
+            resolveChatClient: resolveTopazChatClient,
+            now
+          });
           generationService = new OwnerTopazAstraGenerationService({
             binding: authBinding,
             linkService,
@@ -1427,7 +1435,7 @@ export function createObservedOwnerRuntime(
         } catch (error) {
           const cleanup = (async () => {
             const errors: unknown[] = [];
-            for (const close of [() => preparer.close(), () => originalReferenceService.close()]) {
+            for (const close of [() => existingMediaService?.close(), () => preparer.close(), () => originalReferenceService.close()]) {
               try { await close(); } catch (closeError) { errors.push(closeError); }
             }
             clientsByAttempt.clear();
@@ -1443,6 +1451,7 @@ export function createObservedOwnerRuntime(
         const lifecycle = Object.freeze({
           async invalidateAttempt(attemptId: string): Promise<void> {
             const errors: unknown[] = [];
+            try { await existingMediaService!.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
             try { await generationService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
             try {
               await originalReferenceService.invalidateAttempt(attemptId);
@@ -1457,6 +1466,7 @@ export function createObservedOwnerRuntime(
             if (closing !== undefined) return closing;
             closing = (async () => {
               const errors: unknown[] = [];
+              try { await existingMediaService!.close(); } catch (error) { errors.push(error); }
               try { await generationService.close(); } catch (error) { errors.push(error); }
               try { await originalReferenceService.close(); } catch (error) { errors.push(error); }
               clientsByAttempt.clear();
@@ -1466,7 +1476,7 @@ export function createObservedOwnerRuntime(
             return closing;
           }
         });
-        return Object.freeze({ originalReferenceService, generationService, lifecycle });
+        return Object.freeze({ originalReferenceService, generationService, existingMediaService: existingMediaService!, lifecycle });
       })()
     : undefined;
   const ownerLumaT2v = options.ownerLumaT2vEnabled === true
@@ -2352,7 +2362,8 @@ export function createObservedOwnerRuntime(
     ...(ownerTopazAstra === undefined ? {} : {
       ownerTopazAstra: {
         originalReferenceService: ownerTopazAstra.originalReferenceService,
-        generationService: ownerTopazAstra.generationService
+        generationService: ownerTopazAstra.generationService,
+        existingMediaService: ownerTopazAstra.existingMediaService
       }
     }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2v: { generationService: ownerLumaT2v.generationService } }),

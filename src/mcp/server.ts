@@ -172,6 +172,8 @@ import {
 import { registerSyntxOwnerElevenLabsStsTools } from "./owner-elevenlabs-sts-tools.js";
 import { registerSyntxOwnerElevenLabsStsExistingMediaTools } from "./owner-elevenlabs-sts-existing-media-tools.js";
 import { registerSyntxOwnerTopazAstraTools, type OwnerTopazAstraServiceComposition } from "./owner-topaz-astra-tools.js";
+import type { OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-astra-existing-media-service.js";
+import { registerSyntxOwnerTopazAstraExistingMediaTools } from "./owner-topaz-astra-existing-media-tools.js";
 import { registerSyntxOwnerHailuo02I2vTools, type OwnerHailuo02I2vServiceComposition } from "./owner-hailuo02-i2v-tools.js";
 import type { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
 import {
@@ -372,6 +374,11 @@ export interface OwnerElevenLabsStsServiceComposition {
   readonly existingMediaService?: OwnerElevenLabsStsExistingMediaService;
 }
 
+/** Optional owner-local GET-only Topaz Astra history reader, alongside the existing generation/original services. */
+export interface OwnerTopazAstraComposition extends OwnerTopazAstraServiceComposition {
+  readonly existingMediaService?: OwnerTopazAstraExistingMediaService;
+}
+
 /** Explicit owner-local Suno generate and recovery tools; omitted from default and HTTP servers. */
 export interface OwnerSunoGenerationServiceComposition extends RegisterSyntxOwnerSunoGenerationToolsOptions {
   readonly generationService: OwnerSunoGenerationService;
@@ -516,7 +523,7 @@ export interface CreateMcpServerOptions {
   ownerElevenLabsDialogue?: OwnerElevenLabsDialogueServiceComposition | undefined;
   ownerElevenLabsSts?: OwnerElevenLabsStsServiceComposition | undefined;
   /** Explicit owner-local Topaz Astra upload, generation, and recovery tools; omitted from default and HTTP servers. */
-  ownerTopazAstra?: OwnerTopazAstraServiceComposition | undefined;
+  ownerTopazAstra?: OwnerTopazAstraComposition | undefined;
   /** Explicit owner-local Suno generate and recovery tools; omitted from default and HTTP servers. */
   ownerSunoGeneration?: OwnerSunoGenerationServiceComposition | undefined;
   /** Explicit owner-local reviewed Luma T2V tools; omitted from default and HTTP servers. */
@@ -1145,7 +1152,12 @@ export function createMcpServer(
       registerSyntxOwnerElevenLabsStsExistingMediaTools(server, options.ownerElevenLabsSts.existingMediaService);
     }
   }
-  if (options.ownerTopazAstra) registerSyntxOwnerTopazAstraTools(server, options.ownerTopazAstra);
+  if (options.ownerTopazAstra) {
+    registerSyntxOwnerTopazAstraTools(server, options.ownerTopazAstra);
+    if (options.ownerTopazAstra.existingMediaService) {
+      registerSyntxOwnerTopazAstraExistingMediaTools(server, options.ownerTopazAstra.existingMediaService);
+    }
+  }
   if (options.ownerSunoGeneration) {
     registerSyntxOwnerSunoGenerationTools(server, options.ownerSunoGeneration);
     registerSyntxOwnerSunoTrackTools(server, { generationService: options.ownerSunoGeneration.generationService });

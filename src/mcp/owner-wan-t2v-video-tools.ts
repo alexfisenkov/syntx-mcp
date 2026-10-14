@@ -20,6 +20,7 @@ import {
   OWNER_WAN_T2V_GENERATION_MODEL_IDS,
   type OwnerWanT2vGenerationIntent
 } from "../application/owner-wan-t2v-generation-parameters.js";
+import { OWNER_WAN27_CURRENT_AUDIO_POLICY } from "../application/owner-wan27-current-audio-policy.js";
 
 const SOURCE = getOwnerWanT2vGenerationParametersSource();
 const MODELS = OWNER_WAN_T2V_GENERATION_MODEL_IDS;
@@ -55,7 +56,7 @@ const parameterCommonSchema = z.object({
   seed: z.number().int().min(SOURCE.controls.seed.minimum).max(SOURCE.controls.seed.maximum).nullable()
 }).strict();
 const parameter26Schema = parameterCommonSchema.extend({ shot_type: z.enum(["single", "multi"]) }).strict();
-const parameter27Schema = parameterCommonSchema.extend({ native_audio: z.boolean() }).strict();
+const parameter27Schema = parameterCommonSchema.extend({ native_audio: z.literal(false) }).strict();
 const parametersInputSchema = z.object({}).strict();
 const promptSchema = z.string().min(1).max(MAX_PROMPT_UTF8_BYTES).refine((prompt) =>
   isWellFormedUnicode(prompt) && prompt.trim().length > 0 && Buffer.byteLength(prompt, "utf8") <= MAX_PROMPT_UTF8_BYTES,
@@ -84,7 +85,7 @@ const generateInputSchema = z.object({
     prompt_extend: z.boolean(),
     seed: z.number().int().min(0).max(2_147_483_647).nullable(),
     shot_type: z.enum(["single", "multi"]).optional(),
-    native_audio: z.boolean().optional()
+    native_audio: z.literal(false).optional()
   }).strict()
 }).strict().superRefine((input, context) => {
   const parsed = generateVariantSchema.safeParse(input);
@@ -108,9 +109,21 @@ const modelSourceSchema = z.object({ model_id: modelSchema, ai_name: z.literal("
   cost_query_keys: z.tuple([z.literal("video_duration"), z.literal("resolution")]),
   branch_control: z.enum(["shot_type:single|multi", "native_audio:boolean"]),
   static_status: z.literal("CURRENT_STATIC_SOURCE_METADATA_ONLY") }).strict();
+const currentAudioPolicySchema = z.object({
+  status: z.literal(OWNER_WAN27_CURRENT_AUDIO_POLICY.status),
+  scope: z.literal(OWNER_WAN27_CURRENT_AUDIO_POLICY.scope),
+  accepted_native_audio: z.literal(false),
+  source_pins: z.object({ build_id: z.literal(OWNER_WAN27_CURRENT_AUDIO_POLICY.source_pins.build_id),
+    form_module: z.literal(OWNER_WAN27_CURRENT_AUDIO_POLICY.source_pins.form_module),
+    form_bytes: z.literal(OWNER_WAN27_CURRENT_AUDIO_POLICY.source_pins.form_bytes),
+    form_sha256: z.literal(OWNER_WAN27_CURRENT_AUDIO_POLICY.source_pins.form_sha256) }).strict(),
+  source_finding: z.literal(OWNER_WAN27_CURRENT_AUDIO_POLICY.source_finding),
+  interpretation: z.literal(OWNER_WAN27_CURRENT_AUDIO_POLICY.interpretation)
+}).strict();
 const parameterSourceOutputSchema = z.object({
   status: z.literal("CURRENT_B066_1B48_STATIC_SOURCE_CONTRACT"),
   source_pins: sourcePinsSchema,
+  current_audio_policy: currentAudioPolicySchema,
   models: z.array(modelSourceSchema).length(2),
   controls: z.object({
     resolution: z.object({ values: z.tuple([z.literal("720P"), z.literal("1080P")]), effective_default: z.literal("UNKNOWN") }).strict(),
@@ -159,7 +172,7 @@ const parametersOutputSchema = z.union([
     prompt_extend: z.boolean(), seed: z.number().int().min(0).max(2_147_483_647).nullable(), shot_type: z.enum(["single", "multi"]) }).strict(),
   z.object({ resolution: z.enum(["720P", "1080P"]),
     aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4"]), video_duration: z.number().int().min(2).max(15),
-    prompt_extend: z.boolean(), seed: z.number().int().min(0).max(2_147_483_647).nullable(), native_audio: z.boolean() }).strict()
+    prompt_extend: z.boolean(), seed: z.number().int().min(0).max(2_147_483_647).nullable(), native_audio: z.literal(false) }).strict()
 ]);
 const generationOutputSchema = z.object({
   status: z.enum(["completed", "partial_results"]), status_semantics: z.literal("LOCAL_OBSERVED_AVAILABILITY_ONLY"),

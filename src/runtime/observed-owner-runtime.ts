@@ -111,6 +111,7 @@ import { OwnerElevenLabsTtsGenerationService } from "../application/owner-eleven
 import { OwnerElevenLabsDialogueGenerationService } from "../application/owner-elevenlabs-dialogue-generation-service.js";
 import { OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION } from "../application/owner-elevenlabs-generation-parameters.js";
 import { OwnerElevenLabsStsOriginalReferenceService } from "../application/owner-elevenlabs-sts-original-reference-service.js";
+import { OwnerElevenLabsStsExistingMediaService } from "../application/owner-elevenlabs-sts-existing-media-service.js";
 import { createOwnerElevenLabsStsRequestPreparer } from "../application/owner-elevenlabs-sts-request-preparer.js";
 import { OwnerElevenLabsStsGenerationService, OWNER_ELEVENLABS_STS_PUBLIC_CATALOG_VERSION } from "../application/owner-elevenlabs-sts-generation-service.js";
 import { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
@@ -138,6 +139,9 @@ import { createOwnerVideo2AudioSourceProfile } from "../application/owner-video2
 import { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import { createOwnerVideo2AudioRequestPreparer } from "../application/owner-video2audio-request-preparer.js";
 import { OwnerVideo2AudioGenerationService } from "../application/owner-video2audio-generation-service.js";
+import { OwnerTopazAstraOriginalReferenceService } from "../application/owner-topaz-astra-original-reference-service.js";
+import { createOwnerTopazAstraOwnedRequestPreparer } from "../application/owner-topaz-astra-owned-request-preparer.js";
+import { OwnerTopazAstraGenerationService, OWNER_TOPAZ_ASTRA_GENERATION_CATALOG_VERSION } from "../application/owner-topaz-astra-generation-service.js";
 
 const LOCAL_OWNER_BINDING: AuthBinding = Object.freeze({
   tenant_id: "tenant_local_owner",
@@ -193,6 +197,12 @@ export interface ObservedOwnerRuntimeOptions {
   ownerElevenLabsStsUploadDestination?: "uploaded" | "hidden";
   /** Explicit owner-stdio opt-in for private Suno generation and recovery tools. */
   ownerSunoGenerationEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for private Topaz Astra upload, generation, and recovery tools. */
+  ownerTopazAstraEnabled?: boolean;
+  /** Trusted absolute local ffprobe path, required only when Topaz Astra is enabled. */
+  ownerTopazAstraFfprobePath?: string;
+  /** Trusted upload destination, required only when Topaz Astra is enabled. */
+  ownerTopazAstraUploadDestination?: "uploaded" | "hidden";
   /** Explicit owner-stdio opt-in for the reviewed Luma T2V contract tools. */
   ownerLumaT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the sealed, reviewed Hailuo-01 T2V profile. */
@@ -1179,6 +1189,7 @@ export function createObservedOwnerRuntime(
         let generationService: OwnerElevenLabsTtsGenerationService | undefined;
         let dialogueService: OwnerElevenLabsDialogueGenerationService | undefined;
         let originalReferenceService: OwnerElevenLabsStsOriginalReferenceService | undefined;
+        let stsExistingMediaService: OwnerElevenLabsStsExistingMediaService | undefined;
         let stsGenerationService: OwnerElevenLabsStsGenerationService | undefined;
         let stsPreparer: ReturnType<typeof createOwnerElevenLabsStsRequestPreparer> | undefined;
         try {
@@ -1216,6 +1227,12 @@ export function createObservedOwnerRuntime(
               OWNER_ELEVENLABS_STS_PUBLIC_CATALOG_VERSION,
               options.catalogDirectory
             ));
+            stsExistingMediaService = new OwnerElevenLabsStsExistingMediaService({
+              binding: authBinding,
+              linkService,
+              resolveChatClient: resolveElevenLabsChatClient,
+              now
+            });
             originalReferenceService = new OwnerElevenLabsStsOriginalReferenceService({
               ffprobePath: options.ownerElevenLabsStsFfprobePath,
               destination: options.ownerElevenLabsStsUploadDestination,
@@ -1240,7 +1257,7 @@ export function createObservedOwnerRuntime(
         } catch (error) {
           const cleanup = (async () => {
             const errors: unknown[] = [];
-            for (const close of [() => stsGenerationService?.close(),
+            for (const close of [() => stsExistingMediaService?.close(), () => stsGenerationService?.close(),
               () => stsGenerationService === undefined ? stsPreparer?.close() : undefined,
               () => generationService?.close(), () => dialogueService?.close(),
               () => originalReferenceService?.close(), () => voiceReferenceService?.close()]) {
@@ -1264,6 +1281,7 @@ export function createObservedOwnerRuntime(
             const operation = Promise.resolve().then(async () => {
             const errors: unknown[] = [];
             for (const invalidate of [
+              () => stsExistingMediaService?.invalidateAttempt(attemptId),
               () => stsGenerationService?.invalidateAttempt(attemptId),
               () => generationService?.invalidateAttempt(attemptId),
               () => dialogueService?.invalidateAttempt(attemptId),
@@ -1284,7 +1302,7 @@ export function createObservedOwnerRuntime(
             if (closing !== undefined) return closing;
             closing = (async () => {
             const errors: unknown[] = [];
-            for (const close of [() => stsGenerationService?.close(), () => generationService?.close(), () => dialogueService?.close(),
+            for (const close of [() => stsExistingMediaService?.close(), () => stsGenerationService?.close(), () => generationService?.close(), () => dialogueService?.close(),
               () => originalReferenceService?.close(), () => voiceReferenceService!.close()]) {
               try { await close(); } catch (error) { errors.push(error); }
             }
@@ -1295,7 +1313,8 @@ export function createObservedOwnerRuntime(
             return closing;
           }
         });
-        return Object.freeze({ voiceReferenceService, generationService, dialogueService, originalReferenceService, stsGenerationService, lifecycle });
+        return Object.freeze({ voiceReferenceService, generationService, dialogueService, originalReferenceService,
+          stsExistingMediaService, stsGenerationService, lifecycle });
       })()
     : undefined;
   const ownerElevenLabsTts = ownerElevenLabsShared?.generationService === undefined ? undefined : Object.freeze({
@@ -1310,6 +1329,7 @@ export function createObservedOwnerRuntime(
     originalReferenceService: ownerElevenLabsShared.originalReferenceService!,
     voiceReferenceService: ownerElevenLabsShared.voiceReferenceService!,
     generationService: ownerElevenLabsShared.stsGenerationService,
+    existingMediaService: ownerElevenLabsShared.stsExistingMediaService!,
     lifecycle: ownerElevenLabsShared.lifecycle
   });
   const ownerSunoGeneration = options.ownerSunoGenerationEnabled === true
@@ -1354,6 +1374,93 @@ export function createObservedOwnerRuntime(
           }
         });
         return Object.freeze({ generationService, lifecycle });
+      })()
+    : undefined;
+  const ownerTopazAstra = options.ownerTopazAstraEnabled === true
+    ? (() => {
+        if (typeof options.ownerTopazAstraFfprobePath !== "string" || !isAbsolute(options.ownerTopazAstraFfprobePath) ||
+            (options.ownerTopazAstraUploadDestination !== "uploaded" && options.ownerTopazAstraUploadDestination !== "hidden")) {
+          throw new Error("OWNER_TOPAZ_ASTRA_OPERATOR_CONFIGURATION_REQUIRED");
+        }
+        const topazCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+          OWNER_TOPAZ_ASTRA_GENERATION_CATALOG_VERSION,
+          options.catalogDirectory
+        ));
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveTopazChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_TOPAZ_ASTRA_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        const originalReferenceService = new OwnerTopazAstraOriginalReferenceService({
+          ffprobePath: options.ownerTopazAstraFfprobePath,
+          destination: options.ownerTopazAstraUploadDestination,
+          binding: authBinding,
+          linkService,
+          resolveClient: resolveTopazChatClient,
+          now
+        });
+        const preparer = createOwnerTopazAstraOwnedRequestPreparer({ originalReferenceService, now });
+        let generationService: OwnerTopazAstraGenerationService;
+        try {
+          generationService = new OwnerTopazAstraGenerationService({
+            binding: authBinding,
+            linkService,
+            catalog: topazCatalog,
+            catalog_version: OWNER_TOPAZ_ASTRA_GENERATION_CATALOG_VERSION,
+            preparer,
+            originalReferenceService,
+            resolveChatClient: resolveTopazChatClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(topazCatalog, createReadClient(attemptId), now),
+            now
+          });
+        } catch (error) {
+          const cleanup = (async () => {
+            const errors: unknown[] = [];
+            for (const close of [() => preparer.close(), () => originalReferenceService.close()]) {
+              try { await close(); } catch (closeError) { errors.push(closeError); }
+            }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Topaz Astra startup cleanup failed.");
+          })();
+          if (error !== null && (typeof error === "object" || typeof error === "function")) {
+            OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          }
+          throw error;
+        }
+        let closing: Promise<void> | undefined;
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            const errors: unknown[] = [];
+            try { await generationService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            try {
+              await originalReferenceService.invalidateAttempt(attemptId);
+            } catch (error) { errors.push(error); }
+            finally { clientsByAttempt.delete(attemptId); }
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) {
+              throw new AggregateError(errors, "Topaz Astra attempt invalidation drain failed.");
+            }
+          },
+          close(): Promise<void> {
+            if (closing !== undefined) return closing;
+            closing = (async () => {
+              const errors: unknown[] = [];
+              try { await generationService.close(); } catch (error) { errors.push(error); }
+              try { await originalReferenceService.close(); } catch (error) { errors.push(error); }
+              clientsByAttempt.clear();
+              if (errors.length === 1) throw errors[0];
+              if (errors.length > 1) throw new AggregateError(errors, "Topaz Astra services did not close cleanly.");
+            })();
+            return closing;
+          }
+        });
+        return Object.freeze({ originalReferenceService, generationService, lifecycle });
       })()
     : undefined;
   const ownerLumaT2v = options.ownerLumaT2vEnabled === true
@@ -2011,6 +2118,7 @@ export function createObservedOwnerRuntime(
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
+        ownerTopazAstra === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
         ownerStandardImageReferences === undefined && ownerRunwayImageReferences === undefined &&
@@ -2029,6 +2137,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerSunoGeneration !== undefined) {
             try { await ownerSunoGeneration.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerTopazAstra !== undefined) {
+            try { await ownerTopazAstra.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerLumaT2v !== undefined) {
             try { await ownerLumaT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -2150,10 +2261,17 @@ export function createObservedOwnerRuntime(
     ...(ownerElevenLabsSts === undefined ? {} : { ownerElevenLabsSts: {
       originalReferenceService: ownerElevenLabsSts.originalReferenceService,
       voiceReferenceService: ownerElevenLabsSts.voiceReferenceService,
-      generationService: ownerElevenLabsSts.generationService
+      generationService: ownerElevenLabsSts.generationService,
+      existingMediaService: ownerElevenLabsSts.existingMediaService
     } }),
     ...(ownerSunoGeneration === undefined ? {} : {
       ownerSunoGeneration: { generationService: ownerSunoGeneration.generationService }
+    }),
+    ...(ownerTopazAstra === undefined ? {} : {
+      ownerTopazAstra: {
+        originalReferenceService: ownerTopazAstra.originalReferenceService,
+        generationService: ownerTopazAstra.generationService
+      }
     }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2v: { generationService: ownerLumaT2v.generationService } }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2v: { generationService: ownerHailuo01T2v.generationService } }),
@@ -2207,6 +2325,7 @@ export function createObservedOwnerRuntime(
     ...(ownerElevenLabsDialogue === undefined ? {} : { ownerElevenLabsDialogueLifecycle: ownerElevenLabsDialogue.lifecycle }),
     ...(ownerElevenLabsSts === undefined ? {} : { ownerElevenLabsStsLifecycle: ownerElevenLabsSts.lifecycle }),
     ...(ownerSunoGeneration === undefined ? {} : { ownerSunoGenerationLifecycle: ownerSunoGeneration.lifecycle }),
+    ...(ownerTopazAstra === undefined ? {} : { ownerTopazAstraLifecycle: ownerTopazAstra.lifecycle }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2vLifecycle: ownerLumaT2v.lifecycle }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2vLifecycle: ownerHailuo01T2v.lifecycle }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2vLifecycle: ownerHailuo01DirectorT2v.lifecycle }),

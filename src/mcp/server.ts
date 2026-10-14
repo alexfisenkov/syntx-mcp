@@ -164,11 +164,14 @@ import { registerSyntxOwnerElevenLabsVoiceTools } from "./owner-elevenlabs-voice
 import type { OwnerElevenLabsVoiceReferenceService } from "../application/owner-elevenlabs-voice-reference-service.js";
 import type { OwnerElevenLabsStsGenerationService } from "../application/owner-elevenlabs-sts-generation-service.js";
 import type { OwnerElevenLabsStsOriginalReferenceService } from "../application/owner-elevenlabs-sts-original-reference-service.js";
+import type { OwnerElevenLabsStsExistingMediaService } from "../application/owner-elevenlabs-sts-existing-media-service.js";
 import {
   registerSyntxOwnerElevenLabsTtsTools,
   type RegisterSyntxOwnerElevenLabsTtsToolsOptions
 } from "./owner-elevenlabs-tts-tools.js";
 import { registerSyntxOwnerElevenLabsStsTools } from "./owner-elevenlabs-sts-tools.js";
+import { registerSyntxOwnerElevenLabsStsExistingMediaTools } from "./owner-elevenlabs-sts-existing-media-tools.js";
+import { registerSyntxOwnerTopazAstraTools, type OwnerTopazAstraServiceComposition } from "./owner-topaz-astra-tools.js";
 import type { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
 import {
   registerSyntxOwnerSunoGenerationTools,
@@ -365,6 +368,7 @@ export interface OwnerElevenLabsStsServiceComposition {
   readonly originalReferenceService: OwnerElevenLabsStsOriginalReferenceService;
   readonly voiceReferenceService: OwnerElevenLabsVoiceReferenceService;
   readonly generationService: OwnerElevenLabsStsGenerationService;
+  readonly existingMediaService?: OwnerElevenLabsStsExistingMediaService;
 }
 
 /** Explicit owner-local Suno generate and recovery tools; omitted from default and HTTP servers. */
@@ -510,6 +514,8 @@ export interface CreateMcpServerOptions {
   ownerElevenLabsTts?: OwnerElevenLabsTtsServiceComposition | undefined;
   ownerElevenLabsDialogue?: OwnerElevenLabsDialogueServiceComposition | undefined;
   ownerElevenLabsSts?: OwnerElevenLabsStsServiceComposition | undefined;
+  /** Explicit owner-local Topaz Astra upload, generation, and recovery tools; omitted from default and HTTP servers. */
+  ownerTopazAstra?: OwnerTopazAstraServiceComposition | undefined;
   /** Explicit owner-local Suno generate and recovery tools; omitted from default and HTTP servers. */
   ownerSunoGeneration?: OwnerSunoGenerationServiceComposition | undefined;
   /** Explicit owner-local reviewed Luma T2V tools; omitted from default and HTTP servers. */
@@ -666,7 +672,7 @@ export function createMcpServer(
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
-        options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
+        options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerSeedance20T2v ||
         options.ownerKlingT2v || options.ownerKlingI2v || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
@@ -1127,8 +1133,16 @@ export function createMcpServer(
     if (!options.ownerElevenLabsTts && !options.ownerElevenLabsDialogue) {
       registerSyntxOwnerElevenLabsVoiceTools(server, options.ownerElevenLabsSts.voiceReferenceService);
     }
-    registerSyntxOwnerElevenLabsStsTools(server, options.ownerElevenLabsSts);
+    registerSyntxOwnerElevenLabsStsTools(server, {
+      originalReferenceService: options.ownerElevenLabsSts.originalReferenceService,
+      voiceReferenceService: options.ownerElevenLabsSts.voiceReferenceService,
+      generationService: options.ownerElevenLabsSts.generationService
+    });
+    if (options.ownerElevenLabsSts.existingMediaService) {
+      registerSyntxOwnerElevenLabsStsExistingMediaTools(server, options.ownerElevenLabsSts.existingMediaService);
+    }
   }
+  if (options.ownerTopazAstra) registerSyntxOwnerTopazAstraTools(server, options.ownerTopazAstra);
   if (options.ownerSunoGeneration) {
     registerSyntxOwnerSunoGenerationTools(server, options.ownerSunoGeneration);
     registerSyntxOwnerSunoTrackTools(server, { generationService: options.ownerSunoGeneration.generationService });

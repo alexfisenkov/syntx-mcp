@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { TextDecoder, isDeepStrictEqual, types } from "node:util";
 import { z } from "zod/v4";
 import { schemaHash } from "../../domain/generation-contract.js";
@@ -99,6 +99,15 @@ import {
   type OwnerSunoExistingTrackResultContextFields,
   type OwnerSunoExistingTrackTitleFamily
 } from "./owner-suno-existing-track.js";
+import {
+  listOwnedElevenLabsStsExistingChats as readElevenLabsStsExistingChats,
+  listOwnedElevenLabsStsExistingCandidates as readElevenLabsStsExistingCandidates,
+  getOwnedElevenLabsStsExistingResult as readElevenLabsStsExistingResult,
+  type OwnerElevenLabsStsExistingChatPage,
+  type OwnerElevenLabsStsExistingCandidates,
+  type OwnerElevenLabsStsExistingChatContext,
+  type OwnerElevenLabsStsExistingResultContext
+} from "./owner-elevenlabs-sts-existing-media.js";
 import { readOwnerSunoTrackMetadata } from "../../application/owner-suno-track-metadata.js";
 import {
   getOwnerClarityUpscaleSourceProfile,
@@ -129,6 +138,12 @@ import {
 } from "../../application/owner-banana-inpaint-original-validator.js";
 import { validateOwnerBananaInpaintPaintedCompositeUploadData } from "../../application/owner-banana-inpaint-painted-composite-input-validator.js";
 import { validateOwnerKlingI2VImageBytes } from "../../application/owner-kling-i2v-input-policy.js";
+import {
+  readValidatedOwnerHailuo02I2vImageUpload,
+  type OwnerHailuo02I2vCanonicalMimeType,
+  type ValidatedOwnerHailuo02I2vImageUpload
+} from "../../application/owner-hailuo02-i2v-image-policy.js";
+import type { OwnerHailuo02I2vImageUploadContext } from "./hailuo02-i2v-upload-context.js";
 import {
   consumeOwnerKlingI2vGenerationContext,
   withCapturedOwnerKlingI2vGenerationContext
@@ -442,6 +457,7 @@ const MAX_BANANA_INPAINT_AUXILIARY_UPLOAD_BYTES = 50 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_ORIGINAL_UPLOAD_BYTES = 30 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_DRAWING_UPLOAD_BYTES = 32 * 1024 * 1024;
 const MAX_KLING_I2V_IMAGE_UPLOAD_BYTES = 30 * 1024 * 1024;
+const HAILUO02_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Hailuo02I2vUploadContextState>>();
 const BANANA_INPAINT_ORIGINAL_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_PAINTED_COMPOSITE_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_AUXILIARY_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
@@ -561,6 +577,17 @@ const standardImageUploadResponseSchema = z.object({
     url: z.string().min(1).max(MAX_URL_LENGTH),
     mime_type: z.string().max(128).optional(),
     size: z.number().int().nonnegative().max(MAX_STANDARD_IMAGE_UPLOAD_BYTES).optional(),
+    status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
+  }).strip()).length(1)
+}).strip();
+const hailuo02I2vUploadResponseSchema = z.object({
+  files: z.array(z.object({
+    id: providerIdSchema.optional(),
+    file_id: providerIdSchema.optional(),
+    filename: z.string().max(256).optional(),
+    url: z.string().min(1).max(MAX_URL_LENGTH),
+    mime_type: z.string().max(128).optional(),
+    size: z.number().int().nonnegative().max(MAX_UPLOAD_BYTES).optional(),
     status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
   }).strip()).length(1)
 }).strip();
@@ -4344,6 +4371,46 @@ export class SyntxChatHttpClient {
     return native.getOwnerElevenLabsStsNativeResult(input, packet, signal);
   }
 
+  /** Creates one owner Topaz Astra video-upscaler chat from a genuine candidate. */
+  async createOwnerTopazAstraChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-topaz-astra-native-context.js").OwnerTopazAstraChatContext> {
+    assertNativeOwnerTopazAstra(this);
+    const native = await import("./owner-topaz-astra-native-context.js");
+    const packet = createOwnerTopazAstraNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_TOPAZ_ASTRA_CREATE_CHAT, this, [title, requestSignal]));
+    return native.createOwnerTopazAstraNativeChat(input, packet, signal);
+  }
+
+  /** Revalidates and consumes one owned Topaz receipt before its sole fixed generation POST. */
+  async startTopazAstraWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerTopazAstra(this);
+    const native = await import("./owner-topaz-astra-native-context.js");
+    const packet = createOwnerTopazAstraNativeInvocation(this, "start", input, async (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+      this.#startMedia("video/generate", "topaz_astra", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerTopazAstraNativeGeneration(input, packet, signal);
+  }
+
+  /** Bounded GET-only owned Topaz history read. */
+  async listOwnedTopazAstraCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-topaz-astra-native-context.js").OwnerTopazAstraResultCandidates> {
+    assertNativeOwnerTopazAstra(this);
+    const native = await import("./owner-topaz-astra-native-context.js");
+    const packet = createOwnerTopazAstraNativeInvocation(this, "list", input, async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+      const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+      url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+      return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+    });
+    return native.listOwnerTopazAstraNativeCandidates(input, packet, signal);
+  }
+
+  /** Reads only an exact result context minted by this client's owned Topaz history. */
+  async getOwnedTopazAstraResult(input: unknown, signal?: AbortSignal): Promise<import("./owner-topaz-astra-native-context.js").OwnerTopazAstraResult> {
+    assertNativeOwnerTopazAstra(this);
+    const native = await import("./owner-topaz-astra-native-context.js");
+    const packet = createOwnerTopazAstraNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) => this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL),
+        "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerTopazAstraNativeResult(input, packet, signal);
+  }
+
   /** Creates one native Video2Audio chat bound to an authentic candidate, before any one-shot permit is minted. */
   async createVideo2AudioChat(input: CreateVideo2AudioChatInput | unknown, signal?: AbortSignal): Promise<OwnerVideo2AudioChatContext> {
     assertNativeOwnerVideo2AudioClient(this);
@@ -4914,6 +4981,32 @@ export class SyntxChatHttpClient {
     assertNativeOwnerSunoClient(this);
     const owned = ownerSunoGenerationResultContextState(this, contextInput);
     return owned.trackMetadata;
+  }
+
+  /** Lists only indexed owner ElevenLabs STS chats through this native authenticated client. */
+  async listOwnedElevenLabsStsExistingChats(input: unknown, signal?: AbortSignal): Promise<OwnerElevenLabsStsExistingChatPage> {
+    assertNativeOwnerElevenLabsStsExistingClient(this);
+    const packet = createOwnerElevenLabsStsExistingInvocation(this, "index", input,
+      (url, requestSignal) => this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return await readElevenLabsStsExistingChats(input, packet, signal);
+  }
+
+  /** Reads complete bounded history and mints opaque owner bound result contexts. */
+  async listOwnedElevenLabsStsExistingCandidates(chat: OwnerElevenLabsStsExistingChatContext | unknown,
+    signal?: AbortSignal): Promise<OwnerElevenLabsStsExistingCandidates> {
+    assertNativeOwnerElevenLabsStsExistingClient(this);
+    const packet = createOwnerElevenLabsStsExistingInvocation(this, "history", chat,
+      (url, requestSignal) => this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return await readElevenLabsStsExistingCandidates(chat, packet, signal);
+  }
+
+  /** Reads one exact imported STS message; this surface cannot create a chat or dispatch generation. */
+  async getOwnedElevenLabsStsExistingResult(context: OwnerElevenLabsStsExistingResultContext | unknown,
+    signal?: AbortSignal): Promise<OwnerElevenLabsStsResult> {
+    assertNativeOwnerElevenLabsStsExistingClient(this);
+    const packet = createOwnerElevenLabsStsExistingInvocation(this, "result", context,
+      (url, requestSignal) => this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return await readElevenLabsStsExistingResult(context, packet, signal);
   }
 
   /** Reads one bounded page of current-owner MCP-created audio chats; it never creates chats or posts generation. */
@@ -6064,6 +6157,49 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One fixed Hailuo-02 I2V image upload. A genuine policy receipt is borrowed, never released. */
+  async uploadHailuo02I2vImage(
+    receiptInput: ValidatedOwnerHailuo02I2vImageUpload,
+    signal?: AbortSignal
+  ): Promise<OwnerHailuo02I2vImageUploadContext> {
+    const owned = readValidatedOwnerHailuo02I2vImageUpload(receiptInput);
+    if (!owned) throw invalidRequest();
+    const bytes = owned.bytes;
+    let form: FormData | undefined;
+    try {
+      if (owned.size !== bytes.byteLength || owned.size < 1 || owned.size > MAX_UPLOAD_BYTES ||
+          !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !isHailuo02I2vCanonicalMime(owned.mime_type) || !Number.isSafeInteger(owned.width) || owned.width < 1 ||
+          !Number.isSafeInteger(owned.height) || owned.height < 1) throw invalidRequest();
+      form = this.#buildUploadForm({
+        bytes,
+        filename: owned.filename,
+        mime_type: owned.mime_type,
+        destination: "uploaded",
+        check_duplicates: true,
+        model_type: "hailuo-02"
+      }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseHailuo02I2vUploadReference(raw, owned.filename, owned.mime_type, owned.size);
+      const context: OwnerHailuo02I2vImageUploadContext = Object.freeze({
+        status: "uploaded",
+        model_id: "hailuo-02",
+        mime_type: owned.mime_type,
+        size: owned.size,
+        sha256: owned.sha256,
+        width: owned.width,
+        height: owned.height
+      });
+      HAILUO02_I2V_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url,
+        modelId: "hailuo-02", mimeType: owned.mime_type, size: owned.size, sha256: owned.sha256,
+        width: owned.width, height: owned.height }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One-shot native upload for one sealed Video2Audio MP4; the private URL is not returned as data. */
   async uploadVideo2AudioOriginal(request: unknown, signal?: AbortSignal): Promise<OwnerVideo2AudioOriginalReference> {
     let profile: OwnerVideo2AudioSourceProfile;
@@ -6998,6 +7134,93 @@ const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_CREATE = SyntxChatHttpClient.prototype.
 const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_START = SyntxChatHttpClient.prototype.startElevenLabsStsWithOwnedCandidate;
 const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedElevenLabsStsCandidates;
 const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedElevenLabsStsResult;
+const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_INDEX = SyntxChatHttpClient.prototype.listOwnedElevenLabsStsExistingChats;
+const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_HISTORY = SyntxChatHttpClient.prototype.listOwnedElevenLabsStsExistingCandidates;
+const NATIVE_OWNER_ELEVENLABS_STS_EXISTING_RESULT = SyntxChatHttpClient.prototype.getOwnedElevenLabsStsExistingResult;
+const NATIVE_OWNER_TOPAZ_ASTRA_CREATE_CHAT = SyntxChatHttpClient.prototype.createVideoUpscalerChat;
+const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerTopazAstraChat;
+const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_START = SyntxChatHttpClient.prototype.startTopazAstraWithOwnedCandidate;
+const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedTopazAstraCandidates;
+const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedTopazAstraResult;
+type OwnerTopazAstraNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerTopazAstraNativeInvocation { readonly client: SyntxChatHttpClient; readonly method: OwnerTopazAstraNativeMethod; readonly input: unknown; readonly callback: Function }
+const OWNER_TOPAZ_ASTRA_NATIVE_INVOCATIONS = new WeakMap<object, OwnerTopazAstraNativeInvocation>();
+
+function createOwnerTopazAstraNativeInvocation(client: SyntxChatHttpClient, method: OwnerTopazAstraNativeMethod, input: unknown, callback: Function): object {
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_TOPAZ_ASTRA_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** One-use packet bridge. Only the four concrete native client methods can mint a callback packet. */
+export function consumeOwnerTopazAstraNativeInvocation(input: unknown, packet: unknown, method: OwnerTopazAstraNativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw new Error("OWNER_TOPAZ_ASTRA_INVOCATION_INVALID");
+  const invocation = OWNER_TOPAZ_ASTRA_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerTopazAstraNativeClient(invocation.client)) {
+    throw new Error("OWNER_TOPAZ_ASTRA_INVOCATION_INVALID");
+  }
+  OWNER_TOPAZ_ASTRA_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerTopazAstra(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerTopazAstraNativeClient(client)) throw new Error("OWNER_TOPAZ_ASTRA_NATIVE_CLIENT_INVALID");
+}
+
+function isExactOwnerTopazAstraNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) && Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      getDataMethod(client, "createVideoUpscalerChat") === NATIVE_OWNER_TOPAZ_ASTRA_CREATE_CHAT &&
+      getDataMethod(client, "createOwnerTopazAstraChat") === NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_CREATE &&
+      getDataMethod(client, "startTopazAstraWithOwnedCandidate") === NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_START &&
+      getDataMethod(client, "listOwnedTopazAstraCandidates") === NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_LIST &&
+      getDataMethod(client, "getOwnedTopazAstraResult") === NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_GET &&
+      SyntxChatHttpClient.prototype.uploadTopazAstraOriginal === NATIVE_OWNER_TOPAZ_ASTRA_UPLOAD &&
+      getDataMethod(client, "uploadTopazAstraOriginal") === NATIVE_OWNER_TOPAZ_ASTRA_UPLOAD;
+  } catch { return false; }
+}
+
+type OwnerElevenLabsStsExistingMethod = "index" | "history" | "result";
+interface OwnerElevenLabsStsExistingInvocation {
+  readonly client: SyntxChatHttpClient;
+  readonly method: OwnerElevenLabsStsExistingMethod;
+  readonly input: unknown;
+  readonly callback: (url: URL, signal?: AbortSignal) => Promise<unknown>;
+}
+const OWNER_ELEVENLABS_STS_EXISTING_INVOCATIONS = new WeakMap<object, OwnerElevenLabsStsExistingInvocation>();
+
+function createOwnerElevenLabsStsExistingInvocation(client: SyntxChatHttpClient, method: OwnerElevenLabsStsExistingMethod,
+  input: unknown, callback: (url: URL, signal?: AbortSignal) => Promise<unknown>): object {
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_ELEVENLABS_STS_EXISTING_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** One-use bridge: only the exact client's native GET methods can mint a packet. */
+export function consumeOwnerElevenLabsStsExistingInvocation(input: unknown, packet: unknown,
+  method: OwnerElevenLabsStsExistingMethod): Readonly<{ client: SyntxChatHttpClient; get: (url: URL, signal?: AbortSignal) => Promise<unknown> }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw new Error("OWNER_ELEVENLABS_STS_EXISTING_INVOCATION_INVALID");
+  const invocation = OWNER_ELEVENLABS_STS_EXISTING_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerElevenLabsStsExistingClient(invocation.client)) {
+    throw new Error("OWNER_ELEVENLABS_STS_EXISTING_INVOCATION_INVALID");
+  }
+  OWNER_ELEVENLABS_STS_EXISTING_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, get: invocation.callback });
+}
+
+function assertNativeOwnerElevenLabsStsExistingClient(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerElevenLabsStsExistingClient(client)) throw new Error("OWNER_ELEVENLABS_STS_EXISTING_CLIENT_INVALID");
+}
+
+function isExactOwnerElevenLabsStsExistingClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) && Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      Reflect.get(client, "listOwnedElevenLabsStsExistingChats") === NATIVE_OWNER_ELEVENLABS_STS_EXISTING_INDEX &&
+      Reflect.get(client, "listOwnedElevenLabsStsExistingCandidates") === NATIVE_OWNER_ELEVENLABS_STS_EXISTING_HISTORY &&
+      Reflect.get(client, "getOwnedElevenLabsStsExistingResult") === NATIVE_OWNER_ELEVENLABS_STS_EXISTING_RESULT &&
+      isExactOwnerElevenLabsStsUploadClient(client);
+  } catch { return false; }
+}
 type OwnerElevenLabsStsNativeMethod = "create" | "start" | "list" | "get";
 interface OwnerElevenLabsStsNativeInvocation {
   readonly client: SyntxChatHttpClient;
@@ -9289,6 +9512,72 @@ function parseStandardImageUploadReference(
   catch { throw protocolError(); }
   if (references.length !== 1) throw protocolError();
   return Object.freeze(references[0]!);
+}
+
+/** Internal composition read: the URL is available only for this genuine context and exact native client. */
+export function readOwnerHailuo02I2vUploadReferenceForClient(
+  clientInput: unknown,
+  contextInput: unknown
+): Readonly<{ readonly url: string }> | null {
+  try {
+    if (!clientInput || typeof clientInput !== "object" || types.isProxy(clientInput) ||
+        Object.getPrototypeOf(clientInput) !== SyntxChatHttpClient.prototype ||
+        Object.hasOwn(clientInput, "uploadHailuo02I2vImage") ||
+        SyntxChatHttpClient.prototype.uploadHailuo02I2vImage !== NATIVE_HAILUO02_I2V_UPLOAD) return null;
+    if (!contextInput || typeof contextInput !== "object" || types.isProxy(contextInput)) return null;
+    const state = HAILUO02_I2V_UPLOAD_CONTEXTS.get(contextInput);
+    if (!state || state.client !== clientInput) return null;
+    const context = contextInput as OwnerHailuo02I2vImageUploadContext;
+    if (context.status !== "uploaded" || context.model_id !== state.modelId || context.model_id !== "hailuo-02" ||
+        context.mime_type !== state.mimeType || !isHailuo02I2vCanonicalMime(context.mime_type) ||
+        context.size !== state.size || !Number.isSafeInteger(context.size) || context.size < 1 ||
+        context.sha256 !== state.sha256 || !/^[a-f0-9]{64}$/u.test(context.sha256) ||
+        context.width !== state.width || !Number.isSafeInteger(context.width) || context.width < 1 ||
+        context.height !== state.height || !Number.isSafeInteger(context.height) || context.height < 1 ||
+        !isSafeUploadReferenceUrl(state.url)) return null;
+    return Object.freeze({ url: state.url });
+  } catch { return null; }
+}
+
+const NATIVE_HAILUO02_I2V_UPLOAD = SyntxChatHttpClient.prototype.uploadHailuo02I2vImage;
+
+function parseHailuo02I2vUploadReference(
+  raw: unknown,
+  expectedFilename: string,
+  expectedMimeType: OwnerHailuo02I2vCanonicalMimeType,
+  expectedSize: number
+): InternalUploadReference {
+  const parsed = hailuo02I2vUploadResponseSchema.safeParse(raw);
+  if (!parsed.success) throw protocolError();
+  const [receipt] = parsed.data.files;
+  const status = receipt?.status?.toLowerCase();
+  if (!receipt || (status !== undefined && status !== "success") ||
+      (receipt.filename !== undefined && receipt.filename !== expectedFilename) ||
+      (receipt.mime_type !== undefined && receipt.mime_type !== expectedMimeType) ||
+      (receipt.size !== undefined && receipt.size !== expectedSize) ||
+      (receipt.id !== undefined && receipt.file_id !== undefined && String(receipt.id) !== String(receipt.file_id))) {
+    throw protocolError();
+  }
+  let references: InternalUploadReference[];
+  try { references = parseInternalUploadReferences(raw); }
+  catch { throw protocolError(); }
+  if (references.length !== 1) throw protocolError();
+  return Object.freeze(references[0]!);
+}
+
+function isHailuo02I2vCanonicalMime(value: unknown): value is OwnerHailuo02I2vCanonicalMimeType {
+  return value === "image/jpeg" || value === "image/png" || value === "image/webp";
+}
+
+interface Hailuo02I2vUploadContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly url: string;
+  readonly modelId: "hailuo-02";
+  readonly mimeType: OwnerHailuo02I2vCanonicalMimeType;
+  readonly size: number;
+  readonly sha256: string;
+  readonly width: number;
+  readonly height: number;
 }
 
 function parseSeedreamEditorOriginalUploadReference(

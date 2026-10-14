@@ -13,6 +13,10 @@ const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const HANDLE = /^topaz_astra_original_[0-9a-f-]{36}$/u;
 const TTL_MS = 15 * 60_000;
 const MAX_CANDIDATES = 128;
+const RESOLUTION_METADATA = Object.freeze({
+  "1920x1080": Object.freeze({ width: 1920 as const, height: 1080 as const }),
+  "3840x2160": Object.freeze({ width: 3840 as const, height: 2160 as const })
+});
 const PREPARER_KEY = Symbol("OwnerTopazAstraOwnedRequestPreparerFactory");
 const ORIGINAL_RESOLVE = OwnerTopazAstraOriginalReferenceService.prototype.resolveOriginal;
 const ORIGINAL_GUARD = OwnerTopazAstraOriginalReferenceService.prototype.isOwnedOriginalResolution;
@@ -27,8 +31,26 @@ export interface OwnerTopazAstraOwnedPreparedCandidate {
   readonly backend_acceptance: "UNPROVEN";
   readonly model_id: OwnerTopazAstraModelId;
   readonly profile_schema_hash: string;
-  readonly source_binding: Readonly<{ public_catalog_version: string; settings_inventory_version: string; source_build_id: "1791904852" }>;
-  readonly control_combination_status: "UNRESOLVED" | "SOURCE_REVIEWED_EXACT";
+  readonly source_binding: Readonly<{
+    public_catalog_version: string; settings_inventory_version: string; source_build_id: "1791904852";
+    topaz_astra_sha256: "sha256:1aecfac160b8512f77cef700edb30d9457cae2d20703f2727766a5f1947e3fac";
+    upscaler3_sha256: "sha256:406fbed9c59ffe38d9e02e8475de2e26706a3a8b4f09fe839b3a29c5a8a43d55";
+    admission_evidence: Readonly<{
+      status: "SOURCE_UI_ENUMS_EXPLICIT_CONTROLS";
+      use_upscaler_tool_sha256: "sha256:bcdd047929542224ea0289fbc495a00ef22f53f5ca98be6b489b2c47885e8561";
+      custom_settings_argument: 4;
+      resolution_values: readonly ["1920x1080", "3840x2160"];
+      frame_rate_values: readonly [24, 30, 60, 120];
+      slowmo_values: readonly [null, 2, 3, 4, 6, 8, 10, 12, 16];
+      creativity_values: readonly ["low", "middle", "high"];
+      creativity_model_ids: readonly ["slc-1", "slp-2.5"];
+      empty_prompt: "OMITTED_FROM_WIRE";
+      duration: "ROUNDED_FROM_PROBED_ORIGINAL";
+      file_context: "OWNED_VIDEO_UPLOAD_REFERENCE";
+    }>;
+    request_projection: "SENDER_ARG4_CUSTOM_SETTINGS_NO_N_RESOLUTION_OBJECT";
+  }>;
+  readonly control_combination_status: "UNRESOLVED" | "SOURCE_UI_ENUMS_EXPLICIT_CONTROLS";
   readonly request_fingerprint: string;
   readonly intent_fingerprint: string;
   readonly prompt_utf16_length: number;
@@ -39,7 +61,8 @@ export interface OwnerTopazAstraOwnedPreparedCandidate {
 export interface OwnerTopazAstraOwnedPreparedRequest {
   readonly prompt?: string;
   readonly settings: Readonly<{
-    n: 1; model_type: OwnerTopazAstraModelId; resolution: string; frame_rate: number; slowmo: number | null;
+    model_type: OwnerTopazAstraModelId; resolution: Readonly<{ width: 1920; height: 1080 }> | Readonly<{ width: 3840; height: 2160 }>;
+    frame_rate: number; slowmo: number | null;
     creativity?: string; video_duration: number; file_urls: readonly Readonly<{ type: "video"; url: string }>[];
   }>;
 }
@@ -174,20 +197,37 @@ export function createOwnerTopazAstraOwnedRequestPreparer(optionsInput: OwnerTop
       const supportsCreativity = input.modelId === "slc-1" || input.modelId === "slp-2.5";
       const effectiveParameters = Object.freeze({ resolution: normalized.parameters.resolution, frame_rate: normalized.parameters.frame_rate,
         slowmo: normalized.parameters.slowmo, ...(supportsCreativity ? { creativity: normalized.parameters.creativity } : {}) });
-      const settings = Object.freeze({ n: 1 as const, model_type: input.modelId, resolution: normalized.parameters.resolution,
+      const resolution = RESOLUTION_METADATA[normalized.parameters.resolution];
+      const settings = Object.freeze({ model_type: input.modelId, video_duration: Math.round(original!.duration_seconds),
+        resolution,
         frame_rate: normalized.parameters.frame_rate, slowmo: normalized.parameters.slowmo,
         ...(supportsCreativity ? { creativity: normalized.parameters.creativity } : {}),
-        video_duration: Math.round(original!.duration_seconds), file_urls: Object.freeze([Object.freeze({ type: "video" as const, url: captured.url })]) });
+        file_urls: Object.freeze([Object.freeze({ type: "video" as const, url: captured.url })]) });
       const request: OwnerTopazAstraOwnedPreparedRequest = deepFreeze({ ...(normalized.prompt ? { prompt: normalized.prompt } : {}), settings });
       const profileHash = schemaHash(profile);
       const sourceBinding = Object.freeze({ public_catalog_version: profile.source_pins.public_catalog_version,
-        settings_inventory_version: profile.source_pins.settings_inventory_version, source_build_id: profile.source_pins.source_build_id });
+        settings_inventory_version: profile.source_pins.settings_inventory_version, source_build_id: profile.source_pins.source_build_id,
+        topaz_astra_sha256: profile.source_pins.modules.topaz_astra, upscaler3_sha256: profile.source_pins.modules.upscaler3,
+        admission_evidence: Object.freeze({
+          status: "SOURCE_UI_ENUMS_EXPLICIT_CONTROLS" as const,
+          use_upscaler_tool_sha256: "sha256:bcdd047929542224ea0289fbc495a00ef22f53f5ca98be6b489b2c47885e8561" as const,
+          custom_settings_argument: 4 as const,
+          resolution_values: Object.freeze(["1920x1080", "3840x2160"] as const),
+          frame_rate_values: Object.freeze([24, 30, 60, 120] as const),
+          slowmo_values: Object.freeze([null, 2, 3, 4, 6, 8, 10, 12, 16] as const),
+          creativity_values: Object.freeze(["low", "middle", "high"] as const),
+          creativity_model_ids: Object.freeze(["slc-1", "slp-2.5"] as const),
+          empty_prompt: "OMITTED_FROM_WIRE" as const,
+          duration: "ROUNDED_FROM_PROBED_ORIGINAL" as const,
+          file_context: "OWNED_VIDEO_UPLOAD_REFERENCE" as const
+        }),
+        request_projection: "SENDER_ARG4_CUSTOM_SETTINGS_NO_N_RESOLUTION_OBJECT" as const });
       const intentFingerprint = schemaHash({ tenant_id: original!.principal.tenant_id, subject_id: original!.principal.subject_id,
         model_id: input.modelId, profile_schema_hash: profileHash, source_sha256: original!.sha256,
-        prompt: normalized.prompt, parameters: effectiveParameters });
+        source_binding: sourceBinding, prompt: normalized.prompt, parameters: effectiveParameters });
       const requestFingerprint = schemaHash(request);
       const candidate = makeCandidate({ modelId: input.modelId, profileHash, sourceBinding, intentFingerprint, requestFingerprint,
-        promptLength: normalized.prompt.length, original: original!, expiresAt, controlCombinationStatus: "UNRESOLVED" });
+        promptLength: normalized.prompt.length, original: original!, expiresAt, controlCombinationStatus: "SOURCE_UI_ENUMS_EXPLICIT_CONTROLS" });
       const binding = deepFreeze({ attempt_id: input.attemptId, principal: original!.principal, original_handle: input.handle,
         model_id: input.modelId, profile_schema_hash: profileHash, source_binding: sourceBinding,
         original_sha256: original!.sha256, original_size: original!.size, duration_seconds: original!.duration_seconds,

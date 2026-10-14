@@ -1,6 +1,25 @@
 export { ApplicationCore } from "./application/core.js";
 export { createDefaultApplication } from "./application/factory.js";
 export {
+  OwnerTopazAstraGenerationService,
+  OwnerTopazAstraGenerationServiceError,
+  isOwnerTopazAstraGenerationService,
+  OWNER_TOPAZ_ASTRA_GENERATION_CATALOG_VERSION
+} from "./application/owner-topaz-astra-generation-service.js";
+export type {
+  OwnerTopazAstraGenerateInput,
+  OwnerTopazAstraReconcileInput,
+  OwnerTopazAstraRecoveryListInput,
+  OwnerTopazAstraResultPageInput,
+  OwnerTopazAstraGenerationResult,
+  OwnerTopazAstraGenerationDiagnostic,
+  OwnerTopazAstraGenerationServiceErrorCode
+} from "./application/owner-topaz-astra-generation-service.js";
+export {
+  readOwnerTopazAstraFlag,
+  readOwnerTopazAstraOperatorConfiguration
+} from "./runtime/owner-topaz-astra-stdio-config.js";
+export {
   buildSyntxMaintenanceAuditPlan,
   SyntxMaintenanceAuditPlanError
 } from "./application/syntx-maintenance-audit-plan.js";

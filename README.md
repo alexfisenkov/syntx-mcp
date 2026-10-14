@@ -9,14 +9,16 @@ linking и некоторых явно описанных image, video и audio 
 
 ### Speech-to-Speech и Topaz: текущая разработка
 
-STS теперь имеет шесть MCP-команд в owner-stdio контуре:
+STS имеет восемь MCP-команд в owner-stdio контуре:
 
 - `syntx_get_elevenlabs_sts_parameters`;
 - `syntx_owner_upload_elevenlabs_sts_original`;
 - `syntx_owner_generate_elevenlabs_sts`;
 - `syntx_owner_reconcile_elevenlabs_sts`;
 - `syntx_owner_list_elevenlabs_sts_recoveries`;
-- `syntx_owner_get_elevenlabs_sts_result_page`.
+- `syntx_owner_get_elevenlabs_sts_result_page`;
+- `syntx_owner_list_existing_elevenlabs_sts_results`;
+- `syntx_owner_get_existing_elevenlabs_sts_result`.
 
 Включение по умолчанию выключено. Оператор задаёт `SYNTX_OWNER_ELEVENLABS_STS=1`,
 `SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH` — абсолютный путь к установленному
@@ -39,6 +41,14 @@ STS теперь имеет шесть MCP-команд в owner-stdio конт�
 его. Перед запуском читаются свежие подписка, доступ и конечная оценка цены;
 `cost_cap_enforced: false` означает отсутствие жёсткой гарантии списания.
 
+После нового входа отдельный GET-only список существующих STS-результатов
+принимает `link_attempt_id` и `page` (по 20 чатов). Он возвращает короткоживущие
+непрозрачные `result_handle`; команда получения принимает такой handle и
+повторно проверяет текущего владельца, историю, модель и точный аудиообъект.
+Загрузка и генерация при этом не запускаются. Поддерживается только узнаваемая
+история STS-чата, созданного этим MCP. Исходный файл и fingerprint прежнего
+запроса после перезапуска не восстанавливаются: `source_provenance: NOT_AVAILABLE`.
+
 Фактический MCP-пилот подтвердил обычный вход, одну загрузку нового MP3,
 одну генерацию и получение одного аудиорезультата через GET-only recovery.
 Первое ожидание было неопределённым. Сессия закрыта, повторного POST не было.
@@ -57,14 +67,46 @@ STS теперь имеет шесть MCP-команд в owner-stdio конт�
 и полностью декодирован. Это отдельный веб-кейс, не файл нового MCP-пилота.
 Конкретная WAV-загрузка была отклонена; широкая поддержка WAV не заявляется.
 
-Для Topaz Astra добавлены измерение видео, отдельная загрузка и привязанная
-к пользователю ссылка. Подготовленный запрос учитывает условное поле
-`creativity`: только `slc-1`/`slp-2.5`, не `slf-2`/`slp-2`.
-Запуск остаётся закрытым до подтверждения сочетаний контролов и интеграции.
-Путь `ffprobe` и назначение загрузки задаёт оператор явно, не вызывающий MCP.
-Topaz пока не добавляет новых MCP-команд. Точные границы задают
+Topaz Astra добавляет шесть owner-stdio команд:
+
+- `syntx_get_topaz_astra_parameters`;
+- `syntx_owner_upload_topaz_astra_original`;
+- `syntx_owner_generate_topaz_astra`;
+- `syntx_owner_reconcile_topaz_astra`;
+- `syntx_owner_list_topaz_astra_recoveries`;
+- `syntx_owner_get_topaz_astra_result_page`.
+
+Для включения оператор задаёт `SYNTX_OWNER_TOPAZ_ASTRA=1`, абсолютный
+`SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH` и явный
+`SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION=uploaded` либо `hidden`.
+По умолчанию группа выключена; обычный HTTP-сервер её не включает.
+Upload принимает `link_attempt_id`, `model_id`, `filename`, `mime_type`
+(`video/mp4` либо `video/quicktime`) и `content_base64`. Возвращённый
+`topaz_original_handle` используется в generate вместе с тем же входом,
+`model_id`, необязательным `prompt` и явными `parameters`: `resolution`
+(`1920x1080`/`3840x2160`), `frame_rate` (24/30/60/120), `slowmo`
+(null/2/3/4/6/8/10/12/16), `creativity` (`low`/`middle`/`high`).
+
+Поддержаны исходные профили `slc-1`, `slf-2`, `slp-2`, `slp-2.5`.
+Поле `creativity` отправляется только для `slc-1`/`slp-2.5`.
+Длительность измеряется из видео; в wire используется объект разрешения,
+а не строка, и отсутствует обычное поле `n`. Цена проверяется отдельно.
+При неопределённом результате не повторяйте generate: используйте
+`recovery_id` для GET-only reconcile и чтения результатов.
+Защита от повтора и recovery пока process-local, не переживают перезапуск.
+
+Реальные классы и официальный MCP SDK проверены на синтетической цепочке
+«загрузка → один POST генерации → результат». Новая генерация Topaz на
+живом провайдере, фактические списания и все сочетания настроек не проверены.
+Это не гарантия провайдерской совместимости; `cost_cap_enforced: false`.
+Точные границы задают
 [параметры STS](src/application/owner-elevenlabs-sts-parameters.ts) и
 [профиль Topaz](src/application/owner-topaz-astra-source-profile.ts).
+
+Для Hailuo-02 Image-to-Video добавлены исходные параметры, проверка контейнера
+изображения, фиксированная загрузка и пользовательские handles. Генерация
+I2V через MCP ещё не подключена. Местный предел изображения 10 MiB не является
+подтверждённым ограничением провайдера и не заменяет полное декодирование.
 
 Suno Cover имеет подтверждённые MP3-результаты для V6/V6_wild. Две попытки
 Extend дали общие ошибки; причину не удалось подтвердить. Текущее меню

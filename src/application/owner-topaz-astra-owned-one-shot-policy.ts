@@ -48,19 +48,16 @@ export async function createOwnerTopazAstraOwnedOneShotPermit(inputInput: OwnerT
   const input = readInput(inputInput);
   if (issued.has(input.candidate) || issuing.has(input.candidate)) fail("CANDIDATE_ALREADY_ISSUED");
   const binding = currentBinding(input.preparer, input.candidate); assertCandidate(input.candidate, binding, input.principal, input.attemptId);
-  if (input.candidate.control_combination_status !== "SOURCE_REVIEWED_EXACT") fail("CONTROL_COMBINATION_UNRESOLVED");
+  if (input.candidate.control_combination_status !== "SOURCE_UI_ENUMS_EXPLICIT_CONTROLS") fail("CONTROL_COMBINATION_UNRESOLVED");
   const bindingHash = schemaHash(binding), requestHash = schemaHash(input.preparer.getPrivateRequest(input.candidate));
   issuing.add(input.candidate);
   try {
-    const fresh = await input.preparer.revalidateCandidate(input.candidate);
-    assertSameBinding(binding, fresh); assertCandidate(input.candidate, fresh, input.principal, input.attemptId);
-    if (schemaHash(input.preparer.getPrivateRequest(input.candidate)) !== requestHash) fail("CANDIDATE_MISMATCH");
+    const permit = Object.freeze({ [BRAND]: true as const, status: "nominal" as const, dispatch_allowed: false as const,
+      backend_acceptance: "UNPROVEN" as const, profile_schema_hash: binding.profile_schema_hash,
+      request_fingerprint: binding.request_fingerprint, intent_fingerprint: binding.intent_fingerprint, expires_at: binding.expires_at });
+    permits.set(permit, { permit, ...input, binding, bindingHash, requestHash, revalidated: false, consumed: false });
+    issued.set(input.candidate, permit); return permit;
   } finally { issuing.delete(input.candidate); }
-  const permit = Object.freeze({ [BRAND]: true as const, status: "nominal" as const, dispatch_allowed: false as const,
-    backend_acceptance: "UNPROVEN" as const, profile_schema_hash: binding.profile_schema_hash,
-    request_fingerprint: binding.request_fingerprint, intent_fingerprint: binding.intent_fingerprint, expires_at: binding.expires_at });
-  permits.set(permit, { permit, ...input, binding, bindingHash, requestHash, revalidated: true, consumed: false });
-  issued.set(input.candidate, permit); return permit;
 }
 
 export async function revalidateOwnerTopazAstraOwnedOneShotPermit(inputInput: OwnerTopazAstraOwnedOneShotPermitContext | unknown): Promise<void> {
@@ -94,9 +91,11 @@ function readInput(value: unknown): Readonly<OwnerTopazAstraOwnedOneShotPermitIn
 function readPermitInput(value: unknown): PermitState {
   const fields = exact(value, ["permit", "preparer", "candidate", "principal", "attemptId"]), preparer = trusted(fields.preparer);
   const candidate = fields.candidate as OwnerTopazAstraOwnedPreparedCandidate, permit = fields.permit;
-  if (!isOwnerTopazAstraOwnedPreparedCandidate(candidate) || !permit || typeof permit !== "object" || types.isProxy(permit)) fail("PERMIT_INVALID");
+  if (!permit || typeof permit !== "object" || types.isProxy(permit)) fail("PERMIT_INVALID");
   const state = permits.get(permit as object);
   if (!state || state.permit !== permit || !hasPermitShape(permit as OwnerTopazAstraOwnedOneShotPermit)) fail("PERMIT_INVALID");
+  if (state.candidate !== candidate) fail("CANDIDATE_MISMATCH");
+  if (!isOwnerTopazAstraOwnedPreparedCandidate(candidate)) fail("CANDIDATE_EXPIRED");
   if (state.consumed) fail("PERMIT_ALREADY_CONSUMED");
   const attemptId = readAttempt(fields.attemptId), principal = readPrincipal(fields.principal, attemptId);
   if (state.preparer !== preparer || state.candidate !== candidate) fail("CANDIDATE_MISMATCH");
@@ -111,7 +110,7 @@ function assertCandidate(candidate: OwnerTopazAstraOwnedPreparedCandidate, bindi
   principal: Readonly<GenerationPrincipalRef>, attemptId: string): void {
   if (binding.attempt_id !== attemptId || !sameGenerationPrincipal(binding.principal, principal)) fail("PRINCIPAL_MISMATCH");
   if (candidate.status !== "blocked" || candidate.dispatch_allowed !== false || candidate.runtime_usable !== false || candidate.backend_acceptance !== "UNPROVEN" ||
-      (candidate.control_combination_status !== "UNRESOLVED" && candidate.control_combination_status !== "SOURCE_REVIEWED_EXACT") ||
+      candidate.control_combination_status !== "SOURCE_UI_ENUMS_EXPLICIT_CONTROLS" ||
       candidate.model_id !== binding.model_id || candidate.profile_schema_hash !== binding.profile_schema_hash ||
       candidate.request_fingerprint !== binding.request_fingerprint || candidate.intent_fingerprint !== binding.intent_fingerprint || candidate.expires_at !== binding.expires_at ||
       candidate.original.sha256 !== binding.original_sha256 || candidate.original.size !== binding.original_size || candidate.original.duration_seconds !== binding.duration_seconds ||

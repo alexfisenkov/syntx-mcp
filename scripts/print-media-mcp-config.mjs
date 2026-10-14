@@ -40,7 +40,8 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_KLING_I2V",
   "SYNTX_OWNER_VEO_T2V",
   "SYNTX_OWNER_GROK_T2V",
-  "SYNTX_OWNER_HAILUO_LIVE_T2V"
+  "SYNTX_OWNER_HAILUO_LIVE_T2V",
+  "SYNTX_OWNER_TOPAZ_ASTRA"
 ]);
 
 const DISABLED_FLAGS = Object.freeze([
@@ -68,6 +69,7 @@ const HELP_TEXT = [
   "This command does not edit client settings, read credentials, log in, or call the network.",
   "The confirmed owner-stdio config enables Kling I2V with SYNTX_OWNER_KLING_I2V=1.",
   "ElevenLabs STS operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
+  "Topaz Astra operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "The emitted tools can perform paid generation only when explicitly called by the client."
 ].join("\n") + "\n";
 
@@ -112,7 +114,9 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
     ...ENABLED_FLAGS.map((flag) => [flag, "1"]),
     ...DISABLED_FLAGS.map((flag) => [flag, "0"]),
     ["SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH", "<absolute path to ffprobe>"],
-    ["SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION", "<uploaded|hidden>"]
+    ["SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION", "<uploaded|hidden>"],
+    ["SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH", "<absolute path to ffprobe>"],
+    ["SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION", "<uploaded|hidden>"]
   ]);
 
   return Object.freeze({

@@ -1439,6 +1439,60 @@ export type { OwnerSeedance20T2vGenerationInput } from "./application/owner-revi
 export { registerSyntxOwnerSeedance20T2vTools,
   SYNTX_OWNER_SEEDANCE20_T2V_TOOL_NAMES } from "./mcp/owner-seedance20-t2v-tools.js";
 export {
+  createOwnerKlingT2vProfile,
+  OWNER_KLING_T2V_CONTRACT_VARIANT_IDS,
+  OWNER_KLING_T2V_CONTRACT_REGISTRY_VERSION
+} from "./application/owner-kling-t2v-profile.js";
+export type {
+  OwnerKlingT2vModelId,
+  OwnerKlingT2vProfile,
+  OwnerKlingT2vSourceContract
+} from "./application/owner-kling-t2v-profile.js";
+export {
+  OwnerKlingT2vGenerationService,
+  OwnerReviewedNoReferenceT2vServiceError
+} from "./application/owner-reviewed-no-reference-t2v-service.js";
+export type { OwnerKlingT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export {
+  registerSyntxOwnerKlingT2vTools,
+  SYNTX_OWNER_KLING_T2V_TOOL_NAMES,
+  SYNTX_OWNER_GET_KLING_T2V_SOURCE_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_KLING_T2V_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_KLING_T2V_TOOL_NAME,
+  SYNTX_OWNER_LIST_KLING_T2V_RECOVERIES_TOOL_NAME
+} from "./mcp/owner-kling-t2v-tools.js";
+export {
+  createOwnerVeoT2vProfile,
+  OWNER_VEO_T2V_CONTRACT_VARIANT_IDS,
+  OWNER_VEO_T2V_CONTRACT_REGISTRY_VERSION
+} from "./application/owner-veo-t2v-profile.js";
+export type {
+  OwnerVeoT2vModelId,
+  OwnerVeoT2vProfile,
+  OwnerVeoT2vSourceContract
+} from "./application/owner-veo-t2v-profile.js";
+export { OwnerVeoT2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export type { OwnerVeoT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export {
+  registerSyntxOwnerVeoT2vTools,
+  SYNTX_OWNER_VEO_T2V_TOOL_NAMES
+} from "./mcp/owner-veo-t2v-tools.js";
+export {
+  createOwnerGrokT2vProfile,
+  OWNER_GROK_T2V_CONTRACT_VARIANT_ID,
+  OWNER_GROK_T2V_CONTRACT_REGISTRY_VERSION
+} from "./application/owner-grok-t2v-profile.js";
+export type {
+  OwnerGrokT2vGenerationInput,
+  OwnerGrokT2vProfile,
+  OwnerGrokT2vSourceContract
+} from "./application/owner-grok-t2v-profile.js";
+export { OwnerGrokT2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export {
+  registerSyntxOwnerGrokT2vTools,
+  SYNTX_OWNER_GROK_T2V_TOOL_NAMES
+} from "./mcp/owner-grok-t2v-tools.js";
+export {
   OwnerElevenLabsDialogueGenerationService,
   OwnerElevenLabsDialogueGenerationServiceError
 } from "./application/owner-elevenlabs-dialogue-generation-service.js";

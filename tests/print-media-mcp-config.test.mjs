@@ -42,7 +42,10 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_HAILUO23_T2V",
   "SYNTX_OWNER_HAILUO02_T2V",
   "SYNTX_OWNER_SEEDANCE20_T2V",
-  "SYNTX_OWNER_VIDEO2AUDIO"
+  "SYNTX_OWNER_VIDEO2AUDIO",
+  "SYNTX_OWNER_KLING_T2V",
+  "SYNTX_OWNER_VEO_T2V",
+  "SYNTX_OWNER_GROK_T2V"
 ];
 const DISABLED_FLAGS = [
   "SYNTX_OWNER_IMAGE_REFERENCES",
@@ -138,6 +141,51 @@ test("Video2Audio flag is emitted only after exact paid-tools confirmation", asy
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_DURABLE_GENERATION, "0");
 });
 
+test("Kling T2V flag is emitted only after exact paid-tools confirmation", async () => {
+  const helpOut = [], helpErr = [];
+  await main([], { entryUrl: pathToFileURL(SCRIPT_PATH).href, writeStdout: (text) => helpOut.push(text), writeStderr: (text) => helpErr.push(text) });
+  assert.equal(helpErr.join(""), "");
+  assert.equal(helpOut.join("").includes("SYNTX_OWNER_KLING_T2V"), false);
+  const configOut = [], configErr = [];
+  await main([ENABLE_FLAG], { entryUrl: pathToFileURL(SCRIPT_PATH).href, writeStdout: (text) => configOut.push(text), writeStderr: (text) => configErr.push(text) });
+  const emitted = JSON.parse(configOut.join(""));
+  assert.equal(configErr.join(""), "");
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_KLING_T2V, "1");
+  assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_KLING_T2V").length, 1);
+  assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_KLING_T2V"), false);
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_DURABLE_GENERATION, "0");
+});
+
+test("Veo T2V flag is emitted only after exact paid-tools confirmation", async () => {
+  const helpOut = [], helpErr = [];
+  await main([], { entryUrl: pathToFileURL(SCRIPT_PATH).href, writeStdout: (text) => helpOut.push(text), writeStderr: (text) => helpErr.push(text) });
+  assert.equal(helpErr.join(""), "");
+  assert.equal(helpOut.join("").includes("SYNTX_OWNER_VEO_T2V"), false);
+  const configOut = [], configErr = [];
+  await main([ENABLE_FLAG], { entryUrl: pathToFileURL(SCRIPT_PATH).href, writeStdout: (text) => configOut.push(text), writeStderr: (text) => configErr.push(text) });
+  const emitted = JSON.parse(configOut.join(""));
+  assert.equal(configErr.join(""), "");
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_VEO_T2V, "1");
+  assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_VEO_T2V").length, 1);
+  assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_VEO_T2V"), false);
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_DURABLE_GENERATION, "0");
+});
+
+test("Grok T2V flag is emitted only after exact paid-tools confirmation", async () => {
+  const helpOut = [], helpErr = [];
+  await main([], { entryUrl: pathToFileURL(SCRIPT_PATH).href, writeStdout: (text) => helpOut.push(text), writeStderr: (text) => helpErr.push(text) });
+  assert.equal(helpErr.join(""), "");
+  assert.equal(helpOut.join("").includes("SYNTX_OWNER_GROK_T2V"), false);
+  const configOut = [], configErr = [];
+  await main([ENABLE_FLAG], { entryUrl: pathToFileURL(SCRIPT_PATH).href, writeStdout: (text) => configOut.push(text), writeStderr: (text) => configErr.push(text) });
+  const emitted = JSON.parse(configOut.join(""));
+  assert.equal(configErr.join(""), "");
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_GROK_T2V, "1");
+  assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_GROK_T2V").length, 1);
+  assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_GROK_T2V"), false);
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_DURABLE_GENERATION, "0");
+});
+
 test("CLI prints a valid config only after confirmation and does not depend on ambient paid flags", () => {
   const result = spawnSync(process.execPath, [SCRIPT_PATH, ENABLE_FLAG], {
     cwd: tmpdir(),
@@ -205,7 +253,7 @@ test("package smoke requires the installed config and combined media startup", (
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.ok(source.includes(JSON.stringify(packageJson.scripts.test)), "installed manifest test-command pin is stale");
   assert.ok(/await assertInstalledMediaMcpConfig\(installedPackagePath, consumerPath\)/u.test(source), "mandatory installed config gate missing");
-  assert.ok(/media_config_cli=PASS enabled_flags=27 joint_tools=/u.test(source), "installed config summary missing or stale");
+  assert.ok(/media_config_cli=PASS enabled_flags=30 joint_tools=/u.test(source), "installed config summary missing or stale");
   assert.ok(/config\.env\.SYNTX_OWNER_SEEDANCE20_T2V !== "1"/u.test(source), "installed Seedance20 opt-in pin missing");
   assert.ok(/config\.env\.SYNTX_OWNER_HAILUO02_T2V !== "1"/u.test(source), "installed Hailuo02 opt-in pin missing");
   assert.ok(/config\.env\.SYNTX_OWNER_ELEVENLABS_DIALOGUE !== "1"/u.test(source), "installed dialogue opt-in pin missing");
@@ -213,11 +261,73 @@ test("package smoke requires the installed config and combined media startup", (
   assert.ok(/config\.env\.SYNTX_OWNER_HAILUO01_DIRECTOR_T2V !== "1"/u.test(source), "installed config must explicitly emit the Hailuo Director opt-in flag");
   assert.ok(/config\.env\.SYNTX_OWNER_HAILUO23_T2V !== "1"/u.test(source), "installed config must explicitly emit the Hailuo 2.3 opt-in flag");
   assert.ok(/config\.env\.SYNTX_OWNER_VIDEO2AUDIO !== "1"/u.test(source), "installed config must explicitly emit the Video2Audio opt-in flag");
+  assert.ok(/config\.env\.SYNTX_OWNER_KLING_T2V !== "1"/u.test(source), "installed config must explicitly emit the Kling T2V opt-in flag");
+  assert.ok(/config\.env\.SYNTX_OWNER_VEO_T2V !== "1"/u.test(source), "installed config must explicitly emit the Veo T2V opt-in flag");
+  assert.ok(/config\.env\.SYNTX_OWNER_GROK_T2V !== "1"/u.test(source), "installed config must explicitly emit the Grok T2V opt-in flag");
   assert.ok(/default_off_hailuo01_tools=0/u.test(source), "Hailuo default-off result is not summarized");
   assert.ok(/default_off_hailuo01_director_tools=0/u.test(source), "Hailuo Director default-off result is not summarized");
   assert.ok(/default_off_hailuo23_tools=0/u.test(source), "Hailuo 2.3 default-off result is not summarized");
   assert.ok(/default_off_video2audio_tools=0/u.test(source), "Video2Audio default-off result is not summarized");
+  assert.ok(/default_off_kling_tools=0/u.test(source), "Kling default-off result is not summarized");
+  assert.ok(/default_off_veo_tools=0/u.test(source), "Veo default-off result is not summarized");
+  assert.ok(/default_off_grok_t2v_tools=0/u.test(source), "Grok T2V default-off result is not summarized");
+  for (const name of [
+    "syntx_owner_get_kling_t2v_source",
+    "syntx_owner_generate_kling_t2v",
+    "syntx_owner_reconcile_kling_t2v",
+    "syntx_owner_list_kling_t2v_recoveries"
+  ]) assert.ok(source.includes(name), `installed joint list omits ${name}`);
+  for (const name of [
+    "syntx_owner_get_grok_t2v_source",
+    "syntx_owner_generate_grok_t2v",
+    "syntx_owner_reconcile_grok_t2v",
+    "syntx_owner_list_grok_t2v_recoveries"
+  ]) assert.ok(source.includes(name), `installed joint list omits ${name}`);
+  for (const name of [
+    "syntx_owner_get_veo_t2v_source",
+    "syntx_owner_generate_veo_t2v",
+    "syntx_owner_reconcile_veo_t2v",
+    "syntx_owner_list_veo_t2v_recoveries"
+  ]) assert.ok(source.includes(name), `installed joint list omits ${name}`);
+  assert.ok(source.includes("SYNTX_OWNER_KLING_T2V:'0'"), "installed checker must exercise Kling default-off");
+  assert.ok(/jointToolCount-klingOff\.count,\$\{klingToolNames\.length\}/u.test(source), "Kling tools must be counted from tools/list");
+  assert.ok(/for\(const n of \$\{JSON\.stringify\(klingToolNames\)\}\)assert\.ok\(!klingOff\.names\.includes\(n\)\)/u.test(source), "Kling tools must be absent when opted out");
+  assert.ok(source.includes("SYNTX_OWNER_VEO_T2V:'0'"), "installed checker must exercise Veo default-off");
+  assert.ok(/jointToolCount-veoOff\.count,\$\{veoToolNames\.length\}/u.test(source), "Veo tools must be counted from tools/list");
+  assert.ok(/for\(const n of \$\{JSON\.stringify\(veoToolNames\)\}\)assert\.ok\(!veoOff\.names\.includes\(n\)\)/u.test(source), "Veo tools must be absent when opted out");
+  assert.ok(source.includes("SYNTX_OWNER_GROK_T2V:'0'"), "installed checker must exercise Grok default-off");
+  assert.ok(/jointToolCount-grokOff\.count,\$\{grokToolNames\.length\}/u.test(source), "Grok tools must be counted from tools/list");
+  assert.ok(/for\(const n of \$\{JSON\.stringify\(grokToolNames\)\}\)assert\.ok\(!grokOff\.names\.includes\(n\)\)/u.test(source), "Grok tools must be absent when opted out");
+  assert.ok(/for\(const n of \$\{JSON\.stringify\(klingToolNames\)\}\)assert\.ok\(grokOff\.names\.includes\(n\)\)/u.test(source), "Kling tools must remain when Grok is opted out");
+  assert.ok(/for\(const n of \$\{JSON\.stringify\(veoToolNames\)\}\)assert\.ok\(grokOff\.names\.includes\(n\)\)/u.test(source), "Veo tools must remain when Grok is opted out");
   assert.ok(/\$\{installedMediaMcpConfig\}/u.test(source), "installed config summary is not emitted");
+});
+
+test("default test manifest keeps the full compiled suite and changed-media targets the current Kling, Veo, and Grok wave", () => {
+  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.match(packageJson.scripts.test, /dist\/tests\/\*\.test\.js/u, "default test suite must retain all compiled test suites");
+  for (const filename of [
+    "dist/tests/owner-kling-t2v-profile.test.js",
+    "dist/tests/owner-kling-t2v-generation-service.test.js",
+    "dist/tests/owner-kling-t2v-tools.test.js",
+    "dist/tests/owner-kling-t2v-runtime-composition.test.js",
+    "dist/tests/owner-veo-t2v-profile.test.js",
+    "dist/tests/owner-veo-t2v-generation-service.test.js",
+    "dist/tests/owner-veo-t2v-tools.test.js",
+    "dist/tests/owner-veo-t2v-runtime-composition.test.js",
+    "dist/tests/owner-grok-t2v-profile.test.js",
+    "dist/tests/owner-grok-t2v-generation-service.test.js",
+    "dist/tests/owner-grok-t2v-tools.test.js",
+    "dist/tests/owner-grok-t2v-runtime-composition.test.js",
+    "dist/tests/owner-reviewed-no-reference-t2v-service.test.js",
+    "tests/print-media-mcp-config.test.mjs",
+    "tests/export-public-snapshot.test.mjs"
+  ]) assert.ok(packageJson.scripts["test:media:changed"].includes(filename), `changed-media slice omits ${filename}`);
+  for (const filename of [
+    "dist/tests/owner-hailuo02-t2v-profile.test.js",
+    "dist/tests/owner-seedance20-t2v-profile.test.js",
+    "dist/tests/owner-video2audio-runtime-composition.test.js"
+  ]) assert.equal(packageJson.scripts["test:media:changed"].includes(filename), false, `unchanged prior wave should not rerun: ${filename}`);
 });
 
 test("installed joint startup checks Luma tools and derives count from the returned tool list", () => {

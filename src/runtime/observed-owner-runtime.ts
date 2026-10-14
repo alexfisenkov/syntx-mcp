@@ -119,6 +119,12 @@ import { OwnerHailuo02T2vGenerationService } from "../application/owner-reviewed
 import { createOwnerHailuo02T2vProfile } from "../application/owner-hailuo02-t2v-profile.js";
 import { OwnerSeedance20T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerSeedance20T2vProfile } from "../application/owner-seedance20-t2v-profile.js";
+import { OwnerKlingT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { createOwnerKlingT2vProfile } from "../application/owner-kling-t2v-profile.js";
+import { OwnerVeoT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { createOwnerVeoT2vProfile } from "../application/owner-veo-t2v-profile.js";
+import { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { createOwnerGrokT2vProfile } from "../application/owner-grok-t2v-profile.js";
 import { createOwnerVideo2AudioSourceProfile } from "../application/owner-video2audio-source-profile.js";
 import { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import { createOwnerVideo2AudioRequestPreparer } from "../application/owner-video2audio-request-preparer.js";
@@ -184,6 +190,12 @@ export interface ObservedOwnerRuntimeOptions {
   ownerHailuo02T2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for Seedance 2.0 mini with no references. */
   ownerSeedance20T2vEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for source-reviewed Kling T2V and O1 T2V. */
+  ownerKlingT2vEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for source-reviewed Veo no-reference T2V. */
+  ownerVeoT2vEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for source-reviewed Grok T2V without references. */
+  ownerGrokT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for Video2Audio upload, generation, and GET-only recovery. */
   ownerVideo2AudioEnabled?: boolean;
   /** Explicit owner-stdio opt-in for private Banana Inpaint uploads and generation. */
@@ -1504,6 +1516,129 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ profile, generationService, lifecycle });
       })()
     : undefined;
+  const ownerKlingT2v = options.ownerKlingT2vEnabled === true
+    ? (() => {
+        const profile = createOwnerKlingT2vProfile("kling_text2video", options.catalogDirectory);
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveKlingChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_KLING_T2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        let generationService: OwnerKlingT2vGenerationService;
+        try {
+          generationService = new OwnerKlingT2vGenerationService({
+            ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+            binding: authBinding,
+            linkService,
+            resolveSubscription: (attemptId, signal) => createReadClient(attemptId).getSubscription(signal),
+            resolveModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            resolveChatClient: resolveKlingChatClient,
+            now
+          });
+        } catch (error) {
+          clientsByAttempt.clear();
+          throw error;
+        }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            try { await generationService.close(); }
+            finally { clientsByAttempt.clear(); }
+          }
+        });
+        return Object.freeze({ profile, generationService, lifecycle });
+      })()
+    : undefined;
+  const ownerVeoT2v = options.ownerVeoT2vEnabled === true
+    ? (() => {
+        const profile = createOwnerVeoT2vProfile("veo3", options.catalogDirectory);
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveVeoChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_VEO_T2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        let generationService: OwnerVeoT2vGenerationService;
+        try {
+          generationService = new OwnerVeoT2vGenerationService({
+            ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+            binding: authBinding,
+            linkService,
+            resolveSubscription: (attemptId, signal) => createReadClient(attemptId).getSubscription(signal),
+            resolveModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            resolveChatClient: resolveVeoChatClient,
+            now
+          });
+        } catch (error) {
+          clientsByAttempt.clear();
+          throw error;
+        }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            try { await generationService.close(); }
+            finally { clientsByAttempt.clear(); }
+          }
+        });
+        return Object.freeze({ profile, generationService, lifecycle });
+      })()
+    : undefined;
+  const ownerGrokT2v = options.ownerGrokT2vEnabled === true
+    ? (() => {
+        const profile = createOwnerGrokT2vProfile(options.catalogDirectory);
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveGrokT2vChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_GROK_T2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        let generationService: OwnerGrokT2vGenerationService;
+        try {
+          generationService = new OwnerGrokT2vGenerationService({
+            profile, binding: authBinding, linkService,
+            resolveSubscription: (attemptId, signal) => createReadClient(attemptId).getSubscription(signal),
+            resolveModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            resolveChatClient: resolveGrokT2vChatClient, now
+          });
+        } catch (error) { clientsByAttempt.clear(); throw error; }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            try { await generationService.close(); }
+            finally { clientsByAttempt.clear(); }
+          }
+        });
+        return Object.freeze({ profile, generationService, lifecycle });
+      })()
+    : undefined;
   const ownerVideo2Audio = options.ownerVideo2AudioEnabled === true
     ? (() => {
         const profile = createOwnerVideo2AudioSourceProfile(options.catalogDirectory);
@@ -1576,6 +1711,9 @@ export function createObservedOwnerRuntime(
       ownerHailuo23T2v === undefined &&
       ownerHailuo02T2v === undefined &&
       ownerSeedance20T2v === undefined &&
+      ownerKlingT2v === undefined &&
+      ownerVeoT2v === undefined &&
+      ownerGrokT2v === undefined &&
       ownerVideo2Audio === undefined &&
       ownerUniImageReferences === undefined && ownerWanImageReferences === undefined && ownerStandardImageReferences === undefined &&
       ownerRunwayImageReferences === undefined && ownerSeedreamImageReferences === undefined &&
@@ -1635,6 +1773,18 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerSeedance20T2v.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerKlingT2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerKlingT2v.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerVeoT2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerVeoT2v.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerGrokT2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId);
+            }
             if (ownerVideo2Audio !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerVideo2Audio.lifecycle.invalidateAttempt(attemptId);
@@ -1670,6 +1820,9 @@ export function createObservedOwnerRuntime(
         ownerHailuo23T2v === undefined &&
         ownerHailuo02T2v === undefined &&
         ownerSeedance20T2v === undefined &&
+        ownerKlingT2v === undefined &&
+        ownerVeoT2v === undefined &&
+        ownerGrokT2v === undefined &&
         ownerVideo2Audio === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
@@ -1710,6 +1863,15 @@ export function createObservedOwnerRuntime(
           }
           if (ownerSeedance20T2v !== undefined) {
             try { await ownerSeedance20T2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerKlingT2v !== undefined) {
+            try { await ownerKlingT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerVeoT2v !== undefined) {
+            try { await ownerVeoT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerGrokT2v !== undefined) {
+            try { await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerVideo2Audio !== undefined) {
             try { await ownerVideo2Audio.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -1804,6 +1966,9 @@ export function createObservedOwnerRuntime(
     ...(ownerHailuo23T2v === undefined ? {} : { ownerHailuo23T2v: { generationService: ownerHailuo23T2v.generationService } }),
     ...(ownerHailuo02T2v === undefined ? {} : { ownerHailuo02T2v: { generationService: ownerHailuo02T2v.generationService } }),
     ...(ownerSeedance20T2v === undefined ? {} : { ownerSeedance20T2v: { generationService: ownerSeedance20T2v.generationService } }),
+    ...(ownerKlingT2v === undefined ? {} : { ownerKlingT2v: { generationService: ownerKlingT2v.generationService } }),
+    ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2v: { generationService: ownerVeoT2v.generationService } }),
+    ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
     ...(ownerSoulCatalogShape === undefined ? {} : { ownerSoulCatalogShape }),
     ...(ownerSoulStyleOptions === undefined ? {} : { ownerSoulStyleOptions }),
@@ -1849,6 +2014,9 @@ export function createObservedOwnerRuntime(
     ...(ownerHailuo23T2v === undefined ? {} : { ownerHailuo23T2vLifecycle: ownerHailuo23T2v.lifecycle }),
     ...(ownerHailuo02T2v === undefined ? {} : { ownerHailuo02T2vLifecycle: ownerHailuo02T2v.lifecycle }),
     ...(ownerSeedance20T2v === undefined ? {} : { ownerSeedance20T2vLifecycle: ownerSeedance20T2v.lifecycle }),
+    ...(ownerKlingT2v === undefined ? {} : { ownerKlingT2vLifecycle: ownerKlingT2v.lifecycle }),
+    ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2vLifecycle: ownerVeoT2v.lifecycle }),
+    ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle })
   };
 }

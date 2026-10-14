@@ -183,6 +183,12 @@ import type { OwnerHailuo02T2vGenerationService } from "../application/owner-rev
 import { registerSyntxOwnerHailuo02T2vTools } from "./owner-hailuo02-t2v-tools.js";
 import type { OwnerSeedance20T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerSeedance20T2vTools } from "./owner-seedance20-t2v-tools.js";
+import type { OwnerKlingT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { registerSyntxOwnerKlingT2vTools } from "./owner-kling-t2v-tools.js";
+import type { OwnerVeoT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { registerSyntxOwnerVeoT2vTools } from "./owner-veo-t2v-tools.js";
+import type { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { registerSyntxOwnerGrokT2vTools } from "./owner-grok-t2v-tools.js";
 import type { OwnerVideo2AudioSourceProfile } from "../application/owner-video2audio-source-profile.js";
 import type { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import type { OwnerVideo2AudioGenerationService } from "../application/owner-video2audio-generation-service.js";
@@ -376,6 +382,24 @@ export interface OwnerSeedance20T2vServiceComposition {
     "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
 }
 
+/** Source-reviewed Kling T2V and O1 family tools, explicitly opted in by owner stdio. */
+export interface OwnerKlingT2vServiceComposition {
+  readonly generationService: Pick<OwnerKlingT2vGenerationService,
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+}
+
+/** Explicit owner-local Veo T2V tools, enabled only by owner stdio opt-in. */
+export interface OwnerVeoT2vServiceComposition {
+  readonly generationService: Pick<OwnerVeoT2vGenerationService,
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+}
+
+/** Explicit owner-local Grok T2V tools, enabled only by owner stdio opt-in. */
+export interface OwnerGrokT2vServiceComposition {
+  readonly generationService: Pick<OwnerGrokT2vGenerationService,
+    "getParametersSource" | "getReviewedContract" | "generate" | "reconcile" | "listRecoveries">;
+}
+
 /** Explicit owner-local Video2Audio original upload and generation/recovery lifecycle. */
 export interface OwnerVideo2AudioServiceComposition {
   readonly profile: OwnerVideo2AudioSourceProfile;
@@ -458,6 +482,11 @@ export interface CreateMcpServerOptions {
   ownerHailuo23T2v?: OwnerHailuo23T2vServiceComposition | undefined;
   ownerHailuo02T2v?: OwnerHailuo02T2vServiceComposition | undefined;
   ownerSeedance20T2v?: OwnerSeedance20T2vServiceComposition | undefined;
+  /** Explicit owner-local Kling T2V and O1 tools; omitted from default and HTTP servers. */
+  ownerKlingT2v?: OwnerKlingT2vServiceComposition | undefined;
+  /** Explicit owner-local Veo T2V tools; omitted from default and HTTP servers. */
+  ownerVeoT2v?: OwnerVeoT2vServiceComposition | undefined;
+  ownerGrokT2v?: OwnerGrokT2vServiceComposition | undefined;
   /** Explicit owner-local Video2Audio tools; omitted from default and HTTP servers. */
   ownerVideo2Audio?: OwnerVideo2AudioServiceComposition | undefined;
   /** Optional host-supplied, version-bound static evidence; never reads files or contacts SYNTX. */
@@ -595,7 +624,8 @@ export function createMcpServer(
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
-        options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerSeedance20T2v || options.ownerVideo2Audio)) {
+        options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerSeedance20T2v ||
+        options.ownerKlingT2v || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerVideo2Audio)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
   if (options.generationContractRegistry != null && options.generationContractRegistryV2 != null) {
@@ -1070,6 +1100,15 @@ export function createMcpServer(
   }
   if (options.ownerSeedance20T2v) {
     registerSyntxOwnerSeedance20T2vTools(server, { service: options.ownerSeedance20T2v.generationService });
+  }
+  if (options.ownerKlingT2v) {
+    registerSyntxOwnerKlingT2vTools(server, { service: options.ownerKlingT2v.generationService });
+  }
+  if (options.ownerVeoT2v) {
+    registerSyntxOwnerVeoT2vTools(server, { service: options.ownerVeoT2v.generationService });
+  }
+  if (options.ownerGrokT2v) {
+    registerSyntxOwnerGrokT2vTools(server, { service: options.ownerGrokT2v.generationService });
   }
   if (options.ownerVideo2Audio) {
     registerSyntxOwnerVideo2AudioTools(server, options.ownerVideo2Audio);

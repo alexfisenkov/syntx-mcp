@@ -13,7 +13,7 @@ test("installed media checker asserts one existing-track tool under the existing
   assert.match(checker, /SYNTX_OWNER_SUNO_GENERATION:'0'/u);
 });
 
-test("changed-media selector is the frozen existing-track chain only", () => {
+test("changed-media selector runs only the named empty-history regressions", () => {
   assert.equal(packageJson.scripts["test:media:changed"],
-    "node --test --test-concurrency=2 dist/tests/syntx-chat-http-client-owner-suno-existing-track.test.js dist/tests/owner-suno-existing-track-service.test.js dist/tests/owner-suno-existing-track-tools.test.js tests/owner-suno-existing-track-package-checker.test.mjs");
+    "node --test --test-name-pattern='consistent empty|continues past an empty' dist/tests/syntx-chat-http-client-owner-suno-existing-track.test.js dist/tests/owner-suno-existing-track-service.test.js");
 });

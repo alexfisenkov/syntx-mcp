@@ -4878,9 +4878,15 @@ export class SyntxChatHttpClient {
       throw ownerSunoExistingTrackError("HISTORY_UNVERIFIED");
     }
 
-    if (providerChatId !== state.context.provider_chat_id || totalCount === undefined || totalPages === undefined || messages.length === 0) {
+    if (totalCount === undefined || totalPages === undefined) {
       throw ownerSunoExistingTrackError("HISTORY_UNVERIFIED");
     }
+    if (messages.length === 0) return Object.freeze({
+      status: "INCOMPLETE", owner_ack_status: "MISSING", history_get_calls: getCalls,
+      total_count: totalCount, total_pages: totalPages, provider_chat_id: state.context.provider_chat_id,
+      contexts: Object.freeze([]), gaps: Object.freeze(["OWNER_ACK_MISSING"] as const)
+    });
+    if (providerChatId !== state.context.provider_chat_id) throw ownerSunoExistingTrackError("HISTORY_UNVERIFIED");
     const ownerAcks = new Map<OwnerSunoGenerationModel, Array<Readonly<{ row: OwnerSunoExistingTrackHistoryRow; text: string }>>>([
       ["V6", []], ["V6_wild", []]
     ]);

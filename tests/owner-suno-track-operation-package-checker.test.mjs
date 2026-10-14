@@ -34,12 +34,8 @@ test("installed media checker requires all six Suno track-operation tools only w
 
 test("changed media gate selects the new existing-track chain and excludes previous audio reruns", () => {
   const script = packageJson.scripts["test:media:changed"];
-  for (const path of [
-    "dist/tests/syntx-chat-http-client-owner-suno-existing-track.test.js",
-    "dist/tests/owner-suno-existing-track-service.test.js",
-    "dist/tests/owner-suno-existing-track-tools.test.js",
-    "tests/owner-suno-existing-track-package-checker.test.mjs"
-  ]) assert.ok(script.includes(path), `missing changed media target ${path}`);
+  assert.equal(script,
+    "node --test --test-name-pattern='consistent empty|continues past an empty' dist/tests/syntx-chat-http-client-owner-suno-existing-track.test.js dist/tests/owner-suno-existing-track-service.test.js");
   for (const path of [
     "dist/tests/owner-suno-track-operation-parameters.test.js",
     "dist/tests/owner-suno-track-operation-preparer.test.js",

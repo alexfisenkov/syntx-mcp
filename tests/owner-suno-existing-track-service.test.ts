@@ -14,6 +14,7 @@ const ATTEMPT = "link_suno_existing_service_1328_owner_0123456789";
 const BINDING: AuthBinding = Object.freeze({ tenant_id: "suno-existing-service-1328-tenant", subject: "suno-existing-service-1328-owner" });
 const CREDENTIAL = "synthetic-suno-existing-service-credential";
 const CHAT_UUID = "owner-suno-existing-service-chat";
+const CHAT_UUID_B = "owner-suno-existing-service-chat-b";
 const ACK_ID = "suno-existing-service-owner-ack";
 const RESULT_ID = "suno-existing-service-bot-result";
 const objectIds = ["suno-existing-service-object-a", "suno-existing-service-object-b"] as const;
@@ -32,7 +33,7 @@ function errorCode(error: unknown): string | undefined {
   return error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : undefined;
 }
 
-async function fixture() {
+async function fixture(fixtureOptions: { emptyFirstChat?: boolean } = {}) {
   let now = Date.parse("2026-10-14T00:00:00.000Z");
   const counts = { indexGets: 0, historyGets: 0, resultGets: 0, posts: 0, accountGets: 0, quoteGets: 0 };
   const provider: AuthLinkProvider = {
@@ -63,24 +64,35 @@ async function fixture() {
     if (url.pathname === "/api/v1/chats") {
       counts.indexGets += 1;
       assert.equal(url.search, "?scope=audio&page=1&page_size=20");
-      return Response.json({ chats: [{ id: 9031, uuid: CHAT_UUID, scope: "audio",
+      const chats = fixtureOptions.emptyFirstChat ? [
+        { id: 9031, uuid: CHAT_UUID, scope: "audio", title: "owner-suno-track-operation-01234567-89ab-4def-8123-456789abcdef",
+          created_at: "2026-10-14T00:00:00Z", updated_at: "2026-10-14T00:00:00Z", message_count: 0 },
+        { id: 9032, uuid: CHAT_UUID_B, scope: "audio", title: "owner-suno-generation-01234567-89ab-4def-8123-456789abcdef",
+          created_at: "2026-10-14T00:00:00Z", updated_at: "2026-10-14T00:00:00Z", message_count: 2 }
+      ] : [{ id: 9031, uuid: CHAT_UUID, scope: "audio",
         title: "owner-suno-track-operation-01234567-89ab-4def-8123-456789abcdef",
-        created_at: "2026-10-14T00:00:00Z", updated_at: "2026-10-14T00:00:00Z", message_count: 2 }],
-        pagination: { page: 1, page_size: 20, total_count: 1, total_pages: 1, has_next: false, has_previous: false } });
+        created_at: "2026-10-14T00:00:00Z", updated_at: "2026-10-14T00:00:00Z", message_count: 2 }];
+      return Response.json({ chats,
+        pagination: { page: 1, page_size: 20, total_count: chats.length, total_pages: 1, has_next: false, has_previous: false } });
     }
-    if (url.pathname === `/api/v1/chats/${CHAT_UUID}/messages`) {
+    if (url.pathname === `/api/v1/chats/${CHAT_UUID}/messages` || url.pathname === `/api/v1/chats/${CHAT_UUID_B}/messages`) {
       counts.historyGets += 1;
       assert.equal(url.search, "?page=1&page_size=10");
+      if (fixtureOptions.emptyFirstChat && url.pathname === `/api/v1/chats/${CHAT_UUID}/messages`) {
+        return Response.json({ messages: [],
+          pagination: { page: 1, page_size: 10, total_count: 0, total_pages: 0, has_next: false, has_previous: false } });
+      }
+      const chatId = fixtureOptions.emptyFirstChat ? 9032 : 9031;
       return Response.json({ messages: [
-        { id: ACK_ID, chat_id: 9031, author_id: 42, message_object: [{ id: "suno-existing-service-owner-text",
+        { id: ACK_ID, chat_id: chatId, author_id: 42, message_object: [{ id: "suno-existing-service-owner-text",
           message_id: ACK_ID, object_type: "text", object_text: "private source prompt", object_url: "",
           completed: true, model_type: "V6_wild", metadata: { payload: {} } }] },
-        { id: RESULT_ID, chat_id: 9031, author_id: -1, message_object: audioObjects() }
+        { id: RESULT_ID, chat_id: chatId, author_id: -1, message_object: audioObjects() }
       ], pagination: { page: 1, page_size: 10, total_count: 2, total_pages: 1, has_next: false, has_previous: false } });
     }
-    if (url.pathname === `/api/v1/chats/${CHAT_UUID}/${RESULT_ID}`) {
+    if (url.pathname === `/api/v1/chats/${fixtureOptions.emptyFirstChat ? CHAT_UUID_B : CHAT_UUID}/${RESULT_ID}`) {
       counts.resultGets += 1;
-      return Response.json({ id: RESULT_ID, chat_id: 9031, author_id: -1,
+      return Response.json({ id: RESULT_ID, chat_id: fixtureOptions.emptyFirstChat ? 9032 : 9031, author_id: -1,
         message_object: audioObjects(), created_at: "2026-10-14T00:00:00Z" });
     }
     if (url.pathname === "/api/v1/user/balance" || url.pathname === "/api/v1/user/subscription") {
@@ -147,5 +159,15 @@ test("rejects a foreign attempt and blocks reads after parent invalidation", asy
     await assert.rejects(api.listExistingTracks({ attemptId: ATTEMPT, page: 1 }),
       (error: unknown) => errorCode(error) === "PRINCIPAL_NOT_LINKED");
     assert.deepEqual(f.counts, counts);
+  } finally { await f.service.close(); }
+});
+
+test("continues past an empty first owned history and returns the valid later source", async () => {
+  const f = await fixture({ emptyFirstChat: true });
+  try {
+    const result = await serviceApi(f.service).listExistingTracks({ attemptId: ATTEMPT, page: 1 });
+    assert.equal(result.status, "AVAILABLE");
+    assert.equal((result.tracks as unknown[]).length, 2);
+    assert.deepEqual(f.counts, { indexGets: 1, historyGets: 2, resultGets: 1, posts: 0, accountGets: 0, quoteGets: 0 });
   } finally { await f.service.close(); }
 });

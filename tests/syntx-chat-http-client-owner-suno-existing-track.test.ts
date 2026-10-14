@@ -228,3 +228,37 @@ test("a foreign provider chat id prevents history candidates from being branded"
     assert.equal(f.counts.resultGets, 0);
   } finally { for (const store of stores) store.close(); stores.clear(); }
 });
+
+test("a consistent empty owned history returns a bounded non-ready gap receipt", async () => {
+  const f = await fixture({ historyPage: (_chatUuid, page) => ({
+    messages: [],
+    pagination: { page, page_size: 10, total_count: 0, total_pages: 0, has_next: false, has_previous: false }
+  }) });
+  try {
+    const page = await f.native.listOwnedSunoExistingTrackChats({ attemptId: ATTEMPT, principal: f.principal, page: 1 });
+    const listed = await f.native.listOwnedSunoExistingTrackCandidates((page.chats as unknown[])[0]);
+    assert.equal(listed.status, "INCOMPLETE");
+    assert.equal(listed.owner_ack_status, "MISSING");
+    assert.deepEqual(listed.contexts, []);
+    assert.deepEqual(listed.gaps, ["OWNER_ACK_MISSING"]);
+    assert.equal(listed.history_get_calls, 1);
+    assert.equal(listed.total_count, 0);
+    assert.equal(listed.total_pages, 0);
+    assert.equal(listed.provider_chat_id, "9001");
+    assert.equal(f.counts.resultGets, 0);
+  } finally { for (const store of stores) store.close(); stores.clear(); }
+
+  const inconsistent = await fixture({ historyPage: (_chatUuid, page) => ({
+    messages: [],
+    pagination: { page, page_size: 10, total_count: 0, total_pages: 1, has_next: false, has_previous: false }
+  }) });
+  try {
+    const page = await inconsistent.native.listOwnedSunoExistingTrackChats({
+      attemptId: ATTEMPT, principal: inconsistent.principal, page: 1
+    });
+    await assert.rejects(inconsistent.native.listOwnedSunoExistingTrackCandidates((page.chats as unknown[])[0]),
+      (error: unknown) => code(error, "HISTORY_UNVERIFIED"));
+    assert.equal(inconsistent.counts.historyGets, 1);
+    assert.equal(inconsistent.counts.resultGets, 0);
+  } finally { for (const store of stores) store.close(); stores.clear(); }
+});

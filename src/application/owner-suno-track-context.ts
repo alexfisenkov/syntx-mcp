@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import {
+  isOwnerSunoExistingTrackResultMessageContext,
   isOwnerSunoGenerationResultMessageContext,
   SyntxChatHttpClient,
+  type OwnerSunoExistingTrackResultMessageContext,
   type OwnerSunoGenerationResultMessageContext
 } from "../adapter/syntx/chat-http-client.js";
+import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import type { AuthBinding } from "../auth/types.js";
 import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
 import { sameGenerationPrincipal, snapshotGenerationPrincipal } from "../domain/generation-principal.js";
@@ -23,6 +26,10 @@ const ABSOLUTE_MAX_RECORDS = 128;
 const CONTEXT_KEYS = ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids",
   "owner_echo_message_id", "attempt_id", "principal", "intent_fingerprint", "source_profile_schema_hash", "source_pins"];
 const NATIVE_TRACK_METADATA = SyntxChatHttpClient.prototype.getOwnedSunoGenerationTrackMetadata;
+const NATIVE_EXISTING_TRACK_METADATA = SyntxChatHttpClient.prototype.getOwnedSunoExistingTrackMetadata;
+const MIME_BY_EXTENSION = new Map<string, "audio/mpeg" | "audio/wav" | "audio/mp4">([
+  ["mp3", "audio/mpeg"], ["wav", "audio/wav"], ["m4a", "audio/mp4"]
+]);
 
 export interface OwnerSunoTrackContextStoreOptions {
   readonly now?: () => number;
@@ -47,6 +54,15 @@ export interface OwnerSunoTrackContextIssueInput {
   readonly messageObjectId: string;
 }
 
+export interface OwnerSunoExistingTrackContextIssueInput {
+  readonly binding: AuthBinding;
+  readonly attemptId: string;
+  readonly principal: GenerationPrincipalRef;
+  readonly client: SyntxChatHttpClient;
+  readonly resultContext: OwnerSunoExistingTrackResultMessageContext;
+  readonly messageObjectId: string;
+}
+
 export interface OwnerSunoTrackContextResolveInput {
   readonly binding: AuthBinding;
   readonly attemptId: string;
@@ -66,9 +82,11 @@ export interface OwnerSunoTrackContextProjection {
   readonly owner_echo_message_id: string;
   readonly intent_fingerprint: string;
   readonly source_profile_schema_hash: string;
+  readonly source_kind: "OWNER_GENERATION" | "EXISTING_OWNER_TRACK";
   readonly clip_id: string;
   readonly task_id: string;
   readonly expires_at: number;
+  readonly artifact?: Readonly<{ url: string; mime_type: "audio/mpeg" | "audio/wav" | "audio/mp4" | null }>;
 }
 
 export type OwnerSunoTrackContextStoreErrorCode =
@@ -138,21 +156,39 @@ export class OwnerSunoTrackContextStore {
     const matches = trackMetadata.filter((entry) => entry.message_object_id === messageObjectId);
     if (matches.length !== 1) fail("TRACK_CONTEXT_UNAVAILABLE");
     const { clip_id: clipId, task_id: taskId } = matches[0]!;
-    const now = this.#readNow();
-    this.#prune(now);
-    if (this.#records.size >= this.#maxRecords) fail("CAPACITY_EXCEEDED");
-    if (now > Number.MAX_SAFE_INTEGER - this.#ttlMs) fail("CLOCK_INVALID");
+    return this.#issueContext({ binding, attemptId, principal, context, messageObjectId, clipId, taskId,
+      sourceKind: "OWNER_GENERATION" });
+  }
 
-    const handle = `track_${randomUUID()}`;
-    this.#records.set(handle, Object.freeze({
-      track_handle: handle, tenant_id: binding.tenant_id, subject: binding.subject,
-      attempt_id: attemptId, principal, model_id: context.model_id, chat_uuid: context.chat_uuid,
-      message_id: context.message_id, message_object_id: messageObjectId,
-      owner_echo_message_id: context.owner_echo_message_id, intent_fingerprint: context.intent_fingerprint,
-      source_profile_schema_hash: context.source_profile_schema_hash, clip_id: clipId, task_id: taskId,
-      expires_at: now + this.#ttlMs
-    }));
-    return handle;
+  /** Issues an existing-track handle only from a native-branded imported result with exact cached metadata. */
+  issueExistingOwnerTrack(input: OwnerSunoExistingTrackContextIssueInput | unknown): string {
+    this.#assertOpen();
+    const fields = exactRecord(input, ["binding", "attemptId", "principal", "client", "resultContext", "messageObjectId"]);
+    const binding = snapshotBinding(fields.binding);
+    const attemptId = validateAttempt(fields.attemptId);
+    const principal = snapshotPrincipal(fields.principal);
+    if (principal.tenant_id !== binding.tenant_id || principal.subject_id !== binding.subject ||
+        principal.connection_id !== attemptId) fail("INVALID_REQUEST");
+    if (!fields.client || typeof fields.client !== "object" || types.isProxy(fields.client) ||
+        Object.getPrototypeOf(fields.client) !== SyntxChatHttpClient.prototype ||
+        !isOwnerSunoExistingTrackResultMessageContext(fields.resultContext, fields.client)) fail("TRACK_CONTEXT_UNAVAILABLE");
+
+    const context = snapshotExistingNativeContext(fields.resultContext);
+    if (context.attempt_id !== attemptId || !sameGenerationPrincipal(context.principal, principal)) {
+      fail("TRACK_CONTEXT_UNAVAILABLE");
+    }
+    const messageObjectId = validateSafeId(fields.messageObjectId);
+    if (!context.message_object_ids.includes(messageObjectId)) fail("TRACK_CONTEXT_UNAVAILABLE");
+    let metadata: readonly ExistingTrackMetadataSnapshot[];
+    try {
+      metadata = snapshotExistingTrackMetadata(Reflect.apply(NATIVE_EXISTING_TRACK_METADATA, fields.client, [fields.resultContext]), context);
+    } catch { return fail("TRACK_CONTEXT_UNAVAILABLE"); }
+    const matches = metadata.filter((entry) => entry.message_object_id === messageObjectId);
+    if (matches.length !== 1) fail("TRACK_CONTEXT_UNAVAILABLE");
+    const match = matches[0]!;
+    return this.#issueContext({ binding, attemptId, principal, context, messageObjectId,
+      clipId: match.clip_id, taskId: match.task_id, sourceKind: "EXISTING_OWNER_TRACK",
+      artifact: Object.freeze({ url: match.object_url, mime_type: mimeTypeFromUrl(match.object_url) }) });
   }
 
   /** Resolves only for the exact tenant, authenticated subject, link attempt, and server principal. */
@@ -199,6 +235,27 @@ export class OwnerSunoTrackContextStore {
 
   #assertOpen(): void { if (this.#closed) fail("SERVICE_CLOSED"); }
 
+  #issueContext(input: Readonly<{ binding: Readonly<AuthBinding>; attemptId: string;
+    principal: Readonly<GenerationPrincipalRef>; context: NativeContextSnapshot; messageObjectId: string;
+    clipId: string; taskId: string; sourceKind: OwnerSunoTrackContextProjection["source_kind"];
+    artifact?: OwnerSunoTrackContextProjection["artifact"] }>): string {
+    const now = this.#readNow();
+    this.#prune(now);
+    if (this.#records.size >= this.#maxRecords) fail("CAPACITY_EXCEEDED");
+    if (now > Number.MAX_SAFE_INTEGER - this.#ttlMs) fail("CLOCK_INVALID");
+    const handle = `track_${randomUUID()}`;
+    this.#records.set(handle, Object.freeze({
+      track_handle: handle, tenant_id: input.binding.tenant_id, subject: input.binding.subject,
+      attempt_id: input.attemptId, principal: input.principal, model_id: input.context.model_id,
+      chat_uuid: input.context.chat_uuid, message_id: input.context.message_id, message_object_id: input.messageObjectId,
+      owner_echo_message_id: input.context.owner_echo_message_id, intent_fingerprint: input.context.intent_fingerprint,
+      source_profile_schema_hash: input.context.source_profile_schema_hash, source_kind: input.sourceKind,
+      clip_id: input.clipId, task_id: input.taskId, expires_at: now + this.#ttlMs,
+      ...(input.artifact === undefined ? {} : { artifact: Object.freeze({ ...input.artifact }) })
+    }));
+    return handle;
+  }
+
   #readNow(): number {
     let value: number;
     try { value = this.#now(); } catch { return fail("CLOCK_INVALID"); }
@@ -232,6 +289,14 @@ interface TrackMetadataSnapshot {
   readonly model_id: "V6" | "V6_wild";
 }
 
+interface ExistingNativeContextSnapshot extends NativeContextSnapshot {
+  readonly source_kind: "EXISTING_OWNER_TRACK";
+}
+
+interface ExistingTrackMetadataSnapshot extends TrackMetadataSnapshot {
+  readonly object_url: string;
+}
+
 function snapshotNativeContext(value: unknown): NativeContextSnapshot {
   const fields = exactRecord(value, CONTEXT_KEYS);
   const attemptId = validateAttempt(fields.attempt_id);
@@ -245,6 +310,51 @@ function snapshotNativeContext(value: unknown): NativeContextSnapshot {
     model_id: fields.model_id, provider_chat_id: fields.provider_chat_id, message_object_ids: objectIds,
     owner_echo_message_id: fields.owner_echo_message_id as string, attempt_id: attemptId, principal,
     intent_fingerprint: fields.intent_fingerprint as string, source_profile_schema_hash: fields.source_profile_schema_hash as string });
+}
+
+function snapshotExistingNativeContext(value: unknown): ExistingNativeContextSnapshot {
+  const fields = exactRecord(value, [...CONTEXT_KEYS, "source_kind"]);
+  if (fields.source_kind !== "EXISTING_OWNER_TRACK" || typeof fields.intent_fingerprint !== "string" ||
+      !/^sha256:[a-f0-9]{64}$/u.test(fields.intent_fingerprint)) fail("TRACK_CONTEXT_UNAVAILABLE");
+  const base = snapshotNativeContext(Object.freeze(Object.fromEntries(CONTEXT_KEYS.map((key) => [key,
+    key === "intent_fingerprint" ? (fields.intent_fingerprint as string).slice("sha256:".length) : fields[key]
+  ]))));
+  return Object.freeze({ ...base, source_kind: "EXISTING_OWNER_TRACK" });
+}
+
+function snapshotExistingTrackMetadata(value: unknown, context: ExistingNativeContextSnapshot): readonly ExistingTrackMetadataSnapshot[] {
+  if (!Array.isArray(value) || types.isProxy(value) || Object.getPrototypeOf(value) !== Array.prototype || !Object.isFrozen(value)) {
+    fail("TRACK_CONTEXT_UNAVAILABLE");
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const length = (descriptors["length"] as PropertyDescriptor | undefined)?.value;
+  if (!Number.isSafeInteger(length) || (length as number) > 64 || Reflect.ownKeys(descriptors).length !== (length as number) + 1) {
+    fail("TRACK_CONTEXT_UNAVAILABLE");
+  }
+  const result: ExistingTrackMetadataSnapshot[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < (length as number); index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) fail("TRACK_CONTEXT_UNAVAILABLE");
+    const fields = exactRecord(descriptor.value, ["object_index", "message_object_id", "object_url", "clip_id", "task_id", "model_id"]);
+    const messageObjectId = validateSafeId(fields.message_object_id);
+    const objectUrl = fields.object_url;
+    const clipId = validateTrackIdentifier(fields.clip_id);
+    const taskId = validateTrackIdentifier(fields.task_id);
+    if (!isModel(fields.model_id) || fields.model_id !== context.model_id ||
+        !Number.isSafeInteger(fields.object_index) || (fields.object_index as number) < 0 ||
+        !context.message_object_ids.includes(messageObjectId) || seen.has(messageObjectId) ||
+        typeof objectUrl !== "string" || !isSafeUploadReferenceUrl(objectUrl)) fail("TRACK_CONTEXT_UNAVAILABLE");
+    seen.add(messageObjectId);
+    result.push(Object.freeze({ message_object_id: messageObjectId, clip_id: clipId, task_id: taskId,
+      model_id: fields.model_id, object_url: objectUrl }));
+  }
+  return Object.freeze(result);
+}
+
+function mimeTypeFromUrl(value: string): "audio/mpeg" | "audio/wav" | "audio/mp4" | null {
+  try { return MIME_BY_EXTENSION.get(/\.([A-Za-z0-9]{1,8})$/u.exec(new URL(value).pathname)?.[1]?.toLowerCase() ?? "") ?? null; }
+  catch { return null; }
 }
 
 function snapshotBinding(value: unknown): Readonly<AuthBinding> {

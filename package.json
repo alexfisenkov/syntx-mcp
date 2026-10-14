@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test --test-concurrency=2 dist/tests/owner-suno-track-operation-parameters.test.js dist/tests/owner-suno-track-operation-preparer.test.js dist/tests/syntx-chat-http-client-owner-suno-track-operation.test.js dist/tests/owner-suno-track-operation-generation-service.test.js dist/tests/owner-suno-track-operation-tools.test.js dist/tests/owner-topaz-astra-source-profile.test.js tests/owner-suno-track-operation-package-checker.test.mjs",
+    "test:media:changed": "node --test --test-concurrency=2 dist/tests/syntx-chat-http-client-owner-suno-existing-track.test.js dist/tests/owner-suno-existing-track-service.test.js dist/tests/owner-suno-existing-track-tools.test.js tests/owner-suno-existing-track-package-checker.test.mjs",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

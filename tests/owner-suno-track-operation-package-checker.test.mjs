@@ -32,8 +32,14 @@ test("installed media checker requires all six Suno track-operation tools only w
   assert.match(checker, /sunoOff\.names\.includes\('syntx_owner_list_suno_track_inputs'\),false/u);
 });
 
-test("changed media gate selects the new Suno operation chain and source immutability check", () => {
+test("changed media gate selects the new existing-track chain and excludes previous audio reruns", () => {
   const script = packageJson.scripts["test:media:changed"];
+  for (const path of [
+    "dist/tests/syntx-chat-http-client-owner-suno-existing-track.test.js",
+    "dist/tests/owner-suno-existing-track-service.test.js",
+    "dist/tests/owner-suno-existing-track-tools.test.js",
+    "tests/owner-suno-existing-track-package-checker.test.mjs"
+  ]) assert.ok(script.includes(path), `missing changed media target ${path}`);
   for (const path of [
     "dist/tests/owner-suno-track-operation-parameters.test.js",
     "dist/tests/owner-suno-track-operation-preparer.test.js",
@@ -41,12 +47,10 @@ test("changed media gate selects the new Suno operation chain and source immutab
     "dist/tests/owner-suno-track-operation-generation-service.test.js",
     "dist/tests/owner-suno-track-operation-tools.test.js",
     "dist/tests/owner-topaz-astra-source-profile.test.js",
-    "tests/owner-suno-track-operation-package-checker.test.mjs"
-  ]) assert.ok(script.includes(path), `missing changed media target ${path}`);
-  for (const path of [
     "dist/tests/owner-suno-track-metadata.test.js",
     "dist/tests/owner-suno-track-context.test.js",
     "dist/tests/owner-suno-track-service.test.js",
-    "dist/tests/owner-suno-track-tools.test.js"
+    "dist/tests/owner-suno-track-tools.test.js",
+    "tests/owner-suno-track-operation-package-checker.test.mjs"
   ]) assert.equal(script.includes(path), false, `previous audio target should not be repeated: ${path}`);
 });

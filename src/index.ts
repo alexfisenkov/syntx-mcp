@@ -1356,6 +1356,14 @@ export {
 } from "./mcp/owner-suno-track-tools.js";
 export type { RegisterSyntxOwnerSunoTrackToolsOptions } from "./mcp/owner-suno-track-tools.js";
 export {
+  OWNER_SUNO_EXISTING_TRACK_TOOL_INPUT_SCHEMA,
+  OWNER_SUNO_EXISTING_TRACK_TOOL_OUTPUT_SCHEMA,
+  OWNER_SUNO_EXISTING_TRACK_TOOL_NAMES,
+  SYNTX_OWNER_LIST_EXISTING_SUNO_TRACKS_TOOL_NAME,
+  registerSyntxOwnerSunoExistingTrackTools
+} from "./mcp/owner-suno-existing-track-tools.js";
+export type { RegisterSyntxOwnerSunoExistingTrackToolsOptions } from "./mcp/owner-suno-existing-track-tools.js";
+export {
   OWNER_SUNO_TRACK_OPERATION_TOOL_NAMES,
   OWNER_SUNO_TRACK_OPERATION_TOOL_INPUT_SCHEMAS,
   OWNER_SUNO_TRACK_OPERATION_TOOL_OUTPUT_SCHEMAS,

@@ -45,6 +45,11 @@ import { OwnerSunoGenerationOneShotPolicy, OwnerSunoGenerationOneShotPolicyError
   type OwnerSunoGenerationOneShotPermit } from "./owner-suno-generation-one-shot-policy.js";
 import { OwnerSunoTrackContextStore, OwnerSunoTrackContextStoreError } from "./owner-suno-track-context.js";
 import {
+  OwnerSunoExistingTrackService,
+  type OwnerSunoExistingTrackInputList,
+  type OwnerSunoExistingTrackInputListInput
+} from "./owner-suno-existing-track-service.js";
+import {
   OwnerSunoTrackOperationGenerationService,
   type OwnerSunoTrackOperationGenerateInput,
   type OwnerSunoTrackOperationRecoveryListInput,
@@ -212,6 +217,8 @@ export interface OwnerSunoTrackInputList {
   readonly tracks: readonly OwnerSunoTrackInput[];
 }
 
+export type { OwnerSunoExistingTrackInput, OwnerSunoExistingTrackInputList, OwnerSunoExistingTrackInputListInput } from "./owner-suno-existing-track-service.js";
+
 interface MutableDiagnostic {
   phase: OwnerSunoGenerationServicePhase;
   post_started: boolean;
@@ -262,6 +269,7 @@ export class OwnerSunoGenerationService {
   readonly #oneShotPolicy: OwnerSunoGenerationOneShotPolicy;
   readonly #trackContextStore: OwnerSunoTrackContextStore;
   readonly #trackOperationService: OwnerSunoTrackOperationGenerationService;
+  readonly #existingTrackService: OwnerSunoExistingTrackService;
   readonly #recoveries = new Map<string, Recovery>();
   readonly #intentToRecovery = new Map<string, string>();
   readonly #reservedIntentKeys = new Set<string>();
@@ -304,6 +312,9 @@ export class OwnerSunoGenerationService {
       resolveChatClient: this.#resolveChatClient, createAccountStatusService: this.#createAccountStatusService,
       createModelAccessService: this.#createModelAccessService, trackContextStore: this.#trackContextStore, now: this.#now,
       timeoutMs: this.#timeoutMs, pollDelayMs: this.#pollDelayMs, maxPollAttempts: this.#maxPollAttempts });
+    this.#existingTrackService = new OwnerSunoExistingTrackService({ binding: this.#binding,
+      linkService: this.#linkService as PerUserLinkService, trackContextStore: this.#trackContextStore,
+      resolveChatClient: (attemptId: string) => this.#resolveNativeClient(attemptId), now: this.#now, timeoutMs: this.#timeoutMs });
     SERVICE_INSTANCES.add(this);
     Object.freeze(this);
   }
@@ -367,6 +378,12 @@ export class OwnerSunoGenerationService {
     });
   }
 
+  async listExistingTracks(input: OwnerSunoExistingTrackInputListInput | unknown,
+    signal?: AbortSignal): Promise<OwnerSunoExistingTrackInputList> {
+    this.#assertOpen();
+    return await this.#existingTrackService.listExistingTracks(input, signal);
+  }
+
   getTrackOperationParametersSource(): OwnerSunoTrackOperationParameterSource {
     this.#assertOpen();
     return this.#trackOperationService.getTrackOperationParametersSource();
@@ -398,6 +415,7 @@ export class OwnerSunoGenerationService {
     const attemptId = safeAttempt(attemptIdInput);
     if (!this.#invalidatingAttempts.has(attemptId)) this.#invalidatingAttempts.add(attemptId);
     await this.#trackOperationService.invalidateAttempt(attemptId);
+    await this.#existingTrackService.invalidateAttempt(attemptId);
     this.#preparer.invalidateAttempt(attemptId);
     this.#oneShotPolicy.invalidateAttempt(attemptId);
     this.#trackContextStore.invalidateAttempt(this.#binding, attemptId);
@@ -420,6 +438,7 @@ export class OwnerSunoGenerationService {
     const attempts = new Set([...this.#runs].map((run) => run.attemptId));
     this.#closing = (async () => {
       await this.#trackOperationService.close();
+      await this.#existingTrackService.close();
       await Promise.all([...attempts].map((attempt) => this.invalidateAttempt(attempt)));
       this.#oneShotPolicy.close();
       this.#preparer.close();

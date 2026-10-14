@@ -78,6 +78,27 @@ import type {
   OwnerSunoTrackOperationOneShotReceipt
 } from "../../application/owner-suno-track-operation-one-shot-policy.js";
 import { decodeOwnerSunoAudioResult, type OwnerSunoAudioResult, type OwnerSunoAudioResultReadContext } from "./owner-suno-audio-result.js";
+import {
+  OWNER_SUNO_EXISTING_CONTEXT_CAPACITY,
+  OWNER_SUNO_EXISTING_HISTORY_MAX_MESSAGES,
+  OWNER_SUNO_EXISTING_HISTORY_MAX_PAGES,
+  OWNER_SUNO_EXISTING_HISTORY_PAGE_SIZE,
+  OWNER_SUNO_EXISTING_INDEX_MAX_PAGE,
+  OWNER_SUNO_EXISTING_INDEX_PAGE_SIZE,
+  OwnerSunoExistingTrackCodecError,
+  decodeOwnerSunoExistingTrackHistoryPage,
+  decodeOwnerSunoExistingTrackIndex,
+  deriveOwnerSunoExistingTrackIntentFingerprint,
+  existingOwnerSunoSourceBinding,
+  readOwnerSunoExistingTrackMetadata,
+  validateOwnerSunoExistingTrackResultEnvelope,
+  validateOwnerSunoExistingTrackResultJoin,
+  type OwnerSunoExistingTrackHistoryRow,
+  type OwnerSunoExistingTrackIndexChat,
+  type OwnerSunoExistingTrackMetadata,
+  type OwnerSunoExistingTrackResultContextFields,
+  type OwnerSunoExistingTrackTitleFamily
+} from "./owner-suno-existing-track.js";
 import { readOwnerSunoTrackMetadata } from "../../application/owner-suno-track-metadata.js";
 import {
   getOwnerClarityUpscaleSourceProfile,
@@ -861,6 +882,60 @@ export interface OwnerSunoGenerationResultCandidates {
   readonly contexts: readonly OwnerSunoGenerationResultMessageContext[];
   readonly gaps: readonly OwnerSunoGenerationNativeGap[];
   readonly backend_acceptance: "UNPROVEN";
+}
+
+/** A distinct imported owner context. It is not a generation or recovery context. */
+export interface OwnerSunoExistingTrackChatContext {
+  readonly status: "indexed";
+  readonly source_kind: "EXISTING_OWNER_TRACK";
+  readonly chat_uuid: string;
+  readonly provider_chat_id: string;
+  readonly title_family: OwnerSunoExistingTrackTitleFamily;
+  readonly index_page: number;
+  readonly attempt_id: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+}
+
+/** Internal bounded history summary with native result contexts; contains no prompt values or audio URLs. */
+export interface OwnerSunoExistingTrackCandidates {
+  readonly status: "COMPLETE" | "INCOMPLETE" | "UNVERIFIED";
+  readonly owner_ack_status: "MATCHED" | "MISSING" | "AMBIGUOUS";
+  readonly history_get_calls: number;
+  readonly total_count: number | null;
+  readonly total_pages: number | null;
+  readonly provider_chat_id: string;
+  readonly contexts: readonly OwnerSunoExistingTrackResultMessageContext[];
+  readonly gaps: readonly OwnerSunoExistingTrackGap[];
+}
+
+export interface OwnerSunoExistingTrackChatPage {
+  readonly page: number;
+  readonly page_size: typeof OWNER_SUNO_EXISTING_INDEX_PAGE_SIZE;
+  readonly total_count: number;
+  readonly total_pages: number;
+  readonly has_next: boolean;
+  readonly has_previous: boolean;
+  readonly chats: readonly OwnerSunoExistingTrackChatContext[];
+}
+
+export type OwnerSunoExistingTrackGap =
+  | "HISTORY_UNVERIFIED" | "OWNER_ACK_MISSING" | "OWNER_ACK_AMBIGUOUS"
+  | "BOT_RESULT_MISSING" | "BOT_RESULT_AMBIGUOUS" | "AUDIO_OBJECT_UNVERIFIED";
+
+export interface OwnerSunoExistingTrackResultMessageContext extends OwnerSunoExistingTrackResultContextFields {}
+
+export interface OwnerSunoExistingTrackVerifiedResult {
+  readonly audio_result: OwnerSunoAudioResult;
+  readonly artifacts: readonly Readonly<OwnerSunoExistingTrackMetadata>[];
+}
+
+export class OwnerSunoExistingTrackNativeError extends Error {
+  constructor(readonly code: "INVALID_REQUEST" | "REQUEST_ABORTED" | "INDEX_UNVERIFIED" | "INDEX_GET_FAILED" |
+    "CHAT_CONTEXT_INVALID" | "HISTORY_UNVERIFIED" | "RESULT_CONTEXT_INVALID" | "RESULT_GET_FAILED" |
+    "RESULT_UNVERIFIED" | "CAPACITY_EXCEEDED") {
+    super("The existing owner Suno track could not be read safely.");
+    this.name = "OwnerSunoExistingTrackNativeError";
+  }
 }
 
 /** A separate native capability for one source-bound Cover or Extend request. */
@@ -1882,6 +1957,21 @@ interface OwnerSunoGenerationResultContextState {
   readonly context: OwnerSunoGenerationResultMessageContext;
   trackMetadata: readonly InternalOwnerSunoGenerationTrackMetadata[];
 }
+interface OwnerSunoExistingTrackChatState {
+  readonly client: SyntxChatHttpClient;
+  readonly context: OwnerSunoExistingTrackChatContext;
+  readonly source: Readonly<OwnerSunoExistingTrackIndexChat>;
+  readonly attemptId: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  candidates?: OwnerSunoExistingTrackCandidates;
+}
+interface OwnerSunoExistingTrackResultContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly chat: OwnerSunoExistingTrackChatState;
+  readonly context: OwnerSunoExistingTrackResultMessageContext;
+  result?: OwnerSunoAudioResult;
+  artifacts: readonly Readonly<OwnerSunoExistingTrackMetadata>[];
+}
 interface InternalOwnerSunoGenerationTrackMetadata {
   readonly message_object_id: string;
   readonly clip_id: string;
@@ -1892,6 +1982,9 @@ const OWNER_SUNO_GENERATION_CHATS = new WeakMap<object, Map<string, OwnerSunoGen
 const OWNER_SUNO_GENERATION_CHAT_CONTEXTS = new WeakMap<object, OwnerSunoGenerationChatState>();
 const OWNER_SUNO_GENERATION_USED_PERMITS = new WeakSet<object>();
 const OWNER_SUNO_GENERATION_RESULT_CONTEXTS = new WeakMap<object, OwnerSunoGenerationResultContextState>();
+const OWNER_SUNO_EXISTING_TRACK_CHATS = new WeakMap<object, Map<string, OwnerSunoExistingTrackChatState>>();
+const OWNER_SUNO_EXISTING_TRACK_CHAT_CONTEXTS = new WeakMap<object, OwnerSunoExistingTrackChatState>();
+const OWNER_SUNO_EXISTING_TRACK_RESULT_CONTEXTS = new WeakMap<object, OwnerSunoExistingTrackResultContextState>();
 type OwnerSunoTrackOperationChatPhase = OwnerSunoGenerationChatPhase;
 interface OwnerSunoTrackOperationStartInput {
   readonly candidate: OwnerSunoTrackOperationPreparedCandidate;
@@ -4689,6 +4782,216 @@ export class SyntxChatHttpClient {
     return owned.trackMetadata;
   }
 
+  /** Reads one bounded page of current-owner MCP-created audio chats; it never creates chats or posts generation. */
+  async listOwnedSunoExistingTrackChats(input: unknown, signal?: AbortSignal): Promise<OwnerSunoExistingTrackChatPage> {
+    assertNativeOwnerSunoClient(this);
+    const request = snapshotOwnerSunoExistingTrackIndexInput(input);
+    validateOwnerSunoAbortSignal(signal);
+    if (signal?.aborted) throw ownerSunoExistingTrackError("REQUEST_ABORTED");
+    const url = new URL("chats", V1_BASE_URL);
+    url.searchParams.set("scope", "audio");
+    url.searchParams.set("page", String(request.page));
+    url.searchParams.set("page_size", String(OWNER_SUNO_EXISTING_INDEX_PAGE_SIZE));
+    let index: ReturnType<typeof decodeOwnerSunoExistingTrackIndex>;
+    try {
+      const raw = await this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+      index = decodeOwnerSunoExistingTrackIndex(raw, request.page);
+    } catch (error) {
+      if (signal?.aborted) throw ownerSunoExistingTrackError("REQUEST_ABORTED");
+      if (error instanceof OwnerSunoExistingTrackCodecError) throw ownerSunoExistingTrackError(error.code);
+      throw ownerSunoExistingTrackError("INDEX_GET_FAILED");
+    }
+
+    const chats = ownerSunoExistingTrackChats(this);
+    const contexts: OwnerSunoExistingTrackChatContext[] = [];
+    for (const source of index.chats) {
+      const existing = chats.get(source.chat_uuid);
+      if (existing) {
+        if (existing.source.provider_chat_id !== source.provider_chat_id || existing.source.title_family !== source.title_family ||
+            existing.context.index_page !== index.page || existing.attemptId !== request.attemptId ||
+            !sameGenerationPrincipal(existing.principal, request.principal)) throw ownerSunoExistingTrackError("INDEX_UNVERIFIED");
+        contexts.push(existing.context);
+        continue;
+      }
+      if (chats.size >= OWNER_SUNO_EXISTING_CONTEXT_CAPACITY) throw ownerSunoExistingTrackError("CAPACITY_EXCEEDED");
+      const context: OwnerSunoExistingTrackChatContext = Object.freeze({
+        status: "indexed", source_kind: "EXISTING_OWNER_TRACK", chat_uuid: source.chat_uuid,
+        provider_chat_id: source.provider_chat_id, title_family: source.title_family,
+        index_page: index.page, attempt_id: request.attemptId, principal: request.principal
+      });
+      const state: OwnerSunoExistingTrackChatState = { client: this, context, source,
+        attemptId: request.attemptId, principal: request.principal };
+      chats.set(context.chat_uuid, state);
+      OWNER_SUNO_EXISTING_TRACK_CHAT_CONTEXTS.set(context, state);
+      contexts.push(context);
+    }
+    return Object.freeze({ ...index, chats: Object.freeze(contexts) });
+  }
+
+  /** Validates bounded history and mints distinct imported-result contexts, never generation contexts. */
+  async listOwnedSunoExistingTrackCandidates(chatInput: unknown, signal?: AbortSignal): Promise<OwnerSunoExistingTrackCandidates> {
+    assertNativeOwnerSunoClient(this);
+    const state = ownerSunoExistingTrackChatState(this, chatInput);
+    if (state.candidates) return state.candidates;
+    validateOwnerSunoAbortSignal(signal);
+    if (signal?.aborted) throw ownerSunoExistingTrackError("REQUEST_ABORTED");
+
+    const messages: OwnerSunoExistingTrackHistoryRow[] = [];
+    const messageIds = new Set<string>();
+    const objectIds = new Set<string>();
+    let providerChatId: string | undefined;
+    let totalCount: number | undefined;
+    let totalPages: number | undefined;
+    let getCalls = 0;
+    try {
+      for (let page = 1; page <= OWNER_SUNO_EXISTING_HISTORY_MAX_PAGES; page += 1) {
+        const url = new URL(`chats/${state.context.chat_uuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("page_size", String(OWNER_SUNO_EXISTING_HISTORY_PAGE_SIZE));
+        getCalls += 1;
+        const raw = await this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+        const decoded = decodeOwnerSunoExistingTrackHistoryPage(raw, page, state.context.provider_chat_id);
+        const pagination = decoded.pagination;
+        if (totalCount === undefined) { totalCount = pagination.total_count; totalPages = pagination.total_pages; }
+        else if (totalCount !== pagination.total_count || totalPages !== pagination.total_pages) throw null;
+        for (const row of decoded.messages) {
+          const rowProviderChatId = String(row.chat_id);
+          if (providerChatId === undefined) providerChatId = rowProviderChatId;
+          if (rowProviderChatId !== providerChatId || messageIds.has(row.id)) throw null;
+          messageIds.add(row.id);
+          for (const object of row.message_object) {
+            if (object.message_id !== row.id || objectIds.has(object.id)) throw null;
+            objectIds.add(object.id);
+          }
+          messages.push(row);
+          if (messages.length > OWNER_SUNO_EXISTING_HISTORY_MAX_MESSAGES) throw null;
+        }
+        if (!pagination.has_next) {
+          if (messages.length !== totalCount || (totalPages ?? 0) !== page && messages.length > 0) throw null;
+          break;
+        }
+        if (page === OWNER_SUNO_EXISTING_HISTORY_MAX_PAGES) throw null;
+      }
+    } catch (error) {
+      if (signal?.aborted) throw ownerSunoExistingTrackError("REQUEST_ABORTED");
+      if (error instanceof OwnerSunoExistingTrackNativeError) throw error;
+      throw ownerSunoExistingTrackError("HISTORY_UNVERIFIED");
+    }
+
+    if (providerChatId !== state.context.provider_chat_id || totalCount === undefined || totalPages === undefined || messages.length === 0) {
+      throw ownerSunoExistingTrackError("HISTORY_UNVERIFIED");
+    }
+    const ownerAcks = new Map<OwnerSunoGenerationModel, Array<Readonly<{ row: OwnerSunoExistingTrackHistoryRow; text: string }>>>([
+      ["V6", []], ["V6_wild", []]
+    ]);
+    const botAudioRows = new Map<OwnerSunoGenerationModel, Array<Readonly<{
+      row: OwnerSunoExistingTrackHistoryRow; objects: readonly OwnerSunoExistingTrackHistoryRow["message_object"][number][]
+    }>>>([["V6", []], ["V6_wild", []]]);
+    const gaps = new Set<OwnerSunoExistingTrackGap>();
+    for (const row of messages) {
+      if (row.author_id > 0 && row.message_object.length === 1) {
+        const object = row.message_object[0]!;
+        if (object.object_type === "text" && (object.model_type === "V6" || object.model_type === "V6_wild") &&
+            typeof object.object_text === "string" && object.object_text.trim().length > 0) {
+          ownerAcks.get(object.model_type)!.push({ row, text: object.object_text });
+        }
+      }
+      if (row.author_id !== -1) continue;
+      const audioObjects = row.message_object.filter((object) => object.object_type === "audio");
+      if (audioObjects.length === 0) continue;
+      const modelTypes = new Set(audioObjects.map((object) => object.model_type));
+      if (modelTypes.size !== 1 || !["V6", "V6_wild"].includes(audioObjects[0]!.model_type ?? "") ||
+          audioObjects.some((object) => object.completed !== true || object.message_id !== row.id || !isSafeProviderId(object.id))) {
+        gaps.add("AUDIO_OBJECT_UNVERIFIED");
+        continue;
+      }
+      const modelId = audioObjects[0]!.model_type as OwnerSunoGenerationModel;
+      botAudioRows.get(modelId)!.push({ row, objects: Object.freeze(audioObjects) });
+    }
+
+    const contexts: OwnerSunoExistingTrackResultMessageContext[] = [];
+    const source = existingOwnerSunoSourceBinding();
+    let matchedAckCount = 0;
+    for (const modelId of OWNER_SUNO_GENERATION_MODEL_IDS) {
+      const acks = ownerAcks.get(modelId)!;
+      const botRows = botAudioRows.get(modelId)!;
+      if (acks.length === 0 && botRows.length === 0) continue;
+      if (acks.length === 0) { gaps.add("OWNER_ACK_MISSING"); continue; }
+      if (acks.length !== 1) { gaps.add("OWNER_ACK_AMBIGUOUS"); continue; }
+      matchedAckCount += 1;
+      if (botRows.length === 0) { gaps.add("BOT_RESULT_MISSING"); continue; }
+      if (botRows.length !== 1) { gaps.add("BOT_RESULT_AMBIGUOUS"); continue; }
+      const ack = acks[0]!;
+      const bot = botRows[0]!;
+      const intentFingerprint = deriveOwnerSunoExistingTrackIntentFingerprint({ chat_uuid: state.context.chat_uuid,
+        owner_echo_message_id: ack.row.id, model_id: modelId, owner_ack_text: ack.text });
+      const context: OwnerSunoExistingTrackResultMessageContext = Object.freeze({
+        chat_uuid: state.context.chat_uuid, message_id: bot.row.id, model_id: modelId,
+        provider_chat_id: state.context.provider_chat_id,
+        message_object_ids: Object.freeze(bot.objects.map((object) => object.id)),
+        source_kind: "EXISTING_OWNER_TRACK", owner_echo_message_id: ack.row.id,
+        attempt_id: state.attemptId, principal: state.principal,
+        intent_fingerprint: intentFingerprint, source_profile_schema_hash: source.source_profile_schema_hash,
+        source_pins: source.source_pins
+      });
+      const resultState: OwnerSunoExistingTrackResultContextState = {
+        client: this, chat: state, context, artifacts: Object.freeze([])
+      };
+      OWNER_SUNO_EXISTING_TRACK_RESULT_CONTEXTS.set(context, resultState);
+      contexts.push(context);
+    }
+    if (matchedAckCount === 0 && !gaps.has("OWNER_ACK_AMBIGUOUS")) gaps.add("OWNER_ACK_MISSING");
+    const gapsArray = Object.freeze([...gaps]);
+    const result: OwnerSunoExistingTrackCandidates = Object.freeze({
+      status: contexts.length === 0 ? "UNVERIFIED" : gapsArray.length === 0 ? "COMPLETE" : "INCOMPLETE",
+      owner_ack_status: gaps.has("OWNER_ACK_AMBIGUOUS") ? "AMBIGUOUS" : matchedAckCount > 0 ? "MATCHED" : "MISSING",
+      history_get_calls: getCalls, total_count: totalCount, total_pages: totalPages,
+      provider_chat_id: state.context.provider_chat_id, contexts: Object.freeze(contexts), gaps: gapsArray
+    });
+    state.candidates = result;
+    return result;
+  }
+
+  /** Reads and validates one exact imported result message. The first GET is cached on its native context. */
+  async getOwnedSunoExistingTrackResult(contextInput: unknown, signal?: AbortSignal): Promise<OwnerSunoExistingTrackVerifiedResult> {
+    assertNativeOwnerSunoClient(this);
+    const owned = ownerSunoExistingTrackResultContextState(this, contextInput);
+    if (owned.result) return Object.freeze({ audio_result: owned.result, artifacts: owned.artifacts });
+    validateOwnerSunoAbortSignal(signal);
+    if (signal?.aborted) throw ownerSunoExistingTrackError("REQUEST_ABORTED");
+    let raw: unknown;
+    try {
+      raw = await this.#request(new URL(`chats/${owned.context.chat_uuid}/${owned.context.message_id}`, V1_BASE_URL),
+        "GET", undefined, "JSON_REQUIRED", signal);
+      validateOwnerSunoExistingTrackResultEnvelope(raw);
+      validateOwnerSunoExistingTrackResultJoin(raw, owned.context);
+    } catch (error) {
+      if (signal?.aborted) throw ownerSunoExistingTrackError("REQUEST_ABORTED");
+      if (error instanceof OwnerSunoExistingTrackCodecError) throw ownerSunoExistingTrackError(error.code);
+      throw ownerSunoExistingTrackError("RESULT_GET_FAILED");
+    }
+    const result = decodeOwnerSunoAudioResult(raw, {
+      chat_uuid: owned.context.chat_uuid, message_id: owned.context.message_id,
+      model_id: owned.context.model_id, provider_chat_id: owned.context.provider_chat_id,
+      message_object_ids: owned.context.message_object_ids
+    });
+    if (result.message_binding !== "BOUND" || result.model_echo !== "MATCHED" ||
+        result.ready_audio.length !== owned.context.message_object_ids.length) throw ownerSunoExistingTrackError("RESULT_UNVERIFIED");
+    const readyIds = result.ready_audio.map((audio) => audio.message_object_id);
+    if (new Set(readyIds).size !== readyIds.length || owned.context.message_object_ids.some((id) => !readyIds.includes(id))) {
+      throw ownerSunoExistingTrackError("RESULT_UNVERIFIED");
+    }
+    owned.artifacts = readOwnerSunoExistingTrackMetadata(raw, result.ready_audio, owned.context.model_id, owned.context.message_id);
+    owned.result = result;
+    return Object.freeze({ audio_result: result, artifacts: owned.artifacts });
+  }
+
+  /** Synchronous, native-branded metadata/artifact association; empty until the exact result GET validates. */
+  getOwnedSunoExistingTrackMetadata(contextInput: unknown): readonly Readonly<OwnerSunoExistingTrackMetadata>[] {
+    assertNativeOwnerSunoClient(this);
+    return ownerSunoExistingTrackResultContextState(this, contextInput).artifacts;
+  }
+
   /** Creates one fresh private audio chat bound to a genuine source-bound Cover/Extend candidate. */
   async createOwnerSunoTrackOperationChat(
     input: CreateOwnerSunoTrackOperationChatInput | unknown,
@@ -6909,12 +7212,80 @@ export function isOwnerSunoTrackOperationResultMessageContext(
   } catch { return false; }
 }
 
+export function isOwnerSunoExistingTrackChatContext(value: unknown,
+  client?: unknown): value is OwnerSunoExistingTrackChatContext {
+  try {
+    if (!value || typeof value !== "object" || types.isProxy(value) || !Object.isFrozen(value)) return false;
+    const state = OWNER_SUNO_EXISTING_TRACK_CHAT_CONTEXTS.get(value);
+    return !!state && (client === undefined || state.client === client);
+  } catch { return false; }
+}
+
+export function isOwnerSunoExistingTrackResultMessageContext(value: unknown,
+  client?: unknown): value is OwnerSunoExistingTrackResultMessageContext {
+  try {
+    if (!value || typeof value !== "object" || types.isProxy(value) || !Object.isFrozen(value)) return false;
+    const state = OWNER_SUNO_EXISTING_TRACK_RESULT_CONTEXTS.get(value);
+    return !!state && (client === undefined || state.client === client);
+  } catch { return false; }
+}
+
 function ownerSunoGenerationError(code: OwnerSunoGenerationNativeErrorCode): OwnerSunoGenerationNativeError {
   return new OwnerSunoGenerationNativeError(code);
 }
 
 function ownerSunoTrackOperationError(code: OwnerSunoTrackOperationNativeErrorCode): OwnerSunoTrackOperationNativeError {
   return new OwnerSunoTrackOperationNativeError(code);
+}
+
+function ownerSunoExistingTrackError(code: ConstructorParameters<typeof OwnerSunoExistingTrackNativeError>[0]): OwnerSunoExistingTrackNativeError {
+  return new OwnerSunoExistingTrackNativeError(code);
+}
+
+function snapshotOwnerSunoExistingTrackIndexInput(value: unknown): Readonly<{
+  attemptId: string; principal: Readonly<GenerationPrincipalRef>; page: number;
+}> {
+  try {
+    const fields = readExactDataRecord(value, ["attemptId", "principal", "page"], ["attemptId", "principal", "page"]);
+    const attemptId = fields.attemptId;
+    if (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId) ||
+        !Number.isSafeInteger(fields.page) || (fields.page as number) < 1 ||
+        (fields.page as number) > OWNER_SUNO_EXISTING_INDEX_MAX_PAGE) throw null;
+    const principal = snapshotGenerationPrincipal(fields.principal as GenerationPrincipalRef);
+    if (principal.connection_id !== attemptId) throw null;
+    return Object.freeze({ attemptId, principal, page: fields.page as number });
+  } catch { throw ownerSunoExistingTrackError("INVALID_REQUEST"); }
+}
+
+function ownerSunoExistingTrackChats(client: SyntxChatHttpClient): Map<string, OwnerSunoExistingTrackChatState> {
+  let chats = OWNER_SUNO_EXISTING_TRACK_CHATS.get(client);
+  if (!chats) { chats = new Map(); OWNER_SUNO_EXISTING_TRACK_CHATS.set(client, chats); }
+  return chats;
+}
+
+function ownerSunoExistingTrackChatState(client: SyntxChatHttpClient,
+  value: unknown): OwnerSunoExistingTrackChatState {
+  if (!isOwnerSunoExistingTrackChatContext(value, client)) throw ownerSunoExistingTrackError("CHAT_CONTEXT_INVALID");
+  const state = OWNER_SUNO_EXISTING_TRACK_CHAT_CONTEXTS.get(value);
+  if (!state || state.client !== client || ownerSunoExistingTrackChats(client).get(state.context.chat_uuid) !== state ||
+      state.context.source_kind !== "EXISTING_OWNER_TRACK" || state.context.attempt_id !== state.attemptId ||
+      !sameGenerationPrincipal(state.context.principal, state.principal) ||
+      state.context.provider_chat_id !== state.source.provider_chat_id || state.context.title_family !== state.source.title_family) {
+    throw ownerSunoExistingTrackError("CHAT_CONTEXT_INVALID");
+  }
+  return state;
+}
+
+function ownerSunoExistingTrackResultContextState(client: SyntxChatHttpClient,
+  value: unknown): OwnerSunoExistingTrackResultContextState {
+  if (!isOwnerSunoExistingTrackResultMessageContext(value, client)) throw ownerSunoExistingTrackError("RESULT_CONTEXT_INVALID");
+  const state = OWNER_SUNO_EXISTING_TRACK_RESULT_CONTEXTS.get(value);
+  if (!state || state.client !== client || state.context.source_kind !== "EXISTING_OWNER_TRACK" ||
+      state.context.attempt_id !== state.chat.attemptId || !sameGenerationPrincipal(state.context.principal, state.chat.principal) ||
+      state.context.chat_uuid !== state.chat.context.chat_uuid || state.context.provider_chat_id !== state.chat.context.provider_chat_id) {
+    throw ownerSunoExistingTrackError("RESULT_CONTEXT_INVALID");
+  }
+  return state;
 }
 
 function assertNativeOwnerSunoClient(client: unknown): asserts client is SyntxChatHttpClient {
@@ -8717,6 +9088,7 @@ function assertFixedUpstreamUrl(url: URL): void {
     /^\/api\/v1\/chats\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}(?:\/inprogress|\/messages|\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}|\/messages\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}\/cancel)?$/u;
   const isGeneration = url.pathname.endsWith("/generate");
   const isChatHistory = /\/chats\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}\/messages$/u.test(url.pathname);
+  const isOwnerSunoAudioChatIndex = url.pathname === "/api/v1/chats" && url.search.length > 0;
 
   if (
     url.protocol !== "https:" ||
@@ -8734,7 +9106,12 @@ function assertFixedUpstreamUrl(url: URL): void {
         !/^[1-7]$/u.test(url.searchParams.get("page") ?? "") ||
         url.searchParams.getAll("page_size").length !== 1 ||
         url.searchParams.get("page_size") !== "10")) ||
-    (!isGeneration && !isChatHistory && url.search.length > 0)
+    (isOwnerSunoAudioChatIndex && (url.searchParams.size !== 3 ||
+      url.searchParams.getAll("scope").length !== 1 || url.searchParams.get("scope") !== "audio" ||
+      url.searchParams.getAll("page").length !== 1 || !/^(?:[1-9]|[1-9]\d|100)$/u.test(url.searchParams.get("page") ?? "") ||
+      url.searchParams.getAll("page_size").length !== 1 ||
+      url.searchParams.get("page_size") !== String(OWNER_SUNO_EXISTING_INDEX_PAGE_SIZE))) ||
+    (!isGeneration && !isChatHistory && !isOwnerSunoAudioChatIndex && url.search.length > 0)
   ) {
     throw invalidRequest();
   }

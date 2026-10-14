@@ -30,8 +30,43 @@ Suno opt-in `SYNTX_OWNER_SUNO_GENERATION=1` дополнительно вклю�
 перевыдана из того же наблюдаемого owner-bound контекста. Чтение не вызывает
 HTTP, account/cost reads, генерацию или платный повтор. Чужой, отозванный или
 закрытый контекст недоступен. Рестарт теряет ссылки; это не durable recovery.
-Команда не импортирует старые чаты и не включает Cover/Extend: их точные
-операционные контракты пока не доведены до запуска.
+Команда не импортирует старые чаты и сама не выполняет генерацию.
+
+### Suno Cover/Extend — экспериментальная группа
+
+При том же `SYNTX_OWNER_SUNO_GENERATION=1` доступны шесть новых команд:
+
+- `syntx_get_suno_track_operation_parameters`;
+- `syntx_owner_cover_suno_audio`;
+- `syntx_owner_extend_suno_audio`;
+- `syntx_owner_reconcile_suno_track_operation`;
+- `syntx_owner_list_suno_track_operation_recoveries`;
+- `syntx_owner_get_suno_track_operation_result_page`.
+
+Сначала сгенерируйте свой исходный трек в этом процессе и получите его
+`track_handle` через `syntx_owner_list_suno_track_inputs`. Cover и Extend
+принимают `link_attempt_id`, `model_id` (`V6`/`V6_wild`),
+`track_handle`, `prompt`, `is_custom_mode`, `is_instrumental`,
+`negative_tags`, `styles` и `title`. Extend дополнительно требует
+`continue_at` в секундах с шагом 0.1; Cover это поле отклоняет.
+Операцию задаёт имя инструмента, поле `mode` передавать не нужно.
+Модель должна совпадать с моделью исходного трека. Provider clip/task IDs,
+URL, стоимость и source-пины во входе не принимаются.
+
+Сохраняются TTL исходной ссылки, свежая проверка собственного доступа/тарифа,
+одноразовый POST и GET-only recovery. Верхнюю границу `continue_at` по
+длительности исходного файла сервис пока самостоятельно не проверяет.
+После UNKNOWN запрос не повторяйте. `UPSTREAM_OPERATION_ERROR` означает
+наблюдавшийся объект ошибки SYNTX, а не подтверждение статуса провайдера,
+списания или возврата. Смешанные ответы сохраняют доступное аудио как
+`partial_results`.
+
+В одном разрешённом V6 Cover-пилоте получены, скачаны и полностью декодированы
+два MP3. V6 Extend-пилот вернул два объекта ошибки SYNTX без аудио; конкретная
+причина не подтверждена. После наблюдения дополнительно выровнено фиксированное
+пустое `file_urls: []` с формой сайта; это не доказывает причину той ошибки.
+Реальные Cover/Extend результаты `V6_wild` пока не проверены. Поэтому эта
+группа экспериментальная; полнота всех моделей и настроек не заявляется.
 
 В текущем наборе есть отдельные opt-in группы для выбранных image workflows
 (references, edit/inpaint и upscale), а также отдельных WAN/Luma/Hailuo video и

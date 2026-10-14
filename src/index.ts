@@ -1355,6 +1355,51 @@ export {
   registerSyntxOwnerSunoTrackTools
 } from "./mcp/owner-suno-track-tools.js";
 export type { RegisterSyntxOwnerSunoTrackToolsOptions } from "./mcp/owner-suno-track-tools.js";
+export {
+  OWNER_SUNO_TRACK_OPERATION_TOOL_NAMES,
+  OWNER_SUNO_TRACK_OPERATION_TOOL_INPUT_SCHEMAS,
+  OWNER_SUNO_TRACK_OPERATION_TOOL_OUTPUT_SCHEMAS,
+  SYNTX_GET_SUNO_TRACK_OPERATION_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_COVER_SUNO_AUDIO_TOOL_NAME,
+  SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_SUNO_TRACK_OPERATION_TOOL_NAME,
+  SYNTX_OWNER_LIST_SUNO_TRACK_OPERATION_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_SUNO_TRACK_OPERATION_RESULT_PAGE_TOOL_NAME,
+  registerSyntxOwnerSunoTrackOperationTools
+} from "./mcp/owner-suno-track-operation-tools.js";
+export type { OwnerSunoTrackOperationServicePort, RegisterSyntxOwnerSunoTrackOperationToolsOptions } from "./mcp/owner-suno-track-operation-tools.js";
+export {
+  OWNER_SUNO_TRACK_OPERATION_MODEL_IDS,
+  OWNER_SUNO_TRACK_OPERATION_MODES,
+  OWNER_SUNO_TRACK_OPERATION_PUBLIC_VERSION,
+  OWNER_SUNO_TRACK_OPERATION_SETTINGS_VERSION,
+  getOwnerSunoTrackOperationParameterSource,
+  normalizeOwnerSunoTrackOperationParameters,
+  OwnerSunoTrackOperationParametersError
+} from "./application/owner-suno-track-operation-parameters.js";
+export type {
+  OwnerSunoTrackOperationModel,
+  OwnerSunoTrackOperationMode,
+  OwnerSunoTrackOperationRequest,
+  OwnerSunoTrackOperationSettingsCandidate,
+  OwnerSunoTrackOperationSourcePins,
+  OwnerSunoTrackOperationParameterSource,
+  OwnerSunoNormalizedTrackOperationParameters
+} from "./application/owner-suno-track-operation-parameters.js";
+export { OwnerSunoTrackOperationServiceError } from "./application/owner-suno-track-operation-generation-service.js";
+export type {
+  OwnerSunoTrackOperationServiceErrorCode,
+  OwnerSunoTrackOperationServicePhase,
+  OwnerSunoTrackOperationServiceGapCode,
+  OwnerSunoTrackOperationDiagnostic,
+  OwnerSunoTrackOperationArtifact,
+  OwnerSunoTrackOperationResult,
+  OwnerSunoTrackOperationRecoveryListItem,
+  OwnerSunoTrackOperationGenerateInput,
+  OwnerSunoTrackOperationReconcileInput,
+  OwnerSunoTrackOperationRecoveryListInput,
+  OwnerSunoTrackOperationResultPageInput
+} from "./application/owner-suno-track-operation-generation-service.js";
 export type { OwnerSunoGenerationServiceComposition } from "./mcp/server.js";
 export {
   OWNER_SUNO_GENERATION_MODEL_IDS,

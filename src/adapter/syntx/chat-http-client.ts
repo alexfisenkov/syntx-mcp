@@ -59,6 +59,24 @@ import {
 import { OWNER_SUNO_GENERATION_MODEL_IDS, OWNER_SUNO_GENERATION_PUBLIC_VERSION,
   OWNER_SUNO_GENERATION_SETTINGS_VERSION, type OwnerSunoGenerationModel,
   type OwnerSunoGenerationSourcePins } from "../../application/owner-suno-generation-parameters.js";
+import {
+  OWNER_SUNO_TRACK_OPERATION_MODEL_IDS,
+  getOwnerSunoTrackOperationParameterSource,
+  type OwnerSunoTrackOperationModel,
+  type OwnerSunoTrackOperationMode,
+  type OwnerSunoTrackOperationSourcePins
+} from "../../application/owner-suno-track-operation-parameters.js";
+import type {
+  OwnerSunoTrackOperationCandidateBinding,
+  OwnerSunoTrackOperationPreparedCandidate,
+  OwnerSunoTrackOperationPrivateRequest,
+  OwnerSunoTrackOperationRequestPreparer
+} from "../../application/owner-suno-track-operation-request-preparer.js";
+import type {
+  OwnerSunoTrackOperationOneShotPermit,
+  OwnerSunoTrackOperationOneShotPolicy,
+  OwnerSunoTrackOperationOneShotReceipt
+} from "../../application/owner-suno-track-operation-one-shot-policy.js";
 import { decodeOwnerSunoAudioResult, type OwnerSunoAudioResult, type OwnerSunoAudioResultReadContext } from "./owner-suno-audio-result.js";
 import { readOwnerSunoTrackMetadata } from "../../application/owner-suno-track-metadata.js";
 import {
@@ -842,6 +860,63 @@ export interface OwnerSunoGenerationResultCandidates {
   readonly owner_echo_message_id: string | null;
   readonly contexts: readonly OwnerSunoGenerationResultMessageContext[];
   readonly gaps: readonly OwnerSunoGenerationNativeGap[];
+  readonly backend_acceptance: "UNPROVEN";
+}
+
+/** A separate native capability for one source-bound Cover or Extend request. */
+export interface OwnerSunoTrackOperationChatContext {
+  readonly status: "created";
+  readonly chat_uuid: string;
+  readonly attempt_id: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly model_id: OwnerSunoTrackOperationModel;
+  readonly mode: OwnerSunoTrackOperationMode;
+  readonly intent_fingerprint: string;
+  readonly source_profile_schema_hash: string;
+  readonly source_pins: Readonly<OwnerSunoTrackOperationSourcePins>;
+  readonly track_context_fingerprint: string;
+  readonly dispatch_allowed: false;
+  readonly backend_acceptance: "UNPROVEN";
+}
+
+export interface CreateOwnerSunoTrackOperationChatInput {
+  readonly candidate: OwnerSunoTrackOperationPreparedCandidate;
+  readonly permit: OwnerSunoTrackOperationOneShotPermit;
+  readonly preparer: OwnerSunoTrackOperationRequestPreparer;
+  readonly oneShotPolicy: OwnerSunoTrackOperationOneShotPolicy;
+  readonly principal: GenerationPrincipalRef;
+  readonly attemptId: string;
+}
+
+export interface StartSunoTrackOperationWithOwnedCandidateInput extends CreateOwnerSunoTrackOperationChatInput {
+  readonly chat: OwnerSunoTrackOperationChatContext;
+}
+
+export interface OwnerSunoTrackOperationResultMessageContext extends OwnerSunoAudioResultReadContext {
+  readonly owner_echo_message_id: string;
+  readonly attempt_id: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly intent_fingerprint: string;
+  readonly source_profile_schema_hash: string;
+  readonly source_pins: Readonly<OwnerSunoTrackOperationSourcePins>;
+  readonly track_context_fingerprint: string;
+  readonly mode: OwnerSunoTrackOperationMode;
+}
+
+export type OwnerSunoTrackOperationNativeGap = OwnerSunoGenerationNativeGap | "BOT_ERROR_OBSERVED";
+
+export interface OwnerSunoTrackOperationResultCandidates {
+  readonly status: OwnerSunoGenerationResultCandidates["status"];
+  readonly owner_ack_status: OwnerSunoGenerationResultCandidates["owner_ack_status"];
+  readonly history_binding_status: OwnerSunoGenerationResultCandidates["history_binding_status"];
+  readonly history_page_status: OwnerSunoGenerationResultCandidates["history_page_status"];
+  readonly history_get_calls: number;
+  readonly total_count: number | null;
+  readonly total_pages: number | null;
+  readonly provider_chat_id: string | null;
+  readonly owner_echo_message_id: string | null;
+  readonly contexts: readonly OwnerSunoTrackOperationResultMessageContext[];
+  readonly gaps: readonly OwnerSunoTrackOperationNativeGap[];
   readonly backend_acceptance: "UNPROVEN";
 }
 
@@ -1817,6 +1892,37 @@ const OWNER_SUNO_GENERATION_CHATS = new WeakMap<object, Map<string, OwnerSunoGen
 const OWNER_SUNO_GENERATION_CHAT_CONTEXTS = new WeakMap<object, OwnerSunoGenerationChatState>();
 const OWNER_SUNO_GENERATION_USED_PERMITS = new WeakSet<object>();
 const OWNER_SUNO_GENERATION_RESULT_CONTEXTS = new WeakMap<object, OwnerSunoGenerationResultContextState>();
+type OwnerSunoTrackOperationChatPhase = OwnerSunoGenerationChatPhase;
+interface OwnerSunoTrackOperationStartInput {
+  readonly candidate: OwnerSunoTrackOperationPreparedCandidate;
+  readonly permit: OwnerSunoTrackOperationOneShotPermit;
+  readonly preparer: OwnerSunoTrackOperationRequestPreparer;
+  readonly oneShotPolicy: OwnerSunoTrackOperationOneShotPolicy;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly attemptId: string;
+}
+interface OwnerSunoTrackOperationChatState {
+  readonly client: SyntxChatHttpClient;
+  readonly chat: OwnerSunoTrackOperationChatContext;
+  readonly operation: Readonly<OwnerSunoTrackOperationStartInput>;
+  readonly binding: Readonly<OwnerSunoTrackOperationCandidateBinding>;
+  readonly modelId: OwnerSunoTrackOperationModel;
+  readonly mode: OwnerSunoTrackOperationMode;
+  phase: OwnerSunoTrackOperationChatPhase;
+  ownerEchoMessageId?: string;
+  privatePrompt?: string;
+  readonly resultContexts: Map<string, OwnerSunoTrackOperationResultMessageContext>;
+}
+interface OwnerSunoTrackOperationResultContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly chat: OwnerSunoTrackOperationChatState;
+  readonly context: OwnerSunoTrackOperationResultMessageContext;
+}
+const OWNER_SUNO_TRACK_OPERATION_MODELS = new Set<string>(OWNER_SUNO_TRACK_OPERATION_MODEL_IDS);
+const OWNER_SUNO_TRACK_OPERATION_CHATS = new WeakMap<object, Map<string, OwnerSunoTrackOperationChatState>>();
+const OWNER_SUNO_TRACK_OPERATION_CHAT_CONTEXTS = new WeakMap<object, OwnerSunoTrackOperationChatState>();
+const OWNER_SUNO_TRACK_OPERATION_USED_PERMITS = new WeakSet<object>();
+const OWNER_SUNO_TRACK_OPERATION_RESULT_CONTEXTS = new WeakMap<object, OwnerSunoTrackOperationResultContextState>();
 interface OwnerVideo2AudioOriginalReferenceWitness {
   readonly client: SyntxChatHttpClient;
   readonly profileSchemaHash: string;
@@ -4583,6 +4689,292 @@ export class SyntxChatHttpClient {
     return owned.trackMetadata;
   }
 
+  /** Creates one fresh private audio chat bound to a genuine source-bound Cover/Extend candidate. */
+  async createOwnerSunoTrackOperationChat(
+    input: CreateOwnerSunoTrackOperationChatInput | unknown,
+    signal?: AbortSignal
+  ): Promise<OwnerSunoTrackOperationChatContext> {
+    assertNativeOwnerSunoClient(this);
+    const apis = await loadOwnerSunoTrackOperationModules();
+    const operation = snapshotOwnerSunoTrackOperationStartInput(input, false, apis.preparer, apis.policy);
+    validateOwnerSunoTrackOperationAbortSignal(signal);
+    if (signal?.aborted) throw ownerSunoTrackOperationError("REQUEST_ABORTED");
+    if (OWNER_SUNO_TRACK_OPERATION_USED_PERMITS.has(operation.permit)) {
+      throw ownerSunoTrackOperationError("CHAT_CONTEXT_ALREADY_CREATED");
+    }
+    const chats = ownerSunoTrackOperationChats(this);
+    if (chats.size >= OWNER_SUNO_GENERATION_CHAT_LIMIT) throw ownerSunoTrackOperationError("CAPACITY_EXCEEDED");
+    validateOwnerSunoTrackOperation(operation, apis.native);
+
+    // Chat creation is one-shot too: a lost free-chat ACK never authorizes a second chat.
+    OWNER_SUNO_TRACK_OPERATION_USED_PERMITS.add(operation.permit);
+    let receipt: CreateChatReceipt;
+    try {
+      receipt = await Reflect.apply(NATIVE_OWNER_SUNO_CREATE_CHAT, this,
+        ["audio", `owner-suno-track-operation-${randomUUID()}`, signal]) as CreateChatReceipt;
+    } catch { throw ownerSunoTrackOperationError("CHAT_CREATE_FAILED"); }
+    if (signal?.aborted) throw ownerSunoTrackOperationError("REQUEST_ABORTED");
+    try {
+      validatePathIdentifier(receipt.chat_uuid);
+      if (ownerSunoGenerationChats(this).has(receipt.chat_uuid) || chats.has(receipt.chat_uuid)) throw null;
+    } catch { throw ownerSunoTrackOperationError("CHAT_CREATE_FAILED"); }
+
+    const binding = validateOwnerSunoTrackOperation(operation, apis.native);
+    const context: OwnerSunoTrackOperationChatContext = Object.freeze({
+      status: "created", chat_uuid: receipt.chat_uuid, attempt_id: operation.attemptId,
+      principal: operation.principal, model_id: binding.model_id, mode: binding.mode,
+      intent_fingerprint: binding.intent_fingerprint,
+      source_profile_schema_hash: binding.source_profile_schema_hash,
+      source_pins: Object.freeze({ ...binding.source_pins }),
+      track_context_fingerprint: binding.track_context_fingerprint,
+      dispatch_allowed: false, backend_acceptance: "UNPROVEN"
+    });
+    const state: OwnerSunoTrackOperationChatState = {
+      client: this, chat: context, operation, binding,
+      modelId: binding.model_id, mode: binding.mode, phase: "AVAILABLE", resultContexts: new Map()
+    };
+    chats.set(context.chat_uuid, state);
+    OWNER_SUNO_TRACK_OPERATION_CHAT_CONTEXTS.set(context, state);
+    return context;
+  }
+
+  /** Consumes the genuine operation permit before its sole fixed `audio/generate` POST. */
+  async startSunoTrackOperationWithOwnedCandidate(
+    input: StartSunoTrackOperationWithOwnedCandidateInput | unknown,
+    signal?: AbortSignal
+  ): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerSunoClient(this);
+    const apis = await loadOwnerSunoTrackOperationModules();
+    const fields = snapshotOwnerSunoTrackOperationStartInput(input, true, apis.preparer, apis.policy);
+    const chatContext = fields.chat;
+    if (!chatContext) throw ownerSunoTrackOperationError("CHAT_CONTEXT_INVALID");
+    const state = OWNER_SUNO_TRACK_OPERATION_CHAT_CONTEXTS.get(chatContext);
+    if (!state || state.client !== this || state.chat !== chatContext ||
+        ownerSunoTrackOperationChats(this).get(chatContext.chat_uuid) !== state ||
+        state.operation.candidate !== fields.candidate || state.operation.permit !== fields.permit ||
+        state.operation.preparer !== fields.preparer || state.operation.oneShotPolicy !== fields.oneShotPolicy ||
+        state.operation.attemptId !== fields.attemptId || !sameGenerationPrincipal(state.operation.principal, fields.principal)) {
+      throw ownerSunoTrackOperationError("CHAT_CONTEXT_INVALID");
+    }
+    if (state.phase !== "AVAILABLE") throw ownerSunoTrackOperationError("CHAT_DISPATCH_ALREADY_STARTED");
+    validateOwnerSunoTrackOperation(state.operation, apis.native);
+    validateOwnerSunoTrackOperationAbortSignal(signal);
+    if (signal?.aborted) throw ownerSunoTrackOperationError("REQUEST_ABORTED");
+
+    state.phase = "RESERVED";
+    let consumed: OwnerSunoTrackOperationOneShotReceipt;
+    try {
+      consumed = Reflect.apply(apis.native.consume, state.operation.oneShotPolicy, [{
+        candidate: state.operation.candidate, permit: state.operation.permit,
+        attemptId: state.operation.attemptId, principal: state.operation.principal
+      }]) as OwnerSunoTrackOperationOneShotReceipt;
+    } catch {
+      state.phase = "AVAILABLE";
+      throw ownerSunoTrackOperationError("CANDIDATE_INVALID");
+    }
+    if (consumed.status !== "consumed" || consumed.dispatch_allowed !== false ||
+        consumed.backend_acceptance !== "UNPROVEN" || !consumed.private_request ||
+        consumed.intent_fingerprint !== state.chat.intent_fingerprint) {
+      state.phase = "PRE_DISPATCH_FAILED";
+      throw ownerSunoTrackOperationError("CANDIDATE_INVALID");
+    }
+    state.phase = "PRE_DISPATCH_FAILED";
+    const privateRequest = validateOwnerSunoTrackOperationPrivateRequest(consumed.private_request, state);
+    const settings = sanitizeSettings({ ...privateRequest.settings, file_urls: [] });
+    if (!isPlainRecord(settings) || !Array.isArray(settings.file_urls) || settings.file_urls.length !== 0) {
+      throw ownerSunoTrackOperationError("CANDIDATE_INVALID");
+    }
+    assertNoUnverifiedExternalReferences(settings);
+    state.privatePrompt = privateRequest.prompt;
+
+    // From this point, all failures are unknown: reconcile by GET and never repeat POST.
+    state.phase = "OUTCOME_UNKNOWN";
+    let receipt: MediaGenerationReceipt;
+    try {
+      receipt = await Reflect.apply(NATIVE_OWNER_SUNO_START_AUDIO, this, [{
+        ai_name: "suno", chat_uuid: state.chat.chat_uuid, prompt: privateRequest.prompt, settings
+      }, signal]) as MediaGenerationReceipt;
+    } catch { throw ownerSunoTrackOperationError("OUTCOME_UNKNOWN"); }
+    if (signal?.aborted) throw ownerSunoTrackOperationError("OUTCOME_UNKNOWN");
+    if (!receipt || receipt.chat_uuid !== state.chat.chat_uuid || !isSafeProviderId(receipt.message_id)) {
+      throw ownerSunoTrackOperationError("OUTCOME_UNKNOWN");
+    }
+    state.ownerEchoMessageId = receipt.message_id;
+    state.phase = "ACKNOWLEDGED";
+    return Object.freeze({ chat_uuid: state.chat.chat_uuid, message_id: receipt.message_id });
+  }
+
+  /** Reconciles a same-chat positive owner prompt/model ACK and mints bounded result GET contexts. */
+  async listOwnedSunoTrackOperationCandidates(
+    chatInput: OwnerSunoTrackOperationChatContext | unknown,
+    signal?: AbortSignal
+  ): Promise<OwnerSunoTrackOperationResultCandidates> {
+    assertNativeOwnerSunoClient(this);
+    const state = ownerSunoTrackOperationChatState(this, chatInput);
+    if (state.phase !== "ACKNOWLEDGED" && state.phase !== "OUTCOME_UNKNOWN") {
+      throw ownerSunoTrackOperationError("CHAT_NOT_DISPATCHED");
+    }
+    if (!state.privatePrompt) throw ownerSunoTrackOperationError("PRIVATE_REQUEST_UNAVAILABLE");
+    validateOwnerSunoTrackOperationAbortSignal(signal);
+    if (signal?.aborted) throw ownerSunoTrackOperationError("REQUEST_ABORTED");
+
+    const messages: z.infer<typeof OWNER_SUNO_GENERATION_HISTORY_ROW_SCHEMA>[] = [];
+    const messageIds = new Set<string>();
+    const objectIds = new Set<string>();
+    let providerChatId: string | undefined;
+    let totalCount: number | undefined;
+    let totalPages: number | undefined;
+    let getCalls = 0;
+    try {
+      for (let page = 1; page <= OWNER_SUNO_GENERATION_HISTORY_PAGE_LIMIT; page += 1) {
+        const url = new URL(`chats/${state.chat.chat_uuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("page_size", String(OWNER_SUNO_GENERATION_HISTORY_PAGE_SIZE));
+        getCalls += 1;
+        const raw = await this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+        const parsed = OWNER_SUNO_GENERATION_HISTORY_PAGE_SCHEMA.safeParse(raw);
+        if (!parsed.success) throw protocolError();
+        const { messages: rows, pagination } = parsed.data;
+        const expectedPages = pagination.total_count === 0 ? 0 : Math.ceil(
+          pagination.total_count / OWNER_SUNO_GENERATION_HISTORY_PAGE_SIZE);
+        const expectedRows = Math.min(OWNER_SUNO_GENERATION_HISTORY_PAGE_SIZE,
+          Math.max(0, pagination.total_count - (page - 1) * OWNER_SUNO_GENERATION_HISTORY_PAGE_SIZE));
+        if (pagination.page !== page || pagination.total_pages !== expectedPages ||
+            pagination.has_previous !== (page > 1) || pagination.has_next !== (page < expectedPages) ||
+            rows.length !== expectedRows) throw protocolError();
+        if (expectedPages === 0) {
+          if (page !== 1 || pagination.total_count !== 0 || rows.length !== 0) throw protocolError();
+          totalCount = 0;
+          totalPages = 0;
+          break;
+        }
+        if (totalCount === undefined) { totalCount = pagination.total_count; totalPages = pagination.total_pages; }
+        else if (totalCount !== pagination.total_count || totalPages !== pagination.total_pages) throw protocolError();
+        for (const row of rows) {
+          const rowProviderChatId = String(row.chat_id);
+          if (providerChatId === undefined) providerChatId = rowProviderChatId;
+          if (rowProviderChatId !== providerChatId || messageIds.has(row.id)) throw protocolError();
+          messageIds.add(row.id);
+          for (const object of row.message_object) {
+            if (object.message_id !== row.id || objectIds.has(object.id)) throw protocolError();
+            objectIds.add(object.id);
+          }
+          messages.push(row);
+        }
+        if (page === expectedPages) {
+          if (messages.length !== totalCount || providerChatId === undefined) throw protocolError();
+          break;
+        }
+      }
+    } catch {
+      if (signal?.aborted) throw ownerSunoTrackOperationError("REQUEST_ABORTED");
+      return emptyOwnerSunoTrackOperationHistory("UNVERIFIED", getCalls, "HISTORY_UNVERIFIED");
+    }
+
+    if (messages.length === 0 || providerChatId === undefined) {
+      return emptyOwnerSunoTrackOperationHistory("PENDING", getCalls, "HISTORY_EMPTY");
+    }
+    const ownerRows = messages.filter((row) => row.author_id > 0);
+    const matchingAcks = ownerRows.filter((row) => isPositiveOwnerSunoAck(row, state.privatePrompt!, state.modelId));
+    const ackRows = state.ownerEchoMessageId === undefined
+      ? matchingAcks
+      : ownerRows.filter((row) => row.id === state.ownerEchoMessageId &&
+        isPositiveOwnerSunoAck(row, state.privatePrompt!, state.modelId));
+    if (ackRows.length !== 1) {
+      const ackStatus = ackRows.length > 1 ? "AMBIGUOUS" : ownerRows.length > 0 ? "MISMATCH" : "MISSING";
+      const gapCode: OwnerSunoTrackOperationNativeGap = ackStatus === "AMBIGUOUS" ? "OWNER_ACK_AMBIGUOUS"
+        : ackStatus === "MISMATCH" ? "OWNER_ACK_MISMATCH" : "OWNER_ACK_MISSING";
+      return Object.freeze({ status: "INCOMPLETE", owner_ack_status: ackStatus, history_binding_status: "UNVERIFIED",
+        history_page_status: "COMPLETE", history_get_calls: getCalls, total_count: totalCount ?? null,
+        total_pages: totalPages ?? null, provider_chat_id: providerChatId,
+        owner_echo_message_id: state.ownerEchoMessageId ?? null, contexts: Object.freeze([]),
+        gaps: Object.freeze([gapCode]), backend_acceptance: "UNPROVEN" });
+    }
+    const ownerEchoMessageId = ackRows[0]!.id;
+    state.ownerEchoMessageId = ownerEchoMessageId;
+    state.phase = "ACKNOWLEDGED";
+
+    const contexts: OwnerSunoTrackOperationResultMessageContext[] = [];
+    const gaps: OwnerSunoTrackOperationNativeGap[] = [];
+    for (const row of messages) {
+      if (row.author_id !== BOT_AUTHOR_ID) continue;
+      if (row.message_object.some((object) => object.object_type === "error" && object.model_type === state.modelId) &&
+          !gaps.includes("BOT_ERROR_OBSERVED")) {
+        gaps.push("BOT_ERROR_OBSERVED");
+      }
+      const audioObjects = row.message_object.filter((object) => object.object_type === "audio");
+      if (audioObjects.length === 0) continue;
+      const ids = audioObjects.map((object) => object.id);
+      if (ids.length > MAX_ARRAY_ITEMS || ids.some((id) => !isSafeProviderId(id)) || new Set(ids).size !== ids.length) {
+        gaps.push("AUDIO_OBJECT_IDS_INVALID");
+        continue;
+      }
+      contexts.push(this.#mintOwnerSunoTrackOperationResultContext(state, {
+        chat_uuid: state.chat.chat_uuid, message_id: row.id, model_id: state.modelId,
+        provider_chat_id: providerChatId, message_object_ids: ids,
+        owner_echo_message_id: ownerEchoMessageId, attempt_id: state.chat.attempt_id,
+        principal: state.chat.principal, intent_fingerprint: state.chat.intent_fingerprint,
+        source_profile_schema_hash: state.chat.source_profile_schema_hash,
+        source_pins: state.chat.source_pins, track_context_fingerprint: state.chat.track_context_fingerprint,
+        mode: state.mode
+      }));
+    }
+    if (contexts.length === 0 && gaps.includes("BOT_ERROR_OBSERVED")) {
+      return Object.freeze({ status: "INCOMPLETE", owner_ack_status: "MATCHED", history_binding_status: "BOUND",
+        history_page_status: "COMPLETE", history_get_calls: getCalls, total_count: totalCount ?? null,
+        total_pages: totalPages ?? null, provider_chat_id: providerChatId, owner_echo_message_id: ownerEchoMessageId,
+        contexts: Object.freeze([]), gaps: Object.freeze([...gaps]), backend_acceptance: "UNPROVEN" });
+    }
+    if (contexts.length === 0 && gaps.length === 0) {
+      return ownerSunoTrackOperationHistoryReceipt({ status: "PENDING", ack: "MATCHED", calls: getCalls,
+        totalCount: totalCount ?? null, totalPages: totalPages ?? null, providerChatId,
+        ownerEchoMessageId, contexts: [], gaps: ["BOT_RESULT_NOT_OBSERVED"] });
+    }
+    return ownerSunoTrackOperationHistoryReceipt({ status: contexts.length > 0 ? "COMPLETE" : "UNVERIFIED",
+      ack: "MATCHED", calls: getCalls, totalCount: totalCount ?? null, totalPages: totalPages ?? null,
+      providerChatId, ownerEchoMessageId, contexts, gaps });
+  }
+
+  /** Reads one audio result only through a same-client context minted by bounded operation history. */
+  async getOwnedSunoTrackOperationResult(
+    contextInput: OwnerSunoTrackOperationResultMessageContext | unknown,
+    signal?: AbortSignal
+  ): Promise<OwnerSunoAudioResult> {
+    assertNativeOwnerSunoClient(this);
+    const owned = ownerSunoTrackOperationResultContextState(this, contextInput);
+    validateOwnerSunoTrackOperationAbortSignal(signal);
+    if (signal?.aborted) throw ownerSunoTrackOperationError("REQUEST_ABORTED");
+    const context = owned.context;
+    let raw: unknown;
+    try {
+      raw = await this.#request(new URL(`chats/${context.chat_uuid}/${context.message_id}`, V1_BASE_URL),
+        "GET", undefined, "JSON_REQUIRED", signal);
+    } catch {
+      if (signal?.aborted) throw ownerSunoTrackOperationError("REQUEST_ABORTED");
+      throw ownerSunoTrackOperationError("RESULT_GET_FAILED");
+    }
+    return decodeOwnerSunoAudioResult(raw, {
+      chat_uuid: context.chat_uuid, message_id: context.message_id, model_id: context.model_id,
+      provider_chat_id: context.provider_chat_id, message_object_ids: context.message_object_ids
+    });
+  }
+
+  #mintOwnerSunoTrackOperationResultContext(state: OwnerSunoTrackOperationChatState,
+    fields: OwnerSunoTrackOperationResultMessageContext): OwnerSunoTrackOperationResultMessageContext {
+    const existing = state.resultContexts.get(fields.message_id);
+    if (existing) {
+      if (schemaHash(existing) !== schemaHash(fields)) throw ownerSunoTrackOperationError("HISTORY_UNVERIFIED");
+      return existing;
+    }
+    const context = Object.freeze({ ...fields,
+      principal: Object.freeze({ ...fields.principal }),
+      source_pins: Object.freeze({ ...fields.source_pins }),
+      message_object_ids: Object.freeze([...fields.message_object_ids]) });
+    OWNER_SUNO_TRACK_OPERATION_RESULT_CONTEXTS.set(context, { client: this, chat: state, context });
+    state.resultContexts.set(context.message_id, context);
+    return context;
+  }
+
   #mintOwnerSunoGenerationResultContext(state: OwnerSunoGenerationChatState,
     fields: OwnerSunoGenerationResultMessageContext): OwnerSunoGenerationResultMessageContext {
     const existing = state.resultContexts.get(fields.message_id);
@@ -6429,6 +6821,34 @@ const NATIVE_OWNER_ELEVENLABS_DIALOGUE_START = SyntxChatHttpClient.prototype.sta
 const NATIVE_OWNER_ELEVENLABS_DIALOGUE_LIST = SyntxChatHttpClient.prototype.listOwnedElevenLabsDialogueCandidates;
 const NATIVE_OWNER_ELEVENLABS_DIALOGUE_RESULT = SyntxChatHttpClient.prototype.getOwnedElevenLabsDialogueResult;
 
+type OwnerSunoTrackOperationPreparerModule = typeof import("../../application/owner-suno-track-operation-request-preparer.js");
+type OwnerSunoTrackOperationPolicyModule = typeof import("../../application/owner-suno-track-operation-one-shot-policy.js");
+interface OwnerSunoTrackOperationNativeMethods {
+  readonly inspect: OwnerSunoTrackOperationRequestPreparer["inspectCandidate"];
+  readonly revalidateCandidate: OwnerSunoTrackOperationRequestPreparer["revalidateCandidate"];
+  readonly revalidatePolicy: OwnerSunoTrackOperationOneShotPolicy["revalidate"];
+  readonly consume: OwnerSunoTrackOperationOneShotPolicy["consume"];
+}
+let ownerSunoTrackOperationNativeMethods: OwnerSunoTrackOperationNativeMethods | undefined;
+
+async function loadOwnerSunoTrackOperationModules(): Promise<{
+  readonly preparer: OwnerSunoTrackOperationPreparerModule;
+  readonly policy: OwnerSunoTrackOperationPolicyModule;
+  readonly native: OwnerSunoTrackOperationNativeMethods;
+}> {
+  const [preparer, policy] = await Promise.all([
+    import("../../application/owner-suno-track-operation-request-preparer.js"),
+    import("../../application/owner-suno-track-operation-one-shot-policy.js")
+  ]);
+  ownerSunoTrackOperationNativeMethods ??= Object.freeze({
+    inspect: preparer.OwnerSunoTrackOperationRequestPreparer.prototype.inspectCandidate,
+    revalidateCandidate: preparer.OwnerSunoTrackOperationRequestPreparer.prototype.revalidateCandidate,
+    revalidatePolicy: policy.OwnerSunoTrackOperationOneShotPolicy.prototype.revalidate,
+    consume: policy.OwnerSunoTrackOperationOneShotPolicy.prototype.consume
+  });
+  return Object.freeze({ preparer, policy, native: ownerSunoTrackOperationNativeMethods });
+}
+
 export type OwnerSunoGenerationNativeErrorCode = "INVALID_REQUEST" | "CHAT_CREATE_FAILED" | "CHAT_CONTEXT_ALREADY_CREATED"
   | "CHAT_CONTEXT_INVALID" | "CHAT_NOT_DISPATCHED" | "CHAT_DISPATCH_ALREADY_STARTED" | "CANDIDATE_INVALID"
   | "OUTCOME_UNKNOWN" | "REQUEST_ABORTED" | "PRIVATE_REQUEST_UNAVAILABLE" | "RESULT_CONTEXT_INVALID"
@@ -6437,6 +6857,18 @@ export class OwnerSunoGenerationNativeError extends Error {
   constructor(readonly code: OwnerSunoGenerationNativeErrorCode) {
     super("The owner Suno generation native operation could not be completed safely.");
     this.name = "OwnerSunoGenerationNativeError";
+  }
+}
+
+export type OwnerSunoTrackOperationNativeErrorCode = "INVALID_REQUEST" | "CHAT_CREATE_FAILED" |
+  "CHAT_CONTEXT_ALREADY_CREATED" | "CHAT_CONTEXT_INVALID" | "CHAT_NOT_DISPATCHED" |
+  "CHAT_DISPATCH_ALREADY_STARTED" | "CANDIDATE_INVALID" | "OUTCOME_UNKNOWN" | "REQUEST_ABORTED" |
+  "PRIVATE_REQUEST_UNAVAILABLE" | "RESULT_CONTEXT_INVALID" | "RESULT_GET_FAILED" |
+  "HISTORY_UNVERIFIED" | "CAPACITY_EXCEEDED";
+export class OwnerSunoTrackOperationNativeError extends Error {
+  constructor(readonly code: OwnerSunoTrackOperationNativeErrorCode) {
+    super("The owner Suno track-operation native operation could not be completed safely.");
+    this.name = "OwnerSunoTrackOperationNativeError";
   }
 }
 
@@ -6457,8 +6889,32 @@ export function isOwnerSunoGenerationResultMessageContext(value: unknown,
   } catch { return false; }
 }
 
+export function isOwnerSunoTrackOperationChatContext(
+  value: unknown, client?: unknown
+): value is OwnerSunoTrackOperationChatContext {
+  try {
+    if (!value || typeof value !== "object" || types.isProxy(value) || !Object.isFrozen(value)) return false;
+    const state = OWNER_SUNO_TRACK_OPERATION_CHAT_CONTEXTS.get(value);
+    return !!state && (client === undefined || state.client === client);
+  } catch { return false; }
+}
+
+export function isOwnerSunoTrackOperationResultMessageContext(
+  value: unknown, client?: unknown
+): value is OwnerSunoTrackOperationResultMessageContext {
+  try {
+    if (!value || typeof value !== "object" || types.isProxy(value) || !Object.isFrozen(value)) return false;
+    const state = OWNER_SUNO_TRACK_OPERATION_RESULT_CONTEXTS.get(value);
+    return !!state && (client === undefined || state.client === client);
+  } catch { return false; }
+}
+
 function ownerSunoGenerationError(code: OwnerSunoGenerationNativeErrorCode): OwnerSunoGenerationNativeError {
   return new OwnerSunoGenerationNativeError(code);
+}
+
+function ownerSunoTrackOperationError(code: OwnerSunoTrackOperationNativeErrorCode): OwnerSunoTrackOperationNativeError {
+  return new OwnerSunoTrackOperationNativeError(code);
 }
 
 function assertNativeOwnerSunoClient(client: unknown): asserts client is SyntxChatHttpClient {
@@ -6473,6 +6929,12 @@ function assertNativeOwnerSunoClient(client: unknown): asserts client is SyntxCh
 function validateOwnerSunoAbortSignal(signal: AbortSignal | undefined): void {
   if (signal !== undefined && (!(signal instanceof AbortSignal) || types.isProxy(signal))) {
     throw ownerSunoGenerationError("INVALID_REQUEST");
+  }
+}
+
+function validateOwnerSunoTrackOperationAbortSignal(signal: AbortSignal | undefined): void {
+  if (signal !== undefined && (!(signal instanceof AbortSignal) || types.isProxy(signal))) {
+    throw ownerSunoTrackOperationError("INVALID_REQUEST");
   }
 }
 
@@ -6497,6 +6959,120 @@ function snapshotOwnerSunoGenerationStartInput(value: unknown, includeChat = fal
     permit: fields.permit as OwnerSunoGenerationOneShotPermit,
     preparer: fields.preparer, oneShotPolicy: fields.oneShotPolicy, principal, attemptId: fields.attemptId,
     ...(includeChat ? { chat: fields.chat as OwnerSunoGenerationChatContext } : {}) });
+}
+
+function snapshotOwnerSunoTrackOperationStartInput(value: unknown, includeChat: boolean,
+  preparerApi: OwnerSunoTrackOperationPreparerModule, policyApi: OwnerSunoTrackOperationPolicyModule):
+  Readonly<OwnerSunoTrackOperationStartInput & { readonly chat?: OwnerSunoTrackOperationChatContext }> {
+  const allowed = ["candidate", "permit", "preparer", "oneShotPolicy", "principal", "attemptId",
+    ...(includeChat ? ["chat"] : [])];
+  let fields: Record<string, unknown>;
+  try { fields = readExactDataRecord(value, allowed, allowed); }
+  catch { throw ownerSunoTrackOperationError("INVALID_REQUEST"); }
+  if (typeof fields.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(fields.attemptId) ||
+      !preparerApi.isOwnerSunoTrackOperationRequestPreparer(fields.preparer) ||
+      !policyApi.isOwnerSunoTrackOperationOneShotPolicy(fields.oneShotPolicy)) throw ownerSunoTrackOperationError("INVALID_REQUEST");
+  let principal: Readonly<GenerationPrincipalRef>;
+  try { principal = snapshotGenerationPrincipal(fields.principal as GenerationPrincipalRef); }
+  catch { throw ownerSunoTrackOperationError("INVALID_REQUEST"); }
+  if (principal.connection_id !== fields.attemptId) throw ownerSunoTrackOperationError("INVALID_REQUEST");
+  if (includeChat && !isOwnerSunoTrackOperationChatContext(fields.chat)) {
+    throw ownerSunoTrackOperationError("CHAT_CONTEXT_INVALID");
+  }
+  return Object.freeze({ candidate: fields.candidate as OwnerSunoTrackOperationPreparedCandidate,
+    permit: fields.permit as OwnerSunoTrackOperationOneShotPermit, preparer: fields.preparer as OwnerSunoTrackOperationRequestPreparer,
+    oneShotPolicy: fields.oneShotPolicy, principal, attemptId: fields.attemptId as string,
+    ...(includeChat ? { chat: fields.chat as OwnerSunoTrackOperationChatContext } : {}) });
+}
+
+function validateOwnerSunoTrackOperation(input: Readonly<OwnerSunoTrackOperationStartInput>,
+  native: OwnerSunoTrackOperationNativeMethods):
+  Readonly<OwnerSunoTrackOperationCandidateBinding> {
+  try {
+    const source = getOwnerSunoTrackOperationParameterSource();
+    const sourceHash = schemaHash(source);
+    const binding = Reflect.apply(native.inspect, input.preparer,
+      [input.candidate]) as OwnerSunoTrackOperationCandidateBinding | undefined;
+    if (!binding || !OWNER_SUNO_TRACK_OPERATION_MODELS.has(binding.model_id) ||
+        (binding.mode !== "cover" && binding.mode !== "extend") || binding.attempt_id !== input.attemptId ||
+        !sameGenerationPrincipal(binding.principal, input.principal) ||
+        binding.source_profile_id !== "owner-suno-track-operation-parameters-source-v1" ||
+        binding.source_profile_schema_hash !== sourceHash ||
+        !isDeepStrictEqual(binding.source_pins, source.source_pins) ||
+        !/^sha256:[a-f0-9]{64}$/u.test(binding.track_context_fingerprint) ||
+        input.candidate.status !== "prepared" || input.candidate.model_id !== binding.model_id ||
+        input.candidate.mode !== binding.mode || input.candidate.attempt_id !== input.attemptId ||
+        input.candidate.source_profile_id !== binding.source_profile_id ||
+        input.candidate.source_profile_schema_hash !== binding.source_profile_schema_hash ||
+        !isDeepStrictEqual(input.candidate.source_pins, binding.source_pins) ||
+        input.candidate.expires_at !== binding.expires_at ||
+        input.candidate.intent_fingerprint !== binding.intent_fingerprint ||
+        input.candidate.runtime_usable !== false || input.candidate.dispatch_allowed !== false ||
+        input.candidate.backend_acceptance !== "UNPROVEN" ||
+        input.permit.status !== "nominal" || input.permit.attempt_id !== input.attemptId ||
+        input.permit.model_id !== binding.model_id || input.permit.mode !== binding.mode ||
+        input.permit.expires_at !== binding.expires_at ||
+        input.permit.source_profile_schema_hash !== binding.source_profile_schema_hash ||
+        input.permit.intent_fingerprint !== binding.intent_fingerprint ||
+        input.permit.dispatch_allowed !== false || input.permit.backend_acceptance !== "UNPROVEN") throw null;
+    Reflect.apply(native.revalidateCandidate, input.preparer, [{
+      candidate: input.candidate, attemptId: input.attemptId, principal: input.principal
+    }]);
+    const permit = Reflect.apply(native.revalidatePolicy, input.oneShotPolicy, [{
+      candidate: input.candidate, permit: input.permit, attemptId: input.attemptId, principal: input.principal
+    }]) as OwnerSunoTrackOperationOneShotReceipt;
+    if (permit.status !== "revalidated" || permit.dispatch_allowed !== false ||
+        permit.backend_acceptance !== "UNPROVEN" || permit.intent_fingerprint !== binding.intent_fingerprint) throw null;
+    return binding;
+  } catch { throw ownerSunoTrackOperationError("CANDIDATE_INVALID"); }
+}
+
+function validateOwnerSunoTrackOperationPrivateRequest(value: unknown,
+  state: OwnerSunoTrackOperationChatState): OwnerSunoTrackOperationPrivateRequest {
+  try {
+    const request = readExactDataRecord(value, ["ai_name", "prompt", "settings"], ["ai_name", "prompt", "settings"]);
+    const isExtend = state.mode === "extend";
+    const settingsKeys = ["model_type", "mode", "is_custom_mode", "is_instrumental", "negative_tags", "styles", "title",
+      "source_clip_id", "source_task_id", ...(isExtend ? ["continue_at"] : [])];
+    const settings = readExactDataRecord(request.settings, settingsKeys, settingsKeys);
+    const promptLimit = settings.is_custom_mode === true ? 5_000 : 500;
+    if (request.ai_name !== "suno" || typeof request.prompt !== "string" || request.prompt.trim().length === 0 ||
+        request.prompt.length > promptLimit || settings.model_type !== state.modelId || settings.mode !== state.mode ||
+        typeof settings.is_custom_mode !== "boolean" || typeof settings.is_instrumental !== "boolean" ||
+        typeof settings.negative_tags !== "string" || settings.negative_tags.length > 5_000 ||
+        typeof settings.styles !== "string" || settings.styles.length > 1_000 ||
+        typeof settings.title !== "string" || settings.title.length > 80 ||
+        !isBoundedPrintableOwnerSunoSourceId(settings.source_clip_id) ||
+        !isBoundedPrintableOwnerSunoSourceId(settings.source_task_id)) throw null;
+    if (isExtend) {
+      const continueAt = settings.continue_at;
+      if (typeof continueAt !== "number" || !Number.isFinite(continueAt) || continueAt < 0 ||
+          Math.abs(continueAt * 10 - Math.round(continueAt * 10)) > Number.EPSILON * Math.max(1, Math.abs(continueAt * 10)) * 4) {
+        throw null;
+      }
+    }
+    const safeSettings = sanitizeSettings(settings);
+    if (!isPlainRecord(safeSettings) || !isDeepStrictEqual(safeSettings, { ...settings })) throw null;
+    return Object.freeze({ ai_name: "suno", prompt: request.prompt,
+      settings: Object.freeze({ ...safeSettings }) as unknown as OwnerSunoTrackOperationPrivateRequest["settings"] });
+  } catch { throw ownerSunoTrackOperationError("CANDIDATE_INVALID"); }
+}
+
+function isBoundedPrintableOwnerSunoSourceId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 256 && value.trim() === value &&
+    !/[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(value) && isWellFormedOwnerSunoSourceId(value);
+}
+
+function isWellFormedOwnerSunoSourceId(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return false;
+  }
+  return true;
 }
 
 function validateOwnerSunoGenerationOperation(input: Readonly<OwnerSunoGenerationStartInput>):
@@ -6581,6 +7157,42 @@ function ownerSunoGenerationResultContextState(client: SyntxChatHttpClient,
       owned.context.intent_fingerprint !== owned.chat.chat.intent_fingerprint ||
       owned.context.source_profile_schema_hash !== owned.chat.chat.source_profile_schema_hash) {
     throw ownerSunoGenerationError("RESULT_CONTEXT_INVALID");
+  }
+  return owned;
+}
+
+function ownerSunoTrackOperationChats(client: SyntxChatHttpClient): Map<string, OwnerSunoTrackOperationChatState> {
+  let chats = OWNER_SUNO_TRACK_OPERATION_CHATS.get(client);
+  if (!chats) { chats = new Map(); OWNER_SUNO_TRACK_OPERATION_CHATS.set(client, chats); }
+  return chats;
+}
+
+function ownerSunoTrackOperationChatState(client: SyntxChatHttpClient, value: unknown): OwnerSunoTrackOperationChatState {
+  if (!isOwnerSunoTrackOperationChatContext(value, client)) throw ownerSunoTrackOperationError("CHAT_CONTEXT_INVALID");
+  const state = OWNER_SUNO_TRACK_OPERATION_CHAT_CONTEXTS.get(value);
+  if (!state || state.client !== client || state.chat !== value ||
+      ownerSunoTrackOperationChats(client).get(value.chat_uuid) !== state) {
+    throw ownerSunoTrackOperationError("CHAT_CONTEXT_INVALID");
+  }
+  return state;
+}
+
+function ownerSunoTrackOperationResultContextState(client: SyntxChatHttpClient,
+  value: unknown): OwnerSunoTrackOperationResultContextState {
+  if (!value || typeof value !== "object" || types.isProxy(value) || Array.isArray(value)) {
+    throw ownerSunoTrackOperationError("RESULT_CONTEXT_INVALID");
+  }
+  const owned = OWNER_SUNO_TRACK_OPERATION_RESULT_CONTEXTS.get(value as object);
+  if (!owned || owned.client !== client || owned.context !== value || owned.chat.client !== client ||
+      ownerSunoTrackOperationChats(client).get(owned.chat.chat.chat_uuid) !== owned.chat ||
+      owned.chat.phase !== "ACKNOWLEDGED" || owned.context.owner_echo_message_id !== owned.chat.ownerEchoMessageId ||
+      owned.context.attempt_id !== owned.chat.chat.attempt_id || owned.context.model_id !== owned.chat.modelId ||
+      !sameGenerationPrincipal(owned.context.principal, owned.chat.chat.principal) ||
+      owned.context.intent_fingerprint !== owned.chat.chat.intent_fingerprint ||
+      owned.context.source_profile_schema_hash !== owned.chat.chat.source_profile_schema_hash ||
+      owned.context.track_context_fingerprint !== owned.chat.chat.track_context_fingerprint ||
+      owned.context.mode !== owned.chat.mode || !isDeepStrictEqual(owned.context.source_pins, owned.chat.chat.source_pins)) {
+    throw ownerSunoTrackOperationError("RESULT_CONTEXT_INVALID");
   }
   return owned;
 }
@@ -6670,6 +7282,33 @@ function ownerSunoGenerationHistoryReceipt(input: {
   readonly contexts: readonly OwnerSunoGenerationResultMessageContext[];
   readonly gaps: readonly OwnerSunoGenerationNativeGap[];
 }): OwnerSunoGenerationResultCandidates {
+  return Object.freeze({ status: input.status, owner_ack_status: input.ack,
+    history_binding_status: input.status === "COMPLETE" ? "BOUND" : input.status === "UNVERIFIED" ? "UNVERIFIED" : "PARTIAL",
+    history_page_status: input.status === "UNVERIFIED" ? "UNPROVEN" : "COMPLETE",
+    history_get_calls: input.calls, total_count: input.totalCount, total_pages: input.totalPages,
+    provider_chat_id: input.providerChatId, owner_echo_message_id: input.ownerEchoMessageId,
+    contexts: Object.freeze([...input.contexts]), gaps: Object.freeze([...input.gaps]), backend_acceptance: "UNPROVEN" });
+}
+
+function emptyOwnerSunoTrackOperationHistory(status: OwnerSunoTrackOperationResultCandidates["status"], calls: number,
+  gapCode: OwnerSunoTrackOperationNativeGap): OwnerSunoTrackOperationResultCandidates {
+  return Object.freeze({ status, owner_ack_status: "MISSING", history_binding_status: "UNVERIFIED",
+    history_page_status: status === "PENDING" ? "COMPLETE" : status === "UNVERIFIED" ? "UNPROVEN" : "INCOMPLETE",
+    history_get_calls: calls, total_count: null, total_pages: null, provider_chat_id: null,
+    owner_echo_message_id: null, contexts: Object.freeze([]), gaps: Object.freeze([gapCode]), backend_acceptance: "UNPROVEN" });
+}
+
+function ownerSunoTrackOperationHistoryReceipt(input: {
+  readonly status: OwnerSunoTrackOperationResultCandidates["status"];
+  readonly ack: OwnerSunoTrackOperationResultCandidates["owner_ack_status"];
+  readonly calls: number;
+  readonly totalCount: number | null;
+  readonly totalPages: number | null;
+  readonly providerChatId: string | null;
+  readonly ownerEchoMessageId: string | null;
+  readonly contexts: readonly OwnerSunoTrackOperationResultMessageContext[];
+  readonly gaps: readonly OwnerSunoTrackOperationNativeGap[];
+}): OwnerSunoTrackOperationResultCandidates {
   return Object.freeze({ status: input.status, owner_ack_status: input.ack,
     history_binding_status: input.status === "COMPLETE" ? "BOUND" : input.status === "UNVERIFIED" ? "UNVERIFIED" : "PARTIAL",
     history_page_status: input.status === "UNVERIFIED" ? "UNPROVEN" : "COMPLETE",

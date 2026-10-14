@@ -44,6 +44,16 @@ import {
 import { OwnerSunoGenerationOneShotPolicy, OwnerSunoGenerationOneShotPolicyError,
   type OwnerSunoGenerationOneShotPermit } from "./owner-suno-generation-one-shot-policy.js";
 import { OwnerSunoTrackContextStore, OwnerSunoTrackContextStoreError } from "./owner-suno-track-context.js";
+import {
+  OwnerSunoTrackOperationGenerationService,
+  type OwnerSunoTrackOperationGenerateInput,
+  type OwnerSunoTrackOperationRecoveryListInput,
+  type OwnerSunoTrackOperationReconcileInput,
+  type OwnerSunoTrackOperationResult,
+  type OwnerSunoTrackOperationResultPageInput,
+  type OwnerSunoTrackOperationRecoveryListItem
+} from "./owner-suno-track-operation-generation-service.js";
+import type { OwnerSunoTrackOperationParameterSource } from "./owner-suno-track-operation-parameters.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
@@ -251,6 +261,7 @@ export class OwnerSunoGenerationService {
   readonly #preparer: OwnerSunoGenerationRequestPreparer;
   readonly #oneShotPolicy: OwnerSunoGenerationOneShotPolicy;
   readonly #trackContextStore: OwnerSunoTrackContextStore;
+  readonly #trackOperationService: OwnerSunoTrackOperationGenerationService;
   readonly #recoveries = new Map<string, Recovery>();
   readonly #intentToRecovery = new Map<string, string>();
   readonly #reservedIntentKeys = new Set<string>();
@@ -288,6 +299,11 @@ export class OwnerSunoGenerationService {
     this.#preparer = new OwnerSunoGenerationRequestPreparer({ binding: this.#binding, linkService: this.#linkService, now: this.#now });
     this.#oneShotPolicy = new OwnerSunoGenerationOneShotPolicy({ preparer: this.#preparer, now: this.#now });
     this.#trackContextStore = new OwnerSunoTrackContextStore({ now: this.#now });
+    this.#trackOperationService = new OwnerSunoTrackOperationGenerationService({ binding: this.#binding,
+      linkService: this.#linkService as PerUserLinkService, catalog: this.#catalog, catalog_version: OWNER_SUNO_GENERATION_PUBLIC_VERSION,
+      resolveChatClient: this.#resolveChatClient, createAccountStatusService: this.#createAccountStatusService,
+      createModelAccessService: this.#createModelAccessService, trackContextStore: this.#trackContextStore, now: this.#now,
+      timeoutMs: this.#timeoutMs, pollDelayMs: this.#pollDelayMs, maxPollAttempts: this.#maxPollAttempts });
     SERVICE_INSTANCES.add(this);
     Object.freeze(this);
   }
@@ -351,9 +367,37 @@ export class OwnerSunoGenerationService {
     });
   }
 
+  getTrackOperationParametersSource(): OwnerSunoTrackOperationParameterSource {
+    this.#assertOpen();
+    return this.#trackOperationService.getTrackOperationParametersSource();
+  }
+
+  async generateTrackOperation(input: OwnerSunoTrackOperationGenerateInput | unknown,
+    signal?: AbortSignal): Promise<OwnerSunoTrackOperationResult> {
+    this.#assertOpen();
+    return await this.#trackOperationService.generateTrackOperation(input, signal);
+  }
+
+  async reconcileTrackOperation(input: OwnerSunoTrackOperationReconcileInput | unknown,
+    signal?: AbortSignal): Promise<OwnerSunoTrackOperationResult> {
+    this.#assertOpen();
+    return await this.#trackOperationService.reconcileTrackOperation(input, signal);
+  }
+
+  async listTrackOperationRecoveries(input: OwnerSunoTrackOperationRecoveryListInput | unknown): Promise<readonly OwnerSunoTrackOperationRecoveryListItem[]> {
+    this.#assertOpen();
+    return await this.#trackOperationService.listTrackOperationRecoveries(input);
+  }
+
+  async getTrackOperationResultPage(input: OwnerSunoTrackOperationResultPageInput | unknown): Promise<OwnerSunoTrackOperationResult> {
+    this.#assertOpen();
+    return await this.#trackOperationService.getTrackOperationResultPage(input);
+  }
+
   async invalidateAttempt(attemptIdInput: unknown): Promise<void> {
     const attemptId = safeAttempt(attemptIdInput);
     if (!this.#invalidatingAttempts.has(attemptId)) this.#invalidatingAttempts.add(attemptId);
+    await this.#trackOperationService.invalidateAttempt(attemptId);
     this.#preparer.invalidateAttempt(attemptId);
     this.#oneShotPolicy.invalidateAttempt(attemptId);
     this.#trackContextStore.invalidateAttempt(this.#binding, attemptId);
@@ -375,6 +419,7 @@ export class OwnerSunoGenerationService {
     this.#closed = true;
     const attempts = new Set([...this.#runs].map((run) => run.attemptId));
     this.#closing = (async () => {
+      await this.#trackOperationService.close();
       await Promise.all([...attempts].map((attempt) => this.invalidateAttempt(attempt)));
       this.#oneShotPolicy.close();
       this.#preparer.close();

@@ -171,6 +171,7 @@ import {
   registerSyntxOwnerSunoGenerationTools,
   type RegisterSyntxOwnerSunoGenerationToolsOptions
 } from "./owner-suno-generation-tools.js";
+import { registerSyntxOwnerSunoTrackTools } from "./owner-suno-track-tools.js";
 import type { OwnerLumaT2vContractService } from "../application/owner-luma-t2v-contract-service.js";
 import { registerSyntxOwnerLumaT2vTools } from "./owner-luma-t2v-tool.js";
 import type { OwnerReviewedNoReferenceT2vService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -1096,6 +1097,7 @@ export function createMcpServer(
   }
   if (options.ownerSunoGeneration) {
     registerSyntxOwnerSunoGenerationTools(server, options.ownerSunoGeneration);
+    registerSyntxOwnerSunoTrackTools(server, { generationService: options.ownerSunoGeneration.generationService });
   }
   if (options.ownerLumaT2v) {
     registerSyntxOwnerLumaT2vTools(server, { service: options.ownerLumaT2v.generationService });

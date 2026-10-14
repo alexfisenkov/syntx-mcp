@@ -1350,6 +1350,11 @@ export {
   registerSyntxOwnerSunoGenerationTools
 } from "./mcp/owner-suno-generation-tools.js";
 export type { RegisterSyntxOwnerSunoGenerationToolsOptions } from "./mcp/owner-suno-generation-tools.js";
+export {
+  SYNTX_OWNER_LIST_SUNO_TRACK_INPUTS_TOOL_NAME,
+  registerSyntxOwnerSunoTrackTools
+} from "./mcp/owner-suno-track-tools.js";
+export type { RegisterSyntxOwnerSunoTrackToolsOptions } from "./mcp/owner-suno-track-tools.js";
 export type { OwnerSunoGenerationServiceComposition } from "./mcp/server.js";
 export {
   OWNER_SUNO_GENERATION_MODEL_IDS,
@@ -1375,7 +1380,10 @@ export type {
   OwnerSunoGenerationDiagnostic,
   OwnerSunoGenerationArtifact,
   OwnerSunoGenerationResult,
-  OwnerSunoGenerationRecoveryListItem
+  OwnerSunoGenerationRecoveryListItem,
+  OwnerSunoTrackInput,
+  OwnerSunoTrackInputList,
+  OwnerSunoTrackInputListInput
 } from "./application/owner-suno-generation-service.js";
 
 export {

@@ -7,6 +7,32 @@ linking и некоторых явно описанных image, video и audio 
 
 ## Покрытие и ограничения
 
+Suno opt-in `SYNTX_OWNER_SUNO_GENERATION=1` дополнительно включает read-only
+команду `syntx_owner_list_suno_track_inputs` для уже прочитанных результатов
+своей текущей generation/recovery-попытки:
+
+```json
+{
+  "link_attempt_id": "link_0123456789abcdef0123",
+  "recovery_id": "suno_generation_recovery_01234567-89ab-4cde-8fab-0123456789ab"
+}
+```
+
+Идентификаторы примера вымышлены. Ответ содержит `recovery_id`,
+`status` (`AVAILABLE` или `UNAVAILABLE`) и `tracks` с полями
+`track_handle`, `model_id` (`V6`/`V6_wild`) и `expires_in_seconds`.
+Фиксированные причины отсутствия: `TRACK_METADATA_UNAVAILABLE` или
+`TRACK_INPUT_CAPACITY_REACHED`; при частичном списке возможна отметка лимита.
+Нет raw clip/task/chat/message IDs, URLs, prompt, principal или credentials.
+
+Ссылки process-local, стандартный TTL 15 минут, предел хранилища 128.
+Повторное чтение сохраняет ссылку до истечения TTL; затем она может быть
+перевыдана из того же наблюдаемого owner-bound контекста. Чтение не вызывает
+HTTP, account/cost reads, генерацию или платный повтор. Чужой, отозванный или
+закрытый контекст недоступен. Рестарт теряет ссылки; это не durable recovery.
+Команда не импортирует старые чаты и не включает Cover/Extend: их точные
+операционные контракты пока не доведены до запуска.
+
 В текущем наборе есть отдельные opt-in группы для выбранных image workflows
 (references, edit/inpaint и upscale), а также отдельных WAN/Luma/Hailuo video и
 ElevenLabs TTS/Suno audio workflows. Точные группы и настройки определяются

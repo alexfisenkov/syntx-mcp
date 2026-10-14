@@ -43,6 +43,7 @@ import {
 } from "./owner-suno-generation-request-preparer.js";
 import { OwnerSunoGenerationOneShotPolicy, OwnerSunoGenerationOneShotPolicyError,
   type OwnerSunoGenerationOneShotPermit } from "./owner-suno-generation-one-shot-policy.js";
+import { OwnerSunoTrackContextStore, OwnerSunoTrackContextStoreError } from "./owner-suno-track-context.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
@@ -74,11 +75,13 @@ const CHAT_CREATE_METHOD_NAME = "createOwnerSunoGenerationChat";
 const GENERATION_METHOD_NAME = "startSunoWithOwnedCandidate";
 const HISTORY_METHOD_NAME = "listOwnedSunoGenerationCandidates";
 const RESULT_METHOD_NAME = "getOwnedSunoGenerationResult";
+const TRACK_METADATA_METHOD_NAME = "getOwnedSunoGenerationTrackMetadata";
 const NATIVE_SUNO_CLIENT = SyntxChatHttpClient.prototype as unknown as Record<string, unknown>;
 const CHAT_CREATE = NATIVE_SUNO_CLIENT[CHAT_CREATE_METHOD_NAME] as NativeClient["createOwnerSunoGenerationChat"] | undefined;
 const GENERATION_START = NATIVE_SUNO_CLIENT[GENERATION_METHOD_NAME] as NativeClient["startSunoWithOwnedCandidate"] | undefined;
 const HISTORY_LIST = NATIVE_SUNO_CLIENT[HISTORY_METHOD_NAME] as NativeClient["listOwnedSunoGenerationCandidates"] | undefined;
 const AUDIO_RESULT = NATIVE_SUNO_CLIENT[RESULT_METHOD_NAME] as NativeClient["getOwnedSunoGenerationResult"] | undefined;
+const TRACK_METADATA = NATIVE_SUNO_CLIENT[TRACK_METADATA_METHOD_NAME] as NativeClient["getOwnedSunoGenerationTrackMetadata"] | undefined;
 const SERVICE_INSTANCES = new WeakSet<object>();
 
 type NativeClient = SyntxChatHttpClient & {
@@ -86,6 +89,7 @@ type NativeClient = SyntxChatHttpClient & {
   startSunoWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt>;
   listOwnedSunoGenerationCandidates(chat: OwnerSunoGenerationChatContext, signal?: AbortSignal): Promise<OwnerSunoGenerationResultCandidates>;
   getOwnedSunoGenerationResult(context: OwnerSunoGenerationResultMessageContext, signal?: AbortSignal): Promise<OwnerSunoAudioResult>;
+  getOwnedSunoGenerationTrackMetadata(context: OwnerSunoGenerationResultMessageContext): readonly unknown[];
 };
 
 export type OwnerSunoGenerationServicePhase =
@@ -185,6 +189,18 @@ export interface OwnerSunoGenerateInput { readonly attemptId: string; readonly r
 export interface OwnerSunoReconcileInput { readonly attemptId: string; readonly recovery_id: string; }
 export interface OwnerSunoRecoveryListInput { readonly attemptId: string; readonly limit?: number; }
 export interface OwnerSunoResultPageInput { readonly attemptId: string; readonly recovery_id: string; readonly offset?: number; }
+export interface OwnerSunoTrackInputListInput { readonly attemptId: string; readonly recovery_id: string; }
+export interface OwnerSunoTrackInput {
+  readonly track_handle: string;
+  readonly model_id: OwnerSunoGenerationModel;
+  readonly expires_in_seconds: number;
+}
+export interface OwnerSunoTrackInputList {
+  readonly recovery_id: string;
+  readonly status: "AVAILABLE" | "UNAVAILABLE";
+  readonly unavailable_reason?: "TRACK_METADATA_UNAVAILABLE" | "TRACK_INPUT_CAPACITY_REACHED";
+  readonly tracks: readonly OwnerSunoTrackInput[];
+}
 
 interface MutableDiagnostic {
   phase: OwnerSunoGenerationServicePhase;
@@ -214,6 +230,8 @@ interface Recovery {
   owner_echo_message_id: string | null;
   status: "outcome_unknown" | "partial_results" | "completed";
   artifacts: readonly OwnerSunoGenerationArtifact[];
+  readonly observedTrackContexts: Array<Readonly<{ client: SyntxChatHttpClient; resultContext: OwnerSunoGenerationResultMessageContext }>>;
+  readonly trackHandleByObject: Map<string, string>;
   readonly diagnostic: MutableDiagnostic;
 }
 interface ActiveRun { readonly attemptId: string; readonly controller: AbortController; promise: Promise<unknown>; }
@@ -232,6 +250,7 @@ export class OwnerSunoGenerationService {
   readonly #maxPollAttempts: number;
   readonly #preparer: OwnerSunoGenerationRequestPreparer;
   readonly #oneShotPolicy: OwnerSunoGenerationOneShotPolicy;
+  readonly #trackContextStore: OwnerSunoTrackContextStore;
   readonly #recoveries = new Map<string, Recovery>();
   readonly #intentToRecovery = new Map<string, string>();
   readonly #reservedIntentKeys = new Set<string>();
@@ -268,6 +287,7 @@ export class OwnerSunoGenerationService {
     this.#assertSourceBinding();
     this.#preparer = new OwnerSunoGenerationRequestPreparer({ binding: this.#binding, linkService: this.#linkService, now: this.#now });
     this.#oneShotPolicy = new OwnerSunoGenerationOneShotPolicy({ preparer: this.#preparer, now: this.#now });
+    this.#trackContextStore = new OwnerSunoTrackContextStore({ now: this.#now });
     SERVICE_INSTANCES.add(this);
     Object.freeze(this);
   }
@@ -316,14 +336,36 @@ export class OwnerSunoGenerationService {
     });
   }
 
+  /** Lists opaque read-only handles derived only from already-read owner result contexts. */
+  async listTrackInputs(input: OwnerSunoTrackInputListInput | unknown): Promise<OwnerSunoTrackInputList> {
+    this.#assertOpen();
+    const request = snapshotTrackInputList(input);
+    return await this.#run(request.attemptId, undefined, async () => {
+      const principal = await this.#resolvePrincipal(request.attemptId);
+      const recovery = this.#recoveries.get(request.recovery_id);
+      if (this.#invalidatingAttempts.has(request.attemptId) || !recovery || recovery.attemptId !== request.attemptId ||
+          !sameGenerationPrincipal(recovery.principal, principal)) fail("RECOVERY_NOT_FOUND");
+      this.#assertRecoverySourceBinding(recovery);
+      if (recovery.status === "outcome_unknown") return trackInputList(request.recovery_id, [], "TRACK_METADATA_UNAVAILABLE");
+      return this.#listObservedTrackInputs(recovery);
+    });
+  }
+
   async invalidateAttempt(attemptIdInput: unknown): Promise<void> {
     const attemptId = safeAttempt(attemptIdInput);
     if (!this.#invalidatingAttempts.has(attemptId)) this.#invalidatingAttempts.add(attemptId);
     this.#preparer.invalidateAttempt(attemptId);
     this.#oneShotPolicy.invalidateAttempt(attemptId);
+    this.#trackContextStore.invalidateAttempt(this.#binding, attemptId);
     for (const run of this.#runs) if (run.attemptId === attemptId) run.controller.abort();
     const pending = [...this.#runs].filter((run) => run.attemptId === attemptId).map((run) => run.promise);
-    const invalidation = Promise.allSettled(pending).then(() => { this.#clientsByAttempt.delete(attemptId); });
+    const invalidation = Promise.allSettled(pending).then(() => {
+      this.#clientsByAttempt.delete(attemptId);
+      for (const recovery of this.#recoveries.values()) if (recovery.attemptId === attemptId) {
+        recovery.observedTrackContexts.length = 0;
+        recovery.trackHandleByObject.clear();
+      }
+    });
     this.#invalidations.set(attemptId, invalidation);
     await invalidation;
   }
@@ -336,6 +378,11 @@ export class OwnerSunoGenerationService {
       await Promise.all([...attempts].map((attempt) => this.invalidateAttempt(attempt)));
       this.#oneShotPolicy.close();
       this.#preparer.close();
+      for (const recovery of this.#recoveries.values()) {
+        recovery.observedTrackContexts.length = 0;
+        recovery.trackHandleByObject.clear();
+      }
+      this.#trackContextStore.close();
       this.#clientsByAttempt.clear();
       this.#invalidations.clear();
     })();
@@ -535,6 +582,10 @@ export class OwnerSunoGenerationService {
           addGaps(recovery.diagnostic, ["AUDIO_RESULT_UNVERIFIED"]);
           throw unknownError(recovery);
         }
+        if (!recovery.observedTrackContexts.some((item) => item.resultContext === context) &&
+            recovery.observedTrackContexts.length < MAX_CONTEXTS_PER_HISTORY) {
+          recovery.observedTrackContexts.push(Object.freeze({ client, resultContext: context }));
+        }
         if (decoded.gaps.length > 0 || decoded.model_echo === "UNKNOWN") incomplete = true;
         addGaps(recovery.diagnostic, decoded.gaps.map((item) => item.code));
         const expectedIds = new Set(context.message_object_ids);
@@ -576,6 +627,59 @@ export class OwnerSunoGenerationService {
       throw unknownError(recovery);
     }
     return lastResult ?? pageResult(recovery, 0);
+  }
+
+  #listObservedTrackInputs(recovery: Recovery): OwnerSunoTrackInputList {
+    const tracks: OwnerSunoTrackInput[] = [];
+    let capacityReached = false;
+    for (const observed of recovery.observedTrackContexts) {
+      const contextObjectIds = observed.resultContext.message_object_ids;
+      if (!isOwnerSunoGenerationResultMessageContext(observed.resultContext, observed.client)) continue;
+      for (const artifact of recovery.artifacts) {
+        if (artifact.message_id !== observed.resultContext.message_id || !contextObjectIds.includes(artifact.message_object_id)) continue;
+        const cacheKey = JSON.stringify([observed.resultContext.message_id, artifact.message_object_id]);
+        let handle = recovery.trackHandleByObject.get(cacheKey);
+        let expiresAt: number | undefined;
+        if (handle) {
+          try {
+            expiresAt = this.#trackContextStore.resolve({ binding: this.#binding, attemptId: recovery.attemptId,
+              principal: recovery.principal, trackHandle: handle }).expires_at;
+          } catch (error) {
+            if (error instanceof OwnerSunoTrackContextStoreError && error.code === "TRACK_CONTEXT_EXPIRED") {
+              recovery.trackHandleByObject.delete(cacheKey);
+              handle = undefined;
+            } else if (error instanceof OwnerSunoTrackContextStoreError && error.code === "TRACK_CONTEXT_UNAVAILABLE") {
+              continue;
+            } else {
+              fail(error instanceof OwnerSunoTrackContextStoreError && error.code === "SERVICE_CLOSED" ? "SERVICE_CLOSED" : "SERVICE_BUSY");
+            }
+          }
+        }
+        if (!handle) {
+          try {
+            handle = this.#trackContextStore.issue({ binding: this.#binding, attemptId: recovery.attemptId,
+              principal: recovery.principal, client: observed.client, resultContext: observed.resultContext,
+              messageObjectId: artifact.message_object_id });
+            recovery.trackHandleByObject.set(cacheKey, handle);
+            expiresAt = this.#trackContextStore.resolve({ binding: this.#binding, attemptId: recovery.attemptId,
+              principal: recovery.principal, trackHandle: handle }).expires_at;
+          } catch (error) {
+            if (error instanceof OwnerSunoTrackContextStoreError && error.code === "CAPACITY_EXCEEDED") {
+              capacityReached = true;
+              break;
+            }
+            if (error instanceof OwnerSunoTrackContextStoreError && error.code === "TRACK_CONTEXT_UNAVAILABLE") continue;
+            fail(error instanceof OwnerSunoTrackContextStoreError && error.code === "SERVICE_CLOSED" ? "SERVICE_CLOSED" : "SERVICE_BUSY");
+          }
+        }
+        if (tracks.length >= 128) { capacityReached = true; break; }
+        const expiresIn = Math.max(1, Math.min(1_800, Math.floor((expiresAt! - this.#readNow()) / 1_000)));
+        tracks.push(Object.freeze({ track_handle: handle, model_id: recovery.model_id, expires_in_seconds: expiresIn }));
+      }
+      if (capacityReached) break;
+    }
+    const reason = capacityReached ? "TRACK_INPUT_CAPACITY_REACHED" : tracks.length === 0 ? "TRACK_METADATA_UNAVAILABLE" : undefined;
+    return trackInputList(recovery.recovery_id, tracks, reason);
   }
 
   async #runPreflight(attemptId: string, normalized: OwnerSunoNormalizedGenerationParameters, deadline: AbsoluteRequestDeadline): Promise<void> {
@@ -702,7 +806,7 @@ function createRecovery(input: { attemptId: string; principal: Readonly<Generati
     source_profile: input.source, source_profile_schema_hash: schemaHash(input.source), semantic_key: input.semanticKey,
     created_at: new Date(input.now).toISOString(), chat: input.chat, candidate: input.candidate, permit: input.permit,
     model_id: input.normalized.model_id, owner_echo_message_id: null, status: "outcome_unknown",
-    artifacts: Object.freeze([]), diagnostic };
+    artifacts: Object.freeze([]), observedTrackContexts: [], trackHandleByObject: new Map(), diagnostic };
 }
 
 function pageResult(recovery: Recovery, offset: number): OwnerSunoGenerationResult {
@@ -770,6 +874,20 @@ function snapshotResultPage(value: unknown): Readonly<Required<OwnerSunoResultPa
   if (typeof fields.recovery_id !== "string" || !RECOVERY_ID.test(fields.recovery_id)) invalid();
   const offset = fields.offset === undefined ? 0 : bounded(fields.offset, 0, MAX_RESULTS, 0);
   return Object.freeze({ attemptId, recovery_id: fields.recovery_id, offset });
+}
+function snapshotTrackInputList(value: unknown): Readonly<OwnerSunoTrackInputListInput> {
+  const fields = exactRecord(value, ["attemptId", "recovery_id"]);
+  const attemptId = readAttempt(fields.attemptId);
+  if (typeof fields.recovery_id !== "string" || !RECOVERY_ID.test(fields.recovery_id)) invalid();
+  return Object.freeze({ attemptId, recovery_id: fields.recovery_id });
+}
+function trackInputList(recoveryId: string, input: readonly OwnerSunoTrackInput[],
+  reason?: OwnerSunoTrackInputList["unavailable_reason"]): OwnerSunoTrackInputList {
+  const tracks = Object.freeze(input.slice(0, 128));
+  const unavailableReason = reason ?? (tracks.length === 0 ? "TRACK_METADATA_UNAVAILABLE" : undefined);
+  const status = tracks.length > 0 ? "AVAILABLE" : "UNAVAILABLE";
+  return Object.freeze({ recovery_id: recoveryId, status,
+    ...(unavailableReason === undefined ? {} : { unavailable_reason: unavailableReason }), tracks });
 }
 function readAttempt(value: unknown): string {
   if (typeof value !== "string" || !ATTEMPT.test(value)) invalid();
@@ -846,7 +964,9 @@ function isNativeClient(value: unknown): value is NativeClient {
     return getDataMethod(value, CHAT_CREATE_METHOD_NAME) === CHAT_CREATE &&
       getDataMethod(value, GENERATION_METHOD_NAME) === GENERATION_START &&
       getDataMethod(value, HISTORY_METHOD_NAME) === HISTORY_LIST && getDataMethod(value, RESULT_METHOD_NAME) === AUDIO_RESULT &&
-      typeof CHAT_CREATE === "function" && typeof GENERATION_START === "function" && typeof HISTORY_LIST === "function" && typeof AUDIO_RESULT === "function";
+      getDataMethod(value, TRACK_METADATA_METHOD_NAME) === TRACK_METADATA &&
+      typeof CHAT_CREATE === "function" && typeof GENERATION_START === "function" && typeof HISTORY_LIST === "function" &&
+      typeof AUDIO_RESULT === "function" && typeof TRACK_METADATA === "function";
   } catch { return false; }
 }
 function isExactPerUserLinkService(value: unknown): value is PerUserLinkService {

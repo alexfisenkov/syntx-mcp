@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test --test-concurrency=2 dist/tests/owner-reviewed-video-recovery-diagnostic.test.js dist/tests/owner-reviewed-video-owned-diagnostics.test.js dist/tests/owner-reviewed-no-reference-t2v-service.test.js dist/tests/owner-contract-media.test.js dist/tests/owner-reviewed-video-recovery-diagnostic-tools.test.js dist/tests/owner-video-recovery-diagnostic-composition.test.js tests/owner-video-recovery-diagnostic-package-checker.test.mjs",
+    "test:media:changed": "node --test --test-concurrency=2 dist/tests/owner-suno-track-metadata.test.js dist/tests/owner-suno-track-context.test.js dist/tests/syntx-chat-http-client-owner-suno-tracks.test.js dist/tests/owner-suno-track-service.test.js dist/tests/owner-suno-track-tools.test.js tests/owner-suno-track-package-checker.test.mjs",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

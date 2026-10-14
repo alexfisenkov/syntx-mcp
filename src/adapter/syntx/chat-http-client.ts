@@ -60,6 +60,7 @@ import { OWNER_SUNO_GENERATION_MODEL_IDS, OWNER_SUNO_GENERATION_PUBLIC_VERSION,
   OWNER_SUNO_GENERATION_SETTINGS_VERSION, type OwnerSunoGenerationModel,
   type OwnerSunoGenerationSourcePins } from "../../application/owner-suno-generation-parameters.js";
 import { decodeOwnerSunoAudioResult, type OwnerSunoAudioResult, type OwnerSunoAudioResultReadContext } from "./owner-suno-audio-result.js";
+import { readOwnerSunoTrackMetadata } from "../../application/owner-suno-track-metadata.js";
 import {
   getOwnerClarityUpscaleSourceProfile,
   isOwnerClarityUpscalePreparedCandidateForPrincipal,
@@ -1804,6 +1805,13 @@ interface OwnerSunoGenerationResultContextState {
   readonly client: SyntxChatHttpClient;
   readonly chat: OwnerSunoGenerationChatState;
   readonly context: OwnerSunoGenerationResultMessageContext;
+  trackMetadata: readonly InternalOwnerSunoGenerationTrackMetadata[];
+}
+interface InternalOwnerSunoGenerationTrackMetadata {
+  readonly message_object_id: string;
+  readonly clip_id: string;
+  readonly task_id: string;
+  readonly model_id: OwnerSunoGenerationModel;
 }
 const OWNER_SUNO_GENERATION_CHATS = new WeakMap<object, Map<string, OwnerSunoGenerationChatState>>();
 const OWNER_SUNO_GENERATION_CHAT_CONTEXTS = new WeakMap<object, OwnerSunoGenerationChatState>();
@@ -4546,19 +4554,7 @@ export class SyntxChatHttpClient {
     signal?: AbortSignal
   ): Promise<OwnerSunoAudioResult> {
     assertNativeOwnerSunoClient(this);
-    if (!contextInput || typeof contextInput !== "object" || types.isProxy(contextInput) || Array.isArray(contextInput)) {
-      throw ownerSunoGenerationError("RESULT_CONTEXT_INVALID");
-    }
-    const owned = OWNER_SUNO_GENERATION_RESULT_CONTEXTS.get(contextInput as object);
-    if (!owned || owned.client !== this || owned.context !== contextInput || owned.chat.client !== this ||
-        ownerSunoGenerationChats(this).get(owned.chat.chat.chat_uuid) !== owned.chat ||
-        owned.chat.phase !== "ACKNOWLEDGED" || owned.context.owner_echo_message_id !== owned.chat.ownerEchoMessageId ||
-        owned.context.attempt_id !== owned.chat.chat.attempt_id || owned.context.model_id !== owned.chat.modelId ||
-        !sameGenerationPrincipal(owned.context.principal, owned.chat.chat.principal) ||
-        owned.context.intent_fingerprint !== owned.chat.chat.intent_fingerprint ||
-        owned.context.source_profile_schema_hash !== owned.chat.chat.source_profile_schema_hash) {
-      throw ownerSunoGenerationError("RESULT_CONTEXT_INVALID");
-    }
+    const owned = ownerSunoGenerationResultContextState(this, contextInput);
     validateOwnerSunoAbortSignal(signal);
     if (signal?.aborted) throw ownerSunoGenerationError("REQUEST_ABORTED");
     const context = owned.context;
@@ -4570,10 +4566,21 @@ export class SyntxChatHttpClient {
       if (signal?.aborted) throw ownerSunoGenerationError("REQUEST_ABORTED");
       throw ownerSunoGenerationError("RESULT_GET_FAILED");
     }
-    return decodeOwnerSunoAudioResult(raw, {
+    const result = decodeOwnerSunoAudioResult(raw, {
       chat_uuid: context.chat_uuid, message_id: context.message_id, model_id: context.model_id,
       provider_chat_id: context.provider_chat_id, message_object_ids: context.message_object_ids
     });
+    owned.trackMetadata = readValidatedOwnerSunoTrackMetadata(raw, result.ready_audio, context.model_id, context.message_id);
+    return result;
+  }
+
+  /** Reads metadata projected during this exact owner's existing result GET; performs no network request. */
+  getOwnedSunoGenerationTrackMetadata(
+    contextInput: OwnerSunoGenerationResultMessageContext | unknown
+  ): readonly InternalOwnerSunoGenerationTrackMetadata[] {
+    assertNativeOwnerSunoClient(this);
+    const owned = ownerSunoGenerationResultContextState(this, contextInput);
+    return owned.trackMetadata;
   }
 
   #mintOwnerSunoGenerationResultContext(state: OwnerSunoGenerationChatState,
@@ -4587,7 +4594,7 @@ export class SyntxChatHttpClient {
       principal: Object.freeze({ ...fields.principal }),
       source_pins: Object.freeze({ ...fields.source_pins }),
       message_object_ids: Object.freeze([...fields.message_object_ids]) });
-    OWNER_SUNO_GENERATION_RESULT_CONTEXTS.set(context, { client: this, chat: state, context });
+    OWNER_SUNO_GENERATION_RESULT_CONTEXTS.set(context, { client: this, chat: state, context, trackMetadata: Object.freeze([]) });
     state.resultContexts.set(context.message_id, context);
     return context;
   }
@@ -6558,6 +6565,82 @@ function ownerSunoGenerationChatState(client: SyntxChatHttpClient, value: unknow
   if (!state || state.client !== client || state.chat !== value ||
       ownerSunoGenerationChats(client).get(value.chat_uuid) !== state) throw ownerSunoGenerationError("CHAT_CONTEXT_INVALID");
   return state;
+}
+
+function ownerSunoGenerationResultContextState(client: SyntxChatHttpClient,
+  value: unknown): OwnerSunoGenerationResultContextState {
+  if (!value || typeof value !== "object" || types.isProxy(value) || Array.isArray(value)) {
+    throw ownerSunoGenerationError("RESULT_CONTEXT_INVALID");
+  }
+  const owned = OWNER_SUNO_GENERATION_RESULT_CONTEXTS.get(value as object);
+  if (!owned || owned.client !== client || owned.context !== value || owned.chat.client !== client ||
+      ownerSunoGenerationChats(client).get(owned.chat.chat.chat_uuid) !== owned.chat ||
+      owned.chat.phase !== "ACKNOWLEDGED" || owned.context.owner_echo_message_id !== owned.chat.ownerEchoMessageId ||
+      owned.context.attempt_id !== owned.chat.chat.attempt_id || owned.context.model_id !== owned.chat.modelId ||
+      !sameGenerationPrincipal(owned.context.principal, owned.chat.chat.principal) ||
+      owned.context.intent_fingerprint !== owned.chat.chat.intent_fingerprint ||
+      owned.context.source_profile_schema_hash !== owned.chat.chat.source_profile_schema_hash) {
+    throw ownerSunoGenerationError("RESULT_CONTEXT_INVALID");
+  }
+  return owned;
+}
+
+function readValidatedOwnerSunoTrackMetadata(raw: unknown,
+  readyAudio: OwnerSunoAudioResult["ready_audio"], modelId: OwnerSunoGenerationModel, messageId: string):
+  readonly InternalOwnerSunoGenerationTrackMetadata[] {
+  if (readyAudio.length === 0 || !raw || typeof raw !== "object" || types.isProxy(raw) || Array.isArray(raw)) {
+    return Object.freeze([]);
+  }
+  try {
+    const prototype = Object.getPrototypeOf(raw);
+    if (prototype !== Object.prototype && prototype !== null) return Object.freeze([]);
+    const objectsDescriptor = Object.getOwnPropertyDescriptor(raw, "message_object");
+    if (!objectsDescriptor || !("value" in objectsDescriptor) || !objectsDescriptor.enumerable ||
+        !Array.isArray(objectsDescriptor.value) || types.isProxy(objectsDescriptor.value) ||
+        Object.getPrototypeOf(objectsDescriptor.value) !== Array.prototype || objectsDescriptor.value.length > 64) {
+      return Object.freeze([]);
+    }
+    const objects = objectsDescriptor.value as unknown[];
+    const projected: InternalOwnerSunoGenerationTrackMetadata[] = [];
+    for (const audio of readyAudio) {
+      const objectDescriptor = Object.getOwnPropertyDescriptor(objects, String(audio.object_index));
+      if (!objectDescriptor || !("value" in objectDescriptor) || !objectDescriptor.enumerable ||
+          !objectDescriptor.value || typeof objectDescriptor.value !== "object" || types.isProxy(objectDescriptor.value)) continue;
+      const objectValue = objectDescriptor.value;
+      const objectId = Object.getOwnPropertyDescriptor(objectValue, "id");
+      const objectMessageId = Object.getOwnPropertyDescriptor(objectValue, "message_id");
+      const objectType = Object.getOwnPropertyDescriptor(objectValue, "object_type");
+      const objectModelId = Object.getOwnPropertyDescriptor(objectValue, "model_type");
+      if (!isEnumerableDataDescriptor(objectId) || ownerSunoDecodedProviderId(objectId.value) !== audio.message_object_id ||
+          !isEnumerableDataDescriptor(objectMessageId) || ownerSunoDecodedProviderId(objectMessageId.value) !== messageId ||
+          !isEnumerableDataDescriptor(objectType) || objectType.value !== "audio" ||
+          !isEnumerableDataDescriptor(objectModelId) || objectModelId.value !== modelId) continue;
+      const metadataDescriptor = Object.getOwnPropertyDescriptor(objectValue, "metadata");
+      if (!metadataDescriptor || !("value" in metadataDescriptor) || !metadataDescriptor.enumerable) continue;
+      const metadataValue = metadataDescriptor.value;
+      if (!metadataValue || typeof metadataValue !== "object" || types.isProxy(metadataValue) || Array.isArray(metadataValue)) continue;
+      const payloadDescriptor = Object.getOwnPropertyDescriptor(metadataValue, "payload");
+      if (!payloadDescriptor || !("value" in payloadDescriptor) || !payloadDescriptor.enumerable) continue;
+      const metadata = readOwnerSunoTrackMetadata(payloadDescriptor.value);
+      if (!metadata) continue;
+      projected.push(Object.freeze({ message_object_id: audio.message_object_id, clip_id: metadata.clip_id,
+        task_id: metadata.task_id, model_id: modelId }));
+    }
+    return Object.freeze(projected);
+  } catch {
+    return Object.freeze([]);
+  }
+}
+
+function isEnumerableDataDescriptor(value: PropertyDescriptor | undefined): value is PropertyDescriptor & { value: unknown } {
+  return value !== undefined && value.enumerable === true && Object.hasOwn(value, "value");
+}
+
+/** Mirrors the audio decoder's accepted provider-ID normalization for extraction comparisons only. */
+function ownerSunoDecodedProviderId(value: unknown): string | undefined {
+  if (typeof value === "string") return isSafeProviderId(value) ? value : undefined;
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return String(value);
+  return undefined;
 }
 
 function isPositiveOwnerSunoAck(

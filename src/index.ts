@@ -1493,6 +1493,17 @@ export {
   SYNTX_OWNER_GROK_T2V_TOOL_NAMES
 } from "./mcp/owner-grok-t2v-tools.js";
 export {
+  createOwnerHailuoLiveT2vProfile,
+  OWNER_HAILUO_LIVE_T2V_CONTRACT_VARIANT_ID,
+  OWNER_HAILUO_LIVE_T2V_CONTRACT_REGISTRY_VERSION
+} from "./application/owner-hailuo-live-t2v-profile.js";
+export type { OwnerHailuoLiveT2vProfile, OwnerHailuoLiveT2vSourceContract } from "./application/owner-hailuo-live-t2v-profile.js";
+export { OwnerHailuoLiveT2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export {
+  registerSyntxOwnerHailuoLiveT2vTools,
+  SYNTX_OWNER_HAILUO_LIVE_T2V_TOOL_NAMES
+} from "./mcp/owner-hailuo-live-t2v-tools.js";
+export {
   OwnerElevenLabsDialogueGenerationService,
   OwnerElevenLabsDialogueGenerationServiceError
 } from "./application/owner-elevenlabs-dialogue-generation-service.js";

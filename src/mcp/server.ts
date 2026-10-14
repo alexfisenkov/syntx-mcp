@@ -189,6 +189,8 @@ import type { OwnerVeoT2vGenerationService } from "../application/owner-reviewed
 import { registerSyntxOwnerVeoT2vTools } from "./owner-veo-t2v-tools.js";
 import type { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerGrokT2vTools } from "./owner-grok-t2v-tools.js";
+import type { OwnerHailuoLiveT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { registerSyntxOwnerHailuoLiveT2vTools } from "./owner-hailuo-live-t2v-tools.js";
 import type { OwnerVideo2AudioSourceProfile } from "../application/owner-video2audio-source-profile.js";
 import type { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import type { OwnerVideo2AudioGenerationService } from "../application/owner-video2audio-generation-service.js";
@@ -400,6 +402,12 @@ export interface OwnerGrokT2vServiceComposition {
     "getParametersSource" | "getReviewedContract" | "generate" | "reconcile" | "listRecoveries">;
 }
 
+/** Explicit owner-local Hailuo-01 Live T2V tools, enabled only by owner stdio opt-in. */
+export interface OwnerHailuoLiveT2vServiceComposition {
+  readonly generationService: Pick<OwnerHailuoLiveT2vGenerationService,
+    "getParametersSource" | "getReviewedContract" | "generate" | "reconcile" | "listRecoveries">;
+}
+
 /** Explicit owner-local Video2Audio original upload and generation/recovery lifecycle. */
 export interface OwnerVideo2AudioServiceComposition {
   readonly profile: OwnerVideo2AudioSourceProfile;
@@ -487,6 +495,7 @@ export interface CreateMcpServerOptions {
   /** Explicit owner-local Veo T2V tools; omitted from default and HTTP servers. */
   ownerVeoT2v?: OwnerVeoT2vServiceComposition | undefined;
   ownerGrokT2v?: OwnerGrokT2vServiceComposition | undefined;
+  ownerHailuoLiveT2v?: OwnerHailuoLiveT2vServiceComposition | undefined;
   /** Explicit owner-local Video2Audio tools; omitted from default and HTTP servers. */
   ownerVideo2Audio?: OwnerVideo2AudioServiceComposition | undefined;
   /** Optional host-supplied, version-bound static evidence; never reads files or contacts SYNTX. */
@@ -625,7 +634,7 @@ export function createMcpServer(
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerSeedance20T2v ||
-        options.ownerKlingT2v || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerVideo2Audio)) {
+        options.ownerKlingT2v || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
   if (options.generationContractRegistry != null && options.generationContractRegistryV2 != null) {
@@ -1109,6 +1118,9 @@ export function createMcpServer(
   }
   if (options.ownerGrokT2v) {
     registerSyntxOwnerGrokT2vTools(server, { service: options.ownerGrokT2v.generationService });
+  }
+  if (options.ownerHailuoLiveT2v) {
+    registerSyntxOwnerHailuoLiveT2vTools(server, { service: options.ownerHailuoLiveT2v.generationService });
   }
   if (options.ownerVideo2Audio) {
     registerSyntxOwnerVideo2AudioTools(server, options.ownerVideo2Audio);

@@ -50,6 +50,11 @@ import {
   type OwnerKlingT2vSourceContract
 } from "./owner-kling-t2v-profile.js";
 import {
+  OWNER_HAILUO_LIVE_T2V_CONTRACT_REGISTRY_VERSION,
+  isAuthenticOwnerHailuoLiveT2vProfile,
+  type OwnerHailuoLiveT2vSourceContract
+} from "./owner-hailuo-live-t2v-profile.js";
+import {
   OWNER_VEO_T2V_CONTRACT_REGISTRY_VERSION,
   createOwnerVeoT2vProfile,
   isAuthenticOwnerVeoT2vProfile,
@@ -734,6 +739,34 @@ export class OwnerKlingT2vGenerationService {
     if (!engine) throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
     return engine;
   }
+}
+
+/** Hailuo Live fixed-pair ABI over its authentic source-bound no-reference profile. */
+export class OwnerHailuoLiveT2vGenerationService {
+  readonly #engine: OwnerReviewedNoReferenceT2vEngine<OwnerHailuoLiveT2vSourceContract>;
+
+  constructor(options: OwnerReviewedNoReferenceT2vServiceOptions<OwnerHailuoLiveT2vSourceContract>) {
+    if (!isAuthenticOwnerHailuoLiveT2vProfile(options.profile) ||
+        options.profile.registryVersion !== OWNER_HAILUO_LIVE_T2V_CONTRACT_REGISTRY_VERSION ||
+        contentAddressedVersion(options.profile.registry) !== OWNER_HAILUO_LIVE_T2V_CONTRACT_REGISTRY_VERSION) {
+      throw new Error("OWNER_REVIEWED_T2V_PROFILE_INVALID");
+    }
+    this.#engine = new OwnerReviewedNoReferenceT2vEngine(options);
+  }
+
+  getParametersSource(): OwnerHailuoLiveT2vSourceContract { return this.#engine.getParametersSource(); }
+  getReviewedContract() { return this.#engine.getReviewedContract(); }
+  generate(input: OwnerReviewedNoReferenceT2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.generate(input, signal);
+  }
+  reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.reconcile(input, signal);
+  }
+  listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
+    return this.#engine.listRecoveries(attemptId, limit);
+  }
+  invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
+  close(): Promise<void> { return this.#engine.close(); }
 }
 
 /** Model-selecting Veo T2V ABI over one independently sealed engine per source profile. */

@@ -125,6 +125,8 @@ import { OwnerVeoT2vGenerationService } from "../application/owner-reviewed-no-r
 import { createOwnerVeoT2vProfile } from "../application/owner-veo-t2v-profile.js";
 import { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerGrokT2vProfile } from "../application/owner-grok-t2v-profile.js";
+import { OwnerHailuoLiveT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { createOwnerHailuoLiveT2vProfile } from "../application/owner-hailuo-live-t2v-profile.js";
 import { createOwnerVideo2AudioSourceProfile } from "../application/owner-video2audio-source-profile.js";
 import { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import { createOwnerVideo2AudioRequestPreparer } from "../application/owner-video2audio-request-preparer.js";
@@ -196,6 +198,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerVeoT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for source-reviewed Grok T2V without references. */
   ownerGrokT2vEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for source-reviewed Hailuo-01 Live T2V. */
+  ownerHailuoLiveT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for Video2Audio upload, generation, and GET-only recovery. */
   ownerVideo2AudioEnabled?: boolean;
   /** Explicit owner-stdio opt-in for private Banana Inpaint uploads and generation. */
@@ -1639,6 +1643,43 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ profile, generationService, lifecycle });
       })()
     : undefined;
+  const ownerHailuoLiveT2v = options.ownerHailuoLiveT2vEnabled === true
+    ? (() => {
+        const profile = createOwnerHailuoLiveT2vProfile(options.catalogDirectory);
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveHailuoLiveChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_HAILUO_LIVE_T2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        let generationService: OwnerHailuoLiveT2vGenerationService;
+        try {
+          generationService = new OwnerHailuoLiveT2vGenerationService({
+            profile, binding: authBinding, linkService,
+            resolveSubscription: (attemptId, signal) => createReadClient(attemptId).getSubscription(signal),
+            resolveModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            resolveChatClient: resolveHailuoLiveChatClient, now
+          });
+        } catch (error) { clientsByAttempt.clear(); throw error; }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            try { await generationService.close(); }
+            finally { clientsByAttempt.clear(); }
+          }
+        });
+        return Object.freeze({ profile, generationService, lifecycle });
+      })()
+    : undefined;
   const ownerVideo2Audio = options.ownerVideo2AudioEnabled === true
     ? (() => {
         const profile = createOwnerVideo2AudioSourceProfile(options.catalogDirectory);
@@ -1714,6 +1755,7 @@ export function createObservedOwnerRuntime(
       ownerKlingT2v === undefined &&
       ownerVeoT2v === undefined &&
       ownerGrokT2v === undefined &&
+      ownerHailuoLiveT2v === undefined &&
       ownerVideo2Audio === undefined &&
       ownerUniImageReferences === undefined && ownerWanImageReferences === undefined && ownerStandardImageReferences === undefined &&
       ownerRunwayImageReferences === undefined && ownerSeedreamImageReferences === undefined &&
@@ -1785,6 +1827,10 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerHailuoLiveT2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerHailuoLiveT2v.lifecycle.invalidateAttempt(attemptId);
+            }
             if (ownerVideo2Audio !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerVideo2Audio.lifecycle.invalidateAttempt(attemptId);
@@ -1823,6 +1869,7 @@ export function createObservedOwnerRuntime(
         ownerKlingT2v === undefined &&
         ownerVeoT2v === undefined &&
         ownerGrokT2v === undefined &&
+        ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
@@ -1872,6 +1919,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerGrokT2v !== undefined) {
             try { await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerHailuoLiveT2v !== undefined) {
+            try { await ownerHailuoLiveT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerVideo2Audio !== undefined) {
             try { await ownerVideo2Audio.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -1969,6 +2019,7 @@ export function createObservedOwnerRuntime(
     ...(ownerKlingT2v === undefined ? {} : { ownerKlingT2v: { generationService: ownerKlingT2v.generationService } }),
     ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2v: { generationService: ownerVeoT2v.generationService } }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
+    ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
     ...(ownerSoulCatalogShape === undefined ? {} : { ownerSoulCatalogShape }),
     ...(ownerSoulStyleOptions === undefined ? {} : { ownerSoulStyleOptions }),
@@ -2017,6 +2068,7 @@ export function createObservedOwnerRuntime(
     ...(ownerKlingT2v === undefined ? {} : { ownerKlingT2vLifecycle: ownerKlingT2v.lifecycle }),
     ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2vLifecycle: ownerVeoT2v.lifecycle }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),
+    ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2vLifecycle: ownerHailuoLiveT2v.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle })
   };
 }

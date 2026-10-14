@@ -355,12 +355,45 @@ import {
   type InternalOwnerSoulImageResult,
   type OwnerSoulImageResultReadContext
 } from "./owner-soul-image-result.js";
+import {
+  parseOwnerTopazAstraOriginalUploadReceipt,
+  validateOwnerTopazAstraOriginalProbeForUpload,
+  type OwnerTopazAstraOriginalUploadContext
+} from "./topaz-astra-original-upload.js";
+import {
+  parseOwnerElevenLabsStsOriginalUploadReceipt,
+  validateOwnerElevenLabsStsOriginalProbeForUpload,
+  type OwnerElevenLabsStsOriginalUploadReference
+} from "./owner-elevenlabs-sts-original-upload.js";
 
 const V1_BASE_URL = new URL("https://api.syntx.ai/api/v1/");
 const OWNER_VIDEO2AUDIO_NATIVE_CHAT_LIMIT = 128;
 const OWNER_VIDEO2AUDIO_HISTORY_PAGE_SIZE = 10;
 const OWNER_VIDEO2AUDIO_HISTORY_MESSAGE_LIMIT = 64;
 const OWNER_VIDEO2AUDIO_HISTORY_PAGE_LIMIT = 7;
+const OWNER_TOPAZ_ASTRA_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
+  client: SyntxChatHttpClient;
+  url: string;
+  model_id: OwnerTopazAstraOriginalUploadContext["model_id"];
+  destination: SyntxUploadDestination;
+  source_sha256: string;
+  source_size: number;
+  source_mime_type: OwnerTopazAstraOriginalUploadContext["source_mime_type"];
+  width: number;
+  height: number;
+  duration_seconds: number;
+  decoded_frame_count: number;
+}>>();
+const OWNER_ELEVENLABS_STS_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
+  client: SyntxChatHttpClient;
+  url: string;
+  destination: SyntxUploadDestination;
+  model_type: "eleven_multilingual_sts_v2";
+  source_sha256: string;
+  size: number;
+  mime_type: "audio/mpeg";
+  duration_seconds: number;
+}>>();
 const OWNER_VIDEO2AUDIO_HISTORY_PAGE_SCHEMA = z.object({
   messages: z.array(z.unknown()).max(OWNER_VIDEO2AUDIO_HISTORY_PAGE_SIZE),
   pagination: z.object({
@@ -2135,6 +2168,24 @@ export class SyntxChatHttpClient {
       new URL("chats", V1_BASE_URL),
       "POST",
       { title, scope: "tool_image_upscaler" },
+      "JSON_REQUIRED",
+      signal
+    );
+    const parsed = createChatResponseSchema.safeParse(raw);
+    if (!parsed.success) throw protocolError();
+    return { chat_uuid: parsed.data.uuid };
+  }
+
+  /** Fixed owner-video-upscaler chat scope; callers cannot choose a scope value. */
+  async createVideoUpscalerChat(
+    title: string,
+    signal?: AbortSignal
+  ): Promise<CreateChatReceipt> {
+    validateBoundedText(title, MAX_TITLE_BYTES, true);
+    const raw = await this.#request(
+      new URL("chats", V1_BASE_URL),
+      "POST",
+      { title, scope: "tool_video_upscaler" },
       "JSON_REQUIRED",
       signal
     );
@@ -6021,6 +6072,107 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One native upload of a trusted Topaz Astra probe; its R2 URL stays in the private same-client context. */
+  async uploadTopazAstraOriginal(
+    genuineProbe: unknown,
+    destination: SyntxUploadDestination,
+    signal?: AbortSignal
+  ): Promise<OwnerTopazAstraOriginalUploadContext> {
+    if (destination !== "uploaded" && destination !== "hidden") throw invalidRequest();
+    let validated: ReturnType<typeof validateOwnerTopazAstraOriginalProbeForUpload>;
+    try { validated = validateOwnerTopazAstraOriginalProbeForUpload(genuineProbe); }
+    catch { throw invalidRequest(); }
+    const bytes = validated.bytes;
+    let form: FormData | undefined;
+    try {
+      form = this.#buildUploadForm({
+        bytes,
+        filename: validated.filename,
+        mime_type: validated.mime_type,
+        destination,
+        check_duplicates: true,
+        model_type: validated.model_id
+      }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      let reference: Readonly<{ url: string }>;
+      try {
+        reference = parseOwnerTopazAstraOriginalUploadReceipt(raw, validated);
+      } catch {
+        throw protocolError();
+      }
+      const context: OwnerTopazAstraOriginalUploadContext = Object.freeze({
+        status: "OWNER_TOPAZ_ASTRA_ORIGINAL_UPLOADED",
+        model_id: validated.model_id,
+        destination,
+        source_sha256: validated.sha256,
+        source_size: validated.size,
+        source_mime_type: validated.mime_type,
+        width: validated.width,
+        height: validated.height,
+        duration_seconds: validated.duration_seconds,
+        decoded_frame_count: validated.decoded_frame_count
+      });
+      OWNER_TOPAZ_ASTRA_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url,
+        model_id: context.model_id, destination, source_sha256: context.source_sha256,
+        source_size: context.source_size, source_mime_type: context.source_mime_type,
+        width: context.width, height: context.height, duration_seconds: context.duration_seconds,
+        decoded_frame_count: context.decoded_frame_count }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
+  /** One native upload of a trusted STS MP3; only a same-client private witness retains its R2 URL. */
+  async uploadElevenLabsStsOriginal(
+    genuineProbe: unknown,
+    destination: SyntxUploadDestination,
+    signal?: AbortSignal
+  ): Promise<OwnerElevenLabsStsOriginalUploadReference> {
+    if (destination !== "uploaded" && destination !== "hidden") throw invalidRequest();
+    let validated: ReturnType<typeof validateOwnerElevenLabsStsOriginalProbeForUpload>;
+    try { validated = validateOwnerElevenLabsStsOriginalProbeForUpload(genuineProbe); }
+    catch { throw invalidRequest(); }
+    const bytes = validated.bytes;
+    let form: FormData | undefined;
+    try {
+      form = this.#buildUploadForm({
+        bytes,
+        filename: validated.filename,
+        mime_type: "audio/mpeg",
+        destination,
+        check_duplicates: true,
+        model_type: "eleven_multilingual_sts_v2"
+      }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      let receipt: Readonly<{ url: string }>;
+      try { receipt = parseOwnerElevenLabsStsOriginalUploadReceipt(raw, validated); }
+      catch { throw protocolError(); }
+      const reference: OwnerElevenLabsStsOriginalUploadReference = Object.freeze({
+        status: "OWNER_ELEVENLABS_STS_ORIGINAL_UPLOADED",
+        source_sha256: validated.sha256,
+        size: validated.size,
+        mime_type: "audio/mpeg",
+        duration_seconds: validated.duration_seconds
+      });
+      OWNER_ELEVENLABS_STS_UPLOAD_CONTEXTS.set(reference, Object.freeze({
+        client: this,
+        url: receipt.url,
+        destination,
+        model_type: "eleven_multilingual_sts_v2",
+        source_sha256: reference.source_sha256,
+        size: reference.size,
+        mime_type: reference.mime_type,
+        duration_seconds: reference.duration_seconds
+      }));
+      return reference;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** Internal Clarity-only upload boundary with its source-declared image size and MIME policy. */
   async uploadClarityUpscaleImageReference(
     request: ClarityUpscaleImageUploadRequest,
@@ -6793,6 +6945,59 @@ export class SyntxChatHttpClient {
       throw unavailableError();
     }
   }
+}
+
+const NATIVE_OWNER_TOPAZ_ASTRA_UPLOAD = SyntxChatHttpClient.prototype.uploadTopazAstraOriginal;
+const NATIVE_OWNER_ELEVENLABS_STS_UPLOAD = SyntxChatHttpClient.prototype.uploadElevenLabsStsOriginal;
+
+export function isExactOwnerElevenLabsStsUploadClient(client: unknown): client is SyntxChatHttpClient {
+  if (!client || typeof client !== "object" || types.isProxy(client)) return false;
+  try {
+    return Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      SyntxChatHttpClient.prototype.uploadElevenLabsStsOriginal === NATIVE_OWNER_ELEVENLABS_STS_UPLOAD &&
+      Reflect.get(client, "uploadElevenLabsStsOriginal") === NATIVE_OWNER_ELEVENLABS_STS_UPLOAD;
+  } catch { return false; }
+}
+
+/** Private same-client bridge for native composition; never return this URL from an MCP DTO. */
+export function readOwnerTopazAstraOriginalUploadForClient(
+  client: unknown,
+  contextInput: unknown
+): (OwnerTopazAstraOriginalUploadContext & Readonly<{ url: string }>) | null {
+  if (!client || typeof client !== "object" || types.isProxy(client) ||
+      Object.getPrototypeOf(client) !== SyntxChatHttpClient.prototype ||
+      SyntxChatHttpClient.prototype.uploadTopazAstraOriginal !== NATIVE_OWNER_TOPAZ_ASTRA_UPLOAD ||
+      !contextInput || typeof contextInput !== "object" || types.isProxy(contextInput)) return null;
+  const witness = OWNER_TOPAZ_ASTRA_UPLOAD_CONTEXTS.get(contextInput);
+  if (!witness || witness.client !== client || !isSafeUploadReferenceUrl(witness.url)) return null;
+  const value = contextInput as OwnerTopazAstraOriginalUploadContext;
+  if (value.status !== "OWNER_TOPAZ_ASTRA_ORIGINAL_UPLOADED" || value.model_id !== witness.model_id ||
+      value.destination !== witness.destination || value.source_sha256 !== witness.source_sha256 ||
+      value.source_size !== witness.source_size || value.source_mime_type !== witness.source_mime_type ||
+      value.width !== witness.width || value.height !== witness.height ||
+      value.duration_seconds !== witness.duration_seconds || value.decoded_frame_count !== witness.decoded_frame_count) return null;
+  return Object.freeze({ status: value.status, model_id: witness.model_id, destination: witness.destination,
+    source_sha256: witness.source_sha256, source_size: witness.source_size,
+    source_mime_type: witness.source_mime_type, width: witness.width, height: witness.height,
+    duration_seconds: witness.duration_seconds, decoded_frame_count: witness.decoded_frame_count, url: witness.url });
+}
+
+/** Private same-client bridge for STS composition; the URL never enters the DTO. */
+export function readOwnerElevenLabsStsOriginalUploadForClient(
+  client: unknown,
+  referenceInput: unknown
+): (OwnerElevenLabsStsOriginalUploadReference & Readonly<{ destination: SyntxUploadDestination; model_type: "eleven_multilingual_sts_v2"; url: string }>) | null {
+  if (!isExactOwnerElevenLabsStsUploadClient(client) ||
+      !referenceInput || typeof referenceInput !== "object" || types.isProxy(referenceInput)) return null;
+  const witness = OWNER_ELEVENLABS_STS_UPLOAD_CONTEXTS.get(referenceInput);
+  if (!witness || witness.client !== client || !isSafeUploadReferenceUrl(witness.url)) return null;
+  const reference = referenceInput as OwnerElevenLabsStsOriginalUploadReference;
+  if (reference.status !== "OWNER_ELEVENLABS_STS_ORIGINAL_UPLOADED" ||
+      reference.source_sha256 !== witness.source_sha256 || reference.size !== witness.size ||
+      reference.mime_type !== witness.mime_type || reference.duration_seconds !== witness.duration_seconds) return null;
+  return Object.freeze({ status: reference.status, source_sha256: witness.source_sha256, size: witness.size,
+    mime_type: witness.mime_type, duration_seconds: witness.duration_seconds, destination: witness.destination,
+    model_type: witness.model_type, url: witness.url });
 }
 
 /** Checks a private upload witness against the same native client and authentic pinned source profile. */

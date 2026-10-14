@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test dist/tests/owner-kling-i2v-destination-1396.test.js dist/tests/owner-kling-i2v-sha-contract-1400.test.js",
+    "test:media:changed": "node --test dist/tests/owner-video-upscaler-chat-1409.test.js dist/tests/owner-topaz-astra-original-probe-1413.test.js dist/tests/owner-topaz-astra-original-upload-1419.test.js dist/tests/owner-topaz-astra-original-reference-service-1430.test.js dist/tests/owner-topaz-astra-owned-request-preparer-1443.test.js dist/tests/owner-elevenlabs-sts-original-probe-1432.test.js dist/tests/owner-elevenlabs-sts-original-upload-1432.test.js dist/tests/owner-elevenlabs-sts-parameters-1438.test.js dist/tests/owner-elevenlabs-sts-result-codec-1438.test.js dist/tests/owner-elevenlabs-sts-original-reference-service-1442.test.js dist/tests/owner-elevenlabs-sts-request-preparer-1445.test.js",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

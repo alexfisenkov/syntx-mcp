@@ -448,7 +448,7 @@ export class OwnerKlingI2VImageReferenceService {
 
 function receiptFor(record: ImageRecord, now: number): OwnerKlingI2VImageUploadReceipt {
   return Object.freeze({ status: "uploaded", image_handle: record.handle, model_id: "kling_image2video", mime_type: record.mimeType,
-    size: record.size, sha256: `sha256:${record.sha256}`, width: record.width, height: record.height,
+    size: record.size, sha256: record.sha256, width: record.width, height: record.height,
     expires_in_seconds: Math.floor(Math.max(0, record.expiresAt - now) / 1000),
     input_acceptance: "SOURCE_FORMAT_DECLARED_PROVIDER_ACCEPTANCE_UNVERIFIED" });
 }

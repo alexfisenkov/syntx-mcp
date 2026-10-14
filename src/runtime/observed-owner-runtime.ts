@@ -1587,7 +1587,7 @@ export function createObservedOwnerRuntime(
           binding: authBinding,
           linkService,
           resolveClient: resolveKlingI2vChatClient,
-          destination: "hidden",
+          destination: "uploaded",
           now
         });
         let generationService: OwnerKlingI2vGenerationService;

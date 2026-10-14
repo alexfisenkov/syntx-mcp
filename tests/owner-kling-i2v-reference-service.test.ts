@@ -84,7 +84,7 @@ test("uploads one validated Kling image for a currently linked owner and returns
     assert.equal(receipt.size, JPEG.byteLength);
     assert.equal(receipt.width, 300);
     assert.equal(receipt.height, 300);
-    assert.equal(receipt.sha256, `sha256:${createHash("sha256").update(JPEG).digest("hex")}`);
+    assert.equal(receipt.sha256, createHash("sha256").update(JPEG).digest("hex"));
     assert.equal(receipt.expires_in_seconds, 900);
     for (const value of [UPLOAD_URL, "synthetic-private-file-id", "kling-frame.jpg", ATTEMPT, "synthetic-link-token"])
       assert.equal(JSON.stringify(receipt).includes(value), false);

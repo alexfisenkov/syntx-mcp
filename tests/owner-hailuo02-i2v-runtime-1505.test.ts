@@ -45,8 +45,9 @@ test("Hailuo-02 I2V runtime composes genuine owner services on its pinned catalo
   const revokedAttempt = "link_hailuo_i2v_runtime_revoke_00001";
   await runtime.authStore.createAttempt({ attempt_id: revokedAttempt, binding: runtime.authBinding,
     expires_at_ms: Date.now() + 60_000 });
+  assert.ok(runtime.serverOptions.auth);
   await runtime.serverOptions.auth.linkService.revoke(runtime.authBinding, revokedAttempt);
-  assert.equal((await runtime.serverOptions.auth.linkService.getStatus(runtime.authBinding, revokedAttempt)).status, "REVOKED");
+  assert.equal((await runtime.linkService.getStatus(runtime.authBinding, revokedAttempt)).status, "REVOKED");
   assert.equal(networkCalls, 0);
 
   const events: string[] = [];

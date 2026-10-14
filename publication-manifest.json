@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "d471c78070a474f6cee75786f5ed4bb155ea36d8",
+  "source_commit": "dc2ac3c5fa1b769861e79342d10beba5c9e2f783",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2271,7 +2271,7 @@
     "tests/owner-hailuo02-i2v-native-upload-1485.test.ts": "f3e1278def177280b5365e008463ff4c66b9800514c5912f7b6663dfe54e3be4",
     "tests/owner-hailuo02-i2v-parameters-1479.test.ts": "80f860aa79d507d6e8c5729a548f1c014293e003a65699d6ee8b75f9c213aa84",
     "tests/owner-hailuo02-i2v-request-preparer-1492.test.ts": "e9a25bcb0121f6a14940bea774c7e4a7286369fedcba28cac9bbb41bdcd64101",
-    "tests/owner-hailuo02-i2v-runtime-1505.test.ts": "5a27036b8db766b1f94e19e5eb27c746b2442ee89585e9fb5c93e7919fb794d9",
+    "tests/owner-hailuo02-i2v-runtime-1505.test.ts": "07e629e0e1774271efad0a204f917d16626a0cc74b586ac13a3ccbf15d622cba",
     "tests/owner-hailuo02-i2v-tools-1504.test.ts": "7b5f33031564b54fa70cfbc14376cac511b3c4f0af54c6de294e625bb9564dc7",
     "tests/owner-hailuo02-t2v-generation-service.test.ts": "1b3e012d2b4171348fb160ec0a698430893f1e1ddfd98a1a3d3ba8d6d4a1339f",
     "tests/owner-hailuo02-t2v-profile.test.ts": "d9191d4ce2267ffc64e3a03b77410d36e1402e95f5a5df3f046e8018d405f0d2",

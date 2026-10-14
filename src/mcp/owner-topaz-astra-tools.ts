@@ -6,6 +6,7 @@ import { OwnerTopazAstraGenerationService, OwnerTopazAstraGenerationServiceError
   isOwnerTopazAstraGenerationService, type OwnerTopazAstraGenerationServiceErrorCode } from "../application/owner-topaz-astra-generation-service.js";
 import { OwnerTopazAstraOriginalReferenceService, OwnerTopazAstraOriginalReferenceServiceError,
   type OwnerTopazAstraOriginalReferenceServiceErrorCode } from "../application/owner-topaz-astra-original-reference-service.js";
+import { isOwnerTopazAstraExistingMediaService, type OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-astra-existing-media-service.js";
 import { OWNER_TOPAZ_ASTRA_MODEL_IDS, getOwnerTopazAstraSourceProfile } from "../application/owner-topaz-astra-source-profile.js";
 import { OWNER_TOPAZ_ASTRA_PROMPT_LOCAL_BOUND } from "../application/owner-topaz-astra-parameters.js";
 
@@ -63,6 +64,12 @@ export const OWNER_TOPAZ_ASTRA_TOOL_NAMES = Object.freeze([SYNTX_GET_TOPAZ_ASTRA
   SYNTX_OWNER_GET_TOPAZ_ASTRA_RESULT_PAGE_TOOL_NAME] as const);
 
 export interface OwnerTopazAstraServiceComposition {
+  readonly generationService: OwnerTopazAstraGenerationService;
+  readonly originalReferenceService: OwnerTopazAstraOriginalReferenceService;
+  readonly existingMediaService?: OwnerTopazAstraExistingMediaService;
+}
+
+interface OwnerTopazAstraGenerationToolComposition {
   readonly generationService: OwnerTopazAstraGenerationService;
   readonly originalReferenceService: OwnerTopazAstraOriginalReferenceService;
 }
@@ -142,12 +149,16 @@ const ORIG_MESSAGES: Record<OwnerTopazAstraOriginalReferenceServiceErrorCode, st
   UPLOAD_OUTCOME_UNKNOWN: "The upload outcome is unknown; do not repeat it.", REFERENCE_UNAVAILABLE: "The uploaded original is unavailable.",
   REFERENCE_EXPIRED: "The uploaded original has expired."
 };
-function exactOptions(v: unknown): OwnerTopazAstraServiceComposition {
+function exactOptions(v: unknown): OwnerTopazAstraGenerationToolComposition {
   if (!v || typeof v !== "object" || types.isProxy(v) || Object.getPrototypeOf(v) !== Object.prototype) throw new Error("TOPAZ_ASTRA_SERVICE_COMPOSITION_INVALID");
   const d = Object.getOwnPropertyDescriptors(v), keys = Reflect.ownKeys(d);
-  if (keys.length !== 2 || keys.some((k) => { const descriptor = Object.getOwnPropertyDescriptor(v, k); return typeof k !== "string" || !["generationService", "originalReferenceService"].includes(k) ||
-    !descriptor || !("value" in descriptor) || !descriptor.enumerable; }) ||
+  if (keys.length < 2 || keys.length > 3 || keys.some((k) => { const descriptor = Object.getOwnPropertyDescriptor(v, k); return typeof k !== "string" ||
+    !["generationService", "originalReferenceService", "existingMediaService"].includes(k) || !descriptor || !("value" in descriptor) || !descriptor.enumerable; }) ||
+      !Object.hasOwn(d, "generationService") || !Object.hasOwn(d, "originalReferenceService") ||
       !isOwnerTopazAstraGenerationService(d.generationService?.value) || !isOriginal(d.originalReferenceService?.value)) throw new Error("TOPAZ_ASTRA_SERVICE_COMPOSITION_INVALID");
+  if (Object.hasOwn(d, "existingMediaService") && !isOwnerTopazAstraExistingMediaService(d.existingMediaService?.value)) {
+    throw new Error("TOPAZ_ASTRA_SERVICE_COMPOSITION_INVALID");
+  }
   return Object.freeze({ generationService: d.generationService!.value as OwnerTopazAstraGenerationService,
     originalReferenceService: d.originalReferenceService!.value as OwnerTopazAstraOriginalReferenceService });
 }

@@ -23,6 +23,7 @@ import { loadGenerationContractRegistryV2 } from "../catalog/generation-contract
 import { loadSelectedDiscoveryCatalog } from "../catalog/selected-discovery-catalog.js";
 import { getOwnerImageReferenceCandidateStoreBinding } from "../application/owner-image-reference-request-preparer.js";
 import { loadOwnerGrokImageReferenceProfileSetV1 } from "../catalog/owner-grok-image-reference-profile-history.js";
+import { isAbsolute } from "node:path";
 
 const OWNER_IMAGE_REFERENCE_REGISTRY_VERSION =
   "sha256-0e5b7a6ab56a4fc5103c025690293297b49258c1c876d7a0a663ff7959099d39.json";
@@ -143,6 +144,24 @@ export function readOwnerElevenLabsTtsFlag(value: string | undefined): boolean {
   throw new Error("Invalid SYNTX_OWNER_ELEVENLABS_TTS configuration.");
 }
 
+/** Strict default-off gate for private ElevenLabs STS tools. */
+export function readOwnerElevenLabsStsFlag(value: string | undefined): boolean {
+  if (value === undefined || value === "" || value === "0") return false;
+  if (value === "1") return true;
+  throw new Error("Invalid SYNTX_OWNER_ELEVENLABS_STS configuration.");
+}
+
+/** Trusted local STS operator settings; both values are mandatory when enabled. */
+export function readOwnerElevenLabsStsOperatorConfiguration(enabled: boolean, ffprobePath: string | undefined,
+  destination: string | undefined): Readonly<{ ffprobePath: string; destination: "uploaded" | "hidden" }> | undefined {
+  if (!enabled) return undefined;
+  if (typeof ffprobePath !== "string" || ffprobePath.length === 0 || !isAbsolute(ffprobePath) ||
+      (destination !== "uploaded" && destination !== "hidden")) {
+    throw new Error("Invalid SYNTX_OWNER_ELEVENLABS_STS operator configuration.");
+  }
+  return Object.freeze({ ffprobePath, destination });
+}
+
 /** Strict default-off gate for the pinned private Suno generation composition. */
 export function readOwnerSunoGenerationFlag(value: string | undefined): boolean {
   if (value === undefined || value === "" || value === "0") return false;
@@ -242,6 +261,12 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerWanT2vVideosEnabled = readOwnerWanT2vVideosFlag(process.env.SYNTX_OWNER_WAN_T2V_VIDEOS);
   const ownerElevenLabsTtsEnabled = readOwnerElevenLabsTtsFlag(process.env.SYNTX_OWNER_ELEVENLABS_TTS);
   const ownerElevenLabsDialogueEnabled = readOwnerFlag("SYNTX_OWNER_ELEVENLABS_DIALOGUE");
+  const ownerElevenLabsStsEnabled = readOwnerElevenLabsStsFlag(process.env.SYNTX_OWNER_ELEVENLABS_STS);
+  const ownerElevenLabsStsOperatorConfiguration = readOwnerElevenLabsStsOperatorConfiguration(
+    ownerElevenLabsStsEnabled,
+    process.env.SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH,
+    process.env.SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION
+  );
   const ownerSunoGenerationEnabled = readOwnerSunoGenerationFlag(process.env.SYNTX_OWNER_SUNO_GENERATION);
   const ownerLumaT2vEnabled = readOwnerLumaT2vFlag(process.env.SYNTX_OWNER_LUMA_T2V);
   const ownerHailuo01T2vEnabled = readOwnerHailuo01T2vFlag(process.env.SYNTX_OWNER_HAILUO01_T2V);
@@ -281,7 +306,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         ownerKontextImageReferencesEnabled || ownerWanImageReferencesEnabled || ownerStandardImageReferencesEnabled ||
         ownerRunwayImageReferencesEnabled || ownerSeedreamImageReferencesEnabled || ownerSeedreamEditorImageReferencesEnabled ||
         ownerWanT2vVideosEnabled ||
-        ownerElevenLabsTtsEnabled || ownerElevenLabsDialogueEnabled ||
+        ownerElevenLabsTtsEnabled || ownerElevenLabsDialogueEnabled || ownerElevenLabsStsEnabled ||
         ownerSunoGenerationEnabled ||
         ownerLumaT2vEnabled ||
         ownerHailuo01T2vEnabled ||
@@ -344,6 +369,11 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerWanT2vVideosEnabled,
       ownerElevenLabsTtsEnabled,
       ownerElevenLabsDialogueEnabled,
+      ownerElevenLabsStsEnabled,
+      ...(ownerElevenLabsStsOperatorConfiguration === undefined ? {} : {
+        ownerElevenLabsStsFfprobePath: ownerElevenLabsStsOperatorConfiguration.ffprobePath,
+        ownerElevenLabsStsUploadDestination: ownerElevenLabsStsOperatorConfiguration.destination
+      }),
       ownerSunoGenerationEnabled,
       ownerLumaT2vEnabled,
       ownerHailuo01T2vEnabled,
@@ -387,6 +417,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const wanT2vVideosService = runtime.serverOptions.ownerWanT2vVideos?.generationService;
       const elevenLabsTtsService = runtime.serverOptions.ownerElevenLabsTts?.generationService;
       const elevenLabsDialogueService = runtime.serverOptions.ownerElevenLabsDialogue?.generationService;
+      const elevenLabsStsGenerationService = runtime.serverOptions.ownerElevenLabsSts?.generationService;
       const sunoGenerationService = runtime.serverOptions.ownerSunoGeneration?.generationService;
       const lumaT2vGenerationService = runtime.serverOptions.ownerLumaT2v?.generationService;
       const hailuo01T2vGenerationService = runtime.serverOptions.ownerHailuo01T2v?.generationService;
@@ -412,6 +443,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           seedreamEditorImageReferencesService === undefined &&
           wanT2vVideosService === undefined &&
           elevenLabsTtsService === undefined && elevenLabsDialogueService === undefined &&
+          elevenLabsStsGenerationService === undefined &&
           sunoGenerationService === undefined &&
           lumaT2vGenerationService === undefined &&
           hailuo01T2vGenerationService === undefined &&
@@ -463,6 +495,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerVideo2AudioLifecycle,
         runtime.ownerHailuo02T2vLifecycle,
         runtime.ownerElevenLabsDialogueLifecycle,
+        runtime.ownerElevenLabsStsLifecycle,
         runtime.ownerSeedance20T2vLifecycle,
         runtime.ownerKlingT2vLifecycle,
         runtime.ownerVeoT2vLifecycle,
@@ -518,6 +551,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const wanT2vVideosService = runtime.serverOptions.ownerWanT2vVideos?.generationService;
       const elevenLabsTtsService = runtime.serverOptions.ownerElevenLabsTts?.generationService;
       const elevenLabsDialogueService = runtime.serverOptions.ownerElevenLabsDialogue?.generationService;
+      const elevenLabsStsGenerationService = runtime.serverOptions.ownerElevenLabsSts?.generationService;
       const sunoGenerationService = runtime.serverOptions.ownerSunoGeneration?.generationService;
       const lumaT2vGenerationService = runtime.serverOptions.ownerLumaT2v?.generationService;
       const hailuo01T2vGenerationService = runtime.serverOptions.ownerHailuo01T2v?.generationService;
@@ -543,6 +577,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           seedreamEditorImageReferencesService === undefined &&
           wanT2vVideosService === undefined &&
           elevenLabsTtsService === undefined && elevenLabsDialogueService === undefined &&
+          elevenLabsStsGenerationService === undefined &&
           sunoGenerationService === undefined &&
           lumaT2vGenerationService === undefined &&
           hailuo01T2vGenerationService === undefined &&
@@ -591,6 +626,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerVideo2AudioLifecycle,
           runtime.ownerHailuo02T2vLifecycle,
           runtime.ownerElevenLabsDialogueLifecycle,
+          runtime.ownerElevenLabsStsLifecycle,
           runtime.ownerSeedance20T2vLifecycle,
           runtime.ownerKlingT2vLifecycle,
           runtime.ownerVeoT2vLifecycle,
@@ -648,6 +684,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerVideo2AudioLifecycle,
         runtime.ownerHailuo02T2vLifecycle,
         runtime.ownerElevenLabsDialogueLifecycle,
+        runtime.ownerElevenLabsStsLifecycle,
         runtime.ownerSeedance20T2vLifecycle,
         runtime.ownerKlingT2vLifecycle,
         runtime.ownerVeoT2vLifecycle,
@@ -852,6 +889,7 @@ export function closeOwnerReadServicesOnTransportEof(
   ownerVideo2AudioLifecycle?: { close(): Promise<void> } | undefined,
   ownerHailuo02T2vLifecycle?: { close(): Promise<void> } | undefined,
   ownerElevenLabsDialogueLifecycle?: { close(): Promise<void> } | undefined,
+  ownerElevenLabsStsLifecycle?: { close(): Promise<void> } | undefined,
   ownerSeedance20T2vLifecycle?: { close(): Promise<void> } | undefined,
   ownerKlingT2vLifecycle?: { close(): Promise<void> } | undefined,
   ownerVeoT2vLifecycle?: { close(): Promise<void> } | undefined,
@@ -869,7 +907,7 @@ export function closeOwnerReadServicesOnTransportEof(
       bananaInpaintImageGenerationService === undefined && seedreamEditorImageReferencesLifecycle === undefined &&
       wanT2vVideosLifecycle === undefined && elevenLabsTtsLifecycle === undefined && ownerSunoGenerationLifecycle === undefined &&
       ownerLumaT2vLifecycle === undefined && ownerHailuo01T2vLifecycle === undefined && ownerHailuo01DirectorT2vLifecycle === undefined &&
-      ownerHailuo23T2vLifecycle === undefined && ownerVideo2AudioLifecycle === undefined && ownerHailuo02T2vLifecycle === undefined && ownerElevenLabsDialogueLifecycle === undefined && ownerSeedance20T2vLifecycle === undefined && ownerKlingT2vLifecycle === undefined && ownerVeoT2vLifecycle === undefined && ownerGrokT2vLifecycle === undefined && ownerHailuoLiveT2vLifecycle === undefined && ownerKlingI2vLifecycle === undefined) {
+      ownerHailuo23T2vLifecycle === undefined && ownerVideo2AudioLifecycle === undefined && ownerHailuo02T2vLifecycle === undefined && ownerElevenLabsDialogueLifecycle === undefined && ownerElevenLabsStsLifecycle === undefined && ownerSeedance20T2vLifecycle === undefined && ownerKlingT2vLifecycle === undefined && ownerVeoT2vLifecycle === undefined && ownerGrokT2vLifecycle === undefined && ownerHailuoLiveT2vLifecycle === undefined && ownerKlingI2vLifecycle === undefined) {
     throw new Error("OWNER_READ_SERVICE_REQUIRED");
   }
   return closeOwnerImageReferenceServiceOnTransportEof(
@@ -880,7 +918,7 @@ export function closeOwnerReadServicesOnTransportEof(
         for (const service of [soulImageGenerationService, wanT2iImageGenerationService, bananaInpaintImageGenerationService,
           seedreamEditorImageReferencesLifecycle, wanT2vVideosLifecycle, elevenLabsTtsLifecycle, ownerSunoGenerationLifecycle,
           ownerLumaT2vLifecycle, ownerHailuo01T2vLifecycle,
-          ownerHailuo01DirectorT2vLifecycle, ownerHailuo23T2vLifecycle, ownerVideo2AudioLifecycle, ownerHailuo02T2vLifecycle, ownerElevenLabsDialogueLifecycle, ownerSeedance20T2vLifecycle, ownerKlingT2vLifecycle, ownerVeoT2vLifecycle, ownerGrokT2vLifecycle, ownerHailuoLiveT2vLifecycle, ownerKlingI2vLifecycle,
+          ownerHailuo01DirectorT2vLifecycle, ownerHailuo23T2vLifecycle, ownerVideo2AudioLifecycle, ownerHailuo02T2vLifecycle, ownerElevenLabsDialogueLifecycle, ownerElevenLabsStsLifecycle, ownerSeedance20T2vLifecycle, ownerKlingT2vLifecycle, ownerVeoT2vLifecycle, ownerGrokT2vLifecycle, ownerHailuoLiveT2vLifecycle, ownerKlingI2vLifecycle,
           imageService, grokService, soulShapeService, soulStyleOptionsService,
           clarityUpscaleService, magnificUpscaleService, kontextImageReferencesService, wanImageReferencesService,
           standardImageReferencesService, runwayImageReferencesService, seedreamImageReferencesService,

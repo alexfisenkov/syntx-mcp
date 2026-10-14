@@ -27,6 +27,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_WAN_T2V_VIDEOS",
   "SYNTX_OWNER_ELEVENLABS_TTS",
   "SYNTX_OWNER_ELEVENLABS_DIALOGUE",
+  "SYNTX_OWNER_ELEVENLABS_STS",
   "SYNTX_OWNER_SUNO_GENERATION",
   "SYNTX_OWNER_LUMA_T2V",
   "SYNTX_OWNER_HAILUO01_T2V",
@@ -66,6 +67,7 @@ const HELP_TEXT = [
   "Without the exact confirmation flag, no configuration is emitted.",
   "This command does not edit client settings, read credentials, log in, or call the network.",
   "The confirmed owner-stdio config enables Kling I2V with SYNTX_OWNER_KLING_I2V=1.",
+  "ElevenLabs STS operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "The emitted tools can perform paid generation only when explicitly called by the client."
 ].join("\n") + "\n";
 
@@ -108,7 +110,9 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
   const ownerStdioEntrypoint = resolve(packageRoot, "dist", "src", "transports", "stdio-owner.js");
   const env = Object.fromEntries([
     ...ENABLED_FLAGS.map((flag) => [flag, "1"]),
-    ...DISABLED_FLAGS.map((flag) => [flag, "0"])
+    ...DISABLED_FLAGS.map((flag) => [flag, "0"]),
+    ["SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH", "<absolute path to ffprobe>"],
+    ["SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION", "<uploaded|hidden>"]
   ]);
 
   return Object.freeze({

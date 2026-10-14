@@ -365,6 +365,7 @@ import {
   validateOwnerElevenLabsStsOriginalProbeForUpload,
   type OwnerElevenLabsStsOriginalUploadReference
 } from "./owner-elevenlabs-sts-original-upload.js";
+import type { OwnerElevenLabsStsResult } from "./owner-elevenlabs-sts-result-codec.js";
 
 const V1_BASE_URL = new URL("https://api.syntx.ai/api/v1/");
 const OWNER_VIDEO2AUDIO_NATIVE_CHAT_LIMIT = 128;
@@ -4300,6 +4301,49 @@ export class SyntxChatHttpClient {
     );
   }
 
+  /** Creates one owner STS chat from a genuine preparer candidate and one-shot permit. */
+  async createOwnerElevenLabsStsChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-elevenlabs-sts-native-context.js").OwnerElevenLabsStsChatContext> {
+    assertNativeOwnerElevenLabsStsClient(this);
+    const native = await import("./owner-elevenlabs-sts-native-context.js");
+    const packet = createOwnerElevenLabsStsNativeInvocation(this, "create", input,
+      (scope: SyntxChatScope, title: string, requestSignal?: AbortSignal) =>
+        Reflect.apply(NATIVE_OWNER_ELEVENLABS_STS_CREATE_CHAT, this, [scope, title, requestSignal]));
+    return native.createOwnerElevenLabsStsNativeChat(input, packet, signal);
+  }
+
+  /** Revalidates and consumes one genuine permit before the sole fixed STS generation POST. */
+  async startElevenLabsStsWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerElevenLabsStsClient(this);
+    const native = await import("./owner-elevenlabs-sts-native-context.js");
+    const packet = createOwnerElevenLabsStsNativeInvocation(this, "start", input, async (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) => {
+      const receipt = await this.#startMedia("audio/generate", "elevenlabs", chatUuid, body as Record<string, JsonValue>, requestSignal);
+      return receipt;
+    });
+    return native.startOwnerElevenLabsStsNativeGeneration(input, packet, signal);
+  }
+
+  /** Bounded GET-only owned history read; contexts require the exact POST ACK and STS v2 bot object. */
+  async listOwnedElevenLabsStsCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-elevenlabs-sts-native-context.js").OwnerElevenLabsStsResultCandidates> {
+    assertNativeOwnerElevenLabsStsClient(this);
+    const native = await import("./owner-elevenlabs-sts-native-context.js");
+    const packet = createOwnerElevenLabsStsNativeInvocation(this, "list", input, async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+      const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+      url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+      return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+    });
+    return native.listOwnerElevenLabsStsNativeCandidates(input, packet, signal);
+  }
+
+  /** Reads only an exact result context minted by this client's bounded owned STS history. */
+  async getOwnedElevenLabsStsResult(input: unknown, signal?: AbortSignal): Promise<OwnerElevenLabsStsResult> {
+    assertNativeOwnerElevenLabsStsClient(this);
+    const native = await import("./owner-elevenlabs-sts-native-context.js");
+    const packet = createOwnerElevenLabsStsNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) => this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL),
+        "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerElevenLabsStsNativeResult(input, packet, signal);
+  }
+
   /** Creates one native Video2Audio chat bound to an authentic candidate, before any one-shot permit is minted. */
   async createVideo2AudioChat(input: CreateVideo2AudioChatInput | unknown, signal?: AbortSignal): Promise<OwnerVideo2AudioChatContext> {
     assertNativeOwnerVideo2AudioClient(this);
@@ -6949,6 +6993,51 @@ export class SyntxChatHttpClient {
 
 const NATIVE_OWNER_TOPAZ_ASTRA_UPLOAD = SyntxChatHttpClient.prototype.uploadTopazAstraOriginal;
 const NATIVE_OWNER_ELEVENLABS_STS_UPLOAD = SyntxChatHttpClient.prototype.uploadElevenLabsStsOriginal;
+const NATIVE_OWNER_ELEVENLABS_STS_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerElevenLabsStsChat;
+const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_START = SyntxChatHttpClient.prototype.startElevenLabsStsWithOwnedCandidate;
+const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedElevenLabsStsCandidates;
+const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedElevenLabsStsResult;
+type OwnerElevenLabsStsNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerElevenLabsStsNativeInvocation {
+  readonly client: SyntxChatHttpClient;
+  readonly method: OwnerElevenLabsStsNativeMethod;
+  readonly input: unknown;
+  readonly callback: Function;
+}
+const OWNER_ELEVENLABS_STS_NATIVE_INVOCATIONS = new WeakMap<object, OwnerElevenLabsStsNativeInvocation>();
+
+function createOwnerElevenLabsStsNativeInvocation(client: SyntxChatHttpClient, method: OwnerElevenLabsStsNativeMethod,
+  input: unknown, callback: Function): object {
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_ELEVENLABS_STS_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** Private invocation bridge for the adjacent adapter helper; packets are minted only inside the four native methods. */
+export function consumeOwnerElevenLabsStsNativeInvocation(input: unknown, packet: unknown,
+  method: OwnerElevenLabsStsNativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw new Error("OWNER_ELEVENLABS_STS_INVOCATION_INVALID");
+  const invocation = OWNER_ELEVENLABS_STS_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method ||
+      !isExactOwnerElevenLabsStsUploadClient(invocation.client)) throw new Error("OWNER_ELEVENLABS_STS_INVOCATION_INVALID");
+  assertNativeOwnerElevenLabsStsClient(invocation.client);
+  OWNER_ELEVENLABS_STS_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerElevenLabsStsClient(client: unknown): asserts client is SyntxChatHttpClient {
+  try {
+    if (!client || typeof client !== "object" || types.isProxy(client) || Object.getPrototypeOf(client) !== SyntxChatHttpClient.prototype ||
+        getDataMethod(client, "createChat") !== NATIVE_OWNER_ELEVENLABS_STS_CREATE_CHAT ||
+        Reflect.get(client, "createChat") !== NATIVE_OWNER_ELEVENLABS_STS_CREATE_CHAT ||
+        getDataMethod(client, "createOwnerElevenLabsStsChat") !== NATIVE_OWNER_ELEVENLABS_STS_NATIVE_CREATE ||
+        getDataMethod(client, "startElevenLabsStsWithOwnedCandidate") !== NATIVE_OWNER_ELEVENLABS_STS_NATIVE_START ||
+        getDataMethod(client, "listOwnedElevenLabsStsCandidates") !== NATIVE_OWNER_ELEVENLABS_STS_NATIVE_LIST ||
+        getDataMethod(client, "getOwnedElevenLabsStsResult") !== NATIVE_OWNER_ELEVENLABS_STS_NATIVE_GET ||
+        !isExactOwnerElevenLabsStsUploadClient(client)) throw null;
+  } catch { throw new Error("OWNER_ELEVENLABS_STS_NATIVE_CLIENT_INVALID"); }
+}
 
 export function isExactOwnerElevenLabsStsUploadClient(client: unknown): client is SyntxChatHttpClient {
   if (!client || typeof client !== "object" || types.isProxy(client)) return false;

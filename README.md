@@ -9,13 +9,52 @@ linking и некоторых явно описанных image, video и audio 
 
 ### Speech-to-Speech и Topaz: текущая разработка
 
+STS теперь имеет шесть MCP-команд в owner-stdio контуре:
+
+- `syntx_get_elevenlabs_sts_parameters`;
+- `syntx_owner_upload_elevenlabs_sts_original`;
+- `syntx_owner_generate_elevenlabs_sts`;
+- `syntx_owner_reconcile_elevenlabs_sts`;
+- `syntx_owner_list_elevenlabs_sts_recoveries`;
+- `syntx_owner_get_elevenlabs_sts_result_page`.
+
+Включение по умолчанию выключено. Оператор задаёт `SYNTX_OWNER_ELEVENLABS_STS=1`,
+`SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH` — абсолютный путь к установленному
+`ffprobe`, и `SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION` — явно `uploaded`
+или `hidden`. Назначение не выбирается автоматически. Обычный HTTP-сервер
+эту операцию не включает.
+
+Войдите через обычный Telegram flow. Команда общего списка голосов
+`syntx_owner_list_elevenlabs_voice_references` возвращает доступные ссылки
+`voice_ref`. Upload принимает `link_attempt_id`, `filename` с расширением
+`.mp3`, `mime_type: "audio/mpeg"`, `content_base64` и возвращает
+`audio_original_handle`. Generate принимает тот же `link_attempt_id`,
+`model_id: "eleven_multilingual_sts_v2"`, `mode: "speech_to_speech"`,
+`audio_original_handle` и выбранный `voice_ref`. Длительность измеряется
+сервером, а пустой prompt и typed audio reference формируются внутри MCP.
+
+При `OUTCOME_UNKNOWN` не повторяйте генерацию: получите существующий
+`recovery_id` через список восстановлений и вызовите reconcile. Результат
+содержит `artifacts[].object_url`. Состояние process-local; перезапуск теряет
+его. Перед запуском читаются свежие подписка, доступ и конечная оценка цены;
+`cost_cap_enforced: false` означает отсутствие жёсткой гарантии списания.
+
+Фактический MCP-пилот подтвердил обычный вход, одну загрузку нового MP3,
+одну генерацию и получение одного аудиорезультата через GET-only recovery.
+Первое ожидание было неопределённым. Сессия закрыта, повторного POST не было.
+Независимое декодирование нового файла не подтверждено: приватный валидатор
+скачивания ошибочно требовал duration из MP3-потока; файл не был сохранён.
+Это не доказательство терминального статуса провайдера, возврата оплаты,
+качества голоса или совместимости со всеми MCP-хостами.
+
+Ниже — отдельные границы исходников и Topaz.
+
 Добавлены локальные основы STS: измерение MP3 через доверенный `ffprobe`,
 отдельная загрузка до 50 MiB, ссылка на аудио владельца, подготовка пустого
 промпта с типизированным аудиовложением и защита от повторного запуска.
 Длительность берётся из файла и округляется по текущей форме сайта.
 Один веб-кейс смены голоса вернул связанный с запросом MP3, который скачан
-и полностью декодирован. Это не сквозная генерация через MCP: нативный запуск,
-получение результата и MCP/runtime подключение этой операции ещё в работе.
+и полностью декодирован. Это отдельный веб-кейс, не файл нового MCP-пилота.
 Конкретная WAV-загрузка была отклонена; широкая поддержка WAV не заявляется.
 
 Для Topaz Astra добавлены измерение видео, отдельная загрузка и привязанная
@@ -23,7 +62,7 @@ linking и некоторых явно описанных image, video и audio 
 `creativity`: только `slc-1`/`slp-2.5`, не `slf-2`/`slp-2`.
 Запуск остаётся закрытым до подтверждения сочетаний контролов и интеграции.
 Путь `ffprobe` и назначение загрузки задаёт оператор явно, не вызывающий MCP.
-Эти основы пока не добавляют новых MCP-команд. Точные границы задают
+Topaz пока не добавляет новых MCP-команд. Точные границы задают
 [параметры STS](src/application/owner-elevenlabs-sts-parameters.ts) и
 [профиль Topaz](src/application/owner-topaz-astra-source-profile.ts).
 

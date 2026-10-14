@@ -98,6 +98,7 @@ import { getOwnerGrokImageReferenceCandidateBinding } from "../application/owner
 import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
 import { sameGenerationPrincipal } from "../domain/generation-principal.js";
 import { resolveOwnerReferencePrincipal } from "../auth/owner-reference-principal.js";
+import { isAbsolute } from "node:path";
 import type { OwnerGrokImageReferencePreparedCandidate } from "../application/owner-grok-image-reference-request-preparer.js";
 import { OwnerUniImageUploadService } from "../application/owner-uni-image-upload-service.js";
 import { OwnerUniImageRequestPreparer } from "../application/owner-uni-image-request-preparer.js";
@@ -109,6 +110,9 @@ import { OwnerElevenLabsVoiceReferenceService } from "../application/owner-eleve
 import { OwnerElevenLabsTtsGenerationService } from "../application/owner-elevenlabs-tts-generation-service.js";
 import { OwnerElevenLabsDialogueGenerationService } from "../application/owner-elevenlabs-dialogue-generation-service.js";
 import { OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION } from "../application/owner-elevenlabs-generation-parameters.js";
+import { OwnerElevenLabsStsOriginalReferenceService } from "../application/owner-elevenlabs-sts-original-reference-service.js";
+import { createOwnerElevenLabsStsRequestPreparer } from "../application/owner-elevenlabs-sts-request-preparer.js";
+import { OwnerElevenLabsStsGenerationService, OWNER_ELEVENLABS_STS_PUBLIC_CATALOG_VERSION } from "../application/owner-elevenlabs-sts-generation-service.js";
 import { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
 import { OWNER_SUNO_GENERATION_PUBLIC_VERSION } from "../application/owner-suno-generation-parameters.js";
 import { OwnerLumaT2vContractService, OWNER_LUMA_T2V_CONTRACT_REGISTRY_VERSION } from "../application/owner-luma-t2v-contract-service.js";
@@ -181,6 +185,12 @@ export interface ObservedOwnerRuntimeOptions {
   ownerElevenLabsTtsEnabled?: boolean;
   /** Explicit owner-stdio opt-in for ordered ElevenLabs multi-voice dialogue. */
   ownerElevenLabsDialogueEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for private ElevenLabs STS upload and generation. */
+  ownerElevenLabsStsEnabled?: boolean;
+  /** Trusted absolute local ffprobe path, required only when STS is enabled. */
+  ownerElevenLabsStsFfprobePath?: string;
+  /** Trusted upload destination, required only when STS is enabled. */
+  ownerElevenLabsStsUploadDestination?: "uploaded" | "hidden";
   /** Explicit owner-stdio opt-in for private Suno generation and recovery tools. */
   ownerSunoGenerationEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the reviewed Luma T2V contract tools. */
@@ -1148,12 +1158,14 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ generationService, lifecycle });
       })()
     : undefined;
-  const ownerElevenLabsShared = options.ownerElevenLabsTtsEnabled === true || options.ownerElevenLabsDialogueEnabled === true
+  const ownerElevenLabsShared = options.ownerElevenLabsTtsEnabled === true || options.ownerElevenLabsDialogueEnabled === true || options.ownerElevenLabsStsEnabled === true
     ? (() => {
-        const elevenLabsCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
-          OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION,
-          options.catalogDirectory
-        ));
+        const elevenLabsCatalog = options.ownerElevenLabsTtsEnabled === true || options.ownerElevenLabsDialogueEnabled === true
+          ? new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+            OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION,
+            options.catalogDirectory
+          ))
+          : undefined;
         const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
         const resolveElevenLabsChatClient = (attemptId: string): SyntxChatHttpClient => {
           const existing = clientsByAttempt.get(attemptId);
@@ -1166,6 +1178,9 @@ export function createObservedOwnerRuntime(
         let voiceReferenceService: OwnerElevenLabsVoiceReferenceService | undefined;
         let generationService: OwnerElevenLabsTtsGenerationService | undefined;
         let dialogueService: OwnerElevenLabsDialogueGenerationService | undefined;
+        let originalReferenceService: OwnerElevenLabsStsOriginalReferenceService | undefined;
+        let stsGenerationService: OwnerElevenLabsStsGenerationService | undefined;
+        let stsPreparer: ReturnType<typeof createOwnerElevenLabsStsRequestPreparer> | undefined;
         try {
           voiceReferenceService = new OwnerElevenLabsVoiceReferenceService({
             binding: authBinding,
@@ -1176,26 +1191,59 @@ export function createObservedOwnerRuntime(
           if (options.ownerElevenLabsTtsEnabled === true) generationService = new OwnerElevenLabsTtsGenerationService({
             binding: authBinding,
             linkService,
-            catalog: elevenLabsCatalog,
+            catalog: elevenLabsCatalog!,
             catalog_version: OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION,
             voiceReferenceService,
             resolveChatClient: resolveElevenLabsChatClient,
             createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
-            createModelAccessService: (attemptId: string) => new ModelAccessService(elevenLabsCatalog, createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(elevenLabsCatalog!, createReadClient(attemptId), now),
             now
           });
           if (options.ownerElevenLabsDialogueEnabled === true) dialogueService = new OwnerElevenLabsDialogueGenerationService({
-            binding: authBinding, linkService, catalog: elevenLabsCatalog,
+            binding: authBinding, linkService, catalog: elevenLabsCatalog!,
             catalog_version: OWNER_ELEVENLABS_GENERATION_PUBLIC_VERSION, voiceReferenceService,
             resolveChatClient: resolveElevenLabsChatClient,
             createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
-            createModelAccessService: (attemptId: string) => new ModelAccessService(elevenLabsCatalog, createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(elevenLabsCatalog!, createReadClient(attemptId), now),
             now
           });
+          if (options.ownerElevenLabsStsEnabled === true) {
+            if (typeof options.ownerElevenLabsStsFfprobePath !== "string" || !isAbsolute(options.ownerElevenLabsStsFfprobePath) ||
+                (options.ownerElevenLabsStsUploadDestination !== "uploaded" && options.ownerElevenLabsStsUploadDestination !== "hidden")) {
+              throw new Error("OWNER_ELEVENLABS_STS_OPERATOR_CONFIGURATION_REQUIRED");
+            }
+            const stsCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+              OWNER_ELEVENLABS_STS_PUBLIC_CATALOG_VERSION,
+              options.catalogDirectory
+            ));
+            originalReferenceService = new OwnerElevenLabsStsOriginalReferenceService({
+              ffprobePath: options.ownerElevenLabsStsFfprobePath,
+              destination: options.ownerElevenLabsStsUploadDestination,
+              binding: authBinding,
+              linkService,
+              resolveClient: resolveElevenLabsChatClient,
+              now
+            });
+            stsPreparer = createOwnerElevenLabsStsRequestPreparer({ originalReferenceService, voiceReferenceService, now });
+            stsGenerationService = new OwnerElevenLabsStsGenerationService({
+              binding: authBinding,
+              linkService,
+              catalog: stsCatalog,
+              catalog_version: OWNER_ELEVENLABS_STS_PUBLIC_CATALOG_VERSION,
+              preparer: stsPreparer,
+              resolveChatClient: resolveElevenLabsChatClient,
+              createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+              createModelAccessService: (attemptId: string) => new ModelAccessService(stsCatalog, createReadClient(attemptId), now),
+              now
+            });
+          }
         } catch (error) {
           const cleanup = (async () => {
             const errors: unknown[] = [];
-            for (const close of [() => generationService?.close(), () => dialogueService?.close(), () => voiceReferenceService?.close()]) {
+            for (const close of [() => stsGenerationService?.close(),
+              () => stsGenerationService === undefined ? stsPreparer?.close() : undefined,
+              () => generationService?.close(), () => dialogueService?.close(),
+              () => originalReferenceService?.close(), () => voiceReferenceService?.close()]) {
               try { await close(); } catch (closeError) { errors.push(closeError); }
             }
             clientsByAttempt.clear();
@@ -1207,12 +1255,19 @@ export function createObservedOwnerRuntime(
           }
           throw error;
         }
+        const pendingInvalidations = new Map<string, Promise<void>>();
+        let closing: Promise<void> | undefined;
         const lifecycle = Object.freeze({
           async invalidateAttempt(attemptId: string): Promise<void> {
+            const pending = pendingInvalidations.get(attemptId);
+            if (pending !== undefined) return pending;
+            const operation = Promise.resolve().then(async () => {
             const errors: unknown[] = [];
             for (const invalidate of [
+              () => stsGenerationService?.invalidateAttempt(attemptId),
               () => generationService?.invalidateAttempt(attemptId),
               () => dialogueService?.invalidateAttempt(attemptId),
+              () => originalReferenceService?.invalidateAttempt(attemptId),
               () => voiceReferenceService!.invalidateAttempt(attemptId)
             ]) {
               try { await invalidate(); } catch (error) { errors.push(error); }
@@ -1220,18 +1275,27 @@ export function createObservedOwnerRuntime(
             clientsByAttempt.delete(attemptId);
             if (errors.length === 1) throw errors[0];
             if (errors.length > 1) throw new AggregateError(errors, "ElevenLabs media attempt drain failed.");
+            });
+            pendingInvalidations.set(attemptId, operation);
+            try { await operation; }
+            catch (error) { pendingInvalidations.delete(attemptId); throw error; }
           },
-          async close(): Promise<void> {
+          close(): Promise<void> {
+            if (closing !== undefined) return closing;
+            closing = (async () => {
             const errors: unknown[] = [];
-            for (const close of [() => generationService?.close(), () => dialogueService?.close(), () => voiceReferenceService!.close()]) {
+            for (const close of [() => stsGenerationService?.close(), () => generationService?.close(), () => dialogueService?.close(),
+              () => originalReferenceService?.close(), () => voiceReferenceService!.close()]) {
               try { await close(); } catch (error) { errors.push(error); }
             }
             clientsByAttempt.clear();
             if (errors.length === 1) throw errors[0];
             if (errors.length > 1) throw new AggregateError(errors, "ElevenLabs media services did not close cleanly.");
+            })();
+            return closing;
           }
         });
-        return Object.freeze({ voiceReferenceService, generationService, dialogueService, lifecycle });
+        return Object.freeze({ voiceReferenceService, generationService, dialogueService, originalReferenceService, stsGenerationService, lifecycle });
       })()
     : undefined;
   const ownerElevenLabsTts = ownerElevenLabsShared?.generationService === undefined ? undefined : Object.freeze({
@@ -1240,6 +1304,12 @@ export function createObservedOwnerRuntime(
   });
   const ownerElevenLabsDialogue = ownerElevenLabsShared?.dialogueService === undefined ? undefined : Object.freeze({
     voiceReferenceService: ownerElevenLabsShared.voiceReferenceService!, generationService: ownerElevenLabsShared.dialogueService,
+    lifecycle: ownerElevenLabsShared.lifecycle
+  });
+  const ownerElevenLabsSts = ownerElevenLabsShared?.stsGenerationService === undefined ? undefined : Object.freeze({
+    originalReferenceService: ownerElevenLabsShared.originalReferenceService!,
+    voiceReferenceService: ownerElevenLabsShared.voiceReferenceService!,
+    generationService: ownerElevenLabsShared.stsGenerationService,
     lifecycle: ownerElevenLabsShared.lifecycle
   });
   const ownerSunoGeneration = options.ownerSunoGenerationEnabled === true
@@ -1814,7 +1884,7 @@ export function createObservedOwnerRuntime(
     : undefined;
   const ownerAuthLinkService: Pick<PerUserLinkService, "createAttempt" | "issueHandoff" | "checkAttempt" | "revoke"> =
     ownerSoulImageReferences === undefined && ownerGrokT2iImageReferences === undefined && ownerWanT2iImageReferences === undefined &&
-      ownerWanT2vVideos === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerSunoGeneration === undefined &&
+      ownerWanT2vVideos === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
       ownerLumaT2v === undefined &&
       ownerHailuo01T2v === undefined &&
       ownerHailuo01DirectorT2v === undefined &&
@@ -1849,13 +1919,9 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerWanT2vVideos.lifecycle.invalidateAttempt(attemptId);
             }
-            if (ownerElevenLabsTts !== undefined) {
+            if (ownerElevenLabsShared !== undefined) {
               await linkService.getStatus(binding, attemptId);
-              await ownerElevenLabsTts.lifecycle.invalidateAttempt(attemptId);
-            }
-            if (ownerElevenLabsDialogue !== undefined) {
-              await linkService.getStatus(binding, attemptId);
-              await ownerElevenLabsDialogue.lifecycle.invalidateAttempt(attemptId);
+              await ownerElevenLabsShared.lifecycle.invalidateAttempt(attemptId);
             }
             if (ownerSunoGeneration !== undefined) {
               await linkService.getStatus(binding, attemptId);
@@ -1931,8 +1997,7 @@ export function createObservedOwnerRuntime(
       ...((ownerImageReferences === undefined && ownerGrokImageReferences === undefined && ownerGrokT2iImageReferences === undefined &&
         ownerWanT2iImageReferences === undefined && ownerUniImageReferences === undefined &&
         ownerWanT2vVideos === undefined &&
-        ownerElevenLabsTts === undefined &&
-        ownerElevenLabsDialogue === undefined &&
+        ownerElevenLabsShared === undefined &&
         ownerSunoGeneration === undefined &&
         ownerLumaT2v === undefined &&
         ownerHailuo01T2v === undefined &&
@@ -1959,11 +2024,8 @@ export function createObservedOwnerRuntime(
           if (ownerWanT2vVideos !== undefined) {
             try { await ownerWanT2vVideos.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
-          if (ownerElevenLabsTts !== undefined) {
-            try { await ownerElevenLabsTts.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
-          }
-          if (ownerElevenLabsDialogue !== undefined) {
-            try { await ownerElevenLabsDialogue.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          if (ownerElevenLabsShared !== undefined) {
+            try { await ownerElevenLabsShared.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerSunoGeneration !== undefined) {
             try { await ownerSunoGeneration.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -2085,6 +2147,11 @@ export function createObservedOwnerRuntime(
       voiceReferenceService: ownerElevenLabsDialogue.voiceReferenceService,
       generationService: ownerElevenLabsDialogue.generationService
     } }),
+    ...(ownerElevenLabsSts === undefined ? {} : { ownerElevenLabsSts: {
+      originalReferenceService: ownerElevenLabsSts.originalReferenceService,
+      voiceReferenceService: ownerElevenLabsSts.voiceReferenceService,
+      generationService: ownerElevenLabsSts.generationService
+    } }),
     ...(ownerSunoGeneration === undefined ? {} : {
       ownerSunoGeneration: { generationService: ownerSunoGeneration.generationService }
     }),
@@ -2138,6 +2205,7 @@ export function createObservedOwnerRuntime(
     ...(ownerWanT2vVideos === undefined ? {} : { ownerWanT2vVideosLifecycle: ownerWanT2vVideos.lifecycle }),
     ...(ownerElevenLabsTts === undefined ? {} : { ownerElevenLabsTtsLifecycle: ownerElevenLabsTts.lifecycle }),
     ...(ownerElevenLabsDialogue === undefined ? {} : { ownerElevenLabsDialogueLifecycle: ownerElevenLabsDialogue.lifecycle }),
+    ...(ownerElevenLabsSts === undefined ? {} : { ownerElevenLabsStsLifecycle: ownerElevenLabsSts.lifecycle }),
     ...(ownerSunoGeneration === undefined ? {} : { ownerSunoGenerationLifecycle: ownerSunoGeneration.lifecycle }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2vLifecycle: ownerLumaT2v.lifecycle }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2vLifecycle: ownerHailuo01T2v.lifecycle }),

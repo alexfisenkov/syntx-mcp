@@ -217,6 +217,8 @@ import type {
   OwnerWan26I2vUploadContext
 } from "./wan26-i2v-upload-context.js";
 import type { OwnerWan26R2vImageUploadContext } from "./wan26-r2v-upload-context.js";
+import type { OwnerWan26R2vSelectedVideoUploadContext } from "./wan26-r2v-video-upload-context.js";
+import { copyTrustedOwnerWan26R2vVideoCropBytes, type OwnerWan26R2vVideoCropReceipt } from "../../application/owner-wan26-r2v-video-crop.js";
 import { validateOwnerWan26R2vImageUploadRequest } from "./owner-wan26-r2v-image-upload.js";
 import {
   consumeOwnerKlingI2vGenerationContext,
@@ -523,6 +525,7 @@ const MAX_KONTEXT_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_CLARITY_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_WAN_UPLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_WAN26_R2V_IMAGE_UPLOAD_BYTES = 64 * 1024 * 1024;
+const MAX_WAN26_R2V_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 const MAX_WAN27_R2V_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 const MAX_STANDARD_IMAGE_UPLOAD_BYTES = 32 * 1024 * 1024;
 const MAX_IDEOGRAM_IMAGE_UPLOAD_BYTES = 64 * 1024 * 1024;
@@ -539,6 +542,7 @@ const HAILUO02_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Hailuo02I2vUpl
 const WAN27_R2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan27R2vUploadContextState>>();
 const WAN26_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan26I2vUploadContextState>>();
 const WAN26_R2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan26R2vImageUploadContextState>>();
+const WAN26_R2V_VIDEO_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan26R2vVideoUploadContextState>>();
 const KLING_KEYFRAMES_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<KlingKeyframesUploadContextState>>();
 const KLING_MOTION_CONTROL_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<KlingMotionControlUploadContextState>>();
 const KLING_MOTION_CONTROL_PRESET_LIBRARIES = new WeakMap<object, Readonly<{ client: SyntxChatHttpClient; expiresAt: number }>>();
@@ -7129,6 +7133,60 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One fixed uploaded WAN26 R2V video from a genuine local selected-video crop. */
+  async uploadWan26R2vSelectedVideo(
+    receiptInput: OwnerWan26R2vVideoCropReceipt,
+    signal?: AbortSignal
+  ): Promise<OwnerWan26R2vSelectedVideoUploadContext> {
+    let bytes: Uint8Array;
+    try { bytes = copyTrustedOwnerWan26R2vVideoCropBytes(receiptInput); }
+    catch { throw invalidRequest(); }
+    const filename = "wan26-r2v-selected-video.mp4";
+    let form: FormData | undefined;
+    try {
+      const metadata = receiptInput.metadata;
+      const rate = metadata?.frame_rate;
+      const selectedDuration = rate && Number.isSafeInteger(rate.numerator) && rate.numerator > 0 &&
+        Number.isSafeInteger(rate.denominator) && rate.denominator > 0 && Number.isSafeInteger(metadata.frame_count) && metadata.frame_count > 0
+        ? metadata.frame_count * rate.denominator / rate.numerator : Number.NaN;
+      const allowedModel = receiptInput.model_id === "wan_26_r2v" || receiptInput.model_id === "wan_26_r2v_flash";
+      if (!allowedModel || receiptInput.mime_type !== "video/mp4" || receiptInput.bytes !== bytes.byteLength ||
+          bytes.byteLength < 1 || bytes.byteLength > MAX_WAN26_R2V_VIDEO_UPLOAD_BYTES ||
+          !/^[a-f0-9]{64}$/u.test(receiptInput.crop_sha256) || createHash("sha256").update(bytes).digest("hex") !== receiptInput.crop_sha256 ||
+          !/^[a-f0-9]{64}$/u.test(receiptInput.source_sha256) || !metadata || !Number.isSafeInteger(metadata.width) ||
+          metadata.width < 384 || metadata.width > 5_000 || !Number.isSafeInteger(metadata.height) || metadata.height < 384 || metadata.height > 5_000 ||
+          !rate || !Number.isSafeInteger(rate.numerator) || rate.numerator < 1 || !Number.isSafeInteger(rate.denominator) || rate.denominator < 1 ||
+          !Number.isSafeInteger(metadata.frame_count) || metadata.frame_count < 1 || !Number.isFinite(metadata.video_duration_seconds) ||
+          metadata.video_duration_seconds <= 0 || metadata.video_duration_seconds > 5 || !Number.isFinite(selectedDuration) ||
+          selectedDuration <= 0 || selectedDuration > 5 || Math.abs(metadata.video_duration_seconds - selectedDuration) > rate.denominator / rate.numerator + 0.000001 ||
+          metadata.codec !== "h264" || !Number.isSafeInteger(metadata.audio_stream_count) || metadata.audio_stream_count < 0 ||
+          metadata.audio_stream_count > 16 || receiptInput.selection_policy_id !== "OWNER_WAN26_R2V_SELECTED_VIDEO_FRAME_POLICY_V1" ||
+          receiptInput.encoding_policy !== "CFR_LOCAL_ENCODING_NOT_PROVIDER_PROOF" || receiptInput.generation_permit !== false ||
+          receiptInput.owner_upload_binding !== "NOT_ESTABLISHED") throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename, mime_type: "video/mp4", destination: "uploaded",
+        check_duplicates: true, model_type: receiptInput.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      if (signal?.aborted) throw invalidRequest();
+      const currentBytes = copyTrustedOwnerWan26R2vVideoCropBytes(receiptInput);
+      try {
+        if (currentBytes.byteLength !== bytes.byteLength || createHash("sha256").update(currentBytes).digest("hex") !== receiptInput.crop_sha256) throw invalidRequest();
+      } finally { currentBytes.fill(0); }
+      const frameTolerance = rate.denominator / rate.numerator;
+      const reference = parseWan26R2vVideoUploadReference(raw, receiptInput.model_id, filename, bytes.byteLength,
+        metadata.video_duration_seconds, frameTolerance);
+      const context: OwnerWan26R2vSelectedVideoUploadContext = Object.freeze({ status: "uploaded", model_id: receiptInput.model_id,
+        media_type: "selected_video", mime_type: "video/mp4", size: bytes.byteLength, sha256: receiptInput.crop_sha256,
+        source_sha256: receiptInput.source_sha256, width: metadata.width, height: metadata.height, frame_count: metadata.frame_count,
+        frame_rate: Object.freeze({ numerator: rate.numerator, denominator: rate.denominator }),
+        selected_duration_seconds: selectedDuration, video_duration_seconds: metadata.video_duration_seconds });
+      WAN26_R2V_VIDEO_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, context, url: reference.url,
+        modelId: receiptInput.model_id, size: bytes.byteLength, sha256: receiptInput.crop_sha256, sourceSha256: receiptInput.source_sha256,
+        width: metadata.width, height: metadata.height, frameCount: metadata.frame_count, frameRateNumerator: rate.numerator,
+        frameRateDenominator: rate.denominator, selectedDurationSeconds: selectedDuration, videoDurationSeconds: metadata.video_duration_seconds }));
+      return context;
+    } finally { bytes.fill(0); form?.delete("files"); }
+  }
+
   /** One fixed uploaded WAN 2.6 I2V image from its genuine local image-policy receipt. */
   async uploadWan26I2vImage(
     receiptInput: ValidatedOwnerWan26I2vImage,
@@ -7987,6 +8045,7 @@ export function consumeOwnerWan25I2vNativeInvocation(input: unknown, packet: unk
 const NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vImage;
 const NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo;
 const NATIVE_OWNER_WAN26_R2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan26R2vImage;
+const NATIVE_OWNER_WAN26_R2V_VIDEO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan26R2vSelectedVideo;
 const NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan26I2vImage;
 const NATIVE_OWNER_WAN26_I2V_AUDIO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan26I2vAudio;
 const NATIVE_OWNER_WAN26_I2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
@@ -8174,6 +8233,17 @@ function isExactOwnerWan26R2vUploadClient(client: unknown): client is SyntxChatH
       getDataMethod(client, "uploadWan26R2vImage") === NATIVE_OWNER_WAN26_R2V_IMAGE_UPLOAD &&
       SyntxChatHttpClient.prototype.uploadWan26R2vImage === NATIVE_OWNER_WAN26_R2V_IMAGE_UPLOAD &&
       Reflect.get(client, "uploadWan26R2vImage") === NATIVE_OWNER_WAN26_R2V_IMAGE_UPLOAD;
+  } catch { return false; }
+}
+
+function isExactOwnerWan26R2vVideoUploadClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !Object.hasOwn(client, "uploadWan26R2vSelectedVideo") &&
+      getDataMethod(client, "uploadWan26R2vSelectedVideo") === NATIVE_OWNER_WAN26_R2V_VIDEO_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadWan26R2vSelectedVideo === NATIVE_OWNER_WAN26_R2V_VIDEO_UPLOAD &&
+      Reflect.get(client, "uploadWan26R2vSelectedVideo") === NATIVE_OWNER_WAN26_R2V_VIDEO_UPLOAD;
   } catch { return false; }
 }
 
@@ -10680,6 +10750,24 @@ function parseWan27R2vUploadReference(
   return Object.freeze(references[0]!);
 }
 
+function parseWan26R2vVideoUploadReference(
+  raw: unknown,
+  expectedModel: OwnerWan26R2vSelectedVideoUploadContext["model_id"],
+  expectedFilename: string,
+  expectedSize: number,
+  durationSeconds: number,
+  frameToleranceSeconds: number
+): InternalUploadReference {
+  if (isRecord(raw) && Array.isArray(raw.files) && raw.files.length === 1 && isRecord(raw.files[0])) {
+    const file = raw.files[0];
+    for (const key of ["model_type", "model_id"] as const) {
+      if (Object.hasOwn(file, key) && file[key] !== expectedModel) throw protocolError();
+    }
+  }
+  return parseWan27R2vUploadReference(raw, expectedFilename, "video/mp4", expectedSize,
+    { durationSeconds, frameToleranceSeconds });
+}
+
 function parseWan26I2vUploadReference(
   raw: unknown,
   expectedMediaType: "image" | "audio",
@@ -10857,6 +10945,49 @@ export function readOwnerWan26R2vUploadReferenceForClient(
         context.owner_upload_binding !== "SAME_CLIENT_NATIVE_UPLOAD" || !isSafeUploadReferenceUrl(state.url)) return null;
     return Object.freeze({ url: state.url });
   } catch { return null; }
+}
+
+/** Reads the private WAN26 R2V selected-video URL only for its exact native client and genuine context. */
+export function readOwnerWan26R2vVideoUploadReferenceForClient(
+  clientInput: unknown,
+  contextInput: unknown
+): Readonly<{ readonly url: string }> | null {
+  try {
+    if (!isExactOwnerWan26R2vVideoUploadClient(clientInput) || !contextInput || typeof contextInput !== "object" ||
+        types.isProxy(contextInput) || !Object.isFrozen(contextInput) || !hasExactOwnerWan26R2vVideoContextDescriptors(contextInput)) return null;
+    const state = WAN26_R2V_VIDEO_UPLOAD_CONTEXTS.get(contextInput);
+    if (!state || state.client !== clientInput || state.context !== contextInput) return null;
+    const context = contextInput as OwnerWan26R2vSelectedVideoUploadContext;
+    if (context.status !== "uploaded" || context.model_id !== state.modelId ||
+        (context.model_id !== "wan_26_r2v" && context.model_id !== "wan_26_r2v_flash") || context.media_type !== "selected_video" ||
+        context.mime_type !== "video/mp4" || context.size !== state.size || !Number.isSafeInteger(context.size) ||
+        context.size < 1 || context.size > MAX_WAN26_R2V_VIDEO_UPLOAD_BYTES || context.sha256 !== state.sha256 ||
+        !/^[a-f0-9]{64}$/u.test(context.sha256) || context.source_sha256 !== state.sourceSha256 ||
+        !/^[a-f0-9]{64}$/u.test(context.source_sha256) || context.width !== state.width || !Number.isSafeInteger(context.width) ||
+        context.width < 384 || context.width > 5_000 || context.height !== state.height || !Number.isSafeInteger(context.height) ||
+        context.height < 384 || context.height > 5_000 || context.frame_count !== state.frameCount ||
+        !Number.isSafeInteger(context.frame_count) || context.frame_count < 1 ||
+        context.frame_rate?.numerator !== state.frameRateNumerator || context.frame_rate?.denominator !== state.frameRateDenominator ||
+        !Number.isSafeInteger(context.frame_rate?.numerator) || context.frame_rate.numerator < 1 ||
+        !Number.isSafeInteger(context.frame_rate?.denominator) || context.frame_rate.denominator < 1 ||
+        context.selected_duration_seconds !== state.selectedDurationSeconds || !Number.isFinite(context.selected_duration_seconds) ||
+        context.selected_duration_seconds <= 0 || context.selected_duration_seconds > 5 ||
+        context.video_duration_seconds !== state.videoDurationSeconds || !Number.isFinite(context.video_duration_seconds) ||
+        context.video_duration_seconds <= 0 || context.video_duration_seconds > 5 || !isSafeUploadReferenceUrl(state.url)) return null;
+    return Object.freeze({ url: state.url });
+  } catch { return null; }
+}
+
+function hasExactOwnerWan26R2vVideoContextDescriptors(value: object): boolean {
+  const expected = ["status", "model_id", "media_type", "mime_type", "size", "sha256", "source_sha256", "width", "height",
+    "frame_count", "frame_rate", "selected_duration_seconds", "video_duration_seconds"] as const;
+  try {
+    if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value), keys = Reflect.ownKeys(descriptors);
+    return keys.length === expected.length && keys.every((key) => typeof key === "string" && expected.includes(key as typeof expected[number]) &&
+      Object.hasOwn(descriptors[key]!, "value") && descriptors[key]!.enumerable === true &&
+      descriptors[key]!.writable === false && descriptors[key]!.configurable === false);
+  } catch { return false; }
 }
 
 function hasExactOwnerWan26R2vImageContextDescriptors(value: object): boolean {
@@ -11135,6 +11266,23 @@ interface Wan26R2vImageUploadContextState {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
+}
+
+interface Wan26R2vVideoUploadContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly context: OwnerWan26R2vSelectedVideoUploadContext;
+  readonly url: string;
+  readonly modelId: OwnerWan26R2vSelectedVideoUploadContext["model_id"];
+  readonly size: number;
+  readonly sha256: string;
+  readonly sourceSha256: string;
+  readonly width: number;
+  readonly height: number;
+  readonly frameCount: number;
+  readonly frameRateNumerator: number;
+  readonly frameRateDenominator: number;
+  readonly selectedDurationSeconds: number;
+  readonly videoDurationSeconds: number;
 }
 
 function parseSeedreamEditorOriginalUploadReference(

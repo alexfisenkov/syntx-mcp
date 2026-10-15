@@ -1597,6 +1597,50 @@ export {
 } from "./mcp/owner-kling-i2v-tools.js";
 export type { RegisterSyntxOwnerKlingI2vToolsOptions } from "./mcp/owner-kling-i2v-tools.js";
 export {
+  registerSyntxOwnerKlingKeyframesTools,
+  OWNER_KLING_KEYFRAMES_INPUT_TOOL_NAMES,
+  SYNTX_OWNER_GET_KLING_KEYFRAMES_INPUT_POLICY_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_KLING_KEYFRAMES_IMAGE_TOOL_NAME,
+  SYNTX_OWNER_CHECK_KLING_KEYFRAMES_IMAGES_TOOL_NAME
+} from "./mcp/owner-kling-keyframes-tools.js";
+export type { RegisterSyntxOwnerKlingKeyframesToolsOptions } from "./mcp/owner-kling-keyframes-tools.js";
+export {
+  OwnerKlingKeyframesReferenceService,
+  OwnerKlingKeyframesReferenceServiceError
+} from "./application/owner-kling-keyframes-reference-service.js";
+export type {
+  OwnerKlingKeyframesReferenceServiceOptions,
+  OwnerKlingKeyframesImageUploadInput,
+  OwnerKlingKeyframesImageUploadReceipt,
+  OwnerKlingKeyframesPairResolveInput,
+  OwnerKlingKeyframesPairResolution,
+  OwnerKlingKeyframesReferenceServiceErrorCode
+} from "./application/owner-kling-keyframes-reference-service.js";
+export {
+  getOwnerKlingKeyframesParametersSource,
+  normalizeOwnerKlingKeyframesParameters,
+  OWNER_KLING_KEYFRAMES_SOURCE_PINS,
+  OwnerKlingKeyframesParametersError
+} from "./application/owner-kling-keyframes-parameters.js";
+export type {
+  OwnerKlingKeyframesParametersSource,
+  OwnerKlingKeyframesNormalizedParameters,
+  OwnerKlingKeyframesVersion,
+  OwnerKlingKeyframesMode,
+  OwnerKlingKeyframesAspectRatio,
+  OwnerKlingKeyframesParametersErrorCode
+} from "./application/owner-kling-keyframes-parameters.js";
+export {
+  buildOwnerKlingKeyframesWireSettingsTemplate,
+  OwnerKlingKeyframesWireSourceError
+} from "./application/owner-kling-keyframes-wire-source.js";
+export type {
+  OwnerKlingKeyframesCameraMovement,
+  OwnerKlingKeyframesWireSettingsTemplate,
+  OwnerKlingKeyframesWireSourceErrorCode
+} from "./application/owner-kling-keyframes-wire-source.js";
+export { readOwnerKlingKeyframesFlag } from "./transports/stdio-owner.js";
+export {
   OwnerKlingI2VImageReferenceService,
   OwnerKlingI2VImageReferenceServiceError
 } from "./application/owner-kling-i2v-reference-service.js";

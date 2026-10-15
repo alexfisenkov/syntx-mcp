@@ -199,6 +199,8 @@ import type { OwnerKlingT2vGenerationService } from "../application/owner-review
 import { registerSyntxOwnerKlingT2vTools } from "./owner-kling-t2v-tools.js";
 import type { OwnerKlingI2VImageReferenceService } from "../application/owner-kling-i2v-reference-service.js";
 import type { OwnerKlingI2vGenerationService } from "../application/owner-kling-i2v-generation-service.js";
+import type { OwnerKlingKeyframesReferenceService } from "../application/owner-kling-keyframes-reference-service.js";
+import { registerSyntxOwnerKlingKeyframesTools } from "./owner-kling-keyframes-tools.js";
 import {
   registerSyntxOwnerKlingI2vTools,
   type RegisterSyntxOwnerKlingI2vToolsOptions
@@ -439,6 +441,12 @@ export interface OwnerKlingI2vServiceComposition extends RegisterSyntxOwnerKling
     "getParametersSource" | "generate" | "reconcile" | "list" | "invalidateAttempt" | "close">;
 }
 
+/** Explicit owner-local Keyframes input-only tools; omitted by default and HTTP servers. */
+export interface OwnerKlingKeyframesServiceComposition {
+  readonly referenceService: Pick<OwnerKlingKeyframesReferenceService, "upload" | "resolvePair" | "invalidateAttempt" | "close">;
+  readonly now?: () => number;
+}
+
 /** Explicit owner-local Veo T2V tools, enabled only by owner stdio opt-in. */
 export interface OwnerVeoT2vServiceComposition {
   readonly generationService: Pick<OwnerVeoT2vGenerationService,
@@ -548,6 +556,8 @@ export interface CreateMcpServerOptions {
   ownerKlingT2v?: OwnerKlingT2vServiceComposition | undefined;
   /** Explicit owner-local Kling I2V tools; omitted from default and HTTP servers. */
   ownerKlingI2v?: OwnerKlingI2vServiceComposition | undefined;
+  /** Explicit owner-local Kling Keyframes input tools only; omitted from default and HTTP servers. */
+  ownerKlingKeyframes?: OwnerKlingKeyframesServiceComposition | undefined;
   /** Explicit owner-local Veo T2V tools; omitted from default and HTTP servers. */
   ownerVeoT2v?: OwnerVeoT2vServiceComposition | undefined;
   ownerGrokT2v?: OwnerGrokT2vServiceComposition | undefined;
@@ -692,7 +702,7 @@ export function createMcpServer(
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
-        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio)) {
+        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
   if (options.generationContractRegistry != null && options.generationContractRegistryV2 != null) {
@@ -1196,6 +1206,9 @@ export function createMcpServer(
   }
   if (options.ownerKlingI2v) {
     registerSyntxOwnerKlingI2vTools(server, options.ownerKlingI2v);
+  }
+  if (options.ownerKlingKeyframes) {
+    registerSyntxOwnerKlingKeyframesTools(server, options.ownerKlingKeyframes);
   }
   if (options.ownerVeoT2v) {
     registerSyntxOwnerVeoT2vTools(server, { service: options.ownerVeoT2v.generationService });

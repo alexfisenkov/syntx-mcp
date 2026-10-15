@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test dist/tests/owner-kling-keyframes-image-policy-1573.test.js dist/tests/owner-kling-i2v-multi-shots-1574.test.js && node --test --test-name-pattern=\"requires an explicit boolean multi-shot|source descriptor pins the current form\" dist/tests/owner-kling-i2v-wire-source.test.js dist/tests/owner-kling-i2v-parameters.test.js && node --test --test-name-pattern=\"changed media selector\" tests/owner-wan27-r2v-media-config-1563.test.mjs",
+    "test:media:changed": "node --test dist/tests/owner-kling-keyframes-native-upload-1578.test.js dist/tests/owner-kling-keyframes-reference-service-1581.test.js dist/tests/owner-kling-keyframes-input-mcp-runtime-1582.test.js dist/tests/owner-kling-keyframes-parameters-1583.test.js && node --test --test-name-pattern=\"changed media selector\" tests/owner-wan27-r2v-media-config-1563.test.mjs",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

@@ -152,7 +152,13 @@ import {
   type OwnerHailuo02I2vCanonicalMimeType,
   type ValidatedOwnerHailuo02I2vImageUpload
 } from "../../application/owner-hailuo02-i2v-image-policy.js";
+import {
+  readValidatedOwnerKlingKeyframesImage,
+  type OwnerKlingKeyframesImageCanonicalMimeType,
+  type ValidatedOwnerKlingKeyframesImage
+} from "../../application/owner-kling-keyframes-image-policy.js";
 import type { OwnerHailuo02I2vImageUploadContext } from "./hailuo02-i2v-upload-context.js";
+import type { OwnerKlingKeyframesUploadContext } from "./kling-keyframes-upload-context.js";
 import {
   readValidatedOwnerWan27R2vImage,
   type ValidatedOwnerWan27R2vImage
@@ -482,6 +488,7 @@ const MAX_SEEDREAM_EDITOR_DRAWING_UPLOAD_BYTES = 32 * 1024 * 1024;
 const MAX_KLING_I2V_IMAGE_UPLOAD_BYTES = 30 * 1024 * 1024;
 const HAILUO02_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Hailuo02I2vUploadContextState>>();
 const WAN27_R2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan27R2vUploadContextState>>();
+const KLING_KEYFRAMES_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<KlingKeyframesUploadContextState>>();
 const BANANA_INPAINT_ORIGINAL_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_PAINTED_COMPOSITE_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_AUXILIARY_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
@@ -627,6 +634,17 @@ const hailuo02I2vUploadResponseSchema = z.object({
     url: z.string().min(1).max(MAX_URL_LENGTH),
     mime_type: z.string().max(128).optional(),
     size: z.number().int().nonnegative().max(MAX_UPLOAD_BYTES).optional(),
+    status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
+  }).strip()).length(1)
+}).strip();
+const klingKeyframesUploadResponseSchema = z.object({
+  files: z.array(z.object({
+    id: providerIdSchema.optional(),
+    file_id: providerIdSchema.optional(),
+    filename: z.string().max(256),
+    url: z.string().min(1).max(MAX_URL_LENGTH),
+    mime_type: z.string().max(128),
+    size: z.number().int().nonnegative().max(50 * 1024 * 1024),
     status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
   }).strip()).length(1)
 }).strip();
@@ -6306,6 +6324,49 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One fixed uploaded Kling keyframes image upload from a genuine local policy receipt. */
+  async uploadKlingKeyframesImage(
+    receiptInput: ValidatedOwnerKlingKeyframesImage,
+    signal?: AbortSignal
+  ): Promise<OwnerKlingKeyframesUploadContext> {
+    const owned = readValidatedOwnerKlingKeyframesImage(receiptInput);
+    if (!owned) throw invalidRequest();
+    const bytes = owned.bytes;
+    let form: FormData | undefined;
+    try {
+      if (owned.size !== bytes.byteLength || owned.size < 1 || owned.size > 50 * 1024 * 1024 ||
+          !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !isKlingKeyframesMime(owned.mime_type) || !Number.isSafeInteger(owned.width) || owned.width < 300 ||
+          !Number.isSafeInteger(owned.height) || owned.height < 300 ||
+          receiptInput.status !== "LOCAL_SOURCE_VALIDATED" || receiptInput.model_id !== "kling_keyframes" ||
+          receiptInput.source_policy_id !== "OWNER_KLING_KEYFRAMES_IMAGE_INPUT_POLICY_B066_LOCAL_GUARD_V1" ||
+          receiptInput.filename !== owned.filename || receiptInput.mime_type !== owned.mime_type ||
+          receiptInput.source_mime_type !== "image/jpg" && receiptInput.source_mime_type !== owned.mime_type ||
+          receiptInput.size !== owned.size || receiptInput.sha256 !== owned.sha256 ||
+          receiptInput.width !== owned.width || receiptInput.height !== owned.height || receiptInput.generation_permit !== false ||
+          receiptInput.frame_role_binding !== "NOT_ESTABLISHED" || receiptInput.owner_upload_binding !== "NOT_ESTABLISHED") {
+        throw invalidRequest();
+      }
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type, destination: "uploaded",
+        check_duplicates: true, model_type: "kling_keyframes" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseKlingKeyframesUploadReference(raw, owned.filename, owned.mime_type, owned.size);
+      const context: OwnerKlingKeyframesUploadContext = Object.freeze({
+        status: "uploaded", model_id: "kling_keyframes", destination: "uploaded", filename: owned.filename,
+        source_mime_type: receiptInput.source_mime_type, mime_type: owned.mime_type, size: owned.size,
+        sha256: owned.sha256, width: owned.width, height: owned.height,
+        input_acceptance: "UPLOAD_REFERENCE_RECEIVED_PROVIDER_ACCEPTANCE_UNVERIFIED"
+      });
+      KLING_KEYFRAMES_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url,
+        filename: owned.filename, sourceMimeType: receiptInput.source_mime_type, mimeType: owned.mime_type,
+        size: owned.size, sha256: owned.sha256, width: owned.width, height: owned.height }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One fixed Hailuo-02 I2V image upload. A genuine policy receipt is borrowed, never released. */
   async uploadHailuo02I2vImage(
     receiptInput: ValidatedOwnerHailuo02I2vImageUpload,
@@ -10006,6 +10067,60 @@ function parseHailuo02I2vUploadReference(
   return Object.freeze(references[0]!);
 }
 
+function parseKlingKeyframesUploadReference(
+  raw: unknown,
+  expectedFilename: string,
+  expectedMimeType: OwnerKlingKeyframesImageCanonicalMimeType,
+  expectedSize: number
+): InternalUploadReference {
+  const parsed = klingKeyframesUploadResponseSchema.safeParse(raw);
+  if (!parsed.success) throw protocolError();
+  const [receipt] = parsed.data.files;
+  if (!receipt || receipt.filename !== expectedFilename || receipt.mime_type !== expectedMimeType || receipt.size !== expectedSize ||
+      (receipt.status !== undefined && receipt.status.toLowerCase() !== "success") ||
+      (receipt.id !== undefined && receipt.file_id !== undefined && String(receipt.id) !== String(receipt.file_id))) {
+    throw protocolError();
+  }
+  let references: InternalUploadReference[];
+  try { references = parseInternalUploadReferences(raw); }
+  catch { throw protocolError(); }
+  if (references.length !== 1) throw protocolError();
+  return Object.freeze(references[0]!);
+}
+
+function isKlingKeyframesMime(value: unknown): value is OwnerKlingKeyframesImageCanonicalMimeType {
+  return value === "image/jpeg" || value === "image/png" || value === "image/avif";
+}
+
+/** Reads the native URL only for the frozen context minted by this exact client. */
+export function readOwnerKlingKeyframesUploadReferenceForClient(
+  clientInput: unknown,
+  contextInput: unknown
+): Readonly<{ readonly url: string }> | null {
+  try {
+    if (!clientInput || typeof clientInput !== "object" || types.isProxy(clientInput) ||
+        Object.getPrototypeOf(clientInput) !== SyntxChatHttpClient.prototype ||
+        Object.hasOwn(clientInput, "uploadKlingKeyframesImage") ||
+        SyntxChatHttpClient.prototype.uploadKlingKeyframesImage !== NATIVE_KLING_KEYFRAMES_UPLOAD) return null;
+    if (!contextInput || typeof contextInput !== "object" || types.isProxy(contextInput) || !Object.isFrozen(contextInput)) return null;
+    const state = KLING_KEYFRAMES_UPLOAD_CONTEXTS.get(contextInput);
+    if (!state || state.client !== clientInput) return null;
+    const context = contextInput as OwnerKlingKeyframesUploadContext;
+    if (context.status !== "uploaded" || context.model_id !== "kling_keyframes" || context.destination !== "uploaded" ||
+        context.filename !== state.filename || context.source_mime_type !== state.sourceMimeType ||
+        context.mime_type !== state.mimeType || !isKlingKeyframesMime(context.mime_type) ||
+        context.size !== state.size || !Number.isSafeInteger(context.size) || context.size < 1 || context.size > 50 * 1024 * 1024 ||
+        context.sha256 !== state.sha256 || !/^[a-f0-9]{64}$/u.test(context.sha256) ||
+        context.width !== state.width || !Number.isSafeInteger(context.width) || context.width < 300 ||
+        context.height !== state.height || !Number.isSafeInteger(context.height) || context.height < 300 ||
+        context.input_acceptance !== "UPLOAD_REFERENCE_RECEIVED_PROVIDER_ACCEPTANCE_UNVERIFIED" ||
+        state.sourceMimeType !== "image/jpg" && state.sourceMimeType !== state.mimeType || !isSafeUploadReferenceUrl(state.url)) return null;
+    return Object.freeze({ url: state.url });
+  } catch { return null; }
+}
+
+const NATIVE_KLING_KEYFRAMES_UPLOAD = SyntxChatHttpClient.prototype.uploadKlingKeyframesImage;
+
 function isHailuo02I2vCanonicalMime(value: unknown): value is OwnerHailuo02I2vCanonicalMimeType {
   return value === "image/jpeg" || value === "image/png" || value === "image/webp";
 }
@@ -10015,6 +10130,18 @@ interface Hailuo02I2vUploadContextState {
   readonly url: string;
   readonly modelId: "hailuo-02";
   readonly mimeType: OwnerHailuo02I2vCanonicalMimeType;
+  readonly size: number;
+  readonly sha256: string;
+  readonly width: number;
+  readonly height: number;
+}
+
+interface KlingKeyframesUploadContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly url: string;
+  readonly filename: string;
+  readonly sourceMimeType: OwnerKlingKeyframesUploadContext["source_mime_type"];
+  readonly mimeType: OwnerKlingKeyframesImageCanonicalMimeType;
   readonly size: number;
   readonly sha256: string;
   readonly width: number;

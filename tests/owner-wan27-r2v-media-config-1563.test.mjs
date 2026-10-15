@@ -34,9 +34,19 @@ test("WAN R2V is present only in the confirmed paid-tools config with trusted ex
   assert.match(stdout.join(""), /does not edit client settings.*network/u);
 });
 
-test("changed media selector runs the accepted Kling policy and multi-shot suites", () => {
+test("changed media selector runs the four frozen Keyframes suites and public exports", async () => {
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const selector = packageJson.scripts["test:media:changed"];
   assert.equal(selector,
-    'node --test dist/tests/owner-kling-keyframes-image-policy-1573.test.js dist/tests/owner-kling-i2v-multi-shots-1574.test.js && node --test --test-name-pattern="requires an explicit boolean multi-shot|source descriptor pins the current form" dist/tests/owner-kling-i2v-wire-source.test.js dist/tests/owner-kling-i2v-parameters.test.js && node --test --test-name-pattern="changed media selector" tests/owner-wan27-r2v-media-config-1563.test.mjs');
+    'node --test dist/tests/owner-kling-keyframes-native-upload-1578.test.js dist/tests/owner-kling-keyframes-reference-service-1581.test.js dist/tests/owner-kling-keyframes-input-mcp-runtime-1582.test.js dist/tests/owner-kling-keyframes-parameters-1583.test.js && node --test --test-name-pattern="changed media selector" tests/owner-wan27-r2v-media-config-1563.test.mjs');
+
+  const publicApi = await import("../dist/src/index.js");
+  for (const name of [
+    "normalizeOwnerKlingKeyframesParameters",
+    "getOwnerKlingKeyframesParametersSource",
+    "buildOwnerKlingKeyframesWireSettingsTemplate",
+    "OwnerKlingKeyframesParametersError",
+    "OwnerKlingKeyframesWireSourceError"
+  ]) assert.equal(typeof publicApi[name], "function", `${name} must be a public export`);
+  assert.equal(typeof publicApi.OWNER_KLING_KEYFRAMES_SOURCE_PINS, "object");
 });

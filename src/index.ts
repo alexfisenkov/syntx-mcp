@@ -77,7 +77,7 @@ export {
   modelCatalogSchema
 } from "./catalog/catalog.js";
 export { createMcpServer, TOOL_NAMES } from "./mcp/server.js";
-export type { CreateMcpServerOptions, OwnerKlingI2vServiceComposition } from "./mcp/server.js";
+export type { CreateMcpServerOptions, OwnerKlingI2vServiceComposition, OwnerKlingMotionControlServiceComposition } from "./mcp/server.js";
 export {
   OWNER_WAN27_R2V_REFERENCE_TOOL_NAMES,
   SYNTX_GET_WAN27_R2V_PARAMETERS_TOOL_NAME,
@@ -1621,6 +1621,83 @@ export {
   SYNTX_OWNER_CHECK_KLING_KEYFRAMES_IMAGES_TOOL_NAME
 } from "./mcp/owner-kling-keyframes-tools.js";
 export type { RegisterSyntxOwnerKlingKeyframesToolsOptions } from "./mcp/owner-kling-keyframes-tools.js";
+export {
+  registerSyntxOwnerKlingMotionControlTools,
+  OWNER_KLING_MOTION_CONTROL_TOOL_NAMES,
+  SYNTX_OWNER_GET_KLING_MOTION_CONTROL_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_KLING_MOTION_CONTROL_IMAGE_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_KLING_MOTION_CONTROL_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_KLING_MOTION_CONTROL_PRESETS_TOOL_NAME,
+  SYNTX_OWNER_SELECT_KLING_MOTION_CONTROL_PRESET_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_KLING_MOTION_CONTROL_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_KLING_MOTION_CONTROL_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_KLING_MOTION_CONTROL_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_KLING_MOTION_CONTROL_RESULT_PAGE_TOOL_NAME
+} from "./mcp/owner-kling-motion-control-tools.js";
+export type { RegisterSyntxOwnerKlingMotionControlToolsOptions } from "./mcp/owner-kling-motion-control-tools.js";
+export {
+  OwnerKlingMotionControlReferenceService,
+  OwnerKlingMotionControlReferenceServiceError,
+  OWNER_KLING_MOTION_CONTROL_REFERENCE_INPUT_LIMITS
+} from "./application/owner-kling-motion-control-reference-service.js";
+export type {
+  OwnerKlingMotionControlReferenceServiceOptions,
+  OwnerKlingMotionControlUploadInput,
+  OwnerKlingMotionControlImageUploadReceipt,
+  OwnerKlingMotionControlVideoUploadReceipt,
+  OwnerKlingMotionControlImageResolveInput,
+  OwnerKlingMotionControlOwnPairResolveInput,
+  OwnerKlingMotionControlImageResolution,
+  OwnerKlingMotionControlOwnPairResolution,
+  OwnerKlingMotionControlReferenceErrorCode
+} from "./application/owner-kling-motion-control-reference-service.js";
+export {
+  OwnerKlingMotionControlPresetReferenceService,
+  OwnerKlingMotionControlPresetReferenceServiceError
+} from "./application/owner-kling-motion-control-preset-reference-service.js";
+export type {
+  OwnerKlingMotionControlPresetReferenceServiceOptions,
+  OwnerKlingMotionControlPresetVideoReceipt,
+  OwnerKlingMotionControlPresetVideoResolution,
+  OwnerKlingMotionControlPresetReferenceErrorCode
+} from "./application/owner-kling-motion-control-preset-reference-service.js";
+export {
+  OwnerKlingMotionControlGenerationService,
+  OwnerKlingMotionControlGenerationServiceError,
+  OWNER_KLING_MOTION_CONTROL_GENERATION_CATALOG_VERSION,
+  isOwnerKlingMotionControlGenerationService
+} from "./application/owner-kling-motion-control-generation-service.js";
+export type {
+  OwnerKlingMotionControlGenerationServiceOptions,
+  OwnerKlingMotionControlGenerationRequest,
+  OwnerKlingMotionControlGenerateInput,
+  OwnerKlingMotionControlGenerationResult,
+  OwnerKlingMotionControlGenerationDiagnostic,
+  OwnerKlingMotionControlGenerationErrorCode
+} from "./application/owner-kling-motion-control-generation-service.js";
+export {
+  getOwnerKlingMotionControlParametersSource,
+  normalizeOwnerKlingMotionControlParameters,
+  OWNER_KLING_MOTION_CONTROL_SOURCE_PINS,
+  OwnerKlingMotionControlParametersError
+} from "./application/owner-kling-motion-control-parameters.js";
+export type {
+  OwnerKlingMotionControlParametersSource,
+  OwnerKlingMotionControlNormalizedParameters,
+  OwnerKlingMotionControlVersion,
+  OwnerKlingMotionControlMode,
+  OwnerKlingMotionControlGenType,
+  OwnerKlingMotionControlParametersErrorCode
+} from "./application/owner-kling-motion-control-parameters.js";
+export {
+  buildOwnerKlingMotionControlWireSettingsTemplate,
+  OwnerKlingMotionControlWireSourceError
+} from "./application/owner-kling-motion-control-wire-source.js";
+export type {
+  OwnerKlingMotionControlWireSettingsTemplate,
+  OwnerKlingMotionControlWireSourceErrorCode
+} from "./application/owner-kling-motion-control-wire-source.js";
+export { readOwnerKlingMotionControlFlag } from "./transports/stdio-owner.js";
 export {
   OwnerKlingKeyframesReferenceService,
   OwnerKlingKeyframesReferenceServiceError

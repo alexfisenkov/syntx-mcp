@@ -34,11 +34,11 @@ test("WAN R2V is present only in the confirmed paid-tools config with trusted ex
   assert.match(stdout.join(""), /does not edit client settings.*network/u);
 });
 
-test("changed media selector runs the frozen Keyframes suites and public exports", async () => {
+test("changed media selector runs the Motion Control suites while retaining frozen Keyframes public exports", async () => {
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const selector = packageJson.scripts["test:media:changed"];
   assert.equal(selector,
-    'node --test dist/tests/owner-kling-keyframes-request-preparer-1588.test.js dist/tests/owner-kling-keyframes-video-result-1589.test.js dist/tests/owner-kling-keyframes-one-shot-policy-1590.test.js dist/tests/owner-kling-keyframes-history-1592.test.js dist/tests/owner-kling-keyframes-native-1593.test.js dist/tests/owner-kling-keyframes-generation-service-1595.test.js dist/tests/owner-kling-keyframes-generation-mcp-runtime-1596.test.js dist/tests/owner-kling-keyframes-result-growth-1598.test.js dist/tests/owner-kling-keyframes-input-mcp-runtime-1582.test.js && node --test --test-name-pattern="changed media selector" tests/owner-wan27-r2v-media-config-1563.test.mjs');
+    'node --test dist/tests/owner-kling-motion-control-image-policy-1607.test.js dist/tests/owner-kling-motion-control-video-probe-1609.test.js dist/tests/owner-kling-motion-control-video-result-1612.test.js dist/tests/owner-kling-motion-control-parameters-1613.test.js dist/tests/owner-kling-motion-control-native-upload-1614.test.js dist/tests/kling-motion-control-presets-decoder-1615.test.js dist/tests/owner-kling-motion-control-reference-service-1616.test.js dist/tests/owner-kling-motion-control-native-presets-1617.test.js dist/tests/owner-kling-motion-control-history-1620.test.js dist/tests/owner-kling-motion-control-request-preparer-1622.test.js dist/tests/owner-kling-motion-control-preset-reference-service-1623.test.js dist/tests/owner-kling-motion-control-preset-preparer-1626.test.js dist/tests/owner-kling-motion-control-native-1627.test.js dist/tests/owner-kling-motion-control-generation-service-1628.test.js dist/tests/owner-kling-motion-control-runtime-1630.test.js dist/tests/owner-kling-motion-control-generation-mcp-runtime-1631.test.js && node --test tests/owner-kling-motion-control-media-config-1632.test.mjs && node --test --test-name-pattern="changed media selector" tests/owner-wan27-r2v-media-config-1563.test.mjs');
 
   const publicApi = await import("../dist/src/index.js");
   for (const name of [

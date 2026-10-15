@@ -203,6 +203,10 @@ import type { OwnerKlingKeyframesReferenceService } from "../application/owner-k
 import { registerSyntxOwnerKlingKeyframesTools } from "./owner-kling-keyframes-tools.js";
 import { registerSyntxOwnerKlingKeyframesGenerationTools } from "./owner-kling-keyframes-generation-tools.js";
 import type { OwnerKlingKeyframesGenerationService } from "../application/owner-kling-keyframes-generation-service.js";
+import type { OwnerKlingMotionControlReferenceService } from "../application/owner-kling-motion-control-reference-service.js";
+import type { OwnerKlingMotionControlPresetReferenceService } from "../application/owner-kling-motion-control-preset-reference-service.js";
+import type { OwnerKlingMotionControlGenerationService } from "../application/owner-kling-motion-control-generation-service.js";
+import { registerSyntxOwnerKlingMotionControlTools } from "./owner-kling-motion-control-tools.js";
 import {
   registerSyntxOwnerKlingI2vTools,
   type RegisterSyntxOwnerKlingI2vToolsOptions
@@ -450,6 +454,15 @@ export interface OwnerKlingKeyframesServiceComposition {
   readonly now?: () => number;
 }
 
+/** Explicit owner-local Motion Control uploads, preset selection, generation, and recovery; omitted by default and HTTP servers. */
+export interface OwnerKlingMotionControlServiceComposition {
+  readonly referenceService: Pick<OwnerKlingMotionControlReferenceService, "uploadImage" | "uploadVideo" | "invalidateAttempt" | "close">;
+  readonly presetReferenceService: Pick<OwnerKlingMotionControlPresetReferenceService, "listPresets" | "selectPreset" | "invalidateAttempt" | "close">;
+  readonly generationService: Pick<OwnerKlingMotionControlGenerationService,
+    "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "invalidateAttempt" | "close">;
+  readonly now?: () => number;
+}
+
 /** Explicit owner-local Veo T2V tools, enabled only by owner stdio opt-in. */
 export interface OwnerVeoT2vServiceComposition {
   readonly generationService: Pick<OwnerVeoT2vGenerationService,
@@ -561,6 +574,8 @@ export interface CreateMcpServerOptions {
   ownerKlingI2v?: OwnerKlingI2vServiceComposition | undefined;
   /** Explicit owner-local Kling Keyframes input tools only; omitted from default and HTTP servers. */
   ownerKlingKeyframes?: OwnerKlingKeyframesServiceComposition | undefined;
+  /** Explicit owner-local Kling Motion Control tools; omitted from default and HTTP servers. */
+  ownerKlingMotionControl?: OwnerKlingMotionControlServiceComposition | undefined;
   /** Explicit owner-local Veo T2V tools; omitted from default and HTTP servers. */
   ownerVeoT2v?: OwnerVeoT2vServiceComposition | undefined;
   ownerGrokT2v?: OwnerGrokT2vServiceComposition | undefined;
@@ -705,7 +720,7 @@ export function createMcpServer(
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
-        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio)) {
+        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
   if (options.generationContractRegistry != null && options.generationContractRegistryV2 != null) {
@@ -1215,6 +1230,7 @@ export function createMcpServer(
       ...(options.ownerKlingKeyframes.now === undefined ? {} : { now: options.ownerKlingKeyframes.now }) });
     registerSyntxOwnerKlingKeyframesGenerationTools(server, options.ownerKlingKeyframes.generationService as OwnerKlingKeyframesGenerationService);
   }
+  if (options.ownerKlingMotionControl) registerSyntxOwnerKlingMotionControlTools(server, options.ownerKlingMotionControl);
   if (options.ownerVeoT2v) {
     registerSyntxOwnerVeoT2vTools(server, { service: options.ownerVeoT2v.generationService });
   }

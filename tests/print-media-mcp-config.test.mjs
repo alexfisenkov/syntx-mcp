@@ -51,7 +51,9 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_HAILUO_LIVE_T2V",
   "SYNTX_OWNER_ELEVENLABS_STS",
   "SYNTX_OWNER_TOPAZ_ASTRA",
-  "SYNTX_OWNER_WAN27_R2V"
+  "SYNTX_OWNER_WAN27_R2V",
+  "SYNTX_OWNER_KLING_KEYFRAMES",
+  "SYNTX_OWNER_KLING_MOTION_CONTROL"
 ];
 const DISABLED_FLAGS = [
   "SYNTX_OWNER_IMAGE_REFERENCES",
@@ -128,7 +130,8 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
     "SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH",
     "SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION",
     "SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH",
-    "SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH"
+    "SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH",
+    "SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH"
   ].sort());
   assert.equal(JSON.stringify(config).includes("token"), false);
   assert.equal(JSON.stringify(config).includes(".env"), false);
@@ -211,7 +214,7 @@ test("Hailuo Live T2V flag is the 31st opt-in and is emitted only after exact pa
   const emitted = JSON.parse(configOut.join(""));
   assert.equal(configErr.join(""), "");
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_HAILUO_LIVE_T2V, "1");
-  assert.equal(ENABLED_FLAGS.length, 31);
+  assert.equal(ENABLED_FLAGS.length, 33);
   assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_HAILUO_LIVE_T2V").length, 1);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO_LIVE_T2V"), false);
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_GROK_T2V, "1");

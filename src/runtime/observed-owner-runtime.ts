@@ -12,6 +12,10 @@ import { OwnerKlingI2vGenerationService } from "../application/owner-kling-i2v-g
 import { OwnerKlingKeyframesReferenceService } from "../application/owner-kling-keyframes-reference-service.js";
 import { createOwnerKlingKeyframesRequestPreparer } from "../application/owner-kling-keyframes-request-preparer.js";
 import { OwnerKlingKeyframesGenerationService, OWNER_KLING_KEYFRAMES_GENERATION_CATALOG_VERSION } from "../application/owner-kling-keyframes-generation-service.js";
+import { OwnerKlingMotionControlReferenceService } from "../application/owner-kling-motion-control-reference-service.js";
+import { OwnerKlingMotionControlPresetReferenceService } from "../application/owner-kling-motion-control-preset-reference-service.js";
+import { createOwnerKlingMotionControlRequestPreparer } from "../application/owner-kling-motion-control-request-preparer.js";
+import { OwnerKlingMotionControlGenerationService, OWNER_KLING_MOTION_CONTROL_GENERATION_CATALOG_VERSION } from "../application/owner-kling-motion-control-generation-service.js";
 import { OWNER_KLING_I2V_SOURCE_PINS } from "../application/owner-kling-i2v-parameters.js";
 import { OwnerHailuo02I2vImageReferenceService } from "../application/owner-hailuo02-i2v-image-reference-service.js";
 import { createOwnerHailuo02I2vRequestPreparer } from "../application/owner-hailuo02-i2v-request-preparer.js";
@@ -239,6 +243,10 @@ export interface ObservedOwnerRuntimeOptions {
   ownerKlingI2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for owner-bound Kling Keyframes image input tools only. */
   ownerKlingKeyframesEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for source-pinned Kling Motion Control uploads, presets, generation, and recovery. */
+  ownerKlingMotionControlEnabled?: boolean;
+  /** Trusted absolute local ffprobe path, required only when Kling Motion Control is enabled. */
+  ownerKlingMotionControlFfprobePath?: string;
   /** Explicit owner-stdio opt-in for source-pinned Hailuo-02 I2V upload and generation. */
   ownerHailuo02I2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for source-reviewed Veo no-reference T2V. */
@@ -1970,6 +1978,76 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ referenceService, generationService, lifecycle });
       })()
     : undefined;
+  const ownerKlingMotionControl = options.ownerKlingMotionControlEnabled === true
+    ? (() => {
+        const ffprobePath = options.ownerKlingMotionControlFfprobePath;
+        if (typeof ffprobePath !== "string" || ffprobePath.length === 0 || !isAbsolute(ffprobePath) || ffprobePath.includes("\0")) {
+          throw new Error("OWNER_KLING_MOTION_CONTROL_OPERATOR_CONFIGURATION_REQUIRED");
+        }
+        const catalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+          OWNER_KLING_MOTION_CONTROL_GENERATION_CATALOG_VERSION, options.catalogDirectory
+        ));
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveKlingMotionControlChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_KLING_MOTION_CONTROL_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        let referenceService: OwnerKlingMotionControlReferenceService | undefined;
+        let presetReferenceService: OwnerKlingMotionControlPresetReferenceService | undefined;
+        let preparer: ReturnType<typeof createOwnerKlingMotionControlRequestPreparer> | undefined;
+        let generationService: OwnerKlingMotionControlGenerationService | undefined;
+        try {
+          referenceService = new OwnerKlingMotionControlReferenceService({ binding: authBinding, linkService,
+            resolveClient: resolveKlingMotionControlChatClient, ffprobePath, now });
+          presetReferenceService = new OwnerKlingMotionControlPresetReferenceService({ binding: authBinding, linkService,
+            resolveClient: resolveKlingMotionControlChatClient, ffprobePath, fetchImpl: options.fetchImpl, now });
+          preparer = createOwnerKlingMotionControlRequestPreparer({ referenceService, presetReferenceService, now });
+          generationService = new OwnerKlingMotionControlGenerationService({ binding: authBinding, linkService, catalog,
+            catalog_version: OWNER_KLING_MOTION_CONTROL_GENERATION_CATALOG_VERSION, preparer,
+            resolveChatClient: resolveKlingMotionControlChatClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(catalog, createReadClient(attemptId), now), now });
+        } catch (error) {
+          const cleanup = (async () => {
+            const errors: unknown[] = [];
+            if (generationService !== undefined) {
+              try { await generationService.close(); } catch (closeError) { errors.push(closeError); }
+            } else if (preparer !== undefined) {
+              try { await preparer.close(); } catch (closeError) { errors.push(closeError); }
+            }
+            for (const service of [presetReferenceService, referenceService]) {
+              try { await service?.close(); } catch (closeError) { errors.push(closeError); }
+            }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Kling Motion Control startup cleanup failed.");
+          })();
+          if (error !== null && (typeof error === "object" || typeof error === "function")) OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          throw error;
+        }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService!.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            const errors: unknown[] = [];
+            try { await generationService!.close(); } catch (error) { errors.push(error); }
+            for (const service of [presetReferenceService!, referenceService!]) {
+              try { await service.close(); } catch (error) { errors.push(error); }
+            }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Owner Kling Motion Control services did not close cleanly.");
+          }
+        });
+        return Object.freeze({ referenceService: referenceService!, presetReferenceService: presetReferenceService!, generationService: generationService!, lifecycle });
+      })()
+    : undefined;
   const ownerHailuo02I2v = options.ownerHailuo02I2vEnabled === true
     ? (() => {
         const hailuoCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
@@ -2229,6 +2307,7 @@ export function createObservedOwnerRuntime(
       ownerKlingT2v === undefined &&
       ownerKlingI2v === undefined &&
       ownerKlingKeyframes === undefined &&
+      ownerKlingMotionControl === undefined &&
       ownerHailuo02I2v === undefined &&
       ownerVeoT2v === undefined &&
       ownerGrokT2v === undefined &&
@@ -2304,6 +2383,10 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerKlingKeyframes.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerKlingMotionControl !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerKlingMotionControl.lifecycle.invalidateAttempt(attemptId);
+            }
             if (ownerHailuo02I2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerHailuo02I2v.lifecycle.invalidateAttempt(attemptId);
@@ -2357,6 +2440,7 @@ export function createObservedOwnerRuntime(
         ownerKlingT2v === undefined &&
         ownerKlingI2v === undefined &&
         ownerKlingKeyframes === undefined &&
+        ownerKlingMotionControl === undefined &&
         ownerHailuo02I2v === undefined &&
         ownerVeoT2v === undefined &&
         ownerGrokT2v === undefined &&
@@ -2415,6 +2499,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerKlingKeyframes !== undefined) {
             try { await ownerKlingKeyframes.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerKlingMotionControl !== undefined) {
+            try { await ownerKlingMotionControl.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerHailuo02I2v !== undefined) {
             try { await ownerHailuo02I2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -2540,6 +2627,12 @@ export function createObservedOwnerRuntime(
     ...(ownerKlingKeyframes === undefined ? {} : { ownerKlingKeyframes: {
       referenceService: ownerKlingKeyframes.referenceService, generationService: ownerKlingKeyframes.generationService, now
     } }),
+    ...(ownerKlingMotionControl === undefined ? {} : { ownerKlingMotionControl: {
+      referenceService: ownerKlingMotionControl.referenceService,
+      presetReferenceService: ownerKlingMotionControl.presetReferenceService,
+      generationService: ownerKlingMotionControl.generationService,
+      now
+    } }),
     ...(ownerHailuo02I2v === undefined ? {} : { ownerHailuo02I2v: {
       imageReferenceService: ownerHailuo02I2v.imageReferenceService, generationService: ownerHailuo02I2v.generationService
     } }),
@@ -2597,6 +2690,7 @@ export function createObservedOwnerRuntime(
     ...(ownerKlingT2v === undefined ? {} : { ownerKlingT2vLifecycle: ownerKlingT2v.lifecycle }),
     ...(ownerKlingI2v === undefined ? {} : { ownerKlingI2vLifecycle: ownerKlingI2v.lifecycle }),
     ...(ownerKlingKeyframes === undefined ? {} : { ownerKlingKeyframesLifecycle: ownerKlingKeyframes.lifecycle }),
+    ...(ownerKlingMotionControl === undefined ? {} : { ownerKlingMotionControlLifecycle: ownerKlingMotionControl.lifecycle }),
     ...(ownerHailuo02I2v === undefined ? {} : { ownerHailuo02I2vLifecycle: ownerHailuo02I2v.lifecycle }),
     ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2vLifecycle: ownerVeoT2v.lifecycle }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),

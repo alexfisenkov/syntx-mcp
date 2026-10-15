@@ -157,8 +157,32 @@ import {
   type OwnerKlingKeyframesImageCanonicalMimeType,
   type ValidatedOwnerKlingKeyframesImage
 } from "../../application/owner-kling-keyframes-image-policy.js";
+import {
+  readValidatedOwnerKlingMotionControlImage,
+  releaseValidatedOwnerKlingMotionControlImage,
+  type OwnerKlingMotionControlImageMimeType,
+  type ValidatedOwnerKlingMotionControlImage
+} from "../../application/owner-kling-motion-control-image-policy.js";
+import {
+  copyTrustedOwnerKlingMotionControlVideoBytes,
+  isTrustedOwnerKlingMotionControlVideoProbeResult,
+  releaseTrustedOwnerKlingMotionControlVideoProbeResult,
+  type OwnerKlingMotionControlVideoProbeResult,
+  type OwnerKlingMotionControlVideoMimeType
+} from "../../application/owner-kling-motion-control-video-probe.js";
 import type { OwnerHailuo02I2vImageUploadContext } from "./hailuo02-i2v-upload-context.js";
 import type { OwnerKlingKeyframesUploadContext } from "./kling-keyframes-upload-context.js";
+import type {
+  OwnerKlingMotionControlImageUploadContext,
+  OwnerKlingMotionControlUploadContext,
+  OwnerKlingMotionControlVideoUploadContext
+} from "./kling-motion-control-upload-context.js";
+import { decodeKlingMotionControlPresets } from "./kling-motion-control-presets-decoder.js";
+import type {
+  OwnerKlingMotionControlPresetEntryContext,
+  OwnerKlingMotionControlPresetLibrary,
+  OwnerKlingMotionControlPresetLibraryContext
+} from "./kling-motion-control-preset-context.js";
 import {
   readValidatedOwnerWan27R2vImage,
   type ValidatedOwnerWan27R2vImage
@@ -486,9 +510,23 @@ const MAX_BANANA_INPAINT_AUXILIARY_UPLOAD_BYTES = 50 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_ORIGINAL_UPLOAD_BYTES = 30 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_DRAWING_UPLOAD_BYTES = 32 * 1024 * 1024;
 const MAX_KLING_I2V_IMAGE_UPLOAD_BYTES = 30 * 1024 * 1024;
+const MAX_KLING_MOTION_CONTROL_IMAGE_UPLOAD_BYTES = 64 * 1024 * 1024;
+const MAX_KLING_MOTION_CONTROL_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 const HAILUO02_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Hailuo02I2vUploadContextState>>();
 const WAN27_R2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan27R2vUploadContextState>>();
 const KLING_KEYFRAMES_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<KlingKeyframesUploadContextState>>();
+const KLING_MOTION_CONTROL_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<KlingMotionControlUploadContextState>>();
+const KLING_MOTION_CONTROL_PRESET_LIBRARIES = new WeakMap<object, Readonly<{ client: SyntxChatHttpClient; expiresAt: number }>>();
+const KLING_MOTION_CONTROL_PRESET_ENTRIES = new WeakMap<object, Readonly<{
+  client: SyntxChatHttpClient;
+  libraryContext: OwnerKlingMotionControlPresetLibraryContext;
+  expiresAt: number;
+  audioUrl?: string;
+  noaudioUrl?: string;
+  previewUrl?: string;
+  audioPreviewUrl?: string;
+  noaudioPreviewUrl?: string;
+}>>();
 const BANANA_INPAINT_ORIGINAL_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_PAINTED_COMPOSITE_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
 const BANANA_INPAINT_AUXILIARY_VARIANTS = new Set(["banana", "banana2", "banana3", "banana3_light"]);
@@ -645,6 +683,21 @@ const klingKeyframesUploadResponseSchema = z.object({
     url: z.string().min(1).max(MAX_URL_LENGTH),
     mime_type: z.string().max(128),
     size: z.number().int().nonnegative().max(50 * 1024 * 1024),
+    status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
+  }).strip()).length(1)
+}).strip();
+const klingMotionControlUploadResponseSchema = z.object({
+  files: z.array(z.object({
+    id: providerIdSchema.optional(),
+    file_id: providerIdSchema.optional(),
+    filename: z.string().max(256),
+    url: z.string().min(1).max(MAX_URL_LENGTH),
+    mime_type: z.string().max(128),
+    content_type: z.string().max(128).optional(),
+    type: z.string().max(128).optional(),
+    size: z.number().int().nonnegative().max(100 * 1024 * 1024),
+    duration: z.number().finite().nonnegative().max(30).optional(),
+    duration_seconds: z.number().finite().nonnegative().max(30).optional(),
     status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
   }).strip()).length(1)
 }).strip();
@@ -4594,6 +4647,47 @@ export class SyntxChatHttpClient {
     return native.getOwnedKlingKeyframesResult(input, packet, signal);
   }
 
+  /** Creates one native Motion Control chat bound to an owned prepared request. */
+  async createOwnerKlingMotionControlChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling-motion-control-native-context.js").OwnerKlingMotionControlChatContext> {
+    assertNativeOwnerKlingMotionControl(this);
+    const native = await import("./owner-kling-motion-control-native-context.js");
+    const packet = createOwnerKlingMotionControlNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_KLING_CREATE_CHAT, this, ["video", title, requestSignal]));
+    return native.createOwnerKlingMotionControlChat(input, packet, signal);
+  }
+
+  /** Burns one Motion Control permit before the sole typed image/video POST. */
+  async startOwnerKlingMotionControlWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerKlingMotionControl(this);
+    const native = await import("./owner-kling-motion-control-native-context.js");
+    const packet = createOwnerKlingMotionControlNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "kling", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerKlingMotionControlWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Bounded GET-only history for one native Motion Control chat. */
+  async listOwnedKlingMotionControlCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling-motion-control-native-context.js").OwnerKlingMotionControlResultCandidates> {
+    assertNativeOwnerKlingMotionControl(this);
+    const native = await import("./owner-kling-motion-control-native-context.js");
+    const packet = createOwnerKlingMotionControlNativeInvocation(this, "list", input,
+      async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL); url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnedKlingMotionControlCandidates(input, packet, signal);
+  }
+
+  /** Reads only a nominal result context minted by complete Motion Control history. */
+  async getOwnedKlingMotionControlResult(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling-motion-control-video-result.js").OwnerKlingMotionControlVideoResult> {
+    assertNativeOwnerKlingMotionControl(this);
+    const native = await import("./owner-kling-motion-control-native-context.js");
+    const packet = createOwnerKlingMotionControlNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) => this.#request(
+        new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnedKlingMotionControlResult(input, packet, signal);
+  }
+
   /** Creates one native Video2Audio chat bound to an authentic candidate, before any one-shot permit is minted. */
   async createVideo2AudioChat(input: CreateVideo2AudioChatInput | unknown, signal?: AbortSignal): Promise<OwnerVideo2AudioChatContext> {
     assertNativeOwnerVideo2AudioClient(this);
@@ -6409,6 +6503,116 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** Reads the fixed native Motion Control service preset library. */
+  async listKlingMotionControlPresets(signal?: AbortSignal): Promise<OwnerKlingMotionControlPresetLibrary> {
+    const raw = await this.#request(new URL("kling/motions", V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", signal);
+    const decoded = decodeKlingMotionControlPresets(raw);
+    const expiresAt = Date.now() + 15 * 60 * 1000;
+    const libraryContext: OwnerKlingMotionControlPresetLibraryContext = Object.freeze({ status: "native_preset_library" });
+    KLING_MOTION_CONTROL_PRESET_LIBRARIES.set(libraryContext, Object.freeze({ client: this, expiresAt }));
+    const entries = decoded.entries.map((entry) => {
+      const context: OwnerKlingMotionControlPresetEntryContext = Object.freeze({ status: "native_preset_entry" });
+      KLING_MOTION_CONTROL_PRESET_ENTRIES.set(context, Object.freeze({
+        client: this,
+        libraryContext,
+        expiresAt,
+        ...(entry.audio_url !== undefined ? { audioUrl: entry.audio_url } : {}),
+        ...(entry.noaudio_url !== undefined ? { noaudioUrl: entry.noaudio_url } : {}),
+        ...(entry.preview_url !== undefined ? { previewUrl: entry.preview_url } : {}),
+        ...(entry.audio_preview_url !== undefined ? { audioPreviewUrl: entry.audio_preview_url } : {}),
+        ...(entry.noaudio_preview_url !== undefined ? { noaudioPreviewUrl: entry.noaudio_preview_url } : {})
+      }));
+      return Object.freeze({ index: entry.index, name: entry.name, availability: entry.availability, context });
+    });
+    return Object.freeze({ source_shape: decoded.source_shape, url_policy: decoded.url_policy, context: libraryContext,
+      entries: Object.freeze(entries), gaps: decoded.gaps });
+  }
+
+  /** Consumes one genuine MCV image receipt and uploads it to the fixed uploaded destination. */
+  async uploadKlingMotionControlImage(
+    receiptInput: ValidatedOwnerKlingMotionControlImage,
+    signal?: AbortSignal
+  ): Promise<OwnerKlingMotionControlImageUploadContext> {
+    const owned = readValidatedOwnerKlingMotionControlImage(receiptInput);
+    if (!owned) { releaseValidatedOwnerKlingMotionControlImage(receiptInput); throw invalidRequest(); }
+    const bytes = new Uint8Array(owned.size);
+    bytes.set(owned.bytes);
+    owned.bytes.fill(0);
+    let form: FormData | undefined;
+    try {
+      if (bytes.byteLength !== owned.size || bytes.byteLength < 1 || bytes.byteLength > MAX_KLING_MOTION_CONTROL_IMAGE_UPLOAD_BYTES ||
+          createHash("sha256").update(bytes).digest("hex") !== owned.sha256 || !isKlingMotionControlImageMime(owned.mime_type) ||
+          !Number.isSafeInteger(owned.width) || owned.width < 300 || !Number.isSafeInteger(owned.height) || owned.height < 300 ||
+          receiptInput.status !== "LOCAL_SOURCE_VALIDATED" || receiptInput.model_id !== "kling_motion_control" ||
+          receiptInput.source_policy_id !== "OWNER_KLING_MOTION_CONTROL_IMAGE_INPUT_POLICY_B066_LOCAL_GUARD_V1" ||
+          receiptInput.filename !== owned.filename || receiptInput.source_mime_type !== owned.mime_type ||
+          receiptInput.mime_type !== owned.mime_type || receiptInput.size !== owned.size || receiptInput.sha256 !== owned.sha256 ||
+          receiptInput.width !== owned.width || receiptInput.height !== owned.height || receiptInput.generation_permit !== false ||
+          receiptInput.frame_role_binding !== "NOT_ESTABLISHED" || receiptInput.owner_upload_binding !== "NOT_ESTABLISHED") throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type, destination: "uploaded",
+        check_duplicates: true, model_type: "kling_motion_control" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseKlingMotionControlUploadReference(raw, "image", owned.filename, owned.mime_type, owned.size);
+      const context: OwnerKlingMotionControlImageUploadContext = Object.freeze({ status: "uploaded", model_id: "kling_motion_control",
+        destination: "uploaded", media_type: "image", filename: owned.filename, mime_type: owned.mime_type, size: owned.size,
+        sha256: owned.sha256, width: owned.width, height: owned.height,
+        input_acceptance: "UPLOAD_REFERENCE_RECEIVED_PROVIDER_ACCEPTANCE_UNVERIFIED" });
+      KLING_MOTION_CONTROL_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url, mediaType: "image",
+        filename: owned.filename, mimeType: owned.mime_type, size: owned.size, sha256: owned.sha256,
+        width: owned.width, height: owned.height }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+      releaseValidatedOwnerKlingMotionControlImage(receiptInput);
+    }
+  }
+
+  /** Consumes one genuine MCV probed video receipt and uploads it to the fixed uploaded destination. */
+  async uploadKlingMotionControlVideo(
+    receiptInput: OwnerKlingMotionControlVideoProbeResult,
+    signal?: AbortSignal
+  ): Promise<OwnerKlingMotionControlVideoUploadContext> {
+    if (!isTrustedOwnerKlingMotionControlVideoProbeResult(receiptInput)) {
+      releaseTrustedOwnerKlingMotionControlVideoProbeResult(receiptInput);
+      throw invalidRequest();
+    }
+    const sourceBytes = copyTrustedOwnerKlingMotionControlVideoBytes(receiptInput);
+    const bytes = new Uint8Array(sourceBytes.byteLength);
+    bytes.set(sourceBytes);
+    sourceBytes.fill(0);
+    let form: FormData | undefined;
+    try {
+      const source = receiptInput;
+      if (bytes.byteLength !== source.bytes_copied || bytes.byteLength < 1 || bytes.byteLength > MAX_KLING_MOTION_CONTROL_VIDEO_UPLOAD_BYTES ||
+          createHash("sha256").update(bytes).digest("hex") !== source.source_sha256 || source.status !== "TRUSTED_LOCAL_MEDIA_PROBE" ||
+          source.model_id !== "kling_motion_control" || source.source_policy_id !== "OWNER_KLING_MOTION_CONTROL_VIDEO_INPUT_POLICY_B066_LOCAL_GUARD_V1" ||
+          !isKlingMotionControlVideoMime(source.mime_type) || !isKlingMotionControlUploadFilename(source.filename) ||
+          source.metadata.container !== "ISO_BMFF_MOV_MP4" || source.metadata.width < 300 || source.metadata.height < 300 ||
+          !Number.isFinite(source.metadata.duration_seconds) || source.metadata.duration_seconds < 3 || source.metadata.duration_seconds > 30 ||
+          source.metadata_confidence !== "TRUSTED_FFPROBE_METADATA_NOT_PIXEL_DECODED" || source.generation_permit !== false ||
+          source.owner_upload_binding !== "NOT_ESTABLISHED" || source.parent_binding !== "NOT_ESTABLISHED" || source.selection_crop !== "NOT_PERFORMED") throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: source.filename, mime_type: source.mime_type, destination: "uploaded",
+        check_duplicates: true, model_type: "kling_motion_control" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseKlingMotionControlUploadReference(raw, "video", source.filename, source.mime_type, bytes.byteLength,
+        source.metadata.duration_seconds);
+      const context: OwnerKlingMotionControlVideoUploadContext = Object.freeze({ status: "uploaded", model_id: "kling_motion_control",
+        destination: "uploaded", media_type: "video", filename: source.filename, mime_type: source.mime_type, size: bytes.byteLength,
+        sha256: createHash("sha256").update(bytes).digest("hex"), source_sha256: source.source_sha256,
+        duration_seconds: source.metadata.duration_seconds,
+        input_acceptance: "UPLOAD_REFERENCE_RECEIVED_PROVIDER_ACCEPTANCE_UNVERIFIED" });
+      KLING_MOTION_CONTROL_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url, mediaType: "video",
+        filename: source.filename, mimeType: source.mime_type, size: bytes.byteLength, sha256: context.sha256,
+        sourceSha256: source.source_sha256, durationSeconds: source.metadata.duration_seconds }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+      releaseTrustedOwnerKlingMotionControlVideoProbeResult(receiptInput);
+    }
+  }
+
   /** One fixed Hailuo-02 I2V image upload. A genuine policy receipt is borrowed, never released. */
   async uploadHailuo02I2vImage(
     receiptInput: ValidatedOwnerHailuo02I2vImageUpload,
@@ -7495,6 +7699,34 @@ const NATIVE_OWNER_KLING_CREATE = SyntxChatHttpClient.prototype.createOwnerKling
 const NATIVE_OWNER_KLING_START = SyntxChatHttpClient.prototype.startOwnerKlingKeyframesWithOwnedCandidate;
 const NATIVE_OWNER_KLING_LIST = SyntxChatHttpClient.prototype.listOwnedKlingKeyframesCandidates;
 const NATIVE_OWNER_KLING_GET = SyntxChatHttpClient.prototype.getOwnedKlingKeyframesResult;
+const NATIVE_OWNER_KLING_MOTION_CREATE = SyntxChatHttpClient.prototype.createOwnerKlingMotionControlChat;
+const NATIVE_OWNER_KLING_MOTION_START = SyntxChatHttpClient.prototype.startOwnerKlingMotionControlWithOwnedCandidate;
+const NATIVE_OWNER_KLING_MOTION_LIST = SyntxChatHttpClient.prototype.listOwnedKlingMotionControlCandidates;
+const NATIVE_OWNER_KLING_MOTION_GET = SyntxChatHttpClient.prototype.getOwnedKlingMotionControlResult;
+type OwnerKlingMotionControlNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerKlingMotionControlNativeInvocation { readonly client:SyntxChatHttpClient; readonly method:OwnerKlingMotionControlNativeMethod; readonly input:unknown; readonly callback:Function }
+const OWNER_KLING_MOTION_NATIVE_INVOCATIONS = new WeakMap<object,OwnerKlingMotionControlNativeInvocation>();
+function createOwnerKlingMotionControlNativeInvocation(client:SyntxChatHttpClient,method:OwnerKlingMotionControlNativeMethod,input:unknown,callback:Function):object {
+  const packet=Object.freeze(Object.create(null) as object); OWNER_KLING_MOTION_NATIVE_INVOCATIONS.set(packet,Object.freeze({client,method,input,callback})); return packet;
+}
+/** Consumes one method-bound packet minted by a fixed native Motion Control method. */
+export function consumeOwnerKlingMotionControlNativeInvocation(input:unknown,packet:unknown,method:OwnerKlingMotionControlNativeMethod):Readonly<{client:SyntxChatHttpClient;callback:Function}> {
+  if(!packet||typeof packet!=="object"||types.isProxy(packet)) throw new Error("OWNER_KLING_MOTION_INVOCATION_INVALID");
+  const invocation=OWNER_KLING_MOTION_NATIVE_INVOCATIONS.get(packet);
+  if(!invocation||invocation.input!==input||invocation.method!==method||!isExactOwnerKlingMotionControlNativeClient(invocation.client)) throw new Error("OWNER_KLING_MOTION_INVOCATION_INVALID");
+  OWNER_KLING_MOTION_NATIVE_INVOCATIONS.delete(packet); return Object.freeze({client:invocation.client,callback:invocation.callback});
+}
+function assertNativeOwnerKlingMotionControl(client:unknown):asserts client is SyntxChatHttpClient { if(!isExactOwnerKlingMotionControlNativeClient(client)) throw invalidRequest(); }
+function isExactOwnerKlingMotionControlNativeClient(client:unknown):client is SyntxChatHttpClient {
+  try { return !!client&&typeof client==="object"&&!types.isProxy(client)&&Object.getPrototypeOf(client)===SyntxChatHttpClient.prototype&&
+    !Object.hasOwn(client,"createOwnerKlingMotionControlChat")&&!Object.hasOwn(client,"startOwnerKlingMotionControlWithOwnedCandidate")&&
+    !Object.hasOwn(client,"listOwnedKlingMotionControlCandidates")&&!Object.hasOwn(client,"getOwnedKlingMotionControlResult")&&
+    getDataMethod(client,"uploadKlingMotionControlImage")===NATIVE_KLING_MOTION_CONTROL_IMAGE_UPLOAD&&
+    getDataMethod(client,"uploadKlingMotionControlVideo")===NATIVE_KLING_MOTION_CONTROL_VIDEO_UPLOAD&&getDataMethod(client,"createChat")===NATIVE_OWNER_KLING_CREATE_CHAT&&
+    getDataMethod(client,"createOwnerKlingMotionControlChat")===NATIVE_OWNER_KLING_MOTION_CREATE&&getDataMethod(client,"startOwnerKlingMotionControlWithOwnedCandidate")===NATIVE_OWNER_KLING_MOTION_START&&
+    getDataMethod(client,"listOwnedKlingMotionControlCandidates")===NATIVE_OWNER_KLING_MOTION_LIST&&getDataMethod(client,"getOwnedKlingMotionControlResult")===NATIVE_OWNER_KLING_MOTION_GET;
+  } catch { return false; }
+}
 type OwnerKlingKeyframesNativeMethod = "create" | "start" | "list" | "get";
 interface OwnerKlingKeyframesNativeInvocation { readonly client:SyntxChatHttpClient; readonly method:OwnerKlingKeyframesNativeMethod; readonly input:unknown; readonly callback:Function }
 const OWNER_KLING_KEYFRAMES_NATIVE_INVOCATIONS = new WeakMap<object,OwnerKlingKeyframesNativeInvocation>();
@@ -10164,6 +10396,110 @@ function isKlingKeyframesMime(value: unknown): value is OwnerKlingKeyframesImage
   return value === "image/jpeg" || value === "image/png" || value === "image/avif";
 }
 
+function isKlingMotionControlImageMime(value: unknown): value is OwnerKlingMotionControlImageMimeType {
+  return value === "image/jpeg" || value === "image/png" || value === "image/avif" || value === "image/webp";
+}
+
+function isKlingMotionControlVideoMime(value: unknown): value is OwnerKlingMotionControlVideoMimeType {
+  return value === "video/mp4" || value === "video/quicktime";
+}
+
+function isKlingMotionControlUploadFilename(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 255 && value === value.trim() &&
+    !/[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(value) && value !== "." && value !== "..";
+}
+
+function parseKlingMotionControlUploadReference(
+  raw: unknown,
+  expectedMediaType: "image" | "video",
+  expectedFilename: string,
+  expectedMimeType: OwnerKlingMotionControlImageMimeType | OwnerKlingMotionControlVideoMimeType,
+  expectedSize: number,
+  expectedDuration?: number
+): InternalUploadReference {
+  const parsed = klingMotionControlUploadResponseSchema.safeParse(raw);
+  if (!parsed.success) throw protocolError();
+  const [entry] = parsed.data.files;
+  const duration = entry?.duration_seconds ?? entry?.duration;
+  if (!entry || entry.filename !== expectedFilename || entry.mime_type !== expectedMimeType || entry.size !== expectedSize ||
+      (entry.content_type !== undefined && entry.content_type !== expectedMimeType) ||
+      (entry.type !== undefined && entry.type !== expectedMediaType && entry.type !== expectedMimeType) ||
+      (entry.status !== undefined && entry.status.toLowerCase() !== "success") ||
+      (entry.id !== undefined && entry.file_id !== undefined && String(entry.id) !== String(entry.file_id)) ||
+      (expectedDuration === undefined ? duration !== undefined : duration !== undefined && Math.abs(duration - expectedDuration) > 0.01) ||
+      (entry.duration !== undefined && entry.duration_seconds !== undefined && Math.abs(entry.duration - entry.duration_seconds) > 0.01)) {
+    throw protocolError();
+  }
+  let references: InternalUploadReference[];
+  try { references = parseInternalUploadReferences(raw); }
+  catch { throw protocolError(); }
+  if (references.length !== 1) throw protocolError();
+  return Object.freeze(references[0]!);
+}
+
+/** Returns a native upload URL only for a context minted by this exact chat client. */
+export function readOwnerKlingMotionControlUploadReferenceForClient(
+  clientInput: unknown,
+  contextInput: unknown
+): Readonly<{ readonly url: string }> | null {
+  try {
+    if (!clientInput || typeof clientInput !== "object" || types.isProxy(clientInput) ||
+        Object.getPrototypeOf(clientInput) !== SyntxChatHttpClient.prototype || Object.hasOwn(clientInput, "uploadKlingMotionControlImage") ||
+        Object.hasOwn(clientInput, "uploadKlingMotionControlVideo") ||
+        SyntxChatHttpClient.prototype.uploadKlingMotionControlImage !== NATIVE_KLING_MOTION_CONTROL_IMAGE_UPLOAD ||
+        SyntxChatHttpClient.prototype.uploadKlingMotionControlVideo !== NATIVE_KLING_MOTION_CONTROL_VIDEO_UPLOAD ||
+        !contextInput || typeof contextInput !== "object" || types.isProxy(contextInput) || !Object.isFrozen(contextInput)) return null;
+    const state = KLING_MOTION_CONTROL_UPLOAD_CONTEXTS.get(contextInput);
+    if (!state || state.client !== clientInput) return null;
+    const context = contextInput as OwnerKlingMotionControlUploadContext;
+    if (context.status !== "uploaded" || context.model_id !== "kling_motion_control" || context.destination !== "uploaded" ||
+        context.media_type !== state.mediaType || context.filename !== state.filename || context.mime_type !== state.mimeType ||
+        context.size !== state.size || !Number.isSafeInteger(context.size) || context.size < 1 || context.size > MAX_KLING_MOTION_CONTROL_VIDEO_UPLOAD_BYTES ||
+        context.sha256 !== state.sha256 || !/^[a-f0-9]{64}$/u.test(context.sha256) ||
+        context.input_acceptance !== "UPLOAD_REFERENCE_RECEIVED_PROVIDER_ACCEPTANCE_UNVERIFIED" || !isSafeUploadReferenceUrl(state.url)) return null;
+    if (state.mediaType === "image") {
+      if (context.media_type !== "image" || context.mime_type !== state.mimeType || !isKlingMotionControlImageMime(context.mime_type) ||
+          context.size > MAX_KLING_MOTION_CONTROL_IMAGE_UPLOAD_BYTES ||
+          context.width !== state.width || !Number.isSafeInteger(context.width) || context.width < 300 ||
+          context.height !== state.height || !Number.isSafeInteger(context.height) || context.height < 300) return null;
+    } else if (context.media_type !== "video" || context.mime_type !== state.mimeType || !isKlingMotionControlVideoMime(context.mime_type) ||
+        context.source_sha256 !== state.sourceSha256 || !/^[a-f0-9]{64}$/u.test(context.source_sha256) ||
+        context.duration_seconds !== state.durationSeconds || !Number.isFinite(context.duration_seconds) ||
+        context.duration_seconds < 3 || context.duration_seconds > 30) return null;
+    return Object.freeze({ url: state.url });
+  } catch { return null; }
+}
+
+/** Reads one selected preset variant only from a live native context minted by this client. */
+export function readOwnerKlingMotionControlPresetForClient(
+  clientInput: unknown,
+  contextInput: unknown,
+  variant: "audio" | "noaudio"
+): Readonly<{ readonly url: string; readonly preview_url?: string }> | null {
+  try {
+    if (!clientInput || typeof clientInput !== "object" || types.isProxy(clientInput) ||
+        Object.getPrototypeOf(clientInput) !== SyntxChatHttpClient.prototype ||
+        Object.hasOwn(clientInput, "listKlingMotionControlPresets") ||
+        SyntxChatHttpClient.prototype.listKlingMotionControlPresets !== NATIVE_KLING_MOTION_CONTROL_PRESETS_GET ||
+        !contextInput || typeof contextInput !== "object" || types.isProxy(contextInput) || !Object.isFrozen(contextInput) ||
+        (variant !== "audio" && variant !== "noaudio")) return null;
+    const state = KLING_MOTION_CONTROL_PRESET_ENTRIES.get(contextInput);
+    if (!state || state.client !== clientInput || Date.now() > state.expiresAt ||
+        !KLING_MOTION_CONTROL_PRESET_LIBRARIES.has(state.libraryContext) ||
+        KLING_MOTION_CONTROL_PRESET_LIBRARIES.get(state.libraryContext)?.client !== clientInput ||
+        KLING_MOTION_CONTROL_PRESET_LIBRARIES.get(state.libraryContext)!.expiresAt !== state.expiresAt) return null;
+    const url = variant === "audio" ? state.audioUrl : state.noaudioUrl;
+    if (!url || !isSafeUploadReferenceUrl(url)) return null;
+    const preview = variant === "audio" ? state.audioPreviewUrl : state.noaudioPreviewUrl;
+    const previewUrl = preview ?? state.previewUrl;
+    return Object.freeze({ url, ...(previewUrl && isSafeUploadReferenceUrl(previewUrl) ? { preview_url: previewUrl } : {}) });
+  } catch { return null; }
+}
+
+const NATIVE_KLING_MOTION_CONTROL_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadKlingMotionControlImage;
+const NATIVE_KLING_MOTION_CONTROL_VIDEO_UPLOAD = SyntxChatHttpClient.prototype.uploadKlingMotionControlVideo;
+const NATIVE_KLING_MOTION_CONTROL_PRESETS_GET = SyntxChatHttpClient.prototype.listKlingMotionControlPresets;
+
 /** Reads the native URL only for the frozen context minted by this exact client. */
 export function readOwnerKlingKeyframesUploadReferenceForClient(
   clientInput: unknown,
@@ -10218,6 +10554,20 @@ interface KlingKeyframesUploadContextState {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
+}
+
+interface KlingMotionControlUploadContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly url: string;
+  readonly mediaType: "image" | "video";
+  readonly filename: string;
+  readonly mimeType: OwnerKlingMotionControlImageMimeType | OwnerKlingMotionControlVideoMimeType;
+  readonly size: number;
+  readonly sha256: string;
+  readonly width?: number;
+  readonly height?: number;
+  readonly sourceSha256?: string;
+  readonly durationSeconds?: number;
 }
 
 interface Wan27R2vUploadContextState {
@@ -10394,7 +10744,8 @@ function assertFixedUpstreamUrl(url: URL): void {
     "/api/v1/design/generate",
     "/api/v1/video/generate",
     "/api/v1/audio/generate",
-    "/api/v1/chats/upload-files"
+    "/api/v1/chats/upload-files",
+    "/api/v1/kling/motions"
   ];
   const dynamicPath =
     /^\/api\/v1\/chats\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}(?:\/inprogress|\/messages|\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}|\/messages\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}\/cancel)?$/u;

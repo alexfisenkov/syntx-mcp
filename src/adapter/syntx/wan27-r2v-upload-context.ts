@@ -24,6 +24,8 @@ export interface OwnerWan27R2vSelectedVideoUploadContext {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
+  /** Frame-derived selected segment duration; distinct from the measured container duration. */
+  readonly selected_duration_seconds: number;
   readonly video_duration_seconds: number;
   readonly source_sha256: string;
 }

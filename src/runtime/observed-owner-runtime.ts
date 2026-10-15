@@ -147,6 +147,8 @@ import { OwnerTopazAstraOriginalReferenceService } from "../application/owner-to
 import { createOwnerTopazAstraOwnedRequestPreparer } from "../application/owner-topaz-astra-owned-request-preparer.js";
 import { OwnerTopazAstraGenerationService, OWNER_TOPAZ_ASTRA_GENERATION_CATALOG_VERSION } from "../application/owner-topaz-astra-generation-service.js";
 import { OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-astra-existing-media-service.js";
+import { OwnerWan27R2vReferenceService } from "../application/owner-wan27-r2v-reference-service.js";
+import { OwnerWan27R2vReferenceUploadService } from "../application/owner-wan27-r2v-reference-upload-service.js";
 
 const LOCAL_OWNER_BINDING: AuthBinding = Object.freeze({
   tenant_id: "tenant_local_owner",
@@ -208,6 +210,12 @@ export interface ObservedOwnerRuntimeOptions {
   ownerTopazAstraFfprobePath?: string;
   /** Trusted upload destination, required only when Topaz Astra is enabled. */
   ownerTopazAstraUploadDestination?: "uploaded" | "hidden";
+  /** Explicit owner-stdio opt-in for private WAN 2.7 R2V reference upload tools. */
+  ownerWan27R2vEnabled?: boolean;
+  /** Trusted absolute local ffprobe path, required only when WAN 2.7 R2V references are enabled. */
+  ownerWan27R2vFfprobePath?: string;
+  /** Trusted absolute local ffmpeg path, required only when WAN 2.7 R2V references are enabled. */
+  ownerWan27R2vFfmpegPath?: string;
   /** Explicit owner-stdio opt-in for the reviewed Luma T2V contract tools. */
   ownerLumaT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the sealed, reviewed Hailuo-01 T2V profile. */
@@ -1479,6 +1487,53 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ originalReferenceService, generationService, existingMediaService: existingMediaService!, lifecycle });
       })()
     : undefined;
+  const ownerWan27R2v = options.ownerWan27R2vEnabled === true
+    ? (() => {
+        if (typeof options.ownerWan27R2vFfprobePath !== "string" || !isAbsolute(options.ownerWan27R2vFfprobePath) ||
+            typeof options.ownerWan27R2vFfmpegPath !== "string" || !isAbsolute(options.ownerWan27R2vFfmpegPath)) {
+          throw new Error("OWNER_WAN27_R2V_OPERATOR_CONFIGURATION_REQUIRED");
+        }
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveWan27R2vChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_WAN27_R2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        const referenceService = new OwnerWan27R2vReferenceService({
+          binding: authBinding, linkService, resolveClient: resolveWan27R2vChatClient, now
+        });
+        const uploadService = new OwnerWan27R2vReferenceUploadService({
+          referenceService, ffprobePath: options.ownerWan27R2vFfprobePath, ffmpegPath: options.ownerWan27R2vFfmpegPath
+        });
+        let closing: Promise<void> | undefined;
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            const errors: unknown[] = [];
+            try { await uploadService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            try { await referenceService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            clientsByAttempt.delete(attemptId);
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "WAN 2.7 R2V attempt invalidation drain failed.");
+          },
+          close(): Promise<void> {
+            if (closing !== undefined) return closing;
+            closing = (async () => {
+              const errors: unknown[] = [];
+              try { await uploadService.close(); } catch (error) { errors.push(error); }
+              try { await referenceService.close(); } catch (error) { errors.push(error); }
+              clientsByAttempt.clear();
+              if (errors.length === 1) throw errors[0];
+              if (errors.length > 1) throw new AggregateError(errors, "WAN 2.7 R2V services did not close cleanly.");
+            })();
+            return closing;
+          }
+        });
+        return Object.freeze({ referenceService, uploadService, lifecycle });
+      })()
+    : undefined;
   const ownerLumaT2v = options.ownerLumaT2vEnabled === true
     ? (() => {
         const registry = loadGenerationContractRegistryV2(OWNER_LUMA_T2V_CONTRACT_REGISTRY_VERSION, options.catalogDirectory);
@@ -2074,7 +2129,7 @@ export function createObservedOwnerRuntime(
     : undefined;
   const ownerAuthLinkService: Pick<PerUserLinkService, "createAttempt" | "issueHandoff" | "checkAttempt" | "revoke"> =
     ownerSoulImageReferences === undefined && ownerGrokT2iImageReferences === undefined && ownerWanT2iImageReferences === undefined &&
-      ownerWanT2vVideos === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
+      ownerWanT2vVideos === undefined && ownerWan27R2v === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
       ownerLumaT2v === undefined &&
       ownerHailuo01T2v === undefined &&
       ownerHailuo01DirectorT2v === undefined &&
@@ -2109,6 +2164,10 @@ export function createObservedOwnerRuntime(
             if (ownerWanT2vVideos !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerWanT2vVideos.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerWan27R2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerWan27R2v.lifecycle.invalidateAttempt(attemptId);
             }
             if (ownerElevenLabsShared !== undefined) {
               await linkService.getStatus(binding, attemptId);
@@ -2207,6 +2266,7 @@ export function createObservedOwnerRuntime(
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
+        ownerWan27R2v === undefined &&
         ownerTopazAstra === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
@@ -2220,6 +2280,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerWanT2vVideos !== undefined) {
             try { await ownerWanT2vVideos.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerWan27R2v !== undefined) {
+            try { await ownerWan27R2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerElevenLabsShared !== undefined) {
             try { await ownerElevenLabsShared.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -2382,6 +2445,7 @@ export function createObservedOwnerRuntime(
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
+    ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2v: { referenceUploadService: ownerWan27R2v.uploadService } }),
     ...(ownerSoulCatalogShape === undefined ? {} : { ownerSoulCatalogShape }),
     ...(ownerSoulStyleOptions === undefined ? {} : { ownerSoulStyleOptions }),
     ...(ownerSoulImageReferences === undefined ? {} : { ownerSoulImageReferences }),
@@ -2434,7 +2498,8 @@ export function createObservedOwnerRuntime(
     ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2vLifecycle: ownerVeoT2v.lifecycle }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2vLifecycle: ownerHailuoLiveT2v.lifecycle }),
-    ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle })
+    ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle }),
+    ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2vLifecycle: ownerWan27R2v.lifecycle })
   };
 }
 

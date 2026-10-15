@@ -253,6 +253,10 @@ test("only explicit controls are accepted; source metadata separates the pinned 
   assert.equal(source.source_pins.form_build_id, "1791904852");
   assert.equal(source.source_pins.form_sha256, "sha256:f69db3d449d0051969def2229ed936d9835e0d65c8f257ec3ab289d6e9387737");
   assert.equal(source.source_pins.seed_helper_sha256, "sha256:c95fc355e29e33f6c3998cb62cc2da4d0879cc1ff4fb524e826e74bb24cd792b");
+  assert.equal(source.source_pins.video_script_bytes, 8_689);
+  assert.equal(source.source_pins.video_script_sha256, "sha256:5c338a208de4fbcd69d220aaa4931977a31da3390b12768968469707c4f15b5e");
+  assert.equal(source.source_pins.new_session_helper_bytes, 1_906);
+  assert.equal(source.source_pins.new_session_helper_sha256, "sha256:dda0cd67d1a152a5d341d3b816493cd7ed8fb5db0aad5c97fe76465940b0aadb");
   assert.deepEqual(source.controls.resolution, ["720P", "1080P"]);
   assert.deepEqual(source.controls.aspect_ratio, ["16:9", "9:16", "1:1", "4:3", "3:4"]);
   assert.deepEqual(source.controls.video_duration, {
@@ -261,7 +265,10 @@ test("only explicit controls are accepted; source metadata separates the pinned 
   assert.equal(source.prompt_limit.maximum_length, 1_500);
   assert.equal(source.prompt_limit.source, "PINNED_B066_PUBLIC_CATALOG_ONLY_NOT_CURRENT_UI_LIMIT");
   assert.equal(source.controls.native_audio, false);
-  assert.ok(source.coverage_gaps.includes("SHOT_TYPE_AND_AUDIO_SETTING_VISIBILITY_RESET_NOT_ESTABLISHED"));
+  assert.deepEqual(source.wire_facts.fixed_fields, { shot_type: "single", audio_setting: "auto" });
+  assert.equal(source.wire_facts.fixed_fields_source, "PINNED_R2V_CONDITIONAL_VISIBILITY_RESET");
+  assert.equal(source.wire_facts.duration_source, "ROUNDED_SELECTED_DURATION_PER_CLIP_THEN_SUMMED_TO_2_DECIMALS_IMAGE_ONLY_ZERO");
+  assert.deepEqual(source.coverage_gaps, ["EFFECTIVE_UI_DEFAULTS_NOT_ESTABLISHED", "PROVIDER_ACCEPTANCE_NOT_ESTABLISHED"]);
   assert.ok(Object.isFrozen(source) && Object.isFrozen(source.source_pins) && Object.isFrozen(source.coverage_gaps));
 
   const base = { model_id: "wan_27_r2v", parameters: {

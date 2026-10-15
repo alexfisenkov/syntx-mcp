@@ -46,6 +46,10 @@ export interface OwnerWan27R2vGenerationSourceContract {
     form_build_id: "1791904852";
     form_bytes: 19_503;
     form_sha256: "sha256:f69db3d449d0051969def2229ed936d9835e0d65c8f257ec3ab289d6e9387737";
+    video_script_bytes: 8_689;
+    video_script_sha256: "sha256:5c338a208de4fbcd69d220aaa4931977a31da3390b12768968469707c4f15b5e";
+    new_session_helper_bytes: 1_906;
+    new_session_helper_sha256: "sha256:dda0cd67d1a152a5d341d3b816493cd7ed8fb5db0aad5c97fe76465940b0aadb";
     seed_helper_bytes: 1_656;
     seed_helper_sha256: "sha256:c95fc355e29e33f6c3998cb62cc2da4d0879cc1ff4fb524e826e74bb24cd792b";
   }>;
@@ -61,12 +65,14 @@ export interface OwnerWan27R2vGenerationSourceContract {
     maximum_length: 1_500;
     source: "PINNED_B066_PUBLIC_CATALOG_ONLY_NOT_CURRENT_UI_LIMIT";
   }>;
-  readonly coverage_gaps: readonly [
-    "EFFECTIVE_UI_DEFAULTS_NOT_ESTABLISHED",
-    "SHOT_TYPE_AND_AUDIO_SETTING_VISIBILITY_RESET_NOT_ESTABLISHED",
-    "PROMPT_MENTION_TRANSFORM_AND_OUTBOUND_SENDER_NOT_ESTABLISHED",
-    "PROVIDER_ACCEPTANCE_NOT_ESTABLISHED"
-  ];
+  readonly wire_facts: Readonly<{
+    fixed_fields: Readonly<{ shot_type: "single"; audio_setting: "auto" }>;
+    fixed_fields_source: "PINNED_R2V_CONDITIONAL_VISIBILITY_RESET";
+    duration_source: "ROUNDED_SELECTED_DURATION_PER_CLIP_THEN_SUMMED_TO_2_DECIMALS_IMAGE_ONLY_ZERO";
+    prompt_reference_policy: "MATCH_CURRENT_FINAL_OWNED_URL_TRIPLES_IDENTITY_OTHER_URLS_REMAIN_TEXT";
+    file_url_deduplication: "FIRST_BY_TYPED_ROLE_AND_URL";
+  }>;
+  readonly coverage_gaps: readonly ["EFFECTIVE_UI_DEFAULTS_NOT_ESTABLISHED", "PROVIDER_ACCEPTANCE_NOT_ESTABLISHED"];
 }
 
 export interface OwnerWan27R2vGenerationNormalizedIntent {
@@ -92,13 +98,15 @@ const SOURCE_PINS = Object.freeze({
   form_build_id: "1791904852",
   form_bytes: 19_503,
   form_sha256: "sha256:f69db3d449d0051969def2229ed936d9835e0d65c8f257ec3ab289d6e9387737",
+  video_script_bytes: 8_689,
+  video_script_sha256: "sha256:5c338a208de4fbcd69d220aaa4931977a31da3390b12768968469707c4f15b5e",
+  new_session_helper_bytes: 1_906,
+  new_session_helper_sha256: "sha256:dda0cd67d1a152a5d341d3b816493cd7ed8fb5db0aad5c97fe76465940b0aadb",
   seed_helper_bytes: 1_656,
   seed_helper_sha256: "sha256:c95fc355e29e33f6c3998cb62cc2da4d0879cc1ff4fb524e826e74bb24cd792b"
 } as const);
 const COVERAGE_GAPS = Object.freeze([
   "EFFECTIVE_UI_DEFAULTS_NOT_ESTABLISHED",
-  "SHOT_TYPE_AND_AUDIO_SETTING_VISIBILITY_RESET_NOT_ESTABLISHED",
-  "PROMPT_MENTION_TRANSFORM_AND_OUTBOUND_SENDER_NOT_ESTABLISHED",
   "PROVIDER_ACCEPTANCE_NOT_ESTABLISHED"
 ] as const);
 const SOURCE_CONTRACT: OwnerWan27R2vGenerationSourceContract = Object.freeze({
@@ -114,6 +122,13 @@ const SOURCE_CONTRACT: OwnerWan27R2vGenerationSourceContract = Object.freeze({
     native_audio: false
   }),
   prompt_limit: Object.freeze({ maximum_length: 1_500, source: "PINNED_B066_PUBLIC_CATALOG_ONLY_NOT_CURRENT_UI_LIMIT" }),
+  wire_facts: Object.freeze({
+    fixed_fields: Object.freeze({ shot_type: "single", audio_setting: "auto" }),
+    fixed_fields_source: "PINNED_R2V_CONDITIONAL_VISIBILITY_RESET",
+    duration_source: "ROUNDED_SELECTED_DURATION_PER_CLIP_THEN_SUMMED_TO_2_DECIMALS_IMAGE_ONLY_ZERO",
+    prompt_reference_policy: "MATCH_CURRENT_FINAL_OWNED_URL_TRIPLES_IDENTITY_OTHER_URLS_REMAIN_TEXT",
+    file_url_deduplication: "FIRST_BY_TYPED_ROLE_AND_URL"
+  }),
   coverage_gaps: COVERAGE_GAPS
 });
 

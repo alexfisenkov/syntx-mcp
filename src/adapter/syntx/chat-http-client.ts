@@ -4492,6 +4492,48 @@ export class SyntxChatHttpClient {
     return native.getOwnerHailuo02I2vResult(input, packet, signal);
   }
 
+  /** Creates one owner R2V video chat from an exact prepared candidate and nominal permit. */
+  async createOwnerWan27R2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan27-r2v-native-context.js").OwnerWan27R2vChatContext> {
+    assertNativeOwnerWan27R2v(this);
+    const native = await import("./owner-wan27-r2v-native-context.js");
+    const packet = createOwnerWan27R2vNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_WAN27_R2V_CREATE_CHAT, this, ["video", title, requestSignal]));
+    return native.createOwnerWan27R2vChat(input, packet, signal);
+  }
+
+  /** Burns one revalidated R2V permit immediately before its sole fixed video POST. */
+  async startOwnerWan27R2vWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerWan27R2v(this);
+    const native = await import("./owner-wan27-r2v-native-context.js");
+    const packet = createOwnerWan27R2vNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "wan_video", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerWan27R2vWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Bounded GET-only history read for an exact acknowledged owner R2V chat. */
+  async listOwnedWan27R2vCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan27-r2v-native-context.js").OwnerWan27R2vResultCandidates> {
+    assertNativeOwnerWan27R2v(this);
+    const native = await import("./owner-wan27-r2v-native-context.js");
+    const packet = createOwnerWan27R2vNativeInvocation(this, "list", input,
+      async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnerWan27R2vCandidates(input, packet, signal);
+  }
+
+  /** Reads only an opaque result context minted by this client's bound R2V history. */
+  async getOwnedWan27R2vResult(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan27-r2v-native-context.js").OwnerWan27R2vResult> {
+    assertNativeOwnerWan27R2v(this);
+    const native = await import("./owner-wan27-r2v-native-context.js");
+    const packet = createOwnerWan27R2vNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) => this.#request(
+        new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerWan27R2vResult(input, packet, signal);
+  }
+
   /** Creates one native Video2Audio chat bound to an authentic candidate, before any one-shot permit is minted. */
   async createVideo2AudioChat(input: CreateVideo2AudioChatInput | unknown, signal?: AbortSignal): Promise<OwnerVideo2AudioChatContext> {
     assertNativeOwnerVideo2AudioClient(this);
@@ -6606,6 +6648,10 @@ export class SyntxChatHttpClient {
     try {
       const metadata = receiptInput.metadata;
       const duration = metadata?.video_duration_seconds;
+      const selectedDuration = metadata && Number.isSafeInteger(metadata.frame_count) &&
+        Number.isSafeInteger(metadata.frame_rate?.numerator) && metadata.frame_rate.numerator > 0 &&
+        Number.isSafeInteger(metadata.frame_rate?.denominator) && metadata.frame_rate.denominator > 0
+        ? metadata.frame_count * metadata.frame_rate.denominator / metadata.frame_rate.numerator : Number.NaN;
       if (receiptInput.model_id !== "wan_27_r2v" || receiptInput.mime_type !== "video/mp4" ||
           receiptInput.bytes !== bytes.byteLength || receiptInput.bytes < 1 || receiptInput.bytes > MAX_WAN27_R2V_VIDEO_UPLOAD_BYTES ||
           !/^[a-f0-9]{64}$/u.test(receiptInput.crop_sha256) || createHash("sha256").update(bytes).digest("hex") !== receiptInput.crop_sha256 ||
@@ -6615,8 +6661,9 @@ export class SyntxChatHttpClient {
           !Number.isSafeInteger(metadata.frame_rate?.denominator) || metadata.frame_rate.denominator < 1 ||
           !Number.isSafeInteger(metadata.frame_count) || metadata.frame_count < 1 || typeof duration !== "number" ||
           !Number.isFinite(duration) || duration <= 0 || duration > 5 ||
-          Math.abs(duration - metadata.frame_count * metadata.frame_rate.denominator / metadata.frame_rate.numerator) >
-            metadata.frame_rate.denominator / metadata.frame_rate.numerator + 0.000001 || metadata.codec !== "h264" ||
+          !Number.isFinite(selectedDuration) || selectedDuration <= 0 || selectedDuration > 5 ||
+          Math.abs(duration - selectedDuration) > metadata.frame_rate.denominator / metadata.frame_rate.numerator + 0.000001 ||
+          metadata.codec !== "h264" ||
           !Number.isSafeInteger(metadata.audio_stream_count) || metadata.audio_stream_count < 0 || metadata.audio_stream_count > 16 ||
           receiptInput.encoding_policy !== "CFR_LOCAL_ENCODING_NOT_PROVIDER_PROOF" || receiptInput.generation_permit !== false ||
           receiptInput.owner_upload_binding !== "NOT_ESTABLISHED") throw invalidRequest();
@@ -6629,10 +6676,11 @@ export class SyntxChatHttpClient {
       const context: OwnerWan27R2vSelectedVideoUploadContext = Object.freeze({ status: "uploaded", model_id: "wan_27_r2v",
         media_type: "selected_video", mime_type: "video/mp4", size: bytes.byteLength,
         sha256: receiptInput.crop_sha256, width: metadata.width, height: metadata.height,
-        video_duration_seconds: duration, source_sha256: receiptInput.source_sha256 });
+        selected_duration_seconds: selectedDuration, video_duration_seconds: duration, source_sha256: receiptInput.source_sha256 });
       WAN27_R2V_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url, mediaType: "selected_video",
         mimeType: "video/mp4", size: bytes.byteLength, sha256: receiptInput.crop_sha256, width: metadata.width,
-        height: metadata.height, videoDurationSeconds: duration, sourceSha256: receiptInput.source_sha256 }));
+        height: metadata.height, selectedDurationSeconds: selectedDuration, videoDurationSeconds: duration,
+        sourceSha256: receiptInput.source_sha256 }));
       return context;
     } finally {
       bytes.fill(0);
@@ -7333,6 +7381,58 @@ const NATIVE_OWNER_HAILUO02_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.list
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedHailuo02I2vResult;
 const NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vImage;
 const NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo;
+const NATIVE_OWNER_WAN27_R2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_WAN27_R2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerWan27R2vChat;
+const NATIVE_OWNER_WAN27_R2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerWan27R2vWithOwnedCandidate;
+const NATIVE_OWNER_WAN27_R2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedWan27R2vCandidates;
+const NATIVE_OWNER_WAN27_R2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedWan27R2vResult;
+type OwnerWan27R2vNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerWan27R2vNativeInvocation { readonly client: SyntxChatHttpClient; readonly method: OwnerWan27R2vNativeMethod; readonly input: unknown; readonly callback: Function }
+const OWNER_WAN27_R2V_NATIVE_INVOCATIONS = new WeakMap<object, OwnerWan27R2vNativeInvocation>();
+
+function createOwnerWan27R2vNativeInvocation(client: SyntxChatHttpClient, method: OwnerWan27R2vNativeMethod, input: unknown, callback: Function): object {
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_WAN27_R2V_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** Consumes one method-bound packet minted by a fixed WAN 2.7 R2V client method. */
+export function consumeOwnerWan27R2vNativeInvocation(input: unknown, packet: unknown,
+  method: OwnerWan27R2vNativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw new Error("OWNER_WAN27_R2V_INVOCATION_INVALID");
+  const invocation = OWNER_WAN27_R2V_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerWan27R2vNativeClient(invocation.client)) {
+    throw new Error("OWNER_WAN27_R2V_INVOCATION_INVALID");
+  }
+  OWNER_WAN27_R2V_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerWan27R2v(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerWan27R2vNativeClient(client)) throw new Error("OWNER_WAN27_R2V_NATIVE_CLIENT_INVALID");
+}
+
+function isExactOwnerWan27R2vNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) && Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !Object.hasOwn(client, "createOwnerWan27R2vChat") && !Object.hasOwn(client, "startOwnerWan27R2vWithOwnedCandidate") &&
+      !Object.hasOwn(client, "listOwnedWan27R2vCandidates") && !Object.hasOwn(client, "getOwnedWan27R2vResult") &&
+      getDataMethod(client, "createChat") === NATIVE_OWNER_WAN27_R2V_CREATE_CHAT &&
+      getDataMethod(client, "uploadWan27R2vImage") === NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD &&
+      getDataMethod(client, "uploadWan27R2vSelectedVideo") === NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD &&
+      getDataMethod(client, "createOwnerWan27R2vChat") === NATIVE_OWNER_WAN27_R2V_NATIVE_CREATE &&
+      getDataMethod(client, "startOwnerWan27R2vWithOwnedCandidate") === NATIVE_OWNER_WAN27_R2V_NATIVE_START &&
+      getDataMethod(client, "listOwnedWan27R2vCandidates") === NATIVE_OWNER_WAN27_R2V_NATIVE_LIST &&
+      getDataMethod(client, "getOwnedWan27R2vResult") === NATIVE_OWNER_WAN27_R2V_NATIVE_GET &&
+      SyntxChatHttpClient.prototype.createChat === NATIVE_OWNER_WAN27_R2V_CREATE_CHAT &&
+      SyntxChatHttpClient.prototype.uploadWan27R2vImage === NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo === NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD &&
+      Reflect.get(client, "createChat") === NATIVE_OWNER_WAN27_R2V_CREATE_CHAT &&
+      Reflect.get(client, "uploadWan27R2vImage") === NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD &&
+      Reflect.get(client, "uploadWan27R2vSelectedVideo") === NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD;
+  } catch { return false; }
+}
+
 type OwnerHailuo02I2vNativeMethod = "create" | "start" | "list" | "get";
 interface OwnerHailuo02I2vNativeInvocation { readonly client: SyntxChatHttpClient; readonly method: OwnerHailuo02I2vNativeMethod; readonly input: unknown; readonly callback: Function }
 const OWNER_HAILUO02_I2V_NATIVE_INVOCATIONS = new WeakMap<object, OwnerHailuo02I2vNativeInvocation>();
@@ -9868,10 +9968,13 @@ export function readOwnerWan27R2vUploadReferenceForClient(
         !Number.isSafeInteger(context.width) || context.width < 240 || context.width > 8_000 || context.height !== state.height ||
         !Number.isSafeInteger(context.height) || context.height < 240 || context.height > 8_000 ||
         (state.mediaType === "selected_video" && (context.media_type !== "selected_video" ||
+          context.selected_duration_seconds !== state.selectedDurationSeconds || !Number.isFinite(context.selected_duration_seconds) ||
+          context.selected_duration_seconds <= 0 || context.selected_duration_seconds > 5 ||
           context.video_duration_seconds !== state.videoDurationSeconds || !Number.isFinite(context.video_duration_seconds) ||
           context.video_duration_seconds <= 0 || context.video_duration_seconds > 5 ||
           context.source_sha256 !== state.sourceSha256 || !/^[a-f0-9]{64}$/u.test(context.source_sha256))) ||
-        (state.mediaType === "image" && (context.media_type !== "image" || Object.hasOwn(context, "video_duration_seconds") ||
+        (state.mediaType === "image" && (context.media_type !== "image" || Object.hasOwn(context, "selected_duration_seconds") ||
+          Object.hasOwn(context, "video_duration_seconds") ||
           Object.hasOwn(context, "source_sha256"))) || !isSafeUploadReferenceUrl(state.url)) return null;
     return Object.freeze({ url: state.url });
   } catch { return null; }
@@ -9927,6 +10030,7 @@ interface Wan27R2vUploadContextState {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
+  readonly selectedDurationSeconds?: number;
   readonly videoDurationSeconds?: number;
   readonly sourceSha256?: string;
 }

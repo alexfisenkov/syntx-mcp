@@ -79,6 +79,17 @@ export {
 export { createMcpServer, TOOL_NAMES } from "./mcp/server.js";
 export type { CreateMcpServerOptions, OwnerKlingI2vServiceComposition } from "./mcp/server.js";
 export {
+  OWNER_WAN27_R2V_REFERENCE_TOOL_NAMES,
+  SYNTX_GET_WAN27_R2V_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_CREATE_WAN27_R2V_MANIFEST_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN27_R2V_IMAGE_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN27_R2V_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_FINALIZE_WAN27_R2V_MANIFEST_TOOL_NAME,
+  registerSyntxOwnerWan27R2vReferenceTools
+} from "./mcp/owner-wan27-r2v-reference-tools.js";
+export type { OwnerWan27R2vReferenceToolComposition } from "./mcp/owner-wan27-r2v-reference-tools.js";
+export { readOwnerWan27R2vFlag, readOwnerWan27R2vOperatorConfiguration } from "./transports/stdio-owner.js";
+export {
   registerSyntxRuntimeCoverageTool,
   SYNTX_RUNTIME_COVERAGE_TOOL_NAME,
   runtimeCoverageOutputSchema

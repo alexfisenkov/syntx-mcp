@@ -41,12 +41,17 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_HAILUO01_DIRECTOR_T2V",
   "SYNTX_OWNER_HAILUO23_T2V",
   "SYNTX_OWNER_HAILUO02_T2V",
+  "SYNTX_OWNER_HAILUO02_I2V",
   "SYNTX_OWNER_SEEDANCE20_T2V",
   "SYNTX_OWNER_VIDEO2AUDIO",
   "SYNTX_OWNER_KLING_T2V",
+  "SYNTX_OWNER_KLING_I2V",
   "SYNTX_OWNER_VEO_T2V",
   "SYNTX_OWNER_GROK_T2V",
-  "SYNTX_OWNER_HAILUO_LIVE_T2V"
+  "SYNTX_OWNER_HAILUO_LIVE_T2V",
+  "SYNTX_OWNER_ELEVENLABS_STS",
+  "SYNTX_OWNER_TOPAZ_ASTRA",
+  "SYNTX_OWNER_WAN27_R2V"
 ];
 const DISABLED_FLAGS = [
   "SYNTX_OWNER_IMAGE_REFERENCES",
@@ -115,7 +120,16 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
     Object.fromEntries(ENABLED_FLAGS.map((flag) => [flag, "1"])));
   assert.deepEqual(Object.fromEntries(DISABLED_FLAGS.map((flag) => [flag, server.env[flag]])),
     Object.fromEntries(DISABLED_FLAGS.map((flag) => [flag, "0"])));
-  assert.deepEqual(Object.keys(server.env).sort(), [...ENABLED_FLAGS, ...DISABLED_FLAGS].sort());
+  assert.deepEqual(Object.keys(server.env).sort(), [
+    ...ENABLED_FLAGS,
+    ...DISABLED_FLAGS,
+    "SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH",
+    "SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION",
+    "SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH",
+    "SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION",
+    "SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH",
+    "SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH"
+  ].sort());
   assert.equal(JSON.stringify(config).includes("token"), false);
   assert.equal(JSON.stringify(config).includes(".env"), false);
 });

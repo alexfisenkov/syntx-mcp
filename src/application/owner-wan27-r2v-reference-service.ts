@@ -37,6 +37,7 @@ export interface OwnerWan27R2vReferenceServiceOptions {
   readonly now?: () => number;
 }
 export interface OwnerWan27R2vManifestDraftInput { readonly attemptId: string; readonly video_reference_count: number; }
+export interface OwnerWan27R2vManifestDraftLookupInput { readonly attemptId: string; readonly manifest_handle: string; }
 export interface OwnerWan27R2vManifestDraft {
   readonly status: "draft";
   readonly manifest_handle: string;
@@ -212,6 +213,52 @@ export class OwnerWan27R2vReferenceService {
       return receipt;
     } catch (error) { return this.#mapError(error); }
     finally { record.busy = false; this.#finish(record.attemptId, op); }
+  }
+
+  /** Reads only safe draft metadata after revalidating this exact attempt and current owner. */
+  async getDraftManifest(input: OwnerWan27R2vManifestDraftLookupInput | unknown, signal?: AbortSignal): Promise<OwnerWan27R2vManifestDraft> {
+    this.#assertOpen();
+    const request = exactRecord(input, ["attemptId", "manifest_handle"]);
+    if (typeof request.attemptId !== "string" || !ATTEMPT.test(request.attemptId) ||
+        typeof request.manifest_handle !== "string" || !MANIFEST_HANDLE.test(request.manifest_handle)) fail("INVALID_REQUEST");
+    const record = this.#draft(request.manifest_handle);
+    if (record.attemptId !== request.attemptId) fail("MANIFEST_UNAVAILABLE");
+    const op = this.#begin(record.attemptId, signal);
+    try {
+      await this.#assertCurrentAsync(record, op);
+      const remaining = record.expiresAt - this.#readNow();
+      if (remaining <= 0) fail("MANIFEST_EXPIRED");
+      const snapshot: OwnerWan27R2vManifestDraft = Object.freeze({ status: "draft", manifest_handle: record.handle,
+        video_reference_count: record.videoReferenceCount, expires_in_seconds: Math.ceil(remaining / 1_000), generation_permit: false });
+      await this.#assertCurrentAsync(record, op);
+      return snapshot;
+    } catch (error) { return this.#mapError(error); }
+    finally { this.#finish(record.attemptId, op); }
+  }
+
+  async resolveManifest(input: unknown, signal?: AbortSignal): Promise<OwnerWan27R2vReferenceManifest> {
+    this.#assertOpen();
+    const request = exactRecord(input, ["attemptId", "manifest_handle"]);
+    if (typeof request.attemptId !== "string" || !ATTEMPT.test(request.attemptId) ||
+        typeof request.manifest_handle !== "string" || !MANIFEST_HANDLE.test(request.manifest_handle)) fail("INVALID_REQUEST");
+    const record = this.#manifests.get(request.manifest_handle);
+    if (!record || record.attemptId !== request.attemptId) fail("MANIFEST_UNAVAILABLE");
+    if (record.expiresAt <= this.#readNow()) { this.#remove(record.handle); fail("MANIFEST_EXPIRED"); }
+    const receipt = record.receipt;
+    const issued = receipt && MANIFEST_RECEIPTS.get(receipt);
+    if (record.state !== "ready" || !receipt || issued?.service !== this || issued.record !== record || !this.isOwnedManifest(receipt)) {
+      fail("MANIFEST_UNAVAILABLE");
+    }
+
+    const op = this.#begin(record.attemptId, signal);
+    try {
+      await this.#assertCurrentAsync(record, op);
+      if (record.receipt !== receipt || record.state !== "ready" || !this.isOwnedManifest(receipt)) fail("MANIFEST_UNAVAILABLE");
+      const current = MANIFEST_RECEIPTS.get(receipt);
+      if (current?.service !== this || current.record !== record) fail("MANIFEST_UNAVAILABLE");
+      return receipt;
+    } catch (error) { return this.#mapError(error); }
+    finally { this.#finish(record.attemptId, op); }
   }
 
   isOwnedManifest(value: unknown): value is OwnerWan27R2vReferenceManifest {

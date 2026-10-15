@@ -112,6 +112,88 @@ export {
 export type { OwnerWan26I2vServiceComposition } from "./mcp/owner-wan26-i2v-tools.js";
 export { readOwnerWan26I2vFlag, readOwnerWan26I2vOperatorConfiguration } from "./transports/stdio-owner.js";
 export {
+  OWNER_WAN26_R2V_TOOL_NAMES,
+  registerSyntxOwnerWan26R2vTools
+} from "./mcp/owner-wan26-r2v-tools.js";
+export type { OwnerWan26R2vServiceComposition } from "./mcp/owner-wan26-r2v-tools.js";
+export { readOwnerWan26R2vFlag, readOwnerWan26R2vOperatorConfiguration } from "./transports/stdio-owner.js";
+export {
+  getOwnerWan26R2vGenerationParametersSource,
+  normalizeOwnerWan26R2vGenerationParameters,
+  normalizeOwnerWan26R2vCostParameters,
+  OwnerWan26R2vGenerationParametersError
+} from "./application/owner-wan26-r2v-generation-parameters.js";
+export type {
+  OwnerWan26R2vGenerationModelId,
+  OwnerWan26R2vGenerationResolution,
+  OwnerWan26R2vGenerationAspectRatio,
+  OwnerWan26R2vGenerationParameters,
+  OwnerWan26R2vGenerationIntent,
+  OwnerWan26R2vGenerationParametersSource,
+  OwnerWan26R2vGenerationParametersNormalized,
+  OwnerWan26R2vCostParameters
+} from "./application/owner-wan26-r2v-generation-parameters.js";
+export {
+  createOwnerWan26R2vRequestPreparer,
+  isOwnerWan26R2vRequestPreparer,
+  isOwnerWan26R2vPreparedCandidate,
+  OwnerWan26R2vRequestPreparerError
+} from "./application/owner-wan26-r2v-request-preparer.js";
+export type {
+  OwnerWan26R2vPreparedInputReference,
+  OwnerWan26R2vPreparedCandidate,
+  OwnerWan26R2vPreparedRequest,
+  OwnerWan26R2vPreparedCandidateBinding,
+  OwnerWan26R2vRequestPreparerOptions,
+  OwnerWan26R2vPrepareInput,
+  OwnerWan26R2vRequestPreparer,
+  OwnerWan26R2vRequestPreparerErrorCode
+} from "./application/owner-wan26-r2v-request-preparer.js";
+export {
+  createOwnerWan26R2vOneShotPermit,
+  revalidateOwnerWan26R2vOneShotPermit,
+  consumeOwnerWan26R2vOneShotPermit,
+  OwnerWan26R2vOneShotPolicyError
+} from "./application/owner-wan26-r2v-one-shot-policy.js";
+export type {
+  OwnerWan26R2vOneShotPermitInput,
+  OwnerWan26R2vOneShotPermit,
+  OwnerWan26R2vOneShotPermitContext,
+  OwnerWan26R2vOneShotReceipt,
+  OwnerWan26R2vOneShotPolicyErrorCode
+} from "./application/owner-wan26-r2v-one-shot-policy.js";
+export {
+  OWNER_WAN26_R2V_GENERATION_CATALOG_VERSION,
+  OwnerWan26R2vGenerationService,
+  OwnerWan26R2vGenerationServiceError,
+  isOwnerWan26R2vGenerationService
+} from "./application/owner-wan26-r2v-generation-service.js";
+export type {
+  OwnerWan26R2vGenerationServiceOptions,
+  OwnerWan26R2vGenerateInput,
+  OwnerWan26R2vReconcileInput,
+  OwnerWan26R2vRecoveryListInput,
+  OwnerWan26R2vResultPageInput,
+  OwnerWan26R2vGenerationDiagnostic,
+  OwnerWan26R2vGenerationArtifact,
+  OwnerWan26R2vGenerationResult,
+  OwnerWan26R2vRecoveryListItem,
+  OwnerWan26R2vGenerationServiceErrorCode
+} from "./application/owner-wan26-r2v-generation-service.js";
+export {
+  OwnerWan26R2vReferenceService,
+  OwnerWan26R2vReferenceServiceError
+} from "./application/owner-wan26-r2v-reference-service.js";
+export type {
+  OwnerWan26R2vReferenceServiceOptions,
+  OwnerWan26R2vImageInput,
+  OwnerWan26R2vVideoInput,
+  OwnerWan26R2vResolveInput,
+  OwnerWan26R2vReferenceReceipt,
+  OwnerWan26R2vReferenceManifest,
+  OwnerWan26R2vNativeReferenceConsumer
+} from "./application/owner-wan26-r2v-reference-service.js";
+export {
   OWNER_WAN25_I2V_PREVIEW_TOOL_NAMES,
   SYNTX_OWNER_GET_WAN25_I2V_PREVIEW_PARAMETERS_TOOL_NAME,
   SYNTX_OWNER_UPLOAD_WAN25_I2V_PREVIEW_IMAGE_TOOL_NAME,

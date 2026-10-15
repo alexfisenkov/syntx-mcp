@@ -158,6 +158,7 @@ import { registerSyntxOwnerWanT2iTools, type RegisterSyntxOwnerWanT2iToolsOption
 import type { OwnerWanT2vGenerationService } from "../application/owner-wan-t2v-generation-service.js";
 import { registerSyntxOwnerWanT2vVideoTools, type RegisterSyntxOwnerWanT2vVideoToolsOptions } from "./owner-wan-t2v-video-tools.js";
 import { registerSyntxOwnerWan26I2vTools, type OwnerWan26I2vServiceComposition } from "./owner-wan26-i2v-tools.js";
+import { registerSyntxOwnerWan26R2vTools, type OwnerWan26R2vServiceComposition } from "./owner-wan26-r2v-tools.js";
 import { registerSyntxOwnerWan25I2vPreviewTools, type OwnerWan25I2vPreviewServiceComposition } from "./owner-wan25-i2v-tools.js";
 import type { OwnerElevenLabsTtsGenerationService } from "../application/owner-elevenlabs-tts-generation-service.js";
 import type { OwnerElevenLabsDialogueGenerationService } from "../application/owner-elevenlabs-dialogue-generation-service.js";
@@ -588,6 +589,8 @@ export interface CreateMcpServerOptions {
   ownerWan27R2v?: OwnerWan27R2vReferenceToolComposition & Partial<OwnerWan27R2vGenerationToolComposition> | undefined;
   /** Explicit owner-local WAN 2.6 I2V uploads, generation, and GET-only recovery; omitted by default and HTTP servers. */
   ownerWan26I2v?: OwnerWan26I2vServiceComposition | undefined;
+  /** Explicit owner-stdio WAN 2.6 R2V uploads, generation, and GET-only recovery; omitted by default and HTTP servers. */
+  ownerWan26R2v?: OwnerWan26R2vServiceComposition | undefined;
   /** Explicit owner-local WAN 2.5 I2V preview tools; omitted by default and HTTP servers. */
   ownerWan25I2vPreview?: OwnerWan25I2vPreviewServiceComposition | undefined;
   /** Optional host-supplied, version-bound static evidence; never reads files or contacts SYNTX. */
@@ -726,7 +729,7 @@ export function createMcpServer(
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
-        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan25I2vPreview)) {
+        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan26R2v || options.ownerWan25I2vPreview)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
   if (options.generationContractRegistry != null && options.generationContractRegistryV2 != null) {
@@ -1256,6 +1259,7 @@ export function createMcpServer(
     }
   }
   if (options.ownerWan26I2v) registerSyntxOwnerWan26I2vTools(server, options.ownerWan26I2v);
+  if (options.ownerWan26R2v) registerSyntxOwnerWan26R2vTools(server, options.ownerWan26R2v);
   if (options.ownerWan25I2vPreview) registerSyntxOwnerWan25I2vPreviewTools(server, options.ownerWan25I2vPreview);
   if (options.videoEvidence) {
     registerSyntxVideoEvidenceTool(server, options.videoEvidence);

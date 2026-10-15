@@ -45,6 +45,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_TOPAZ_ASTRA",
   "SYNTX_OWNER_WAN27_R2V",
   "SYNTX_OWNER_WAN26_I2V",
+  "SYNTX_OWNER_WAN26_R2V",
   "SYNTX_OWNER_WAN25_I2V_PREVIEW",
   "SYNTX_OWNER_KLING_KEYFRAMES",
   "SYNTX_OWNER_KLING_MOTION_CONTROL"
@@ -131,6 +132,8 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
     ["SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH", "<absolute path to ffprobe>"],
     ["SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH", "<absolute path to ffmpeg>"],
     ["SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
+    ["SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
+    ["SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH", "<absolute path to trusted ffmpeg executable>"],
     ["SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"]
   ]);
 

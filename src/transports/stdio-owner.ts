@@ -227,6 +227,27 @@ export function readOwnerWan26I2vFlag(value: string | undefined): boolean {
   throw new Error("Invalid SYNTX_OWNER_WAN26_I2V configuration.");
 }
 
+/** Strict default-off gate for the local owner WAN 2.6 R2V generation composition. */
+export function readOwnerWan26R2vFlag(value: string | undefined): boolean {
+  if (value === undefined || value === "" || value === "0") return false;
+  if (value === "1") return true;
+  throw new Error("Invalid SYNTX_OWNER_WAN26_R2V configuration.");
+}
+
+/** Trusted absolute local media tools; both are required only when WAN 2.6 R2V is enabled. */
+export function readOwnerWan26R2vOperatorConfiguration(
+  enabled: boolean,
+  ffprobePath: string | undefined,
+  ffmpegPath: string | undefined
+): Readonly<{ ffprobePath: string; ffmpegPath: string }> | undefined {
+  if (!enabled) return undefined;
+  if (typeof ffprobePath !== "string" || ffprobePath.length === 0 || !isAbsolute(ffprobePath) || ffprobePath.includes("\0") ||
+      typeof ffmpegPath !== "string" || ffmpegPath.length === 0 || !isAbsolute(ffmpegPath) || ffmpegPath.includes("\0")) {
+    throw new Error("Invalid SYNTX_OWNER_WAN26_R2V operator configuration.");
+  }
+  return Object.freeze({ ffprobePath, ffmpegPath });
+}
+
 /** Strict default-off gate for the local image-only WAN 2.5 I2V preview tools. */
 export function readOwnerWan25I2vPreviewFlag(value: string | undefined): boolean {
   if (value === undefined || value === "" || value === "0") return false;
@@ -384,6 +405,12 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerWan26I2vOperatorConfiguration = readOwnerWan26I2vOperatorConfiguration(
     ownerWan26I2vEnabled, process.env.SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH
   );
+  const ownerWan26R2vEnabled = readOwnerWan26R2vFlag(process.env.SYNTX_OWNER_WAN26_R2V);
+  const ownerWan26R2vOperatorConfiguration = readOwnerWan26R2vOperatorConfiguration(
+    ownerWan26R2vEnabled,
+    process.env.SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH,
+    process.env.SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH
+  );
   const ownerWan25I2vPreviewEnabled = readOwnerWan25I2vPreviewFlag(process.env.SYNTX_OWNER_WAN25_I2V_PREVIEW);
   const accountStatusEnabled = readOwnerFlag("SYNTX_OWNER_ACCOUNT_STATUS");
   const uploadedFilesEnabled = readOwnerFlag("SYNTX_OWNER_UPLOADED_FILES");
@@ -398,7 +425,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         ownerRunwayImageReferencesEnabled || ownerSeedreamImageReferencesEnabled || ownerSeedreamEditorImageReferencesEnabled ||
         ownerWanT2vVideosEnabled ||
         ownerElevenLabsTtsEnabled || ownerElevenLabsDialogueEnabled || ownerElevenLabsStsEnabled ||
-        ownerSunoGenerationEnabled || ownerTopazAstraEnabled || ownerWan27R2vEnabled || ownerWan26I2vEnabled || ownerWan25I2vPreviewEnabled ||
+        ownerSunoGenerationEnabled || ownerTopazAstraEnabled || ownerWan27R2vEnabled || ownerWan26I2vEnabled || ownerWan26R2vEnabled || ownerWan25I2vPreviewEnabled ||
         ownerLumaT2vEnabled ||
         ownerHailuo01T2vEnabled ||
         ownerHailuo01DirectorT2vEnabled ||
@@ -480,6 +507,11 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ...(ownerWan26I2vOperatorConfiguration === undefined ? {} : {
         ownerWan26I2vFfprobePath: ownerWan26I2vOperatorConfiguration.ffprobePath
       }),
+      ownerWan26R2vEnabled,
+      ...(ownerWan26R2vOperatorConfiguration === undefined ? {} : {
+        ownerWan26R2vFfprobePath: ownerWan26R2vOperatorConfiguration.ffprobePath,
+        ownerWan26R2vFfmpegPath: ownerWan26R2vOperatorConfiguration.ffmpegPath
+      }),
       ownerWan25I2vPreviewEnabled,
       ownerLumaT2vEnabled,
       ownerHailuo01T2vEnabled,
@@ -552,6 +584,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const bananaInpaintImageGenerationService = runtime.serverOptions.ownerBananaInpaintImageReferences?.generationService;
       const wan27R2vReferencesService = runtime.serverOptions.ownerWan27R2v;
       const wan26I2vService = runtime.serverOptions.ownerWan26I2v;
+      const wan26R2vService = runtime.serverOptions.ownerWan26R2v;
       const wan25I2vPreviewService = runtime.serverOptions.ownerWan25I2vPreview;
       if (referenceService === undefined && grokReferenceService === undefined && grokT2iImageReferencesService === undefined && uniImageReferencesService === undefined &&
           soulImageGenerationService === undefined && soulShapeService === undefined && soulStyleOptionsService === undefined && clarityUpscaleService === undefined &&
@@ -571,7 +604,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           hailuo23T2vGenerationService === undefined && hailuo02T2vGenerationService === undefined && seedance20T2vGenerationService === undefined && klingT2vGenerationService === undefined && klingI2vGenerationService === undefined && klingKeyframesReferenceService === undefined && veoT2vGenerationService === undefined && grokT2vGenerationService === undefined && hailuoLiveT2vGenerationService === undefined &&
           video2AudioGenerationService === undefined &&
           fluxImageReferencesService === undefined && ideogramImageReferencesService === undefined &&
-          bananaInpaintImageGenerationService === undefined && hailuo02I2vGenerationService === undefined && wan27R2vReferencesService === undefined && wan26I2vService === undefined && wan25I2vPreviewService === undefined &&
+          bananaInpaintImageGenerationService === undefined && hailuo02I2vGenerationService === undefined && wan27R2vReferencesService === undefined && wan26I2vService === undefined && wan26R2vService === undefined && wan25I2vPreviewService === undefined &&
           klingMotionControlReferenceService === undefined && klingMotionControlPresetReferenceService === undefined && klingMotionControlGenerationService === undefined) {
         await runStdioServer(runtime.application, runtime.serverOptions);
         return;
@@ -629,7 +662,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerWan27R2vLifecycle,
         combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle),
         runtime.ownerWan26I2vLifecycle,
-        runtime.ownerWan25I2vPreviewLifecycle
+        runtime.ownerWan25I2vPreviewLifecycle,
+        runtime.ownerWan26R2vLifecycle
       );
       await server.connect(profileTransport);
       return;
@@ -702,6 +736,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const wan27R2vReferencesService = runtime.serverOptions.ownerWan27R2v;
       const wan27R2vGenerationService = runtime.serverOptions.ownerWan27R2v?.generationService;
       const wan26I2vService = runtime.serverOptions.ownerWan26I2v;
+      const wan26R2vService = runtime.serverOptions.ownerWan26R2v;
       const wan25I2vPreviewService = runtime.serverOptions.ownerWan25I2vPreview;
       const klingMotionControlReferenceService = runtime.serverOptions.ownerKlingMotionControl?.referenceService;
       const klingMotionControlPresetReferenceService = runtime.serverOptions.ownerKlingMotionControl?.presetReferenceService;
@@ -724,7 +759,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           hailuo23T2vGenerationService === undefined && hailuo02T2vGenerationService === undefined && seedance20T2vGenerationService === undefined && klingT2vGenerationService === undefined && klingI2vGenerationService === undefined && klingKeyframesReferenceService === undefined && veoT2vGenerationService === undefined && grokT2vGenerationService === undefined && hailuoLiveT2vGenerationService === undefined &&
           video2AudioGenerationService === undefined &&
           fluxImageReferencesService === undefined && ideogramImageReferencesService === undefined &&
-          bananaInpaintImageGenerationService === undefined && hailuo02I2vGenerationService === undefined && wan27R2vReferencesService === undefined && wan26I2vService === undefined && wan25I2vPreviewService === undefined &&
+          bananaInpaintImageGenerationService === undefined && hailuo02I2vGenerationService === undefined && wan27R2vReferencesService === undefined && wan26I2vService === undefined && wan26R2vService === undefined && wan25I2vPreviewService === undefined &&
           klingMotionControlReferenceService === undefined && klingMotionControlPresetReferenceService === undefined && klingMotionControlGenerationService === undefined) {
         closeProfile = closePrivateOwnerAuthProfileOnTransportEof(profileTransport, privateAuthProfile, input);
       } else {
@@ -779,7 +814,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerWan27R2vLifecycle,
           combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle),
           runtime.ownerWan26I2vLifecycle,
-          runtime.ownerWan25I2vPreviewLifecycle
+          runtime.ownerWan25I2vPreviewLifecycle,
+          runtime.ownerWan26R2vLifecycle
         );
       }
     } else {
@@ -842,6 +878,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerHailuo02I2vLifecycle,
         runtime.ownerWan27R2vLifecycle,
         runtime.ownerWan26I2vLifecycle,
+        runtime.ownerWan26R2vLifecycle,
         runtime.ownerWan25I2vPreviewLifecycle,
         runtime.ownerKlingKeyframesLifecycle,
         runtime.ownerKlingMotionControlLifecycle,
@@ -1055,7 +1092,8 @@ export function closeOwnerReadServicesOnTransportEof(
   ownerWan27R2vLifecycle?: { close(): Promise<void> } | undefined,
   ownerKlingKeyframesLifecycle?: { close(): Promise<void> } | undefined,
   ownerWan26I2vLifecycle?: { close(): Promise<void> } | undefined,
-  ownerWan25I2vPreviewLifecycle?: { close(): Promise<void> } | undefined
+  ownerWan25I2vPreviewLifecycle?: { close(): Promise<void> } | undefined,
+  ownerWan26R2vLifecycle?: { close(): Promise<void> } | undefined
 ): () => Promise<void> {
   if (soulImageGenerationService === undefined && imageService === undefined && grokService === undefined && soulShapeService === undefined &&
       soulStyleOptionsService === undefined && clarityUpscaleService === undefined && magnificUpscaleService === undefined &&
@@ -1067,7 +1105,7 @@ export function closeOwnerReadServicesOnTransportEof(
       bananaInpaintImageGenerationService === undefined && seedreamEditorImageReferencesLifecycle === undefined &&
       wanT2vVideosLifecycle === undefined && elevenLabsTtsLifecycle === undefined && ownerSunoGenerationLifecycle === undefined && ownerTopazAstraLifecycle === undefined &&
       ownerLumaT2vLifecycle === undefined && ownerHailuo01T2vLifecycle === undefined && ownerHailuo01DirectorT2vLifecycle === undefined &&
-      ownerHailuo23T2vLifecycle === undefined && ownerVideo2AudioLifecycle === undefined && ownerHailuo02T2vLifecycle === undefined && ownerElevenLabsDialogueLifecycle === undefined && ownerElevenLabsStsLifecycle === undefined && ownerSeedance20T2vLifecycle === undefined && ownerKlingT2vLifecycle === undefined && ownerVeoT2vLifecycle === undefined && ownerGrokT2vLifecycle === undefined && ownerHailuoLiveT2vLifecycle === undefined && ownerKlingI2vLifecycle === undefined && ownerHailuo02I2vLifecycle === undefined && ownerWan27R2vLifecycle === undefined && ownerKlingKeyframesLifecycle === undefined && ownerWan26I2vLifecycle === undefined && ownerWan25I2vPreviewLifecycle === undefined) {
+      ownerHailuo23T2vLifecycle === undefined && ownerVideo2AudioLifecycle === undefined && ownerHailuo02T2vLifecycle === undefined && ownerElevenLabsDialogueLifecycle === undefined && ownerElevenLabsStsLifecycle === undefined && ownerSeedance20T2vLifecycle === undefined && ownerKlingT2vLifecycle === undefined && ownerVeoT2vLifecycle === undefined && ownerGrokT2vLifecycle === undefined && ownerHailuoLiveT2vLifecycle === undefined && ownerKlingI2vLifecycle === undefined && ownerHailuo02I2vLifecycle === undefined && ownerWan27R2vLifecycle === undefined && ownerKlingKeyframesLifecycle === undefined && ownerWan26I2vLifecycle === undefined && ownerWan25I2vPreviewLifecycle === undefined && ownerWan26R2vLifecycle === undefined) {
     throw new Error("OWNER_READ_SERVICE_REQUIRED");
   }
   return closeOwnerImageReferenceServiceOnTransportEof(
@@ -1079,7 +1117,7 @@ export function closeOwnerReadServicesOnTransportEof(
           seedreamEditorImageReferencesLifecycle, wanT2vVideosLifecycle, elevenLabsTtsLifecycle, ownerSunoGenerationLifecycle,
           ownerLumaT2vLifecycle, ownerHailuo01T2vLifecycle,
           ownerHailuo01DirectorT2vLifecycle, ownerHailuo23T2vLifecycle, ownerVideo2AudioLifecycle, ownerHailuo02T2vLifecycle, ownerElevenLabsDialogueLifecycle, ownerElevenLabsStsLifecycle, ownerSeedance20T2vLifecycle, ownerKlingT2vLifecycle, ownerVeoT2vLifecycle, ownerGrokT2vLifecycle, ownerHailuoLiveT2vLifecycle, ownerKlingI2vLifecycle, ownerTopazAstraLifecycle,
-          ownerHailuo02I2vLifecycle, ownerWan27R2vLifecycle, ownerKlingKeyframesLifecycle, ownerWan26I2vLifecycle, ownerWan25I2vPreviewLifecycle, imageService, grokService, soulShapeService, soulStyleOptionsService,
+          ownerHailuo02I2vLifecycle, ownerWan27R2vLifecycle, ownerKlingKeyframesLifecycle, ownerWan26I2vLifecycle, ownerWan25I2vPreviewLifecycle, ownerWan26R2vLifecycle, imageService, grokService, soulShapeService, soulStyleOptionsService,
           clarityUpscaleService, magnificUpscaleService, kontextImageReferencesService, wanImageReferencesService,
           standardImageReferencesService, runwayImageReferencesService, seedreamImageReferencesService,
           fluxImageReferencesService, ideogramImageReferencesService, grokT2iImageReferencesService,

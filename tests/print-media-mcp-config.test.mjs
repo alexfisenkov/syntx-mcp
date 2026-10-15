@@ -52,6 +52,9 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_ELEVENLABS_STS",
   "SYNTX_OWNER_TOPAZ_ASTRA",
   "SYNTX_OWNER_WAN27_R2V",
+  "SYNTX_OWNER_WAN26_I2V",
+  "SYNTX_OWNER_WAN26_R2V",
+  "SYNTX_OWNER_WAN25_I2V_PREVIEW",
   "SYNTX_OWNER_KLING_KEYFRAMES",
   "SYNTX_OWNER_KLING_MOTION_CONTROL"
 ];
@@ -131,6 +134,9 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
     "SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION",
     "SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH",
     "SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH",
+    "SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH",
+    "SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH",
+    "SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH",
     "SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH"
   ].sort());
   assert.equal(JSON.stringify(config).includes("token"), false);
@@ -204,7 +210,7 @@ test("Grok T2V flag is emitted only after exact paid-tools confirmation", async 
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_DURABLE_GENERATION, "0");
 });
 
-test("Hailuo Live T2V flag is the 31st opt-in and is emitted only after exact paid-tools confirmation", async () => {
+test("Hailuo Live T2V flag is emitted only after exact paid-tools confirmation", async () => {
   const helpOut = [], helpErr = [];
   await main([], { entryUrl: pathToFileURL(SCRIPT_PATH).href, writeStdout: (text) => helpOut.push(text), writeStderr: (text) => helpErr.push(text) });
   assert.equal(helpErr.join(""), "");
@@ -214,7 +220,7 @@ test("Hailuo Live T2V flag is the 31st opt-in and is emitted only after exact pa
   const emitted = JSON.parse(configOut.join(""));
   assert.equal(configErr.join(""), "");
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_HAILUO_LIVE_T2V, "1");
-  assert.equal(ENABLED_FLAGS.length, 33);
+  assert.equal(ENABLED_FLAGS.length, 41);
   assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_HAILUO_LIVE_T2V").length, 1);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO_LIVE_T2V"), false);
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_GROK_T2V, "1");
@@ -352,35 +358,32 @@ test("Live installed config requires opt-in and checks the exact tool-list delta
   assert.ok(/\$\{installedMediaMcpConfig\}/u.test(source), "installed config summary is not emitted");
 });
 
-test("Live changed-media manifest adds only the four Live suites and preserves the full default suite", () => {
+test("changed-media selector is bounded, explicit, and selects the current R2V runtime/config slice", () => {
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(packageJson.scripts.test, /dist\/tests\/\*\.test\.js/u, "default test suite must retain all compiled test suites");
-  for (const filename of [
-    "dist/tests/owner-hailuo-live-t2v-profile.test.js",
-    "dist/tests/owner-hailuo-live-t2v-generation-service.test.js",
-    "dist/tests/owner-hailuo-live-t2v-tools.test.js",
-    "dist/tests/owner-hailuo-live-t2v-runtime-composition.test.js",
-    "dist/tests/owner-reviewed-no-reference-t2v-service.test.js",
-    "tests/print-media-mcp-config.test.mjs",
-    "tests/export-public-snapshot.test.mjs"
-  ]) assert.ok(packageJson.scripts["test:media:changed"].includes(filename), `changed-media slice omits ${filename}`);
-  for (const filename of [
-    "dist/tests/owner-kling-t2v-profile.test.js",
-    "dist/tests/owner-kling-t2v-generation-service.test.js",
-    "dist/tests/owner-kling-t2v-tools.test.js",
-    "dist/tests/owner-kling-t2v-runtime-composition.test.js",
-    "dist/tests/owner-veo-t2v-profile.test.js",
-    "dist/tests/owner-veo-t2v-generation-service.test.js",
-    "dist/tests/owner-veo-t2v-tools.test.js",
-    "dist/tests/owner-veo-t2v-runtime-composition.test.js",
-    "dist/tests/owner-grok-t2v-profile.test.js",
-    "dist/tests/owner-grok-t2v-generation-service.test.js",
-    "dist/tests/owner-grok-t2v-tools.test.js",
-    "dist/tests/owner-grok-t2v-runtime-composition.test.js",
-    "dist/tests/owner-hailuo02-t2v-profile.test.js",
-    "dist/tests/owner-seedance20-t2v-profile.test.js",
-    "dist/tests/owner-video2audio-runtime-composition.test.js"
-  ]) assert.equal(packageJson.scripts["test:media:changed"].includes(filename), false, `unchanged prior wave should not rerun: ${filename}`);
+  const selectedPaths = [];
+  const commands = packageJson.scripts["test:media:changed"].split(/\s+&&\s+/u);
+  assert.ok(commands.length > 0 && commands.length <= 4, "changed-media selector must remain a bounded command list");
+  for (const command of commands) {
+    const parts = command.trim().split(/\s+/u);
+    assert.equal(parts[0], "node");
+    assert.equal(parts[1], "--test");
+    assert.ok(parts.length > 2, "each test command must explicitly name files");
+    for (const path of parts.slice(2)) {
+      assert.match(path, /^(?:dist\/)?tests\/[A-Za-z0-9._-]+\.test\.(?:js|mjs)$/u);
+      assert.equal(path.split("/").includes(".."), false);
+      selectedPaths.push(path);
+      const sourcePath = path.startsWith("dist/")
+        ? path.replace(/^dist\//u, "").replace(/\.js$/u, ".ts")
+        : path;
+      assert.equal(existsSync(new URL(`../${sourcePath}`, import.meta.url)), true, `missing selector source: ${sourcePath}`);
+    }
+  }
+  assert.ok(selectedPaths.length > 0 && selectedPaths.length <= 40, "changed-media selector must remain bounded");
+  assert.equal(new Set(selectedPaths).size, selectedPaths.length, "selector paths must be unique");
+  assert.equal(selectedPaths.includes("dist/tests/owner-wan26-r2v-runtime-1769.test.js"), true);
+  assert.equal(selectedPaths.includes("tests/owner-wan26-r2v-config-1769.test.mjs"), true);
+  assert.equal(selectedPaths.some((path) => /wan25/i.test(path)), false, "prior WAN25 suites must not rerun");
 });
 
 test("installed joint startup checks Luma tools and derives count from the returned tool list", () => {

@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test dist/tests/owner-wan30-t2v-parameters-1808.test.js dist/tests/owner-wan30-t2v-flow-1809.test.js",
+    "test:media:changed": "node --test dist/tests/owner-wan30-first-last-parameters-1825.test.js dist/tests/owner-wan30-first-last-native-context-1826.test.js dist/tests/owner-wan30-first-last-generation-service-1828.test.js dist/tests/owner-wan30-first-last-mcp-1829.test.js dist/tests/owner-wan30-first-last-runtime-1829.test.js tests/owner-wan30-first-last-config-1838.test.mjs",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

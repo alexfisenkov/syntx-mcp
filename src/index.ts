@@ -1508,6 +1508,33 @@ export {
 export type { RegisterSyntxOwnerWanT2vVideoToolsOptions } from "./mcp/owner-wan-t2v-video-tools.js";
 export type { OwnerWanT2vVideoServiceComposition } from "./mcp/server.js";
 export {
+  OWNER_WAN30_FIRST_LAST_TOOL_NAMES,
+  OWNER_WAN30_FIRST_LAST_TOOL_INPUT_SCHEMAS,
+  OWNER_WAN30_FIRST_LAST_TOOL_OUTPUT_SCHEMAS,
+  SYNTX_GET_WAN30_FIRST_LAST_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN30_FIRST_LAST_FRAME_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_WAN30_FIRST_LAST_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_WAN30_FIRST_LAST_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_WAN30_FIRST_LAST_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_WAN30_FIRST_LAST_RESULT_PAGE_TOOL_NAME,
+  registerSyntxOwnerWan30FirstLastVideoTools
+} from "./mcp/owner-wan30-first-last-video-tools.js";
+export type { RegisterSyntxOwnerWan30FirstLastVideoToolsOptions } from "./mcp/owner-wan30-first-last-video-tools.js";
+export type { OwnerWan30FirstLastVideoServiceComposition } from "./mcp/server.js";
+export {
+  getOwnerWan30FirstLastGenerationSourceContract,
+  normalizeOwnerWan30FirstLastGenerationIntent,
+  projectOwnerWan30FirstLastGenerationWireCandidate,
+  OwnerWan30FirstLastGenerationParametersError
+} from "./application/owner-wan30-first-last-generation-parameters.js";
+export type {
+  OwnerWan30FirstLastGenerationParameters,
+  OwnerWan30FirstLastGenerationIntent,
+  OwnerWan30FirstLastGenerationSourceContract,
+  OwnerWan30FirstLastNormalizedGeneration,
+  OwnerWan30FirstLastWireCandidate
+} from "./application/owner-wan30-first-last-generation-parameters.js";
+export {
   OWNER_WAN_T2V_GENERATION_MODEL_IDS,
   getOwnerWanT2vGenerationParametersSource,
   normalizeOwnerWanT2vGenerationParameters,

@@ -33,6 +33,7 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_WAN_T2I_IMAGE",
   "SYNTX_OWNER_BANANA_INPAINT_IMAGE_REFERENCES",
   "SYNTX_OWNER_WAN_T2V_VIDEOS",
+  "SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS",
   "SYNTX_OWNER_ELEVENLABS_TTS",
   "SYNTX_OWNER_ELEVENLABS_DIALOGUE",
   "SYNTX_OWNER_SUNO_GENERATION",
@@ -220,7 +221,7 @@ test("Hailuo Live T2V flag is emitted only after exact paid-tools confirmation",
   const emitted = JSON.parse(configOut.join(""));
   assert.equal(configErr.join(""), "");
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_HAILUO_LIVE_T2V, "1");
-  assert.equal(ENABLED_FLAGS.length, 41);
+  assert.equal(ENABLED_FLAGS.length, 42);
   assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_HAILUO_LIVE_T2V").length, 1);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO_LIVE_T2V"), false);
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_GROK_T2V, "1");

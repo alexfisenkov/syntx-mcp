@@ -36,24 +36,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Install ffmpeg and ffprobe for Motion Control source fixtures
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes ffmpeg
-
-      - name: Configure trusted Motion Control fixture executables
-        shell: bash
-        run: |
-          set -euo pipefail
-          ffmpeg_path="$(command -v ffmpeg)"
-          ffprobe_path="$(command -v ffprobe)"
-          test -x "$ffmpeg_path"
-          test -x "$ffprobe_path"
-          printf 'SYNTX_MCV_TEST_FFMPEG=%s\n' "$ffmpeg_path" >> "$GITHUB_ENV"
-          printf 'SYNTX_MCV_TEST_FFPROBE=%s\n' "$ffprobe_path" >> "$GITHUB_ENV"
-          printf 'SYNTX_WAN26_AUDIO_TEST_FFMPEG=%s\n' "$ffmpeg_path" >> "$GITHUB_ENV"
-          printf 'SYNTX_WAN26_AUDIO_TEST_FFPROBE=%s\n' "$ffprobe_path" >> "$GITHUB_ENV"
-
       - name: Build
         run: npm run build
 

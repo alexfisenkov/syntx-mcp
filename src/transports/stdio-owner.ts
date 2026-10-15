@@ -139,6 +139,13 @@ export function readOwnerWanT2vVideosFlag(value: string | undefined): boolean {
   throw new Error("Invalid SYNTX_OWNER_WAN_T2V_VIDEOS configuration.");
 }
 
+/** Strict default-off gate for the exact owner WAN 3.0 First/Last Frame profile. */
+export function readOwnerWan30FirstLastVideosFlag(value: string | undefined): boolean {
+  if (value === undefined || value === "" || value === "0") return false;
+  if (value === "1") return true;
+  throw new Error("Invalid SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS configuration.");
+}
+
 /** Strict default-off gate for the pinned private ElevenLabs TTS generation composition. */
 export function readOwnerElevenLabsTtsFlag(value: string | undefined): boolean {
   if (value === undefined || value === "" || value === "0") return false;
@@ -348,6 +355,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
     process.env.SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES
   );
   const ownerWanT2vVideosEnabled = readOwnerWanT2vVideosFlag(process.env.SYNTX_OWNER_WAN_T2V_VIDEOS);
+  const ownerWan30FirstLastVideosEnabled = readOwnerWan30FirstLastVideosFlag(process.env.SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS);
   const ownerElevenLabsTtsEnabled = readOwnerElevenLabsTtsFlag(process.env.SYNTX_OWNER_ELEVENLABS_TTS);
   const ownerElevenLabsDialogueEnabled = readOwnerFlag("SYNTX_OWNER_ELEVENLABS_DIALOGUE");
   const ownerElevenLabsStsEnabled = readOwnerElevenLabsStsFlag(process.env.SYNTX_OWNER_ELEVENLABS_STS);
@@ -423,7 +431,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         ownerGrokImageReferencesEnabled || ownerGrokT2iImageReferencesEnabled || ownerUniImageReferencesEnabled || ownerClarityUpscaleEnabled || ownerMagnificUpscaleEnabled ||
         ownerKontextImageReferencesEnabled || ownerWanImageReferencesEnabled || ownerStandardImageReferencesEnabled ||
         ownerRunwayImageReferencesEnabled || ownerSeedreamImageReferencesEnabled || ownerSeedreamEditorImageReferencesEnabled ||
-        ownerWanT2vVideosEnabled ||
+        ownerWanT2vVideosEnabled || ownerWan30FirstLastVideosEnabled ||
         ownerElevenLabsTtsEnabled || ownerElevenLabsDialogueEnabled || ownerElevenLabsStsEnabled ||
         ownerSunoGenerationEnabled || ownerTopazAstraEnabled || ownerWan27R2vEnabled || ownerWan26I2vEnabled || ownerWan26R2vEnabled || ownerWan25I2vPreviewEnabled ||
         ownerLumaT2vEnabled ||
@@ -485,6 +493,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerSeedreamImageReferencesEnabled,
       ownerSeedreamEditorImageReferencesEnabled,
       ownerWanT2vVideosEnabled,
+      ownerWan30FirstLastVideosEnabled,
       ownerElevenLabsTtsEnabled,
       ownerElevenLabsDialogueEnabled,
       ownerElevenLabsStsEnabled,
@@ -557,6 +566,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const seedreamImageReferencesService = runtime.serverOptions.ownerSeedreamImageReferences?.generationService;
       const seedreamEditorImageReferencesService = runtime.serverOptions.ownerSeedreamEditorImageReferences?.generationService;
       const wanT2vVideosService = runtime.serverOptions.ownerWanT2vVideos?.generationService;
+      const wan30FirstLastVideosService = runtime.serverOptions.ownerWan30FirstLastVideos?.generationService;
       const elevenLabsTtsService = runtime.serverOptions.ownerElevenLabsTts?.generationService;
       const elevenLabsDialogueService = runtime.serverOptions.ownerElevenLabsDialogue?.generationService;
       const elevenLabsStsGenerationService = runtime.serverOptions.ownerElevenLabsSts?.generationService;
@@ -593,7 +603,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           wanImageReferencesService === undefined && standardImageReferencesService === undefined &&
           runwayImageReferencesService === undefined && seedreamImageReferencesService === undefined &&
           seedreamEditorImageReferencesService === undefined &&
-          wanT2vVideosService === undefined &&
+          wanT2vVideosService === undefined && wan30FirstLastVideosService === undefined &&
           elevenLabsTtsService === undefined && elevenLabsDialogueService === undefined &&
           elevenLabsStsGenerationService === undefined &&
           sunoGenerationService === undefined &&
@@ -663,7 +673,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle),
         runtime.ownerWan26I2vLifecycle,
         runtime.ownerWan25I2vPreviewLifecycle,
-        runtime.ownerWan26R2vLifecycle
+        runtime.ownerWan26R2vLifecycle,
+        runtime.ownerWan30FirstLastVideosLifecycle
       );
       await server.connect(profileTransport);
       return;
@@ -711,6 +722,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const seedreamImageReferencesService = runtime.serverOptions.ownerSeedreamImageReferences?.generationService;
       const seedreamEditorImageReferencesService = runtime.serverOptions.ownerSeedreamEditorImageReferences?.generationService;
       const wanT2vVideosService = runtime.serverOptions.ownerWanT2vVideos?.generationService;
+      const wan30FirstLastVideosService = runtime.serverOptions.ownerWan30FirstLastVideos?.generationService;
       const elevenLabsTtsService = runtime.serverOptions.ownerElevenLabsTts?.generationService;
       const elevenLabsDialogueService = runtime.serverOptions.ownerElevenLabsDialogue?.generationService;
       const elevenLabsStsGenerationService = runtime.serverOptions.ownerElevenLabsSts?.generationService;
@@ -749,6 +761,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runwayImageReferencesService === undefined && seedreamImageReferencesService === undefined &&
           seedreamEditorImageReferencesService === undefined &&
           wanT2vVideosService === undefined &&
+          wan30FirstLastVideosService === undefined &&
           elevenLabsTtsService === undefined && elevenLabsDialogueService === undefined &&
           elevenLabsStsGenerationService === undefined &&
           sunoGenerationService === undefined &&
@@ -815,7 +828,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle),
           runtime.ownerWan26I2vLifecycle,
           runtime.ownerWan25I2vPreviewLifecycle,
-          runtime.ownerWan26R2vLifecycle
+          runtime.ownerWan26R2vLifecycle,
+          runtime.ownerWan30FirstLastVideosLifecycle
         );
       }
     } else {
@@ -858,6 +872,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.serverOptions.ownerSeedreamImageReferences?.generationService,
         runtime.ownerSeedreamEditorImageReferencesLifecycle,
         runtime.ownerWanT2vVideosLifecycle,
+        runtime.ownerWan30FirstLastVideosLifecycle,
         runtime.ownerElevenLabsTtsLifecycle,
         runtime.ownerSunoGenerationLifecycle,
         runtime.ownerLumaT2vLifecycle,
@@ -1093,7 +1108,8 @@ export function closeOwnerReadServicesOnTransportEof(
   ownerKlingKeyframesLifecycle?: { close(): Promise<void> } | undefined,
   ownerWan26I2vLifecycle?: { close(): Promise<void> } | undefined,
   ownerWan25I2vPreviewLifecycle?: { close(): Promise<void> } | undefined,
-  ownerWan26R2vLifecycle?: { close(): Promise<void> } | undefined
+  ownerWan26R2vLifecycle?: { close(): Promise<void> } | undefined,
+  ownerWan30FirstLastVideosLifecycle?: { close(): Promise<void> } | undefined
 ): () => Promise<void> {
   if (soulImageGenerationService === undefined && imageService === undefined && grokService === undefined && soulShapeService === undefined &&
       soulStyleOptionsService === undefined && clarityUpscaleService === undefined && magnificUpscaleService === undefined &&
@@ -1103,7 +1119,7 @@ export function closeOwnerReadServicesOnTransportEof(
       ideogramImageReferencesService === undefined && grokT2iImageReferencesService === undefined &&
       uniImageReferencesService === undefined && wanT2iImageGenerationService === undefined &&
       bananaInpaintImageGenerationService === undefined && seedreamEditorImageReferencesLifecycle === undefined &&
-      wanT2vVideosLifecycle === undefined && elevenLabsTtsLifecycle === undefined && ownerSunoGenerationLifecycle === undefined && ownerTopazAstraLifecycle === undefined &&
+      wanT2vVideosLifecycle === undefined && ownerWan30FirstLastVideosLifecycle === undefined && elevenLabsTtsLifecycle === undefined && ownerSunoGenerationLifecycle === undefined && ownerTopazAstraLifecycle === undefined &&
       ownerLumaT2vLifecycle === undefined && ownerHailuo01T2vLifecycle === undefined && ownerHailuo01DirectorT2vLifecycle === undefined &&
       ownerHailuo23T2vLifecycle === undefined && ownerVideo2AudioLifecycle === undefined && ownerHailuo02T2vLifecycle === undefined && ownerElevenLabsDialogueLifecycle === undefined && ownerElevenLabsStsLifecycle === undefined && ownerSeedance20T2vLifecycle === undefined && ownerKlingT2vLifecycle === undefined && ownerVeoT2vLifecycle === undefined && ownerGrokT2vLifecycle === undefined && ownerHailuoLiveT2vLifecycle === undefined && ownerKlingI2vLifecycle === undefined && ownerHailuo02I2vLifecycle === undefined && ownerWan27R2vLifecycle === undefined && ownerKlingKeyframesLifecycle === undefined && ownerWan26I2vLifecycle === undefined && ownerWan25I2vPreviewLifecycle === undefined && ownerWan26R2vLifecycle === undefined) {
     throw new Error("OWNER_READ_SERVICE_REQUIRED");
@@ -1114,7 +1130,7 @@ export function closeOwnerReadServicesOnTransportEof(
       async close() {
         const errors: unknown[] = [];
         for (const service of [soulImageGenerationService, wanT2iImageGenerationService, bananaInpaintImageGenerationService,
-          seedreamEditorImageReferencesLifecycle, wanT2vVideosLifecycle, elevenLabsTtsLifecycle, ownerSunoGenerationLifecycle,
+          seedreamEditorImageReferencesLifecycle, wanT2vVideosLifecycle, ownerWan30FirstLastVideosLifecycle, elevenLabsTtsLifecycle, ownerSunoGenerationLifecycle,
           ownerLumaT2vLifecycle, ownerHailuo01T2vLifecycle,
           ownerHailuo01DirectorT2vLifecycle, ownerHailuo23T2vLifecycle, ownerVideo2AudioLifecycle, ownerHailuo02T2vLifecycle, ownerElevenLabsDialogueLifecycle, ownerElevenLabsStsLifecycle, ownerSeedance20T2vLifecycle, ownerKlingT2vLifecycle, ownerVeoT2vLifecycle, ownerGrokT2vLifecycle, ownerHailuoLiveT2vLifecycle, ownerKlingI2vLifecycle, ownerTopazAstraLifecycle,
           ownerHailuo02I2vLifecycle, ownerWan27R2vLifecycle, ownerKlingKeyframesLifecycle, ownerWan26I2vLifecycle, ownerWan25I2vPreviewLifecycle, ownerWan26R2vLifecycle, imageService, grokService, soulShapeService, soulStyleOptionsService,

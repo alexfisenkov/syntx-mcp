@@ -25,6 +25,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_WAN_T2I_IMAGE",
   "SYNTX_OWNER_BANANA_INPAINT_IMAGE_REFERENCES",
   "SYNTX_OWNER_WAN_T2V_VIDEOS",
+  "SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS",
   "SYNTX_OWNER_ELEVENLABS_TTS",
   "SYNTX_OWNER_ELEVENLABS_DIALOGUE",
   "SYNTX_OWNER_ELEVENLABS_STS",
@@ -80,6 +81,7 @@ const HELP_TEXT = [
   "The confirmed owner-stdio config enables Kling Keyframes with SYNTX_OWNER_KLING_KEYFRAMES=1. This only registers the explicitly callable paid tools; it does not start generation.",
   "The confirmed owner-stdio config enables Kling Motion Control with SYNTX_OWNER_KLING_MOTION_CONTROL=1. Replace SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH with the absolute path to a trusted ffprobe executable.",
   "Motion Control generation tools are explicitly called and may incur provider charges; startup does not generate automatically. No enforceable cost cap is provided.",
+  "WAN 3.0 First/Last Frame is enabled by SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS=1; the initial local profile supports two frames and Basic/480P/2s only. Registering tools does not upload or generate automatically.",
   "ElevenLabs STS operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "Topaz Astra operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "The emitted tools can perform paid generation only when explicitly called by the client."

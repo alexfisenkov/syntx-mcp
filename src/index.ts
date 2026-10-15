@@ -88,6 +88,15 @@ export {
   registerSyntxOwnerWan27R2vReferenceTools
 } from "./mcp/owner-wan27-r2v-reference-tools.js";
 export type { OwnerWan27R2vReferenceToolComposition } from "./mcp/owner-wan27-r2v-reference-tools.js";
+export {
+  OWNER_WAN27_R2V_GENERATION_TOOL_NAMES,
+  SYNTX_OWNER_GENERATE_WAN27_R2V_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_WAN27_R2V_TOOL_NAME,
+  SYNTX_OWNER_LIST_WAN27_R2V_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_WAN27_R2V_RESULT_PAGE_TOOL_NAME,
+  registerSyntxOwnerWan27R2vGenerationTools
+} from "./mcp/owner-wan27-r2v-generation-tools.js";
+export type { OwnerWan27R2vGenerationToolComposition } from "./mcp/owner-wan27-r2v-generation-tools.js";
 export { readOwnerWan27R2vFlag, readOwnerWan27R2vOperatorConfiguration } from "./transports/stdio-owner.js";
 export {
   registerSyntxRuntimeCoverageTool,

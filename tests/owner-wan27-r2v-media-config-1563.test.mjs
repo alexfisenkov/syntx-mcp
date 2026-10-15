@@ -34,11 +34,9 @@ test("WAN R2V is present only in the confirmed paid-tools config with trusted ex
   assert.match(stdout.join(""), /does not edit client settings.*network/u);
 });
 
-test("changed media selector is limited to this R2V batch and focused 1546 control", () => {
+test("changed media selector is limited to the new 1561 and 1565 R2V suites", () => {
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const selector = packageJson.scripts["test:media:changed"];
   assert.equal(selector,
-    'node --test dist/tests/owner-wan27-r2v-manifest-resolution-1553.test.js dist/tests/owner-wan27-r2v-selected-duration-1554.test.js dist/tests/owner-wan27-r2v-request-preparer-1555.test.js dist/tests/owner-wan27-r2v-reference-upload-service-1557.test.js dist/tests/owner-wan27-r2v-native-1558.test.js dist/tests/owner-wan27-r2v-input-mcp-runtime-1559.test.js && node --test --test-name-pattern="only explicit controls|emitted JSON has absolute owner-stdio target and only the requested individual flags" dist/tests/owner-wan27-r2v-generation-parameters-1546.test.js tests/print-media-mcp-config.test.mjs && node --test tests/owner-wan27-r2v-media-config-1563.test.mjs');
-  assert.equal(selector.includes("old12"), false);
-  assert.equal(selector.includes("45tests"), false);
+    'node --test dist/tests/owner-wan27-r2v-generation-service-1561.test.js dist/tests/owner-wan27-r2v-generation-mcp-runtime-1565.test.js && node --test --test-name-pattern="changed media selector" tests/owner-wan27-r2v-media-config-1563.test.mjs');
 });

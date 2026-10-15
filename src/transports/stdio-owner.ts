@@ -622,6 +622,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const ideogramImageReferencesService = runtime.serverOptions.ownerIdeogramImageReferences?.generationService;
       const bananaInpaintImageGenerationService = runtime.serverOptions.ownerBananaInpaintImageReferences?.generationService;
       const wan27R2vReferencesService = runtime.serverOptions.ownerWan27R2v;
+      const wan27R2vGenerationService = runtime.serverOptions.ownerWan27R2v?.generationService;
       if (referenceService === undefined && grokReferenceService === undefined && grokT2iImageReferencesService === undefined && uniImageReferencesService === undefined &&
           soulImageGenerationService === undefined && soulShapeService === undefined && soulStyleOptionsService === undefined && clarityUpscaleService === undefined &&
           wanT2iImageGenerationService === undefined &&
@@ -667,7 +668,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
             bananaInpaintImageGenerationService !== undefined || seedreamEditorImageReferencesService !== undefined ||
             elevenLabsTtsService !== undefined || elevenLabsDialogueService !== undefined || sunoGenerationService !== undefined || topazAstraGenerationService !== undefined || lumaT2vGenerationService !== undefined ||
             hailuo01T2vGenerationService !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined || hailuo02T2vGenerationService !== undefined || seedance20T2vGenerationService !== undefined || klingT2vGenerationService !== undefined || klingI2vGenerationService !== undefined || veoT2vGenerationService !== undefined ||
-          video2AudioGenerationService !== undefined || hailuo02I2vGenerationService !== undefined,
+            video2AudioGenerationService !== undefined || hailuo02I2vGenerationService !== undefined || wan27R2vGenerationService !== undefined,
           wanT2iImageGenerationService,
           bananaInpaintImageGenerationService,
           runtime.ownerSeedreamEditorImageReferencesLifecycle,

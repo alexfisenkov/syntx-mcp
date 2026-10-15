@@ -222,6 +222,8 @@ import {
   registerSyntxOwnerWan27R2vReferenceTools,
   type OwnerWan27R2vReferenceToolComposition
 } from "./owner-wan27-r2v-reference-tools.js";
+import { registerSyntxOwnerWan27R2vGenerationTools } from "./owner-wan27-r2v-generation-tools.js";
+import type { OwnerWan27R2vGenerationToolComposition } from "./owner-wan27-r2v-generation-tools.js";
 
 export const SERVER_NAME = "syntx-mcp";
 export const SERVER_VERSION = "0.2.0";
@@ -553,7 +555,7 @@ export interface CreateMcpServerOptions {
   /** Explicit owner-local Video2Audio tools; omitted from default and HTTP servers. */
   ownerVideo2Audio?: OwnerVideo2AudioServiceComposition | undefined;
   /** Explicit owner-local WAN 2.7 R2V reference uploads; omitted from default and HTTP servers. */
-  ownerWan27R2v?: OwnerWan27R2vReferenceToolComposition | undefined;
+  ownerWan27R2v?: OwnerWan27R2vReferenceToolComposition & Partial<OwnerWan27R2vGenerationToolComposition> | undefined;
   /** Optional host-supplied, version-bound static evidence; never reads files or contacts SYNTX. */
   videoEvidence?: RegisterSyntxVideoEvidenceToolOptions | undefined;
   /** Explicitly validated, catalog-bound schema contracts; omission leaves validation unavailable. */
@@ -1208,7 +1210,10 @@ export function createMcpServer(
     registerSyntxOwnerVideo2AudioTools(server, options.ownerVideo2Audio);
   }
   if (options.ownerWan27R2v) {
-    registerSyntxOwnerWan27R2vReferenceTools(server, options.ownerWan27R2v);
+    registerSyntxOwnerWan27R2vReferenceTools(server, { referenceUploadService: options.ownerWan27R2v.referenceUploadService });
+    if (options.ownerWan27R2v.generationService !== undefined) {
+      registerSyntxOwnerWan27R2vGenerationTools(server, { generationService: options.ownerWan27R2v.generationService });
+    }
   }
   if (options.videoEvidence) {
     registerSyntxVideoEvidenceTool(server, options.videoEvidence);

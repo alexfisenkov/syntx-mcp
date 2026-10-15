@@ -149,6 +149,8 @@ import { OwnerTopazAstraGenerationService, OWNER_TOPAZ_ASTRA_GENERATION_CATALOG_
 import { OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-astra-existing-media-service.js";
 import { OwnerWan27R2vReferenceService } from "../application/owner-wan27-r2v-reference-service.js";
 import { OwnerWan27R2vReferenceUploadService } from "../application/owner-wan27-r2v-reference-upload-service.js";
+import { createOwnerWan27R2vRequestPreparer } from "../application/owner-wan27-r2v-request-preparer.js";
+import { OwnerWan27R2vGenerationService, OWNER_WAN27_R2V_GENERATION_CATALOG_VERSION } from "../application/owner-wan27-r2v-generation-service.js";
 
 const LOCAL_OWNER_BINDING: AuthBinding = Object.freeze({
   tenant_id: "tenant_local_owner",
@@ -1508,10 +1510,35 @@ export function createObservedOwnerRuntime(
         const uploadService = new OwnerWan27R2vReferenceUploadService({
           referenceService, ffprobePath: options.ownerWan27R2vFfprobePath, ffmpegPath: options.ownerWan27R2vFfmpegPath
         });
+        const preparer = createOwnerWan27R2vRequestPreparer({ binding: authBinding, linkService, referenceService, now });
+        const generationCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+          OWNER_WAN27_R2V_GENERATION_CATALOG_VERSION, options.catalogDirectory
+        ));
+        let generationService: OwnerWan27R2vGenerationService;
+        try {
+          generationService = new OwnerWan27R2vGenerationService({ binding: authBinding, linkService, catalog: generationCatalog,
+            catalog_version: OWNER_WAN27_R2V_GENERATION_CATALOG_VERSION, preparer, referenceService,
+            resolveChatClient: resolveWan27R2vChatClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(generationCatalog, createReadClient(attemptId), now), now });
+        } catch (error) {
+          const cleanup = (async () => {
+            const errors: unknown[] = [];
+            try { await preparer.close(); } catch (closeError) { errors.push(closeError); }
+            try { await uploadService.close(); } catch (closeError) { errors.push(closeError); }
+            try { await referenceService.close(); } catch (closeError) { errors.push(closeError); }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "WAN 2.7 R2V startup cleanup failed.");
+          })();
+          OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          throw error;
+        }
         let closing: Promise<void> | undefined;
         const lifecycle = Object.freeze({
           async invalidateAttempt(attemptId: string): Promise<void> {
             const errors: unknown[] = [];
+            try { await generationService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
             try { await uploadService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
             try { await referenceService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
             clientsByAttempt.delete(attemptId);
@@ -1522,6 +1549,7 @@ export function createObservedOwnerRuntime(
             if (closing !== undefined) return closing;
             closing = (async () => {
               const errors: unknown[] = [];
+              try { await generationService.close(); } catch (error) { errors.push(error); }
               try { await uploadService.close(); } catch (error) { errors.push(error); }
               try { await referenceService.close(); } catch (error) { errors.push(error); }
               clientsByAttempt.clear();
@@ -1531,7 +1559,7 @@ export function createObservedOwnerRuntime(
             return closing;
           }
         });
-        return Object.freeze({ referenceService, uploadService, lifecycle });
+        return Object.freeze({ referenceService, uploadService, generationService, lifecycle });
       })()
     : undefined;
   const ownerLumaT2v = options.ownerLumaT2vEnabled === true
@@ -2445,7 +2473,7 @@ export function createObservedOwnerRuntime(
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
-    ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2v: { referenceUploadService: ownerWan27R2v.uploadService } }),
+    ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2v: { referenceUploadService: ownerWan27R2v.uploadService, generationService: ownerWan27R2v.generationService } }),
     ...(ownerSoulCatalogShape === undefined ? {} : { ownerSoulCatalogShape }),
     ...(ownerSoulStyleOptions === undefined ? {} : { ownerSoulStyleOptions }),
     ...(ownerSoulImageReferences === undefined ? {} : { ownerSoulImageReferences }),

@@ -82,14 +82,14 @@ export function registerSyntxOwnerWan27R2vReferenceTools(server: McpServer,
 
   server.registerTool(SYNTX_GET_WAN27_R2V_PARAMETERS_TOOL_NAME, {
     title: "Get WAN 2.7 R2V parameters",
-    description: "Returns the pinned static WAN 2.7 R2V controls and source gaps. This is source metadata only; defaults, provider acceptance, and generation are not established.",
+    description: "Returns pinned static WAN 2.7 R2V controls and source gaps. This input command does not start generation.",
     inputSchema: emptyInput, outputSchema: sourceOutput,
     annotations: { title: "Get WAN 2.7 R2V parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async () => success(sourceOutput, source));
 
   server.registerTool(SYNTX_OWNER_CREATE_WAN27_R2V_MANIFEST_TOOL_NAME, {
     title: "Create WAN 2.7 R2V reference manifest",
-    description: "Creates an owner-bound draft for the exact linked attempt. It accepts 0–5 selected video references; uploads are separate and generation remains unavailable.",
+    description: "Creates an owner-bound draft for the exact linked attempt. It accepts 0–5 selected video references; uploads are separate. This input command does not start generation.",
     inputSchema: createInput, outputSchema: draftToolOutput,
     annotations: { title: "Create WAN 2.7 R2V reference manifest", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
   }, async (raw, { signal }) => {

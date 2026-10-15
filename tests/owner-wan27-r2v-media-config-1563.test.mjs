@@ -34,9 +34,9 @@ test("WAN R2V is present only in the confirmed paid-tools config with trusted ex
   assert.match(stdout.join(""), /does not edit client settings.*network/u);
 });
 
-test("changed media selector is limited to the new 1561 and 1565 R2V suites", () => {
+test("changed media selector runs the accepted Kling policy and multi-shot suites", () => {
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const selector = packageJson.scripts["test:media:changed"];
   assert.equal(selector,
-    'node --test dist/tests/owner-wan27-r2v-generation-service-1561.test.js dist/tests/owner-wan27-r2v-generation-mcp-runtime-1565.test.js && node --test --test-name-pattern="changed media selector" tests/owner-wan27-r2v-media-config-1563.test.mjs');
+    'node --test dist/tests/owner-kling-keyframes-image-policy-1573.test.js dist/tests/owner-kling-i2v-multi-shots-1574.test.js && node --test --test-name-pattern="requires an explicit boolean multi-shot|source descriptor pins the current form" dist/tests/owner-kling-i2v-wire-source.test.js dist/tests/owner-kling-i2v-parameters.test.js && node --test --test-name-pattern="changed media selector" tests/owner-wan27-r2v-media-config-1563.test.mjs');
 });

@@ -28,8 +28,8 @@ const SOURCE = Object.freeze({
   }),
   multi_shots: Object.freeze({
     active_version: "3.0" as const,
-    active_value: "REQUIRE_FALSE_UNTIL_SCENE_PAYLOAD_SOURCE_CLOSURE" as const,
-    true_case: "BLOCKED_SCENE_CONSTRUCTOR_ADDITIONAL_PAYLOAD_UNRESOLVED" as const,
+    accepted_value: "EXPLICIT_BOOLEAN_WITH_UNCHANGED_NONBLANK_RAW_PROMPT" as const,
+    scene_prompt_builder: "NOT_IMPLEMENTED" as const,
     hidden_values: "OMIT_FOR_OTHER_I2V_VERSIONS_BY_FORM_DELETION" as const
   }),
   cache: "NEVER_READ_OR_PROJECT_PERSISTED_BROWSER_SETTINGS" as const,
@@ -108,8 +108,8 @@ function snapshotControls(value: unknown, version: OwnerKlingI2vVersion): Readon
       fields.temperature < 0 || fields.temperature > 1 ||
       Math.abs(fields.temperature - Math.round(fields.temperature * 10) / 10) > 1e-9) invalid();
   if (version === "3.0") {
-    if (fields.multi_shots !== false) invalid();
-    return Object.freeze({ temperature: fields.temperature, multi_shots: false });
+    if (typeof fields.multi_shots !== "boolean") invalid();
+    return Object.freeze({ temperature: fields.temperature, multi_shots: fields.multi_shots });
   }
   return Object.freeze({ temperature: fields.temperature });
 }

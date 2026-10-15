@@ -33,7 +33,7 @@ test("source descriptor pins the current form and keeps I2V source-only", () => 
     "GENERIC_SENDER_USES_TRUTHY_CUSTOM_PAYLOAD_ELSE_CURRENT_SETTINGS");
   assert.equal(source.settings.current_form_custom_payload_read_or_write_occurrences, 0);
   assert.deepEqual(source.settings.current_form_initializer_keys,
-    ["model_type", "temperature", "aspect_ratio", "mode", "version", "native_audio", "gen_type", "video_duration", "multi_shots"]);
+    ["model_type", "temperature", "camera_movement", "aspect_ratio", "mode", "version", "native_audio", "gen_type", "motion", "video_duration", "multi_shots"]);
   assert.deepEqual(source.settings.settings_helper_overlay_semantics, {
     route_model_and_version_overlay: "ONLY_WHEN_ACTIVE_SETTINGS_ALREADY_HAS_KEY",
     staged_overlay: "ONLY_EXISTING_ACTIVE_SETTINGS_KEYS",

@@ -85,6 +85,13 @@ const SOURCE = Object.freeze({
       other_versions_forced_false: true as const,
       effective_default: "UNKNOWN" as const
     }),
+    multi_shots: Object.freeze({
+      enabled_versions: Object.freeze(["3.0"] as const),
+      accepted_values: Object.freeze([false, true] as const),
+      requirement: "EXPLICIT_BOOLEAN" as const,
+      prompt: "REQUIRED_NONBLANK_RAW_PROMPT_PASSED_UNCHANGED" as const,
+      scene_prompt_builder: "NOT_IMPLEMENTED" as const
+    }),
     aspect_ratio: Object.freeze({
       ui_options: Object.freeze(["16:9", "1:1", "9:16"] as const),
       i2v_value_state: "RESET_TO_UNDEFINED_BY_MODEL_TYPE_WATCHER" as const,
@@ -107,12 +114,12 @@ const SOURCE = Object.freeze({
     ] as const),
     paired_inventory_payload_field_keys: Object.freeze(["mode", "model_type"] as const),
     current_form_initializer_keys: Object.freeze([
-      "model_type", "temperature", "aspect_ratio", "mode", "version", "native_audio", "gen_type", "video_duration", "multi_shots"
+      "model_type", "temperature", "camera_movement", "aspect_ratio", "mode", "version", "native_audio", "gen_type", "motion", "video_duration", "multi_shots"
     ] as const),
     current_form_custom_payload_read_or_write_occurrences: 0 as const,
     current_form_settings_field_fates: Object.freeze({
       sender_preserves_defined_keys: Object.freeze([
-        "model_type", "mode", "version", "native_audio", "gen_type", "video_duration", "multi_shots", "temperature"
+        "model_type", "mode", "version", "native_audio", "gen_type", "motion", "video_duration", "multi_shots", "temperature", "camera_movement"
       ] as const),
       aspect_ratio: "RESET_TO_UNDEFINED_FOR_I2V_THEN_OMITTED_BY_JSON" as const,
       other_conditional_values: "PRESERVED_WHEN_DEFINED_OMITTED_WHEN_UNDEFINED" as const
@@ -132,7 +139,8 @@ const SOURCE = Object.freeze({
     current_form_custom_payload_path: "NO_KLING_FORM_PRODUCER; GLOBAL_SLOT_RESET_UNRESOLVED" as const,
     sender_settings_projection: "SHALLOW_COPY_OF_SELECTED_SETTINGS_OBJECT_NO_PER_KEY_FILTER" as const,
     current_form_effective_settings_and_getter_join: "STATIC_FORM_KEYS_CLOSED_EFFECTIVE_CACHE_VALUES_OPEN" as const,
-    unknown_or_not_normalized: Object.freeze(["gen_type", "multi_shots", "temperature"] as const)
+    unknown_or_not_normalized: Object.freeze(["gen_type", "multi_shots", "temperature", "camera_movement", "motion"] as const),
+    unknown_or_not_normalized_scope: "SOURCE_FORM_FIELDS_NOT_NORMALIZED_BY_BARE_PARAMETERS_NORMALIZER; VERSIONED_MULTI_SHOTS_HAS_WIRE_SUPPORT" as const
   }),
   references: Object.freeze({
     required_count: 1 as const,

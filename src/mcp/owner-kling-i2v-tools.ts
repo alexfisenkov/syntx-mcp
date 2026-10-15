@@ -74,7 +74,7 @@ const generateInputSchema = z.object({
   video_duration: z.number().int(),
   native_audio: z.boolean(),
   temperature: z.number().finite().min(0).max(1),
-  multi_shots: z.literal(false).optional()
+  multi_shots: z.boolean().optional()
 }).strict().superRefine((input, context) => {
   const version: OwnerKlingI2vVersion = input.version;
   if (version !== "3.0-turbo" && (!input.prompt || input.prompt.trim().length === 0)) {
@@ -101,8 +101,8 @@ const generateInputSchema = z.object({
   if (Math.abs(input.temperature * 10 - Math.round(input.temperature * 10)) > 1e-9) {
     context.addIssue({ code: "custom", path: ["temperature"], message: "Temperature must use 0.1 increments." });
   }
-  if (version === "3.0" ? input.multi_shots !== false : input.multi_shots !== undefined) {
-    context.addIssue({ code: "custom", path: ["multi_shots"], message: "Only single-shot mode is supported; provide false only for version 3.0." });
+  if (version === "3.0" ? typeof input.multi_shots !== "boolean" : input.multi_shots !== undefined) {
+    context.addIssue({ code: "custom", path: ["multi_shots"], message: "Provide an explicit boolean only for version 3.0." });
   }
 });
 
@@ -163,7 +163,7 @@ export function registerSyntxOwnerKlingI2vTools(server: McpServer, options: Regi
 
   server.registerTool(SYNTX_OWNER_GENERATE_KLING_I2V_VIDEO_TOOL_NAME, {
     title: "Generate one Kling I2V video",
-    description: "Dispatches one non-idempotent owner Kling I2V request with an opaque image handle. Supply the exact model, version, mode, duration, native audio, version-appropriate prompt, and an explicit temperature for every version, including versions where the UI hides that control. Version 3.0 requires multi_shots=false; only one image is accepted. A fresh finite quote is checked in preflight but is not an enforceable spend cap, and provider acceptance is unproven. For an unknown outcome, do not retry; use GET-only reconciliation with the returned recovery id.",
+    description: "Dispatches one non-idempotent owner Kling I2V request with an opaque image handle. Supply the exact model, version, mode, duration, native audio, version-appropriate prompt, and an explicit temperature for every version, including versions where the UI hides that control. Version 3.0 requires an explicit multi_shots boolean and passes the supplied nonblank raw prompt unchanged; scene prompt construction is not implemented. Only one image is accepted. A fresh finite quote is checked in preflight but is not an enforceable spend cap, and provider acceptance is unproven. For an unknown outcome, do not retry; use GET-only reconciliation with the returned recovery id.",
     inputSchema: generateInputSchema, outputSchema: generationOutputSchema,
     annotations: { title: "Generate one Kling I2V video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {
@@ -171,7 +171,7 @@ export function registerSyntxOwnerKlingI2vTools(server: McpServer, options: Regi
       const output = await options.generationService.generate({ attemptId: input.link_attempt_id, image_handle: input.image_handle,
         parameters: { model_id: MODEL_ID, prompt: input.prompt ?? "", reference_count: 1, version: input.version,
           mode: input.mode, video_duration: input.video_duration, native_audio: input.native_audio },
-        controls: { temperature: input.temperature, ...(input.version === "3.0" ? { multi_shots: false } : {}) }
+        controls: { temperature: input.temperature, ...(input.version === "3.0" ? { multi_shots: input.multi_shots! } : {}) }
       }, signal);
       return structuredResult(generationOutputSchema.parse(output));
     } catch (error) { return safeError(error); }

@@ -59,12 +59,12 @@ test("requires temperature for every I2V version and preserves it when its contr
     OwnerKlingI2vWireSourceError);
 });
 
-test("requires single-shot mode at version 3.0 and validates the source temperature range", () => {
+test("requires an explicit boolean multi-shot mode at version 3.0 and validates temperature", () => {
   const reject = (controls: unknown) => assert.throws(
     () => buildOwnerKlingI2vWireSettingsTemplate({ parameters: PARAMETERS, controls }),
     OwnerKlingI2vWireSourceError
   );
-  reject({ temperature: 0.5, multi_shots: true });
+  reject({ temperature: 0.5, multi_shots: "true" });
   reject({ temperature: 0.5 });
   reject({ multi_shots: false });
   reject({ temperature: -0.1, multi_shots: false });
@@ -74,6 +74,11 @@ test("requires single-shot mode at version 3.0 and validates the source temperat
     parameters: PARAMETERS, controls: { temperature: 1, multi_shots: false }
   });
   assert.equal(singleShot.settings_template.multi_shots, false);
+  const multiShot = buildOwnerKlingI2vWireSettingsTemplate({
+    parameters: PARAMETERS, controls: { temperature: 0.5, multi_shots: true }
+  });
+  assert.equal(multiShot.settings_template.multi_shots, true);
+  assert.equal(multiShot.prompt, PARAMETERS.prompt);
 });
 
 test("rejects caller URL fields, model-only controls, and unsafe control records", () => {

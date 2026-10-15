@@ -225,6 +225,12 @@ import {
   withCapturedOwnerKlingI2vGenerationContext
 } from "../../application/owner-kling-i2v-generation-context.js";
 import { readOwnerKlingI2VUploadReferenceForClient, type OwnerKlingI2VUploadContext } from "./kling-i2v-upload-context.js";
+import type {
+  OwnerWan30FirstLastFrameRole,
+  OwnerWan30FirstLastGenerationContext,
+  OwnerWan30FirstLastUploadedFrame,
+  OwnerWan30FirstLastValidatedFrame
+} from "./owner-wan30-first-last-native-context.js";
 import { validateOwnerSeedreamEditorDrawingUploadData } from "../../application/owner-seedream-editor-drawing-input-validator.js";
 import {
   type OwnerSeedreamEditorImageCandidateBinding,
@@ -4434,6 +4440,28 @@ export class SyntxChatHttpClient {
       { chat_id: request.chat_id, prompt: request.prompt, settings: bridgedSettings },
       signal
     );
+  }
+
+  /** One owner First/Last frame upload; role is attached locally and the URL stays in a nominal context. */
+  async uploadOwnerWan30FirstLastFrame(
+    receipt: OwnerWan30FirstLastValidatedFrame,
+    role: OwnerWan30FirstLastFrameRole,
+    signal?: AbortSignal
+  ): Promise<OwnerWan30FirstLastUploadedFrame> {
+    const native = await import("./owner-wan30-first-last-native-context.js");
+    return native.uploadOwnerWan30FirstLastFrame(this, receipt, role, signal);
+  }
+
+  /** Consumes a same-client two-frame context before the sole owner dispatch. */
+  async startOwnerWan30FirstLastVideoWithContext(
+    context: OwnerWan30FirstLastGenerationContext,
+    signal?: AbortSignal
+  ): Promise<MediaGenerationReceipt> {
+    const native = await import("./owner-wan30-first-last-native-context.js");
+    const request = native.consumeOwnerWan30FirstLastGenerationContext(this, context);
+    const settings = sanitizeSettings(request.settings);
+    return this.#startMedia("video/generate", "wan_video", request.chat_id,
+      { chat_id: request.chat_id, prompt: request.prompt, settings }, signal);
   }
 
   /** Consumes a nominal one-shot owner context and binds its same-client image upload. */
@@ -10244,7 +10272,8 @@ function snapshotOwnerWanT2vVideoResultReadContext(value: unknown): Readonly<Own
     ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids"],
     ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids"]);
   if (typeof fields.chat_uuid !== "string" || typeof fields.message_id !== "string" ||
-      (fields.model_id !== "wan_26_t2v" && fields.model_id !== "wan_27_t2v" && fields.model_id !== "wan_30_t2v") ||
+      (fields.model_id !== "wan_26_t2v" && fields.model_id !== "wan_27_t2v" && fields.model_id !== "wan_30_t2v" &&
+        fields.model_id !== "wan_30_first_last_frame") ||
       typeof fields.provider_chat_id !== "string" || !/^\d{1,16}$/u.test(fields.provider_chat_id) ||
       !Number.isSafeInteger(Number(fields.provider_chat_id))) throw invalidRequest();
   validatePathIdentifier(fields.chat_uuid);

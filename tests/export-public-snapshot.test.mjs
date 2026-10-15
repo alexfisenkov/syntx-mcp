@@ -12,7 +12,7 @@ const SCRIPT = fileURLToPath(new URL("../scripts/export-public-snapshot.mjs", im
 const POLICY_PATH = fileURLToPath(new URL("../tools/publication/public-source-policy.json", import.meta.url));
 const BOOTSTRAP_PATHS = ["README.md", "AGENTS.md", "SECURITY.md", ".gitignore", ".github/workflows/verify.yml",
   "docs/интеграция/Inpaint-источники-и-границы.md", "docs/интеграция/Обновление-MCP.md",
-  "docs/модели/WAN-image-источники-и-параметры.md"];
+  "docs/модели/WAN-image-источники-и-параметры.md", "docs/интеграция/WAN-2.5-Preview-MCP.md"];
 const REQUIRED_PRIVATE_CATALOG_PATHS = [
   "catalog/runtime/v12/owner-mcp-banana21-smoke.json",
   "catalog/runtime/v12/owner-mcp-seedance-pro-fast-smoke.json",

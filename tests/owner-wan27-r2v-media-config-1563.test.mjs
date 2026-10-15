@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 
@@ -34,11 +34,34 @@ test("WAN R2V is present only in the confirmed paid-tools config with trusted ex
   assert.match(stdout.join(""), /does not edit client settings.*network/u);
 });
 
-test("changed media selector runs the WAN26/current catalog suites while retaining frozen Keyframes public exports", async () => {
+test("changed media selector uses bounded explicit test commands and retains frozen Keyframes public exports", async () => {
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const selector = packageJson.scripts["test:media:changed"];
-  assert.equal(selector,
-    'node --test dist/tests/owner-wan26-i2v-video-result-1644.test.js dist/tests/owner-wan26-i2v-history-1645.test.js dist/tests/owner-wan26-i2v-image-policy-1649.test.js dist/tests/owner-wan26-i2v-audio-probe-1651.test.js dist/tests/owner-wan26-i2v-native-upload-1652.test.js dist/tests/owner-wan26-i2v-generation-parameters-1654.test.js dist/tests/owner-wan26-i2v-reference-service-1655.test.js dist/tests/owner-wan26-i2v-preparer-once-1657.test.js dist/tests/syntx-public-catalog-schema-1658.test.js dist/tests/owner-wan26-i2v-native-generation-1659.test.js dist/tests/owner-wan26-i2v-generation-service-1661.test.js dist/tests/owner-wan26-i2v-runtime-mcp-1663.test.js dist/tests/syntx-current-discovery-1664.test.js dist/tests/owner-wan26-i2v-generation-mcp-runtime-1665.test.js && node --test tests/owner-wan26-i2v-media-config-1664.test.mjs && node --test --test-name-pattern="changed media selector" tests/owner-wan27-r2v-media-config-1563.test.mjs');
+  assert.equal(typeof selector, "string");
+  const commands = selector.split(/\s+&&\s+/u).map((command) => command.trim());
+  assert.ok(commands.length > 0 && commands.length <= 4, "changed-media selector must remain a bounded command list");
+  const selectedPaths = [];
+  for (const command of commands) {
+    const parts = command.split(/\s+/u);
+    assert.equal(parts[0], "node", "only Node test commands are permitted");
+    assert.equal(parts[1], "--test", "each selector segment must run the test runner");
+    assert.ok(parts.length >= 3, "each test command must explicitly name files");
+    for (const path of parts.slice(2)) {
+      assert.match(path, /^(?:dist\/)?tests\/[A-Za-z0-9._-]+\.test\.(?:js|mjs)$/u,
+        "every selector path must be a safe relative explicit test file");
+      assert.equal(path.split("/").includes(".."), false);
+      selectedPaths.push(path);
+      if (path.startsWith("dist/")) {
+        const sourcePath = path.replace(/^dist\//u, "").replace(/\.js$/u, ".ts");
+        assert.equal(existsSync(new URL(`../${sourcePath}`, import.meta.url)), true,
+          `missing source counterpart: ${sourcePath}`);
+      } else {
+        assert.equal(existsSync(new URL(`../${path}`, import.meta.url)), true, `missing explicit test file: ${path}`);
+      }
+    }
+  }
+  assert.ok(selectedPaths.length > 0 && selectedPaths.length <= 40, "the total selected test file count must remain bounded");
+  assert.equal(new Set(selectedPaths).size, selectedPaths.length, "selector paths must not be duplicated");
 
   const publicApi = await import("../dist/src/index.js");
   for (const name of [

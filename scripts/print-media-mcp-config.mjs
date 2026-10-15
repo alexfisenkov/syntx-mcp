@@ -45,6 +45,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_TOPAZ_ASTRA",
   "SYNTX_OWNER_WAN27_R2V",
   "SYNTX_OWNER_WAN26_I2V",
+  "SYNTX_OWNER_WAN25_I2V_PREVIEW",
   "SYNTX_OWNER_KLING_KEYFRAMES",
   "SYNTX_OWNER_KLING_MOTION_CONTROL"
 ]);
@@ -74,6 +75,7 @@ const HELP_TEXT = [
   "This command does not edit client settings, read credentials, log in, or call the network.",
   "The confirmed owner-stdio config enables Kling I2V with SYNTX_OWNER_KLING_I2V=1 and Hailuo-02 I2V with SYNTX_OWNER_HAILUO02_I2V=1.",
   "The confirmed owner-stdio config enables WAN 2.7 R2V with SYNTX_OWNER_WAN27_R2V=1; replace SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH and SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH placeholders with absolute trusted executable paths.",
+  "The confirmed owner-stdio config enables the exact WAN 2.5 I2V preview image-only tool group with SYNTX_OWNER_WAN25_I2V_PREVIEW=1; optional input audio is not enabled in this slice and no ffprobe path is required.",
   "The confirmed owner-stdio config enables Kling Keyframes with SYNTX_OWNER_KLING_KEYFRAMES=1. This only registers the explicitly callable paid tools; it does not start generation.",
   "The confirmed owner-stdio config enables Kling Motion Control with SYNTX_OWNER_KLING_MOTION_CONTROL=1. Replace SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH with the absolute path to a trusted ffprobe executable.",
   "Motion Control generation tools are explicitly called and may incur provider charges; startup does not generate automatically. No enforceable cost cap is provided.",

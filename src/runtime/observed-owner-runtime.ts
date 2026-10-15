@@ -161,6 +161,9 @@ import { OwnerWan27R2vGenerationService, OWNER_WAN27_R2V_GENERATION_CATALOG_VERS
 import { OwnerWan26I2vReferenceService } from "../application/owner-wan26-i2v-reference-service.js";
 import { createOwnerWan26I2vRequestPreparer } from "../application/owner-wan26-i2v-request-preparer.js";
 import { OwnerWan26I2vGenerationService, OWNER_WAN26_I2V_GENERATION_CATALOG_VERSION } from "../application/owner-wan26-i2v-generation-service.js";
+import { OwnerWan25I2vReferenceService } from "../application/owner-wan25-i2v-reference-service.js";
+import { createOwnerWan25I2vRequestPreparer } from "../application/owner-wan25-i2v-request-preparer.js";
+import { OwnerWan25I2vGenerationService, OWNER_WAN25_I2V_GENERATION_CATALOG_VERSION } from "../application/owner-wan25-i2v-generation-service.js";
 
 const LOCAL_OWNER_BINDING: AuthBinding = Object.freeze({
   tenant_id: "tenant_local_owner",
@@ -232,6 +235,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerWan26I2vEnabled?: boolean;
   /** Trusted absolute local ffprobe path, required only when WAN 2.6 I2V is enabled. */
   ownerWan26I2vFfprobePath?: string;
+  /** Explicit owner-stdio opt-in for private WAN 2.5 I2V preview image, generation, and recovery tools. */
+  ownerWan25I2vPreviewEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the reviewed Luma T2V contract tools. */
   ownerLumaT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the sealed, reviewed Hailuo-01 T2V profile. */
@@ -1658,6 +1663,82 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ referenceService: ownedReferenceService, generationService: ownedGenerationService, lifecycle });
       })()
     : undefined;
+  const ownerWan25I2vPreview = options.ownerWan25I2vPreviewEnabled === true
+    ? (() => {
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveWan25I2vPreviewChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_WAN25_I2V_PREVIEW_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        let referenceService: OwnerWan25I2vReferenceService | undefined;
+        let preparer: ReturnType<typeof createOwnerWan25I2vRequestPreparer> | undefined;
+        let generationService: OwnerWan25I2vGenerationService | undefined;
+        try {
+          // Reference/preparer TTL clocks share the default performance.now() origin; the service uses wall time for freshness.
+          referenceService = new OwnerWan25I2vReferenceService({ binding: authBinding, linkService,
+            resolveClient: resolveWan25I2vPreviewChatClient });
+          preparer = createOwnerWan25I2vRequestPreparer({ referenceService });
+          const generationCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+            OWNER_WAN25_I2V_GENERATION_CATALOG_VERSION, options.catalogDirectory
+          ));
+          generationService = new OwnerWan25I2vGenerationService({ binding: authBinding, linkService, catalog: generationCatalog,
+            catalog_version: OWNER_WAN25_I2V_GENERATION_CATALOG_VERSION, preparer,
+            resolveChatClient: resolveWan25I2vPreviewChatClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(generationCatalog, createReadClient(attemptId), now), now });
+        } catch (error) {
+          const cleanup = (async () => {
+            const errors: unknown[] = [];
+            try { await generationService?.close(); } catch (closeError) { errors.push(closeError); }
+            if (generationService === undefined) {
+              try { await preparer?.close(); } catch (closeError) { errors.push(closeError); }
+            }
+            try { await referenceService?.close(); } catch (closeError) { errors.push(closeError); }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "WAN 2.5 I2V preview startup cleanup failed.");
+          })();
+          if (error !== null && (typeof error === "object" || typeof error === "function")) {
+            OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          }
+          throw error;
+        }
+        const ownedReferenceService = referenceService;
+        const ownedPreparer = preparer;
+        const ownedGenerationService = generationService;
+        let closing: Promise<void> | undefined;
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            const errors: unknown[] = [];
+            try { await ownedGenerationService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            try { await ownedPreparer.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            try { await ownedReferenceService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            clientsByAttempt.delete(attemptId);
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "WAN 2.5 I2V preview attempt invalidation drain failed.");
+          },
+          close(): Promise<void> {
+            if (closing !== undefined) return closing;
+            closing = (async () => {
+              const errors: unknown[] = [];
+              try { await ownedGenerationService.close(); } catch (error) { errors.push(error); }
+              try { await ownedPreparer.close(); } catch (error) { errors.push(error); }
+              try { await ownedReferenceService.close(); } catch (error) { errors.push(error); }
+              clientsByAttempt.clear();
+              if (errors.length === 1) throw errors[0];
+              if (errors.length > 1) throw new AggregateError(errors, "WAN 2.5 I2V preview services did not close cleanly.");
+            })();
+            return closing;
+          }
+        });
+        return Object.freeze({ referenceService: ownedReferenceService, preparer: ownedPreparer,
+          generationService: ownedGenerationService, lifecycle });
+      })()
+    : undefined;
   const ownerLumaT2v = options.ownerLumaT2vEnabled === true
     ? (() => {
         const registry = loadGenerationContractRegistryV2(OWNER_LUMA_T2V_CONTRACT_REGISTRY_VERSION, options.catalogDirectory);
@@ -2380,7 +2461,7 @@ export function createObservedOwnerRuntime(
     : undefined;
   const ownerAuthLinkService: Pick<PerUserLinkService, "createAttempt" | "issueHandoff" | "checkAttempt" | "revoke"> =
     ownerSoulImageReferences === undefined && ownerGrokT2iImageReferences === undefined && ownerWanT2iImageReferences === undefined &&
-      ownerWanT2vVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
+      ownerWanT2vVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan25I2vPreview === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
       ownerLumaT2v === undefined &&
       ownerHailuo01T2v === undefined &&
       ownerHailuo01DirectorT2v === undefined &&
@@ -2425,6 +2506,10 @@ export function createObservedOwnerRuntime(
             if (ownerWan26I2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerWan26I2v.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerWan25I2vPreview !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerWan25I2vPreview.lifecycle.invalidateAttempt(attemptId);
             }
             if (ownerElevenLabsShared !== undefined) {
               await linkService.getStatus(binding, attemptId);
@@ -2533,7 +2618,7 @@ export function createObservedOwnerRuntime(
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
-        ownerWan27R2v === undefined && ownerWan26I2v === undefined &&
+        ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan25I2vPreview === undefined &&
         ownerTopazAstra === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
@@ -2553,6 +2638,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerWan26I2v !== undefined) {
             try { await ownerWan26I2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerWan25I2vPreview !== undefined) {
+            try { await ownerWan25I2vPreview.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerElevenLabsShared !== undefined) {
             try { await ownerElevenLabsShared.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -2732,6 +2820,9 @@ export function createObservedOwnerRuntime(
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
     ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2v: { referenceUploadService: ownerWan27R2v.uploadService, generationService: ownerWan27R2v.generationService } }),
     ...(ownerWan26I2v === undefined ? {} : { ownerWan26I2v: { referenceService: ownerWan26I2v.referenceService, generationService: ownerWan26I2v.generationService } }),
+    ...(ownerWan25I2vPreview === undefined ? {} : { ownerWan25I2vPreview: {
+      referenceService: ownerWan25I2vPreview.referenceService, generationService: ownerWan25I2vPreview.generationService
+    } }),
     ...(ownerSoulCatalogShape === undefined ? {} : { ownerSoulCatalogShape }),
     ...(ownerSoulStyleOptions === undefined ? {} : { ownerSoulStyleOptions }),
     ...(ownerSoulImageReferences === undefined ? {} : { ownerSoulImageReferences }),
@@ -2788,7 +2879,8 @@ export function createObservedOwnerRuntime(
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2vLifecycle: ownerHailuoLiveT2v.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle }),
     ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2vLifecycle: ownerWan27R2v.lifecycle }),
-    ...(ownerWan26I2v === undefined ? {} : { ownerWan26I2vLifecycle: ownerWan26I2v.lifecycle })
+    ...(ownerWan26I2v === undefined ? {} : { ownerWan26I2vLifecycle: ownerWan26I2v.lifecycle }),
+    ...(ownerWan25I2vPreview === undefined ? {} : { ownerWan25I2vPreviewLifecycle: ownerWan25I2vPreview.lifecycle })
   };
 }
 

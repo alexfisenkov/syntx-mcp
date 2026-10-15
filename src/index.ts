@@ -112,6 +112,18 @@ export {
 export type { OwnerWan26I2vServiceComposition } from "./mcp/owner-wan26-i2v-tools.js";
 export { readOwnerWan26I2vFlag, readOwnerWan26I2vOperatorConfiguration } from "./transports/stdio-owner.js";
 export {
+  OWNER_WAN25_I2V_PREVIEW_TOOL_NAMES,
+  SYNTX_OWNER_GET_WAN25_I2V_PREVIEW_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN25_I2V_PREVIEW_IMAGE_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_WAN25_I2V_PREVIEW_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_WAN25_I2V_PREVIEW_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_WAN25_I2V_PREVIEW_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_WAN25_I2V_PREVIEW_RESULT_PAGE_TOOL_NAME,
+  registerSyntxOwnerWan25I2vPreviewTools
+} from "./mcp/owner-wan25-i2v-tools.js";
+export type { OwnerWan25I2vPreviewServiceComposition } from "./mcp/owner-wan25-i2v-tools.js";
+export { readOwnerWan25I2vPreviewFlag } from "./transports/stdio-owner.js";
+export {
   registerSyntxRuntimeCoverageTool,
   SYNTX_RUNTIME_COVERAGE_TOOL_NAME,
   runtimeCoverageOutputSchema

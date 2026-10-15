@@ -4635,6 +4635,58 @@ export class SyntxChatHttpClient {
     return native.getOwnerWan27R2vResult(input, packet, signal);
   }
 
+  /** Fixed WAN 2.5 I2V preview image upload; the returned context contains no caller-visible URL. */
+  async uploadWan25I2vImage(
+    receipt: import("../../application/owner-wan25-i2v-image-policy.js").ValidatedOwnerWan25I2vPreviewImage,
+    signal?: AbortSignal
+  ): Promise<import("./wan25-i2v-upload-context.js").OwnerWan25I2vImageUploadContext> {
+    assertNativeOwnerWan25I2v(this);
+    const upload = await import("./wan25-i2v-upload-context.js");
+    return upload.uploadOwnerWan25I2vImage(this, receipt, signal);
+  }
+
+  /** Creates one preview chat from the app-owned prepared candidate; scope/title stay fixed. */
+  async createOwnerWan25I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan25-i2v-native-context.js").OwnerWan25I2vChatContext> {
+    assertNativeOwnerWan25I2v(this);
+    const native = await import("./owner-wan25-i2v-native-context.js");
+    const packet = createOwnerWan25I2vNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_WAN25_I2V_CREATE_CHAT, this, ["video", title, requestSignal]));
+    return native.createOwnerWan25I2vChat(input, packet, signal);
+  }
+
+  /** Consumes the candidate's one-shot permit before the single fixed preview-generation POST. */
+  async startOwnerWan25I2vWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerWan25I2v(this);
+    const native = await import("./owner-wan25-i2v-native-context.js");
+    const packet = createOwnerWan25I2vNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "wan_video", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerWan25I2vWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Bounded GET-only history for an acknowledged or uncertain native preview request. */
+  async listOwnedWan25I2vCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan25-i2v-native-context.js").OwnerWan25I2vResultCandidates> {
+    assertNativeOwnerWan25I2v(this);
+    const native = await import("./owner-wan25-i2v-native-context.js");
+    const packet = createOwnerWan25I2vNativeInvocation(this, "list", input,
+      async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnedWan25I2vCandidates(input, packet, signal);
+  }
+
+  /** Reads a result only from an opaque context minted by this client's clean preview history. */
+  async getOwnedWan25I2vResult(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan25-i2v-video-result.js").OwnerWan25I2vVideoResult> {
+    assertNativeOwnerWan25I2v(this);
+    const native = await import("./owner-wan25-i2v-native-context.js");
+    const packet = createOwnerWan25I2vNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) => this.#request(
+        new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnedWan25I2vResult(input, packet, signal);
+  }
+
   /** Creates one owner-bound WAN 2.6 I2V chat from an exact prepared candidate. */
   async createOwnerWan26I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan26-i2v-native-context.js").OwnerWan26I2vChatContext> {
     assertNativeOwnerWan26I2v(this);
@@ -7839,6 +7891,36 @@ const NATIVE_OWNER_HAILUO02_I2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.cr
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerHailuo02I2vWithOwnedCandidate;
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedHailuo02I2vCandidates;
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedHailuo02I2vResult;
+type OwnerWan25I2vPacketMethod = "create" | "start" | "list" | "get";
+interface OwnerWan25I2vNativeInvocation {
+  readonly client: SyntxChatHttpClient;
+  readonly method: OwnerWan25I2vPacketMethod;
+  readonly input: unknown;
+  readonly callback: Function;
+}
+const OWNER_WAN25_I2V_NATIVE_INVOCATIONS = new WeakMap<object, OwnerWan25I2vNativeInvocation>();
+
+function createOwnerWan25I2vNativeInvocation(client: SyntxChatHttpClient, method: OwnerWan25I2vPacketMethod,
+  input: unknown, callback: Function): object {
+  assertNativeOwnerWan25I2v(client);
+  if (typeof callback !== "function" || types.isProxy(callback) || !["create", "start", "list", "get"].includes(method)) throw invalidRequest();
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_WAN25_I2V_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** Consumes the one-use packet minted only inside an exact native class method. */
+export function consumeOwnerWan25I2vNativeInvocation(input: unknown, packet: unknown, method: OwnerWan25I2vPacketMethod):
+  Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw invalidRequest();
+  const invocation = OWNER_WAN25_I2V_NATIVE_INVOCATIONS.get(packet as object);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerWan25I2vNativeClient(invocation.client)) {
+    throw invalidRequest();
+  }
+  OWNER_WAN25_I2V_NATIVE_INVOCATIONS.delete(packet as object);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
 const NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vImage;
 const NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo;
 const NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan26I2vImage;
@@ -7848,6 +7930,14 @@ const NATIVE_OWNER_WAN26_I2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.creat
 const NATIVE_OWNER_WAN26_I2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerWan26I2vWithOwnedCandidate;
 const NATIVE_OWNER_WAN26_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedWan26I2vCandidates;
 const NATIVE_OWNER_WAN26_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedWan26I2vResult;
+const NATIVE_OWNER_WAN25_I2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan25I2vImage;
+const NATIVE_OWNER_WAN25_UPLOAD_FILE_REFERENCES = SyntxChatHttpClient.prototype.uploadFileReferences;
+const NATIVE_OWNER_WAN25_I2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_WAN25_I2V_START_VIDEO = SyntxChatHttpClient.prototype.startVideo;
+const NATIVE_OWNER_WAN25_I2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerWan25I2vChat;
+const NATIVE_OWNER_WAN25_I2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerWan25I2vWithOwnedCandidate;
+const NATIVE_OWNER_WAN25_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedWan25I2vCandidates;
+const NATIVE_OWNER_WAN25_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedWan25I2vResult;
 const NATIVE_OWNER_WAN27_R2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
 const NATIVE_OWNER_WAN27_R2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerWan27R2vChat;
 const NATIVE_OWNER_WAN27_R2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerWan27R2vWithOwnedCandidate;
@@ -8056,6 +8146,26 @@ export function consumeOwnerWan26I2vNativeInvocation(input: unknown, packet: unk
 
 function assertNativeOwnerWan26I2v(client: unknown): asserts client is SyntxChatHttpClient {
   if (!isExactOwnerWan26I2vNativeClient(client)) throw invalidRequest();
+}
+
+function assertNativeOwnerWan25I2v(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerWan25I2vNativeClient(client)) throw invalidRequest();
+}
+
+function isExactOwnerWan25I2vNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    const methods = ["uploadFileReferences", "createChat", "startVideo", "uploadWan25I2vImage",
+      "createOwnerWan25I2vChat", "startOwnerWan25I2vWithOwnedCandidate", "listOwnedWan25I2vCandidates",
+      "getOwnedWan25I2vResult"] as const;
+    const expected = [NATIVE_OWNER_WAN25_UPLOAD_FILE_REFERENCES, NATIVE_OWNER_WAN25_I2V_CREATE_CHAT,
+      NATIVE_OWNER_WAN25_I2V_START_VIDEO, NATIVE_OWNER_WAN25_I2V_IMAGE_UPLOAD, NATIVE_OWNER_WAN25_I2V_NATIVE_CREATE,
+      NATIVE_OWNER_WAN25_I2V_NATIVE_START, NATIVE_OWNER_WAN25_I2V_NATIVE_LIST, NATIVE_OWNER_WAN25_I2V_NATIVE_GET] as const;
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !methods.some((name) => Object.hasOwn(client, name)) && methods.every((name, index) =>
+        getDataMethod(client, name) === expected[index] && Reflect.get(client, name) === expected[index] &&
+        getDataMethod(SyntxChatHttpClient.prototype, name) === expected[index]);
+  } catch { return false; }
 }
 
 function isExactOwnerWan26I2vNativeClient(client: unknown): client is SyntxChatHttpClient {

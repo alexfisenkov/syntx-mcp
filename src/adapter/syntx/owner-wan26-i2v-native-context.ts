@@ -21,6 +21,7 @@ import {
 } from "../../application/owner-wan26-i2v-one-shot-policy.js";
 import { bindOwnerWan26I2vHistory, type OwnerWan26I2vHistoryWitness } from "./owner-wan26-i2v-history.js";
 import { decodeOwnerWan26I2vVideoResult, type OwnerWan26I2vVideoResult } from "./owner-wan26-i2v-video-result.js";
+import { projectOwnerWanI2vHistoryPageEvidence, projectOwnerWanI2vResultEnvelopeEvidence } from "./wan-i2v-wire-evidence.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
@@ -266,7 +267,9 @@ export async function getOwnedWan26I2vResult(input: unknown, packet: unknown,
   try {
     const raw = await getMessage(owned.context.chat_uuid, owned.context.message_id, signal);
     await assertCurrent(owned.state.input, signal);
-    return decodeOwnerWan26I2vVideoResult(raw, { chat_uuid: owned.context.chat_uuid, message_id: owned.context.message_id,
+    const evidence = projectOwnerWanI2vResultEnvelopeEvidence(raw);
+    if (evidence.status !== "PROJECTED") fail("RESULT_GET_UNAVAILABLE");
+    return decodeOwnerWan26I2vVideoResult(evidence.value, { chat_uuid: owned.context.chat_uuid, message_id: owned.context.message_id,
       model_id: owned.context.model_id, provider_chat_id: owned.context.provider_chat_id,
       message_object_ids: owned.context.message_object_ids });
   } catch (error) {
@@ -350,7 +353,8 @@ async function readPage(getPage: (chatUuid: string, page: number, pageSize: numb
   await assertCurrent(state.input, signal);
   const raw = await getPage(state.chat.chat_uuid, page, PAGE_SIZE, signal);
   await assertCurrent(state.input, signal);
-  return raw;
+  const evidence = projectOwnerWanI2vHistoryPageEvidence(raw);
+  return evidence.status === "PROJECTED" ? evidence.value : null;
 }
 async function assertCurrent(fields: NativeInput, signal?: AbortSignal): Promise<void> {
   validateSignal(signal); if (signal?.aborted) fail("REQUEST_ABORTED");

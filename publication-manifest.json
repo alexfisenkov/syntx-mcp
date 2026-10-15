@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "50b81284f38ff0a341555716d666947f95695878",
+  "source_commit": "13b9e4ad926e719c268346019e906bc2f2848126",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2852,7 +2852,7 @@
     "tests/owner-wan26-r2v-parameters-1723.test.ts": "d85179a8e85a64880d8032f178b3f9f2ae4ad4b1144481b70c579f29c87c9f0d",
     "tests/owner-wan26-r2v-preparer-1758.test.ts": "c0a338c8fe42649aa259a3ad725a1378e52310baf844e4cc4e40a814a70eeb95",
     "tests/owner-wan26-r2v-references-1756.test.ts": "a861e10817108011b0f2183fe08ce14709f3eab5e31d29c6a6984c850d7b4cb5",
-    "tests/owner-wan26-r2v-runtime-1769.test.ts": "007d0754585bb7162d0de26288db207ad5f7f5ea2c285cf6d3533a28672b0af7",
+    "tests/owner-wan26-r2v-runtime-1769.test.ts": "5b7548acbf903b3d965b9bcc3b413651e3b12a66e7975de8b94ce9816c456aa8",
     "tests/owner-wan26-r2v-selected-video-1750.test.ts": "6051b8314bf145dd77cbbb984745cfc6968b4155ef959e4f981d7ed3fdc3a591",
     "tests/owner-wan27-current-audio-policy-1520.test.ts": "55a32ce5961691e701ed713a9ccb5d6fe5b4ce73a3a651c7c0066e5b1beae91d",
     "tests/owner-wan27-r2v-generation-mcp-runtime-1565.test.ts": "41b987d59d3895f69beb7fc81f6ff9a37a907eab07ec218bcbaedc1b045d814d",

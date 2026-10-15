@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { PassThrough } from "node:stream";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { InMemoryAuthLinkStore } from "../src/auth/in-memory-auth-store.js";
@@ -227,7 +227,7 @@ async function launchOwnerStdio(env: Record<string, string>, preload: string, co
 test("isolated owner stdio child lists WAN26 R2V only with opt-in and closes its temporary auth profile on EOF", {
   timeout: 30_000
 }, async (t) => {
-  const root = mkdtempSync(join(realpathSync(tmpdir()), "syntx-wan26-r2v-runtime-1769-"));
+  const root = mkdtempSync(join(realpathSync(homedir()), ".syntx-wan26-r2v-runtime-1769-"));
   chmodSync(root, 0o700);
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const profile = createLocalProfile(root);

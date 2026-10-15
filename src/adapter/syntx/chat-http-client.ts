@@ -188,6 +188,16 @@ import {
   type ValidatedOwnerWan27R2vImage
 } from "../../application/owner-wan27-r2v-image-policy.js";
 import {
+  isValidatedOwnerWan26I2vImage,
+  readValidatedOwnerWan26I2vImage,
+  type ValidatedOwnerWan26I2vImage
+} from "../../application/owner-wan26-i2v-image-policy.js";
+import {
+  copyTrustedOwnerWan26I2vAudioBytes,
+  isTrustedOwnerWan26I2vAudioProbeResult,
+  type OwnerWan26I2vAudioProbeResult
+} from "../../application/owner-wan26-i2v-audio-probe.js";
+import {
   copyTrustedOwnerWan27R2vVideoCropBytes,
   type OwnerWan27R2vVideoCropReceipt
 } from "../../application/owner-wan27-r2v-video-crop.js";
@@ -196,6 +206,11 @@ import type {
   OwnerWan27R2vSelectedVideoUploadContext,
   OwnerWan27R2vUploadContext
 } from "./wan27-r2v-upload-context.js";
+import type {
+  OwnerWan26I2vAudioUploadContext,
+  OwnerWan26I2vImageUploadContext,
+  OwnerWan26I2vUploadContext
+} from "./wan26-i2v-upload-context.js";
 import {
   consumeOwnerKlingI2vGenerationContext,
   withCapturedOwnerKlingI2vGenerationContext
@@ -514,6 +529,7 @@ const MAX_KLING_MOTION_CONTROL_IMAGE_UPLOAD_BYTES = 64 * 1024 * 1024;
 const MAX_KLING_MOTION_CONTROL_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 const HAILUO02_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Hailuo02I2vUploadContextState>>();
 const WAN27_R2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan27R2vUploadContextState>>();
+const WAN26_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Wan26I2vUploadContextState>>();
 const KLING_KEYFRAMES_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<KlingKeyframesUploadContextState>>();
 const KLING_MOTION_CONTROL_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<KlingMotionControlUploadContextState>>();
 const KLING_MOTION_CONTROL_PRESET_LIBRARIES = new WeakMap<object, Readonly<{ client: SyntxChatHttpClient; expiresAt: number }>>();
@@ -650,6 +666,20 @@ const wan27R2vUploadResponseSchema = z.object({
     size: z.number().int().nonnegative().max(MAX_WAN27_R2V_VIDEO_UPLOAD_BYTES).optional(),
     duration: z.number().finite().nonnegative().max(30).optional(),
     duration_seconds: z.number().finite().nonnegative().max(30).optional(),
+    status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
+  }).strip()).length(1)
+}).strip();
+const wan26I2vUploadResponseSchema = z.object({
+  files: z.array(z.object({
+    id: providerIdSchema.optional(),
+    file_id: providerIdSchema.optional(),
+    url: z.string().min(1).max(MAX_URL_LENGTH),
+    filename: z.string().max(256).optional(),
+    mime_type: z.string().max(128).optional(),
+    content_type: z.string().max(128).optional(),
+    media_type: z.string().max(32).optional(),
+    type: z.string().max(32).optional(),
+    size: z.number().int().nonnegative().max(MAX_UPLOAD_BYTES).optional(),
     status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
   }).strip()).length(1)
 }).strip();
@@ -4605,6 +4635,48 @@ export class SyntxChatHttpClient {
     return native.getOwnerWan27R2vResult(input, packet, signal);
   }
 
+  /** Creates one owner-bound WAN 2.6 I2V chat from an exact prepared candidate. */
+  async createOwnerWan26I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan26-i2v-native-context.js").OwnerWan26I2vChatContext> {
+    assertNativeOwnerWan26I2v(this);
+    const native = await import("./owner-wan26-i2v-native-context.js");
+    const packet = createOwnerWan26I2vNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_WAN26_I2V_CREATE_CHAT, this, ["video", title, requestSignal]));
+    return native.createOwnerWan26I2vChat(input, packet, signal);
+  }
+
+  /** Consumes one revalidated WAN 2.6 I2V permit before the sole fixed video POST. */
+  async startOwnerWan26I2vWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerWan26I2v(this);
+    const native = await import("./owner-wan26-i2v-native-context.js");
+    const packet = createOwnerWan26I2vNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "wan_video", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerWan26I2vWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Bounded GET-only history read for this dispatched WAN 2.6 I2V chat. */
+  async listOwnedWan26I2vCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan26-i2v-native-context.js").OwnerWan26I2vResultCandidates> {
+    assertNativeOwnerWan26I2v(this);
+    const native = await import("./owner-wan26-i2v-native-context.js");
+    const packet = createOwnerWan26I2vNativeInvocation(this, "list", input,
+      async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnedWan26I2vCandidates(input, packet, signal);
+  }
+
+  /** Reads only an opaque WAN 2.6 I2V result context minted by its bound owner history. */
+  async getOwnedWan26I2vResult(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan26-i2v-video-result.js").OwnerWan26I2vVideoResult> {
+    assertNativeOwnerWan26I2v(this);
+    const native = await import("./owner-wan26-i2v-native-context.js");
+    const packet = createOwnerWan26I2vNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) => this.#request(
+        new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnedWan26I2vResult(input, packet, signal);
+  }
+
   /** Creates a native Keyframes chat bound to an owned prepared request. */
   async createOwnerKlingKeyframesChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling-keyframes-native-context.js").OwnerKlingKeyframesChatContext> {
     assertNativeOwnerKlingKeyframes(this);
@@ -6942,6 +7014,87 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One fixed uploaded WAN 2.6 I2V image from its genuine local image-policy receipt. */
+  async uploadWan26I2vImage(
+    receiptInput: ValidatedOwnerWan26I2vImage,
+    signal?: AbortSignal
+  ): Promise<OwnerWan26I2vImageUploadContext> {
+    if (!isValidatedOwnerWan26I2vImage(receiptInput)) throw invalidRequest();
+    const owned = readValidatedOwnerWan26I2vImage(receiptInput);
+    if (!owned) throw invalidRequest();
+    const bytes = owned.bytes;
+    let form: FormData | undefined;
+    try {
+      if ((owned.model_id !== "wan_26_i2v" && owned.model_id !== "wan_26_i2v_flash") ||
+          receiptInput.status !== "LOCAL_SOURCE_VALIDATED" || receiptInput.model_id !== owned.model_id ||
+          receiptInput.source_policy_id !== "OWNER_WAN26_I2V_IMAGE_INPUT_POLICY_B066_LOCAL_GUARD_V1" ||
+          receiptInput.filename !== owned.filename || receiptInput.mime_type !== owned.mime_type ||
+          receiptInput.size !== owned.size || receiptInput.sha256 !== owned.sha256 ||
+          receiptInput.width !== owned.width || receiptInput.height !== owned.height ||
+          receiptInput.generation_permit !== false || receiptInput.owner_upload_binding !== "NOT_ESTABLISHED" ||
+          owned.size !== bytes.byteLength || owned.size < 1 || owned.size > MAX_UPLOAD_BYTES ||
+          !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !isWan26I2vImageMime(owned.mime_type) || !Number.isSafeInteger(owned.width) || owned.width < 384 || owned.width > 5_000 ||
+          !Number.isSafeInteger(owned.height) || owned.height < 384 || owned.height > 5_000) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type, destination: "uploaded",
+        check_duplicates: true, model_type: owned.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseWan26I2vUploadReference(raw, "image", owned.filename, owned.mime_type, owned.size);
+      const context: OwnerWan26I2vImageUploadContext = Object.freeze({ status: "uploaded", model_id: owned.model_id,
+        media_type: "image", mime_type: owned.mime_type, size: owned.size, sha256: owned.sha256,
+        width: owned.width, height: owned.height });
+      WAN26_I2V_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url,
+        modelId: owned.model_id, mediaType: "image", mimeType: owned.mime_type, size: owned.size,
+        sha256: owned.sha256, width: owned.width, height: owned.height }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
+  /** One fixed uploaded WAN 2.6 I2V audio from genuine, locally measured MP3/WAV probe evidence. */
+  async uploadWan26I2vAudio(
+    probeInput: OwnerWan26I2vAudioProbeResult,
+    signal?: AbortSignal
+  ): Promise<OwnerWan26I2vAudioUploadContext> {
+    if (!isTrustedOwnerWan26I2vAudioProbeResult(probeInput)) throw invalidRequest();
+    let bytes: Uint8Array;
+    try { bytes = copyTrustedOwnerWan26I2vAudioBytes(probeInput); }
+    catch { throw invalidRequest(); }
+    let form: FormData | undefined;
+    try {
+      const metadata = probeInput.metadata;
+      if ((probeInput.model_id !== "wan_26_i2v" && probeInput.model_id !== "wan_26_i2v_flash") ||
+          probeInput.status !== "TRUSTED_LOCAL_AUDIO_PROBE" || probeInput.dispatch_allowed !== false ||
+          probeInput.runtime_usable !== false || probeInput.owner_upload_binding !== "NOT_ESTABLISHED" ||
+          probeInput.bytes_copied !== bytes.byteLength || bytes.byteLength < 1 || bytes.byteLength > MAX_UPLOAD_BYTES ||
+          !/^[a-f0-9]{64}$/u.test(probeInput.source_sha256) ||
+          createHash("sha256").update(bytes).digest("hex") !== probeInput.source_sha256 ||
+          !isWan26I2vAudioMime(probeInput.mime_type) || !isSafeWan26I2vUploadFilename(probeInput.filename) ||
+          !Number.isFinite(metadata?.duration_seconds) || metadata.duration_seconds < 3 || metadata.duration_seconds > 30 ||
+          !Number.isSafeInteger(metadata.sample_rate) || metadata.sample_rate < 1 ||
+          !Number.isSafeInteger(metadata.channels) || metadata.channels < 1 ||
+          !Number.isSafeInteger(metadata.decoded_frame_count) || metadata.decoded_frame_count < 1 ||
+          (metadata.container === "MP3" ? probeInput.mime_type !== "audio/mpeg" || metadata.codec_name !== "mp3" :
+            metadata.container !== "WAV" || probeInput.mime_type !== "audio/wav")) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: probeInput.filename, mime_type: probeInput.mime_type,
+        destination: "uploaded", check_duplicates: true, model_type: probeInput.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseWan26I2vUploadReference(raw, "audio", probeInput.filename, probeInput.mime_type, bytes.byteLength);
+      const context: OwnerWan26I2vAudioUploadContext = Object.freeze({ status: "uploaded", model_id: probeInput.model_id,
+        media_type: "audio", mime_type: probeInput.mime_type, size: bytes.byteLength,
+        sha256: probeInput.source_sha256, measured_duration_seconds: metadata.duration_seconds });
+      WAN26_I2V_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url,
+        modelId: probeInput.model_id, mediaType: "audio", mimeType: probeInput.mime_type,
+        size: bytes.byteLength, sha256: probeInput.source_sha256, durationSeconds: metadata.duration_seconds }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One fixed hidden WAN 2.7 R2V upload from an authentic measured local crop. */
   async uploadWan27R2vSelectedVideo(
     receiptInput: OwnerWan27R2vVideoCropReceipt,
@@ -7688,6 +7841,13 @@ const NATIVE_OWNER_HAILUO02_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.list
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedHailuo02I2vResult;
 const NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vImage;
 const NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo;
+const NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan26I2vImage;
+const NATIVE_OWNER_WAN26_I2V_AUDIO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan26I2vAudio;
+const NATIVE_OWNER_WAN26_I2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_WAN26_I2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerWan26I2vChat;
+const NATIVE_OWNER_WAN26_I2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerWan26I2vWithOwnedCandidate;
+const NATIVE_OWNER_WAN26_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedWan26I2vCandidates;
+const NATIVE_OWNER_WAN26_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedWan26I2vResult;
 const NATIVE_OWNER_WAN27_R2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
 const NATIVE_OWNER_WAN27_R2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerWan27R2vChat;
 const NATIVE_OWNER_WAN27_R2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerWan27R2vWithOwnedCandidate;
@@ -7849,6 +8009,74 @@ function isExactOwnerWan27R2vUploadClient(client: unknown): client is SyntxChatH
       SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo === NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD &&
       Reflect.get(client, "uploadWan27R2vImage") === NATIVE_OWNER_WAN27_R2V_IMAGE_UPLOAD &&
       Reflect.get(client, "uploadWan27R2vSelectedVideo") === NATIVE_OWNER_WAN27_R2V_VIDEO_UPLOAD;
+  } catch { return false; }
+}
+
+function isExactOwnerWan26I2vUploadClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !Object.hasOwn(client, "uploadWan26I2vImage") && !Object.hasOwn(client, "uploadWan26I2vAudio") &&
+      getDataMethod(client, "uploadWan26I2vImage") === NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD &&
+      getDataMethod(client, "uploadWan26I2vAudio") === NATIVE_OWNER_WAN26_I2V_AUDIO_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadWan26I2vImage === NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadWan26I2vAudio === NATIVE_OWNER_WAN26_I2V_AUDIO_UPLOAD &&
+      Reflect.get(client, "uploadWan26I2vImage") === NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD &&
+      Reflect.get(client, "uploadWan26I2vAudio") === NATIVE_OWNER_WAN26_I2V_AUDIO_UPLOAD;
+  } catch { return false; }
+}
+
+type OwnerWan26I2vNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerWan26I2vNativeInvocation {
+  readonly client: SyntxChatHttpClient;
+  readonly method: OwnerWan26I2vNativeMethod;
+  readonly input: unknown;
+  readonly callback: Function;
+}
+const OWNER_WAN26_I2V_NATIVE_INVOCATIONS = new WeakMap<object, OwnerWan26I2vNativeInvocation>();
+
+function createOwnerWan26I2vNativeInvocation(client: SyntxChatHttpClient, method: OwnerWan26I2vNativeMethod,
+  input: unknown, callback: Function): object {
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_WAN26_I2V_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** Consumes one method-bound packet minted only by a fixed native WAN 2.6 I2V client method. */
+export function consumeOwnerWan26I2vNativeInvocation(input: unknown, packet: unknown,
+  method: OwnerWan26I2vNativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw new Error("OWNER_WAN26_I2V_INVOCATION_INVALID");
+  const invocation = OWNER_WAN26_I2V_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerWan26I2vNativeClient(invocation.client)) {
+    throw new Error("OWNER_WAN26_I2V_INVOCATION_INVALID");
+  }
+  OWNER_WAN26_I2V_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerWan26I2v(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerWan26I2vNativeClient(client)) throw invalidRequest();
+}
+
+function isExactOwnerWan26I2vNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !["createOwnerWan26I2vChat", "startOwnerWan26I2vWithOwnedCandidate", "listOwnedWan26I2vCandidates", "getOwnedWan26I2vResult",
+        "createChat", "uploadWan26I2vImage", "uploadWan26I2vAudio"].some((key) => Object.hasOwn(client, key)) &&
+      getDataMethod(client, "createChat") === NATIVE_OWNER_WAN26_I2V_CREATE_CHAT &&
+      getDataMethod(client, "uploadWan26I2vImage") === NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD &&
+      getDataMethod(client, "uploadWan26I2vAudio") === NATIVE_OWNER_WAN26_I2V_AUDIO_UPLOAD &&
+      getDataMethod(client, "createOwnerWan26I2vChat") === NATIVE_OWNER_WAN26_I2V_NATIVE_CREATE &&
+      getDataMethod(client, "startOwnerWan26I2vWithOwnedCandidate") === NATIVE_OWNER_WAN26_I2V_NATIVE_START &&
+      getDataMethod(client, "listOwnedWan26I2vCandidates") === NATIVE_OWNER_WAN26_I2V_NATIVE_LIST &&
+      getDataMethod(client, "getOwnedWan26I2vResult") === NATIVE_OWNER_WAN26_I2V_NATIVE_GET &&
+      SyntxChatHttpClient.prototype.createChat === NATIVE_OWNER_WAN26_I2V_CREATE_CHAT &&
+      SyntxChatHttpClient.prototype.uploadWan26I2vImage === NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadWan26I2vAudio === NATIVE_OWNER_WAN26_I2V_AUDIO_UPLOAD &&
+      Reflect.get(client, "createChat") === NATIVE_OWNER_WAN26_I2V_CREATE_CHAT &&
+      Reflect.get(client, "uploadWan26I2vImage") === NATIVE_OWNER_WAN26_I2V_IMAGE_UPLOAD &&
+      Reflect.get(client, "uploadWan26I2vAudio") === NATIVE_OWNER_WAN26_I2V_AUDIO_UPLOAD;
   } catch { return false; }
 }
 
@@ -10267,8 +10495,49 @@ function parseWan27R2vUploadReference(
   return Object.freeze(references[0]!);
 }
 
+function parseWan26I2vUploadReference(
+  raw: unknown,
+  expectedMediaType: "image" | "audio",
+  expectedFilename: string,
+  expectedMimeType: OwnerWan26I2vUploadContext["mime_type"],
+  expectedSize: number
+): InternalUploadReference {
+  const parsed = wan26I2vUploadResponseSchema.safeParse(raw);
+  if (!parsed.success) throw protocolError();
+  const [receipt] = parsed.data.files;
+  const status = receipt?.status?.toLowerCase();
+  if (!receipt || (status !== undefined && status !== "success" && status !== "uploaded") ||
+      (receipt.filename !== undefined && receipt.filename !== expectedFilename) ||
+      (receipt.mime_type !== undefined && receipt.mime_type !== expectedMimeType) ||
+      (receipt.content_type !== undefined && receipt.content_type !== expectedMimeType) ||
+      (receipt.size !== undefined && receipt.size !== expectedSize) ||
+      (receipt.media_type !== undefined && receipt.media_type !== expectedMediaType) ||
+      (receipt.type !== undefined && receipt.type !== expectedMediaType) ||
+      (receipt.id !== undefined && receipt.file_id !== undefined && String(receipt.id) !== String(receipt.file_id))) {
+    throw protocolError();
+  }
+  let references: InternalUploadReference[];
+  try { references = parseInternalUploadReferences(raw); }
+  catch { throw protocolError(); }
+  if (references.length !== 1) throw protocolError();
+  return Object.freeze(references[0]!);
+}
+
 function isWan27R2vImageMime(value: unknown): value is OwnerWan27R2vImageUploadContext["mime_type"] {
   return value === "image/jpeg" || value === "image/png" || value === "image/bmp" || value === "image/webp";
+}
+
+function isWan26I2vImageMime(value: unknown): value is OwnerWan26I2vImageUploadContext["mime_type"] {
+  return value === "image/jpeg" || value === "image/png" || value === "image/bmp" || value === "image/webp";
+}
+
+function isWan26I2vAudioMime(value: unknown): value is OwnerWan26I2vAudioUploadContext["mime_type"] {
+  return value === "audio/mpeg" || value === "audio/wav";
+}
+
+function isSafeWan26I2vUploadFilename(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 255 && value === value.trim() &&
+    value !== "." && value !== ".." && !/[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(value);
 }
 
 function parseStandardImageUploadReference(
@@ -10341,6 +10610,37 @@ export function readOwnerWan27R2vUploadReferenceForClient(
         (state.mediaType === "image" && (context.media_type !== "image" || Object.hasOwn(context, "selected_duration_seconds") ||
           Object.hasOwn(context, "video_duration_seconds") ||
           Object.hasOwn(context, "source_sha256"))) || !isSafeUploadReferenceUrl(state.url)) return null;
+    return Object.freeze({ url: state.url });
+  } catch { return null; }
+}
+
+/** Reads one private WAN 2.6 I2V URL from a frozen context minted by its exact native upload client. */
+export function readOwnerWan26I2vUploadReferenceForClient(
+  clientInput: unknown,
+  contextInput: unknown
+): Readonly<{ readonly url: string }> | null {
+  try {
+    if (!isExactOwnerWan26I2vUploadClient(clientInput) || !contextInput || typeof contextInput !== "object" ||
+        types.isProxy(contextInput) || !Object.isFrozen(contextInput)) return null;
+    const state = WAN26_I2V_UPLOAD_CONTEXTS.get(contextInput);
+    if (!state || state.client !== clientInput) return null;
+    const context = contextInput as OwnerWan26I2vUploadContext;
+    if (context.status !== "uploaded" || context.model_id !== state.modelId ||
+        (context.model_id !== "wan_26_i2v" && context.model_id !== "wan_26_i2v_flash") ||
+        context.media_type !== state.mediaType || context.mime_type !== state.mimeType ||
+        context.size !== state.size || !Number.isSafeInteger(context.size) || context.size < 1 || context.size > MAX_UPLOAD_BYTES ||
+        context.sha256 !== state.sha256 || !/^[a-f0-9]{64}$/u.test(context.sha256) || !isSafeUploadReferenceUrl(state.url)) return null;
+    if (state.mediaType === "image") {
+      const image = context as OwnerWan26I2vImageUploadContext;
+      if (image.media_type !== "image" || image.width !== state.width || !Number.isSafeInteger(image.width) ||
+          image.width < 384 || image.width > 5_000 || image.height !== state.height || !Number.isSafeInteger(image.height) ||
+          image.height < 384 || image.height > 5_000 || Object.hasOwn(image, "measured_duration_seconds")) return null;
+    } else {
+      const audio = context as OwnerWan26I2vAudioUploadContext;
+      if (audio.media_type !== "audio" || audio.measured_duration_seconds !== state.durationSeconds ||
+          !Number.isFinite(audio.measured_duration_seconds) || audio.measured_duration_seconds < 3 ||
+          audio.measured_duration_seconds > 30 || Object.hasOwn(audio, "width") || Object.hasOwn(audio, "height")) return null;
+    }
     return Object.freeze({ url: state.url });
   } catch { return null; }
 }
@@ -10582,6 +10882,19 @@ interface Wan27R2vUploadContextState {
   readonly selectedDurationSeconds?: number;
   readonly videoDurationSeconds?: number;
   readonly sourceSha256?: string;
+}
+
+interface Wan26I2vUploadContextState {
+  readonly client: SyntxChatHttpClient;
+  readonly url: string;
+  readonly modelId: OwnerWan26I2vUploadContext["model_id"];
+  readonly mediaType: OwnerWan26I2vUploadContext["media_type"];
+  readonly mimeType: OwnerWan26I2vUploadContext["mime_type"];
+  readonly size: number;
+  readonly sha256: string;
+  readonly width?: number;
+  readonly height?: number;
+  readonly durationSeconds?: number;
 }
 
 function parseSeedreamEditorOriginalUploadReference(

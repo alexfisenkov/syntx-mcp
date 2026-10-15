@@ -99,6 +99,19 @@ export {
 export type { OwnerWan27R2vGenerationToolComposition } from "./mcp/owner-wan27-r2v-generation-tools.js";
 export { readOwnerWan27R2vFlag, readOwnerWan27R2vOperatorConfiguration } from "./transports/stdio-owner.js";
 export {
+  OWNER_WAN26_I2V_TOOL_NAMES,
+  SYNTX_OWNER_GET_WAN26_I2V_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN26_I2V_IMAGE_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN26_I2V_AUDIO_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_WAN26_I2V_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_WAN26_I2V_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_WAN26_I2V_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_WAN26_I2V_RESULT_PAGE_TOOL_NAME,
+  registerSyntxOwnerWan26I2vTools
+} from "./mcp/owner-wan26-i2v-tools.js";
+export type { OwnerWan26I2vServiceComposition } from "./mcp/owner-wan26-i2v-tools.js";
+export { readOwnerWan26I2vFlag, readOwnerWan26I2vOperatorConfiguration } from "./transports/stdio-owner.js";
+export {
   registerSyntxRuntimeCoverageTool,
   SYNTX_RUNTIME_COVERAGE_TOOL_NAME,
   runtimeCoverageOutputSchema

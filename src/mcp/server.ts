@@ -157,6 +157,7 @@ import type { OwnerWanT2iGenerationService } from "../application/owner-wan-t2i-
 import { registerSyntxOwnerWanT2iTools, type RegisterSyntxOwnerWanT2iToolsOptions } from "./owner-wan-t2i-tools.js";
 import type { OwnerWanT2vGenerationService } from "../application/owner-wan-t2v-generation-service.js";
 import { registerSyntxOwnerWanT2vVideoTools, type RegisterSyntxOwnerWanT2vVideoToolsOptions } from "./owner-wan-t2v-video-tools.js";
+import { registerSyntxOwnerWan26I2vTools, type OwnerWan26I2vServiceComposition } from "./owner-wan26-i2v-tools.js";
 import type { OwnerElevenLabsTtsGenerationService } from "../application/owner-elevenlabs-tts-generation-service.js";
 import type { OwnerElevenLabsDialogueGenerationService } from "../application/owner-elevenlabs-dialogue-generation-service.js";
 import { registerSyntxOwnerElevenLabsDialogueTools } from "./owner-elevenlabs-dialogue-tools.js";
@@ -584,6 +585,8 @@ export interface CreateMcpServerOptions {
   ownerVideo2Audio?: OwnerVideo2AudioServiceComposition | undefined;
   /** Explicit owner-local WAN 2.7 R2V reference uploads; omitted from default and HTTP servers. */
   ownerWan27R2v?: OwnerWan27R2vReferenceToolComposition & Partial<OwnerWan27R2vGenerationToolComposition> | undefined;
+  /** Explicit owner-local WAN 2.6 I2V uploads, generation, and GET-only recovery; omitted by default and HTTP servers. */
+  ownerWan26I2v?: OwnerWan26I2vServiceComposition | undefined;
   /** Optional host-supplied, version-bound static evidence; never reads files or contacts SYNTX. */
   videoEvidence?: RegisterSyntxVideoEvidenceToolOptions | undefined;
   /** Explicitly validated, catalog-bound schema contracts; omission leaves validation unavailable. */
@@ -720,7 +723,7 @@ export function createMcpServer(
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
-        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio)) {
+        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
   if (options.generationContractRegistry != null && options.generationContractRegistryV2 != null) {
@@ -1249,6 +1252,7 @@ export function createMcpServer(
       registerSyntxOwnerWan27R2vGenerationTools(server, { generationService: options.ownerWan27R2v.generationService });
     }
   }
+  if (options.ownerWan26I2v) registerSyntxOwnerWan26I2vTools(server, options.ownerWan26I2v);
   if (options.videoEvidence) {
     registerSyntxVideoEvidenceTool(server, options.videoEvidence);
   }

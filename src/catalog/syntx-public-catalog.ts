@@ -90,6 +90,7 @@ const publicSettingsSchema = z
     aspect_ratio: z.array(labelledStringOptionSchema).max(200).optional(),
     attach_info_text: shortTextSchema.nullable().optional(),
     custom_mode_prompt_length: nonnegativeIntegerSchema.optional(),
+    default_model: identifierSchema.optional(),
     dialogue_max_inputs: nonnegativeIntegerSchema.optional(),
     dialogue_prompt_limit: nonnegativeIntegerSchema.optional(),
     file_count_limit: z
@@ -141,6 +142,10 @@ const publicSettingsSchema = z
     min_video_pixel_count: nonnegativeIntegerSchema.optional(),
     min_video_total_duration: nonnegativeNumberSchema.optional(),
     min_video_width: nonnegativeNumberSchema.optional(),
+    model_descriptions: z
+      .record(identifierSchema, descriptionSchema)
+      .refine((descriptions) => Object.keys(descriptions).length <= 200)
+      .optional(),
     models: z
       .record(
         z.string().min(1).max(160),

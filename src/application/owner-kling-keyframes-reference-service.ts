@@ -71,6 +71,11 @@ export interface OwnerKlingKeyframesPairResolution {
   readonly generation_permit: false;
 }
 
+export type OwnerKlingKeyframesNativePairConsumer<T> = (
+  client: SyntxChatHttpClient,
+  contexts: readonly [OwnerKlingKeyframesUploadContext, OwnerKlingKeyframesUploadContext]
+) => T;
+
 interface SafeImageMetadata {
   readonly image_handle: string;
   readonly filename: string;
@@ -318,6 +323,29 @@ export class OwnerKlingKeyframesReferenceService {
       if (error instanceof OwnerReferencePrincipalError) { void this.#invalidate(first.attemptId); fail("PRINCIPAL_NOT_LINKED"); }
       fail("REFERENCE_UNAVAILABLE");
     } finally { this.#finish(first.attemptId, operation); }
+  }
+
+  /** Synchronous trusted capture after async owner/reference revalidation has completed. */
+  withCapturedNativePair<T>(value: unknown, input: OwnerKlingKeyframesPairResolveInput | unknown,
+    consume: OwnerKlingKeyframesNativePairConsumer<T>): T {
+    if (typeof consume !== "function" || types.isProxy(consume)) fail("INVALID_REQUEST");
+    const request = snapshotPair(input);
+    if (!value || typeof value !== "object" || types.isProxy(value)) fail("REFERENCE_UNAVAILABLE");
+    const owned = RESOLUTIONS.get(value);
+    if (!owned || owned.service !== this || !exactPairMatches(value, owned.records, request.attemptId, this.#epochs.get(request.attemptId) ?? 0) ||
+        owned.records[0].handle !== request.handles[0] || owned.records[1].handle !== request.handles[1]) fail("REFERENCE_UNAVAILABLE");
+    const [first, second] = owned.records, epoch = this.#epochs.get(request.attemptId) ?? 0;
+    const client = first.client;
+    this.#assertLivePair(owned.records, first.principal, client, request.attemptId, epoch);
+    const currentPrincipal = this.#principalByAttempt.get(request.attemptId);
+    if (second.client !== client || this.#clientByAttempt.get(request.attemptId) !== client || !currentPrincipal ||
+        !sameGenerationPrincipal(currentPrincipal, first.principal)) fail("REFERENCE_UNAVAILABLE");
+    const contexts = Object.freeze([first.uploadContext, second.uploadContext]) as unknown as
+      readonly [OwnerKlingKeyframesUploadContext, OwnerKlingKeyframesUploadContext];
+    if (contexts.some((context) => !NATIVE_READER(client, context))) fail("REFERENCE_EXPIRED");
+    const result = consume(client, contexts);
+    this.#assertLivePair(owned.records, first.principal, client, request.attemptId, epoch);
+    return result;
   }
 
   invalidateAttempt(attemptIdInput: unknown): Promise<void> {

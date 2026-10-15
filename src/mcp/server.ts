@@ -201,6 +201,8 @@ import type { OwnerKlingI2VImageReferenceService } from "../application/owner-kl
 import type { OwnerKlingI2vGenerationService } from "../application/owner-kling-i2v-generation-service.js";
 import type { OwnerKlingKeyframesReferenceService } from "../application/owner-kling-keyframes-reference-service.js";
 import { registerSyntxOwnerKlingKeyframesTools } from "./owner-kling-keyframes-tools.js";
+import { registerSyntxOwnerKlingKeyframesGenerationTools } from "./owner-kling-keyframes-generation-tools.js";
+import type { OwnerKlingKeyframesGenerationService } from "../application/owner-kling-keyframes-generation-service.js";
 import {
   registerSyntxOwnerKlingI2vTools,
   type RegisterSyntxOwnerKlingI2vToolsOptions
@@ -441,9 +443,10 @@ export interface OwnerKlingI2vServiceComposition extends RegisterSyntxOwnerKling
     "getParametersSource" | "generate" | "reconcile" | "list" | "invalidateAttempt" | "close">;
 }
 
-/** Explicit owner-local Keyframes input-only tools; omitted by default and HTTP servers. */
+/** Explicit owner-local Keyframes input and generation tools; omitted by default and HTTP servers. */
 export interface OwnerKlingKeyframesServiceComposition {
   readonly referenceService: Pick<OwnerKlingKeyframesReferenceService, "upload" | "resolvePair" | "invalidateAttempt" | "close">;
+  readonly generationService: Pick<OwnerKlingKeyframesGenerationService, "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "invalidateAttempt" | "close">;
   readonly now?: () => number;
 }
 
@@ -1208,7 +1211,9 @@ export function createMcpServer(
     registerSyntxOwnerKlingI2vTools(server, options.ownerKlingI2v);
   }
   if (options.ownerKlingKeyframes) {
-    registerSyntxOwnerKlingKeyframesTools(server, options.ownerKlingKeyframes);
+    registerSyntxOwnerKlingKeyframesTools(server, { referenceService: options.ownerKlingKeyframes.referenceService,
+      ...(options.ownerKlingKeyframes.now === undefined ? {} : { now: options.ownerKlingKeyframes.now }) });
+    registerSyntxOwnerKlingKeyframesGenerationTools(server, options.ownerKlingKeyframes.generationService as OwnerKlingKeyframesGenerationService);
   }
   if (options.ownerVeoT2v) {
     registerSyntxOwnerVeoT2vTools(server, { service: options.ownerVeoT2v.generationService });

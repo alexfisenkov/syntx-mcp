@@ -4552,6 +4552,48 @@ export class SyntxChatHttpClient {
     return native.getOwnerWan27R2vResult(input, packet, signal);
   }
 
+  /** Creates a native Keyframes chat bound to an owned prepared request. */
+  async createOwnerKlingKeyframesChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling-keyframes-native-context.js").OwnerKlingKeyframesChatContext> {
+    assertNativeOwnerKlingKeyframes(this);
+    const native = await import("./owner-kling-keyframes-native-context.js");
+    const packet = createOwnerKlingKeyframesNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_KLING_CREATE_CHAT, this, ["video", title, requestSignal]));
+    return native.createOwnerKlingKeyframesChat(input, packet, signal);
+  }
+
+  /** Consumes the exact Keyframes permit before one typed-image video POST. */
+  async startOwnerKlingKeyframesWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerKlingKeyframes(this);
+    const native = await import("./owner-kling-keyframes-native-context.js");
+    const packet = createOwnerKlingKeyframesNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "kling", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerKlingKeyframesWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Bounded GET-only history for the exact native Keyframes chat. */
+  async listOwnedKlingKeyframesCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling-keyframes-native-context.js").OwnerKlingKeyframesResultCandidates> {
+    assertNativeOwnerKlingKeyframes(this);
+    const native = await import("./owner-kling-keyframes-native-context.js");
+    const packet = createOwnerKlingKeyframesNativeInvocation(this, "list", input,
+      async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnedKlingKeyframesCandidates(input, packet, signal);
+  }
+
+  /** Reads only a nominal result context minted by this client's complete Keyframes history. */
+  async getOwnedKlingKeyframesResult(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling-keyframes-video-result.js").OwnerKlingKeyframesVideoResult> {
+    assertNativeOwnerKlingKeyframes(this);
+    const native = await import("./owner-kling-keyframes-native-context.js");
+    const packet = createOwnerKlingKeyframesNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) => this.#request(
+        new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnedKlingKeyframesResult(input, packet, signal);
+  }
+
   /** Creates one native Video2Audio chat bound to an authentic candidate, before any one-shot permit is minted. */
   async createVideo2AudioChat(input: CreateVideo2AudioChatInput | unknown, signal?: AbortSignal): Promise<OwnerVideo2AudioChatContext> {
     assertNativeOwnerVideo2AudioClient(this);
@@ -7447,6 +7489,36 @@ const NATIVE_OWNER_WAN27_R2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.creat
 const NATIVE_OWNER_WAN27_R2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerWan27R2vWithOwnedCandidate;
 const NATIVE_OWNER_WAN27_R2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedWan27R2vCandidates;
 const NATIVE_OWNER_WAN27_R2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedWan27R2vResult;
+const NATIVE_OWNER_KLING_UPLOAD = SyntxChatHttpClient.prototype.uploadKlingKeyframesImage;
+const NATIVE_OWNER_KLING_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_KLING_CREATE = SyntxChatHttpClient.prototype.createOwnerKlingKeyframesChat;
+const NATIVE_OWNER_KLING_START = SyntxChatHttpClient.prototype.startOwnerKlingKeyframesWithOwnedCandidate;
+const NATIVE_OWNER_KLING_LIST = SyntxChatHttpClient.prototype.listOwnedKlingKeyframesCandidates;
+const NATIVE_OWNER_KLING_GET = SyntxChatHttpClient.prototype.getOwnedKlingKeyframesResult;
+type OwnerKlingKeyframesNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerKlingKeyframesNativeInvocation { readonly client:SyntxChatHttpClient; readonly method:OwnerKlingKeyframesNativeMethod; readonly input:unknown; readonly callback:Function }
+const OWNER_KLING_KEYFRAMES_NATIVE_INVOCATIONS = new WeakMap<object,OwnerKlingKeyframesNativeInvocation>();
+function createOwnerKlingKeyframesNativeInvocation(client:SyntxChatHttpClient,method:OwnerKlingKeyframesNativeMethod,input:unknown,callback:Function):object {
+  const packet=Object.freeze(Object.create(null) as object); OWNER_KLING_KEYFRAMES_NATIVE_INVOCATIONS.set(packet,Object.freeze({client,method,input,callback})); return packet;
+}
+/** Consumes a one-use invocation packet minted by a fixed native Keyframes method. */
+export function consumeOwnerKlingKeyframesNativeInvocation(input:unknown,packet:unknown,method:OwnerKlingKeyframesNativeMethod):Readonly<{client:SyntxChatHttpClient;callback:Function}> {
+  if(!packet||typeof packet!=="object"||types.isProxy(packet)) throw new Error("OWNER_KLING_KEYFRAMES_INVOCATION_INVALID");
+  const invocation=OWNER_KLING_KEYFRAMES_NATIVE_INVOCATIONS.get(packet);
+  if(!invocation||invocation.input!==input||invocation.method!==method||!isExactOwnerKlingKeyframesNativeClient(invocation.client)) throw new Error("OWNER_KLING_KEYFRAMES_INVOCATION_INVALID");
+  OWNER_KLING_KEYFRAMES_NATIVE_INVOCATIONS.delete(packet); return Object.freeze({client:invocation.client,callback:invocation.callback});
+}
+function assertNativeOwnerKlingKeyframes(client:unknown):asserts client is SyntxChatHttpClient { if(!isExactOwnerKlingKeyframesNativeClient(client)) throw invalidRequest(); }
+function isExactOwnerKlingKeyframesNativeClient(client:unknown):client is SyntxChatHttpClient {
+  try { return !!client&&typeof client==="object"&&!types.isProxy(client)&&Object.getPrototypeOf(client)===SyntxChatHttpClient.prototype&&
+    !Object.hasOwn(client,"createOwnerKlingKeyframesChat")&&!Object.hasOwn(client,"startOwnerKlingKeyframesWithOwnedCandidate")&&
+    !Object.hasOwn(client,"listOwnedKlingKeyframesCandidates")&&!Object.hasOwn(client,"getOwnedKlingKeyframesResult")&&
+    getDataMethod(client,"uploadKlingKeyframesImage")===NATIVE_OWNER_KLING_UPLOAD&&getDataMethod(client,"createChat")===NATIVE_OWNER_KLING_CREATE_CHAT&&
+    getDataMethod(client,"createOwnerKlingKeyframesChat")===NATIVE_OWNER_KLING_CREATE&&getDataMethod(client,"startOwnerKlingKeyframesWithOwnedCandidate")===NATIVE_OWNER_KLING_START&&
+    getDataMethod(client,"listOwnedKlingKeyframesCandidates")===NATIVE_OWNER_KLING_LIST&&getDataMethod(client,"getOwnedKlingKeyframesResult")===NATIVE_OWNER_KLING_GET&&
+    Reflect.get(client,"uploadKlingKeyframesImage")===NATIVE_OWNER_KLING_UPLOAD&&Reflect.get(client,"createChat")===NATIVE_OWNER_KLING_CREATE_CHAT;
+  } catch { return false; }
+}
 type OwnerWan27R2vNativeMethod = "create" | "start" | "list" | "get";
 interface OwnerWan27R2vNativeInvocation { readonly client: SyntxChatHttpClient; readonly method: OwnerWan27R2vNativeMethod; readonly input: unknown; readonly callback: Function }
 const OWNER_WAN27_R2V_NATIVE_INVOCATIONS = new WeakMap<object, OwnerWan27R2vNativeInvocation>();

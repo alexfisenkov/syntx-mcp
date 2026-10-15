@@ -96,7 +96,7 @@ export function registerSyntxOwnerKlingKeyframesTools(server: McpServer, options
 
   server.registerTool(SYNTX_OWNER_UPLOAD_KLING_KEYFRAMES_IMAGE_TOOL_NAME, {
     title: "Upload one Kling Keyframes image",
-    description: "Uploads one caller-supplied JPEG/JPG, PNG, or AVIF image to the exact linked owner attempt. Returns an opaque image handle and safe local metadata without its private URL. Local validation checks at most 50 MiB and a 300-pixel minimum side using container metadata, not decoded pixels. Kling Keyframes generation is not implemented and provider acceptance is unproven. An upload with unknown outcome has a fixed redacted error.",
+    description: "Uploads one caller-supplied JPEG/JPG, PNG, or AVIF image to the exact linked owner attempt. Returns an opaque image handle and safe local metadata without its private URL. Local validation checks at most 50 MiB and a 300-pixel minimum side using container metadata, not decoded pixels. Provider acceptance is unproven. An upload with unknown outcome has a fixed redacted error.",
     inputSchema: uploadInputSchema, outputSchema: uploadToolOutputSchema,
     annotations: { title: "Upload one Kling Keyframes image", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {

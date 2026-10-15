@@ -10,6 +10,8 @@ import { OwnerImageReferenceService } from "../application/owner-image-reference
 import { OwnerKlingI2VImageReferenceService } from "../application/owner-kling-i2v-reference-service.js";
 import { OwnerKlingI2vGenerationService } from "../application/owner-kling-i2v-generation-service.js";
 import { OwnerKlingKeyframesReferenceService } from "../application/owner-kling-keyframes-reference-service.js";
+import { createOwnerKlingKeyframesRequestPreparer } from "../application/owner-kling-keyframes-request-preparer.js";
+import { OwnerKlingKeyframesGenerationService, OWNER_KLING_KEYFRAMES_GENERATION_CATALOG_VERSION } from "../application/owner-kling-keyframes-generation-service.js";
 import { OWNER_KLING_I2V_SOURCE_PINS } from "../application/owner-kling-i2v-parameters.js";
 import { OwnerHailuo02I2vImageReferenceService } from "../application/owner-hailuo02-i2v-image-reference-service.js";
 import { createOwnerHailuo02I2vRequestPreparer } from "../application/owner-hailuo02-i2v-request-preparer.js";
@@ -1925,17 +1927,47 @@ export function createObservedOwnerRuntime(
         const referenceService = new OwnerKlingKeyframesReferenceService({
           binding: authBinding, linkService, resolveClient: resolveKlingKeyframesChatClient, now
         });
+        const catalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+          OWNER_KLING_KEYFRAMES_GENERATION_CATALOG_VERSION, options.catalogDirectory
+        ));
+        const preparer = createOwnerKlingKeyframesRequestPreparer({ referenceService, now });
+        let generationService: OwnerKlingKeyframesGenerationService | undefined;
+        try {
+          generationService = new OwnerKlingKeyframesGenerationService({ binding: authBinding, linkService, catalog,
+            catalog_version: OWNER_KLING_KEYFRAMES_GENERATION_CATALOG_VERSION, preparer,
+            resolveChatClient: resolveKlingKeyframesChatClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(catalog, createReadClient(attemptId), now), now });
+        } catch (error) {
+          const cleanup = (async () => {
+            const errors: unknown[] = [];
+            try {
+              if (generationService !== undefined) await generationService.close();
+              else await preparer.close();
+            } catch (closeError) { errors.push(closeError); }
+            try { await referenceService.close(); } catch (closeError) { errors.push(closeError); }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Kling Keyframes startup cleanup failed.");
+          })();
+          if (error !== null && (typeof error === "object" || typeof error === "function")) {
+            OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          }
+          throw error;
+        }
         const lifecycle = Object.freeze({
           async invalidateAttempt(attemptId: string): Promise<void> {
-            try { await referenceService.invalidateAttempt(attemptId); }
-            finally { clientsByAttempt.delete(attemptId); }
+            try { await generationService!.invalidateAttempt(attemptId); }
+            finally { try { await referenceService.invalidateAttempt(attemptId); }
+              finally { clientsByAttempt.delete(attemptId); } }
           },
           async close(): Promise<void> {
-            try { await referenceService.close(); }
-            finally { clientsByAttempt.clear(); }
+            try { await generationService!.close(); }
+            finally { try { await referenceService.close(); }
+              finally { clientsByAttempt.clear(); } }
           }
         });
-        return Object.freeze({ referenceService, lifecycle });
+        return Object.freeze({ referenceService, generationService, lifecycle });
       })()
     : undefined;
   const ownerHailuo02I2v = options.ownerHailuo02I2vEnabled === true
@@ -2506,7 +2538,7 @@ export function createObservedOwnerRuntime(
     ...(ownerKlingI2v === undefined ? {} : { ownerKlingI2v: { referenceService: ownerKlingI2v.referenceService,
       generationService: ownerKlingI2v.generationService } }),
     ...(ownerKlingKeyframes === undefined ? {} : { ownerKlingKeyframes: {
-      referenceService: ownerKlingKeyframes.referenceService, now
+      referenceService: ownerKlingKeyframes.referenceService, generationService: ownerKlingKeyframes.generationService, now
     } }),
     ...(ownerHailuo02I2v === undefined ? {} : { ownerHailuo02I2v: {
       imageReferenceService: ownerHailuo02I2v.imageReferenceService, generationService: ownerHailuo02I2v.generationService

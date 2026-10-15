@@ -220,7 +220,7 @@ export function readOwnerWan27R2vFlag(value: string | undefined): boolean {
   throw new Error("Invalid SYNTX_OWNER_WAN27_R2V configuration.");
 }
 
-/** Strict default-off gate for owner Kling Keyframes image-input tools only. */
+/** Strict default-off gate for the owner Kling Keyframes input and generation tools. */
 export function readOwnerKlingKeyframesFlag(value: string | undefined): boolean {
   if (value === undefined || value === "" || value === "0") return false;
   if (value === "1") return true;

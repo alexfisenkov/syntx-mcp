@@ -47,7 +47,7 @@ async function linkSyntheticAttempt(runtime: ReturnType<typeof createObservedOwn
   await runtime.authStore.markLinked(binding, attemptId, { scheme: "Bearer", value: "synthetic-keyframes-input-token" });
 }
 
-test("Kling Keyframes input tools are strict default-off and expose only the closed 3-tool surface", async () => {
+test("Kling Keyframes preserves its 3 input tools and adds generation tools only under strict owner opt-in", async () => {
   assert.equal(readOwnerKlingKeyframesFlag(undefined), false);
   assert.equal(readOwnerKlingKeyframesFlag(""), false);
   assert.equal(readOwnerKlingKeyframesFlag("0"), false);
@@ -117,8 +117,13 @@ test("Kling Keyframes input tools are strict default-off and expose only the clo
         assert.equal(fields.includes(forbidden), false, `${tool.name} must not accept ${forbidden}`);
       }
     }
-    assert.equal(JSON.stringify(uploadTool.description).includes("generation"), true);
-    assert.equal(JSON.stringify(listed.map(({ name }) => name)).includes("generate"), false);
+    assert.equal(JSON.stringify(uploadTool.description).includes("Provider acceptance is unproven"), true);
+    const generationNames = listed.map(({ name }) => name).filter((name) => name.startsWith("syntx_owner_") && name.includes("kling_keyframes"));
+    assert.deepEqual(generationNames, [
+      "syntx_owner_get_kling_keyframes_input_policy", "syntx_owner_upload_kling_keyframes_image", "syntx_owner_check_kling_keyframes_images",
+      "syntx_owner_generate_kling_keyframes", "syntx_owner_reconcile_kling_keyframes",
+      "syntx_owner_list_kling_keyframes_recoveries", "syntx_owner_get_kling_keyframes_result_page"
+    ]);
 
     const policy = await client.callTool({ name: TOOL_NAMES[0], arguments: {} });
     const policyDto = policy.structuredContent as Record<string, unknown>;

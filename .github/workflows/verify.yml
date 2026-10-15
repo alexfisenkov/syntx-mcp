@@ -53,17 +53,6 @@ jobs:
           "$scanner_dir/gitleaks" version
           printf '%s\n' "$scanner_dir" >> "$GITHUB_PATH"
 
-      - name: Install required local media tools
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes ffmpeg
-          test -x /usr/bin/ffmpeg
-          test -x /usr/bin/ffprobe
-          /usr/bin/ffmpeg -version
-          /usr/bin/ffprobe -version
-
       - name: Verify changed media coverage
         run: npm run test:media:changed
 

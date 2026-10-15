@@ -339,6 +339,23 @@ export type {
 } from "./adapter/syntx/chat-http-client.js";
 export { LinkedAttemptCredentialBroker } from "./adapter/syntx/link-credential-broker.js";
 export { createObservedOwnerRuntime } from "./runtime/observed-owner-runtime.js";
+export {
+  OwnerKlingKeyframesGenerationService,
+  OwnerKlingKeyframesGenerationServiceError,
+  OWNER_KLING_KEYFRAMES_GENERATION_CATALOG_VERSION,
+  isOwnerKlingKeyframesGenerationService
+} from "./application/owner-kling-keyframes-generation-service.js";
+export type {
+  OwnerKlingKeyframesGenerationServiceOptions,
+  OwnerKlingKeyframesGenerateInput,
+  OwnerKlingKeyframesGenerationResult,
+  OwnerKlingKeyframesGenerationDiagnostic,
+  OwnerKlingKeyframesGenerationErrorCode
+} from "./application/owner-kling-keyframes-generation-service.js";
+export {
+  OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES,
+  registerSyntxOwnerKlingKeyframesGenerationTools
+} from "./mcp/owner-kling-keyframes-generation-tools.js";
 export { readOwnerHailuo02I2vFlag } from "./runtime/owner-hailuo02-i2v-stdio-config.js";
 export {
   OwnerHailuo02I2vGenerationService,

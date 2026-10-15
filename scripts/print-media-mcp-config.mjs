@@ -43,7 +43,8 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_GROK_T2V",
   "SYNTX_OWNER_HAILUO_LIVE_T2V",
   "SYNTX_OWNER_TOPAZ_ASTRA",
-  "SYNTX_OWNER_WAN27_R2V"
+  "SYNTX_OWNER_WAN27_R2V",
+  "SYNTX_OWNER_KLING_KEYFRAMES"
 ]);
 
 const DISABLED_FLAGS = Object.freeze([
@@ -71,6 +72,7 @@ const HELP_TEXT = [
   "This command does not edit client settings, read credentials, log in, or call the network.",
   "The confirmed owner-stdio config enables Kling I2V with SYNTX_OWNER_KLING_I2V=1 and Hailuo-02 I2V with SYNTX_OWNER_HAILUO02_I2V=1.",
   "The confirmed owner-stdio config enables WAN 2.7 R2V with SYNTX_OWNER_WAN27_R2V=1; replace SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH and SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH placeholders with absolute trusted executable paths.",
+  "The confirmed owner-stdio config enables Kling Keyframes with SYNTX_OWNER_KLING_KEYFRAMES=1. This only registers the explicitly callable paid tools; it does not start generation.",
   "ElevenLabs STS operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "Topaz Astra operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "The emitted tools can perform paid generation only when explicitly called by the client."

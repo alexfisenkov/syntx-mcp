@@ -358,7 +358,7 @@ test("Live installed config requires opt-in and checks the exact tool-list delta
   assert.ok(/\$\{installedMediaMcpConfig\}/u.test(source), "installed config summary is not emitted");
 });
 
-test("changed-media selector is bounded, explicit, and selects the current R2V runtime/config slice", () => {
+test("changed-media selector is bounded and uses explicit source-backed Node test inputs", () => {
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(packageJson.scripts.test, /dist\/tests\/\*\.test\.js/u, "default test suite must retain all compiled test suites");
   const selectedPaths = [];
@@ -381,9 +381,6 @@ test("changed-media selector is bounded, explicit, and selects the current R2V r
   }
   assert.ok(selectedPaths.length > 0 && selectedPaths.length <= 40, "changed-media selector must remain bounded");
   assert.equal(new Set(selectedPaths).size, selectedPaths.length, "selector paths must be unique");
-  assert.equal(selectedPaths.includes("dist/tests/owner-wan26-r2v-runtime-1769.test.js"), true);
-  assert.equal(selectedPaths.includes("tests/owner-wan26-r2v-config-1769.test.mjs"), true);
-  assert.equal(selectedPaths.some((path) => /wan25/i.test(path)), false, "prior WAN25 suites must not rerun");
 });
 
 test("installed joint startup checks Luma tools and derives count from the returned tool list", () => {

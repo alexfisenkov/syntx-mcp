@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { AbsoluteRequestDeadline } from "../adapter/syntx/request-deadline.js";
 import { SyntxChatHttpClient, type MediaGenerationReceipt } from "../adapter/syntx/chat-http-client.js";
+import type { SyntxHttpErrorCode } from "../adapter/syntx/http-client.js";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import {
   closeOwnerWan26R2vNativeContextsForClient,
@@ -59,6 +60,10 @@ const PAGE_SIZE = 64;
 const MAX_ARTIFACTS = 4_096;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const ACCOUNT_FRESHNESS_MS = 120_000;
+const SAFE_START_ERROR_CLASSES = new Set<SyntxHttpErrorCode>([
+  "INVALID_REQUEST", "AUTH_REQUIRED", "AUTH_OR_ACCESS_DENIED", "UPSTREAM_RATE_LIMITED",
+  "UPSTREAM_UNAVAILABLE", "UPSTREAM_TIMEOUT", "UPSTREAM_REQUEST_ABORTED", "UPSTREAM_PROTOCOL_ERROR"
+]);
 const LINK_STATUS = PerUserLinkService.prototype.getStatus;
 const ACCOUNT_READ = AccountStatusService.prototype.getAccountStatus;
 const ACCESS_READ = ModelAccessService.prototype.getModelAccess;
@@ -112,6 +117,7 @@ export interface OwnerWan26R2vGenerationDiagnostic {
   readonly history_get_calls: number;
   readonly result_get_calls: number;
   readonly backend_error_observed: boolean;
+  readonly start_error_class?: SyntxHttpErrorCode | null;
   readonly pending_object_indices: readonly number[];
   readonly gaps: readonly OwnerWan26R2vGenerationDiagnosticCode[];
 }
@@ -172,6 +178,7 @@ interface DiagnosticState {
   history_status: OwnerWan26R2vGenerationDiagnostic["history_status"];
   owner_ack_status: OwnerWan26R2vGenerationDiagnostic["owner_ack_status"];
   history_get_calls: number; result_get_calls: number; backend_error_observed: boolean;
+  start_error_class: SyntxHttpErrorCode | null;
   pending_object_indices: number[]; gaps: OwnerWan26R2vGenerationDiagnosticCode[];
 }
 interface Claim { readonly attemptId: string; readonly principal: Readonly<GenerationPrincipalRef>; readonly reservationId: string; }
@@ -343,6 +350,9 @@ export class OwnerWan26R2vGenerationService {
           recovery.diagnostic.post_started = false;
           this.#recoveries.delete(recovery.id); this.#dispatchedIntents.delete(key); recovery = undefined;
           fail("PRE_DISPATCH_FAILED");
+        }
+        if (error instanceof OwnerWan26R2vNativeError && error.code === "OUTCOME_UNKNOWN") {
+          recovery.diagnostic.start_error_class = canonicalStartErrorClass(error.start_error_class);
         }
         throw recoveryUnknown(recovery);
       }
@@ -720,10 +730,14 @@ function mapResultGap(v: string): OwnerWan26R2vGenerationDiagnosticCode {
   if (v === "RESULT_URL_UNSAFE") return "RESULT_URL_UNSAFE"; return "RESULT_UNVERIFIED";
 }
 function newDiagnostic(): DiagnosticState { return { post_started: false, ack_known: false, history_status: "NOT_READ", owner_ack_status: "NOT_READ",
-  history_get_calls: 0, result_get_calls: 0, backend_error_observed: false, pending_object_indices: [], gaps: [] }; }
+  history_get_calls: 0, result_get_calls: 0, backend_error_observed: false, start_error_class: null, pending_object_indices: [], gaps: [] }; }
 function diagnostic(r: Recovery): Readonly<OwnerWan26R2vGenerationDiagnostic> { return Object.freeze({ ...r.diagnostic,
   pending_object_indices: Object.freeze([...r.diagnostic.pending_object_indices]), gaps: Object.freeze([...r.diagnostic.gaps]) }); }
 function addGap(r: Recovery, code: OwnerWan26R2vGenerationDiagnosticCode): void { if (!r.diagnostic.gaps.includes(code) && r.diagnostic.gaps.length < 32) r.diagnostic.gaps.push(code); }
+function canonicalStartErrorClass(value: unknown): SyntxHttpErrorCode | null {
+  return typeof value === "string" && SAFE_START_ERROR_CLASSES.has(value as SyntxHttpErrorCode)
+    ? value as SyntxHttpErrorCode : null;
+}
 function page(r: Recovery, offset: number): OwnerWan26R2vGenerationResult {
   const order = new Map(r.contexts.map((c, i) => [c.message_id, i] as const));
   const all = [...r.artifacts.values()].sort((a, b) => (order.get(a.message_id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.message_id) ?? Number.MAX_SAFE_INTEGER) || a.object_index - b.object_index);

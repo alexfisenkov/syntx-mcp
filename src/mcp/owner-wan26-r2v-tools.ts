@@ -41,6 +41,7 @@ const imageMime = z.enum(OWNER_WAN26_R2V_IMAGE_POLICY.source_mime_types);
 const serviceError = z.enum(["INVALID_REQUEST", "SERVICE_CLOSED", "SERVICE_BUSY", "PRINCIPAL_NOT_LINKED", "MODEL_BINDING_MISMATCH", "PREFLIGHT_FAILED", "INTENT_ALREADY_CLAIMED", "PRE_DISPATCH_FAILED", "OUTCOME_UNKNOWN", "RECOVERY_NOT_FOUND", "REQUEST_ABORTED", "OUTPUT_INVALID", "SERVICE_UNAVAILABLE"]);
 const referenceError = z.enum(["INVALID_REQUEST", "SERVICE_CLOSED", "SERVICE_BUSY", "PRINCIPAL_NOT_LINKED", "MODEL_BINDING_MISMATCH", "REFERENCE_UNAVAILABLE", "REFERENCE_EXPIRED", "UPLOAD_REJECTED", "UPLOAD_OUTCOME_UNKNOWN", "CAPACITY_EXCEEDED", "REQUEST_ABORTED"]);
 const diagnosticCode = z.enum(["ACCOUNT_READ_UNAVAILABLE", "ACCOUNT_STATUS_STALE", "MODEL_ACCESS_UNAVAILABLE", "MODEL_ACCESS_STALE", "HISTORY_UNAVAILABLE", "HISTORY_INCOMPLETE", "HISTORY_UNVERIFIED", "OWNER_ACK_MISSING", "OWNER_ACK_AMBIGUOUS", "OWNER_ACK_MISMATCH", "BACKEND_ERROR_OBSERVED", "RESULT_GET_UNAVAILABLE", "RESULT_PENDING", "RESULT_UNVERIFIED", "RESULT_MODEL_ECHO_UNAVAILABLE", "RESULT_MODEL_ECHO_MISMATCH", "RESULT_URL_UNSAFE", "NO_VIDEO_OBSERVED", "ARTIFACT_LIMIT_EXCEEDED"]);
+const startErrorClass = z.enum(["INVALID_REQUEST", "AUTH_REQUIRED", "AUTH_OR_ACCESS_DENIED", "UPSTREAM_RATE_LIMITED", "UPSTREAM_UNAVAILABLE", "UPSTREAM_TIMEOUT", "UPSTREAM_REQUEST_ABORTED", "UPSTREAM_PROTOCOL_ERROR"]);
 const emptyInput = z.object({}).strict();
 const imageInput = z.object({ link_attempt_id: attempt, model_id: model, filename, mime_type: imageMime,
   content_base64: z.string().min(4).max(Math.ceil(OWNER_WAN26_R2V_IMAGE_POLICY.max_local_resource_bytes * 4 / 3)).regex(BASE64) }).strict();
@@ -84,6 +85,7 @@ const diagnosticOutput = z.object({ post_started: z.boolean(), ack_known: z.bool
   history_status: z.enum(["PENDING", "COMPLETE", "INCOMPLETE", "UNVERIFIED", "NOT_READ"]),
   owner_ack_status: z.enum(["MATCHED", "MISSING", "AMBIGUOUS", "MISMATCH", "NOT_READ"]),
   history_get_calls: z.number().int().min(0), result_get_calls: z.number().int().min(0), backend_error_observed: z.boolean(),
+  start_error_class: startErrorClass.nullable(),
   pending_object_indices: z.array(z.number().int().min(0).max(63)).max(64), gaps: z.array(diagnosticCode).max(32) }).strict();
 const artifactOutput = z.object({ object_index: z.number().int().min(0).max(MAX_PAGE), message_object_id: z.string().min(1).max(160),
   object_type: z.literal("video"), object_url: z.string().url().max(4_096).refine(isSafeUploadReferenceUrl), mime_type: z.enum(["video/mp4", "video/webm"]).nullable(),
@@ -208,7 +210,7 @@ function projectArtifact(x: OwnerWan26R2vGenerationArtifact): Record<string, unk
 function projectDiagnostic(x: OwnerWan26R2vGenerationDiagnostic): Record<string, unknown> {
   return { post_started: x.post_started, ack_known: x.ack_known, history_status: x.history_status, owner_ack_status: x.owner_ack_status,
     history_get_calls: x.history_get_calls, result_get_calls: x.result_get_calls, backend_error_observed: x.backend_error_observed,
-    pending_object_indices: x.pending_object_indices, gaps: x.gaps };
+    start_error_class: x.start_error_class ?? null, pending_object_indices: x.pending_object_indices, gaps: x.gaps };
 }
 function projectRecovery(x: OwnerWan26R2vRecoveryListItem): Record<string, unknown> { return { recovery_id: x.recovery_id, created_at: x.created_at,
   status: x.status, model_id: x.model_id, observed_artifact_count: x.observed_artifact_count }; }
@@ -235,9 +237,7 @@ function generationFailure(e: unknown): CallToolResult {
   const code = serviceCode(e), extra: Record<string, unknown> = {};
   if (code === "OUTCOME_UNKNOWN" && e instanceof OwnerWan26R2vGenerationServiceError && typeof e.recovery_id === "string" && RECOVERY.test(e.recovery_id)) extra.recovery_id = e.recovery_id;
   if (code === "OUTCOME_UNKNOWN" && e instanceof OwnerWan26R2vGenerationServiceError && e.diagnostic) {
-    const result = z.object({ post_started: z.boolean(), ack_known: z.boolean(), history_status: z.enum(["PENDING", "COMPLETE", "INCOMPLETE", "UNVERIFIED", "NOT_READ"]),
-      owner_ack_status: z.enum(["MATCHED", "MISSING", "AMBIGUOUS", "MISMATCH", "NOT_READ"]), history_get_calls: z.number().int().min(0), result_get_calls: z.number().int().min(0),
-      backend_error_observed: z.boolean(), pending_object_indices: z.array(z.number().int().min(0).max(63)).max(64), gaps: z.array(diagnosticCode).max(32) }).safeParse(e.diagnostic);
+    const result = diagnosticOutput.safeParse(projectDiagnostic(e.diagnostic));
     if (result.success) extra.diagnostic = result.data;
   }
   return failOutput(generationOutput, code, extra);

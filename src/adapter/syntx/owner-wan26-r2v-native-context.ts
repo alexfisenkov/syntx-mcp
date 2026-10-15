@@ -9,6 +9,7 @@ import { sameGenerationPrincipal, snapshotGenerationPrincipal } from "../../doma
 import { schemaHash } from "../../domain/generation-contract.js";
 import { isSafeUploadReferenceUrl } from "./upload-reference-bridge.js";
 import { SyntxChatHttpClient, type MediaGenerationReceipt } from "./chat-http-client.js";
+import { SyntxHttpError, type SyntxHttpErrorCode } from "./http-client.js";
 import { readOwnerWan26R2vUploadReferenceForClient, type OwnerWan26R2vImageUploadContext } from "./wan26-r2v-upload-context.js";
 import { readOwnerWan26R2vVideoUploadReferenceForClient, type OwnerWan26R2vSelectedVideoUploadContext } from "./wan26-r2v-video-upload-context.js";
 import { consumeOwnerWan26R2vOneShotPermit, revalidateOwnerWan26R2vOneShotPermit,
@@ -27,6 +28,10 @@ const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const PAGE_SIZE = 10;
 const PAGE_LIMIT = 7;
 const MAX_CHAT_STATES = 128;
+const SAFE_START_ERROR_CLASSES = new Set<SyntxHttpErrorCode>([
+  "INVALID_REQUEST", "AUTH_REQUIRED", "AUTH_OR_ACCESS_DENIED", "UPSTREAM_RATE_LIMITED",
+  "UPSTREAM_UNAVAILABLE", "UPSTREAM_TIMEOUT", "UPSTREAM_REQUEST_ABORTED", "UPSTREAM_PROTOCOL_ERROR"
+]);
 const ABORTED_GETTER = Object.getOwnPropertyDescriptor(AbortSignal.prototype, "aborted")?.get;
 const LINK_GET_STATUS = PerUserLinkService.prototype.getStatus;
 const RESOLVE = OwnerWan26R2vReferenceService.prototype.resolveManifest;
@@ -85,9 +90,12 @@ export type OwnerWan26R2vNativeErrorCode = "INVALID_REQUEST" | "CANDIDATE_INVALI
   "CHAT_DISPATCH_ALREADY_STARTED" | "OUTCOME_UNKNOWN" | "HISTORY_UNAVAILABLE" | "RESULT_CONTEXT_INVALID" |
   "RESULT_GET_UNAVAILABLE" | "REQUEST_ABORTED" | "CAPACITY_EXCEEDED";
 export class OwnerWan26R2vNativeError extends Error {
-  constructor(readonly code: OwnerWan26R2vNativeErrorCode) {
+  readonly start_error_class: SyntxHttpErrorCode | null;
+  constructor(readonly code: OwnerWan26R2vNativeErrorCode, startErrorClass: unknown = null) {
     super("The owner WAN 2.6 R2V native operation could not be completed safely.");
     this.name = "OwnerWan26R2vNativeError";
+    this.start_error_class = canonicalStartErrorClass(startErrorClass);
+    Object.defineProperty(this, "start_error_class", { writable: false, configurable: false });
   }
 }
 type Contexts = readonly (OwnerWan26R2vImageUploadContext | OwnerWan26R2vSelectedVideoUploadContext)[];
@@ -207,7 +215,15 @@ export async function startOwnerWan26R2vWithOwnedCandidate(input: unknown, packe
     }, signal);
     if (result.chat_uuid !== state.chat.chat_uuid || !state.ownerEcho || result.message_id !== state.ownerEcho) fail("OUTCOME_UNKNOWN");
     return result;
-  } catch (error) { if (enteredPost || state.phase !== "AVAILABLE") fail("OUTCOME_UNKNOWN"); throw translate(error, "CANDIDATE_INVALID"); }
+  } catch (error) {
+    if (enteredPost || state.phase !== "AVAILABLE") {
+      const startErrorClass = error instanceof OwnerWan26R2vNativeError
+        ? error.start_error_class
+        : readSyntxHttpErrorClass(error);
+      throw new OwnerWan26R2vNativeError("OUTCOME_UNKNOWN", startErrorClass);
+    }
+    throw translate(error, "CANDIDATE_INVALID");
+  }
   finally { pendingStarts.delete(state.chat); }
 }
 
@@ -684,4 +700,15 @@ async function consume(input: unknown, packet: unknown, method: "create" | "star
 
 function fail(code: OwnerWan26R2vNativeErrorCode): never {
   throw new OwnerWan26R2vNativeError(code);
+}
+
+function readSyntxHttpErrorClass(error: unknown): SyntxHttpErrorCode | null {
+  try {
+    if (!error || typeof error !== "object" || types.isProxy(error) || Object.getPrototypeOf(error) !== SyntxHttpError.prototype) return null;
+    return canonicalStartErrorClass(Object.getOwnPropertyDescriptor(error, "code")?.value);
+  } catch { return null; }
+}
+function canonicalStartErrorClass(value: unknown): SyntxHttpErrorCode | null {
+  return typeof value === "string" && SAFE_START_ERROR_CLASSES.has(value as SyntxHttpErrorCode)
+    ? value as SyntxHttpErrorCode : null;
 }

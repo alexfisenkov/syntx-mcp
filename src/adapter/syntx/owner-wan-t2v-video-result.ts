@@ -4,7 +4,7 @@ import { isSafeUploadReferenceUrl } from "./upload-reference-bridge.js";
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
 const SAFE_PROVIDER_CHAT_ID = /^\d{1,16}$/u;
 const MAX_RESULT_OBJECTS = 64;
-const WAN_T2V_MODELS = ["wan_26_t2v", "wan_27_t2v"] as const;
+const WAN_T2V_MODELS = ["wan_26_t2v", "wan_27_t2v", "wan_30_t2v"] as const;
 
 export type OwnerWanT2vModelId = typeof WAN_T2V_MODELS[number];
 

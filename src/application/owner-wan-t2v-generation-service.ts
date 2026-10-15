@@ -25,10 +25,21 @@ import {
   type OwnerWanT2vGenerationNormalizedIntent,
   type OwnerWanT2vGenerationWireCandidate
 } from "./owner-wan-t2v-generation-parameters.js";
+import {
+  getOwnerWan30T2vGenerationSourceContract,
+  normalizeOwnerWan30T2vGenerationIntent,
+  prepareOwnerWan30T2vGenerationWireCandidate,
+  OwnerWan30T2vGenerationParametersError,
+  type OwnerWan30T2vGenerationIntent,
+  type OwnerWan30T2vGenerationSourceContract,
+  type OwnerWan30T2vGenerationWireCandidate,
+  type OwnerWan30T2vNormalizedGeneration
+} from "./owner-wan30-t2v-generation-parameters.js";
 import { AccountStatusService, type AccountStatusResult } from "./account-status.js";
 import { ModelAccessService, type ModelAccessResult } from "./model-access.js";
+import { loadPublicCatalogVersion } from "../catalog/public-catalog-history.js";
 
-const MODELS = Object.freeze(["wan_26_t2v", "wan_27_t2v"] as const);
+const MODELS = Object.freeze(["wan_26_t2v", "wan_27_t2v", "wan_30_t2v"] as const);
 const PUBLIC_CATALOG_VERSION = "sha256-b06698c84a002f5cc7d379e5d3ead94974b0e279fae45c8bb83fa803b0d895b9.json" as const;
 const PUBLIC_MODELS_SHA256 = "sha256:7ffbeff2ef1efa9d617d6e26e3e1c11e1d355cc45b34a2a427159f7e91fa4667" as const;
 const ATTEMPT_PATTERN = /^link_[A-Za-z0-9_-]{20,120}$/u;
@@ -53,6 +64,14 @@ const HISTORY_LIST = SyntxChatHttpClient.prototype.listWanT2vMessageCandidates;
 const MESSAGE_READ = SyntxChatHttpClient.prototype.getWanT2vVideoResultMessage;
 const IN_PROGRESS_LIST = SyntxChatHttpClient.prototype.listInProgress;
 const OWNER_WAN_T2V_SERVICES = new WeakSet<object>();
+
+type OwnerWanAnyT2vModel = OwnerWanT2vGenerationModel | "wan_30_t2v";
+type OwnerWanAnyT2vIntent = OwnerWanT2vGenerationIntent | OwnerWan30T2vGenerationIntent;
+type OwnerWanAnyT2vNormalized = OwnerWanT2vGenerationNormalizedIntent | OwnerWan30T2vNormalizedGeneration;
+type OwnerWanAnyT2vSource = ReturnType<typeof getOwnerWanT2vGenerationParametersSource> | OwnerWan30T2vGenerationSourceContract;
+type OwnerWanAnyT2vWireCandidate = OwnerWanT2vGenerationWireCandidate | OwnerWan30T2vGenerationWireCandidate;
+type OwnerWanAnyT2vCostInput = OwnerWanT2vGenerationNormalizedIntent["cost_query_candidate"]["values"] |
+  OwnerWan30T2vNormalizedGeneration["cost_query_candidate"]["values"];
 
 export type OwnerWanT2vGenerationPhase =
   | "VALIDATE_REQUEST" | "RESOLVE_PRINCIPAL" | "PREFLIGHT" | "CHAT_CREATE" | "GENERATION_POST"
@@ -117,10 +136,10 @@ export interface OwnerWanT2vGenerationResult {
   readonly status_semantics: "LOCAL_OBSERVED_AVAILABILITY_ONLY";
   readonly backend_acceptance: "UNPROVEN";
   readonly provider_terminal_status: "UNPROVEN";
-  readonly model_id: OwnerWanT2vGenerationModel;
-  readonly parameters: OwnerWanT2vGenerationIntent["parameters"];
-  readonly cost_inputs: Readonly<{ video_duration: number; resolution: string }>;
-  readonly cost_input_confidence: "PUBLIC_KEYS_PLUS_EXPLICIT_VALUES_LOCAL_INTEGRATION_NOT_UI_CALLER_OR_QUOTE";
+  readonly model_id: OwnerWanAnyT2vModel;
+  readonly parameters: OwnerWanAnyT2vIntent["parameters"];
+  readonly cost_inputs: OwnerWanAnyT2vCostInput;
+  readonly cost_input_confidence: "PUBLIC_KEYS_PLUS_EXPLICIT_VALUES_LOCAL_INTEGRATION_NOT_UI_CALLER_OR_QUOTE" | "OBSERVED_SETTINGS_NOT_QUOTE_CALLER_JOINED";
   readonly recovery_id: string;
   readonly observed_artifact_count: number;
   readonly offset: number;
@@ -134,7 +153,7 @@ export interface OwnerWanT2vGenerationResult {
 export interface OwnerWanT2vRecoveryListItem {
   readonly recovery_id: string;
   readonly created_at: string;
-  readonly model_id: OwnerWanT2vGenerationModel;
+  readonly model_id: OwnerWanAnyT2vModel;
   readonly status: OwnerWanT2vGenerationRecoveryStatus;
   readonly observed_artifact_count: number;
   readonly diagnostic: OwnerWanT2vGenerationDiagnostic;
@@ -154,9 +173,10 @@ export interface OwnerWanT2vGenerationServiceOptions {
   readonly linkService: Pick<PerUserLinkService, "getStatus">;
   readonly catalog: DiscoveryCatalogRepository;
   readonly catalog_version: string;
+  readonly catalogDirectory?: string;
   readonly resolveChatClient: (attemptId: string) => unknown;
   readonly createAccountStatusService: (attemptId: string) => AccountStatusService;
-  readonly createModelAccessService: (attemptId: string) => ModelAccessService;
+  readonly createModelAccessService: (attemptId: string, catalog?: DiscoveryCatalogRepository) => ModelAccessService;
   readonly now?: () => number;
   readonly timeoutMs?: number;
   readonly pollDelayMs?: number;
@@ -165,7 +185,7 @@ export interface OwnerWanT2vGenerationServiceOptions {
 
 export interface OwnerWanT2vGenerateInput {
   readonly attemptId: string;
-  readonly input: OwnerWanT2vGenerationIntent;
+  readonly input: OwnerWanAnyT2vIntent;
 }
 
 export interface OwnerWanT2vReconcileInput {
@@ -213,8 +233,8 @@ interface Recovery {
   readonly recovery_id: string;
   readonly attemptId: string;
   readonly principal: Readonly<GenerationPrincipalRef>;
-  readonly intent: OwnerWanT2vGenerationIntent;
-  readonly source_binding: Readonly<{ public_catalog_version: string; public_models_sha256: string; form_sha256: string }>;
+  readonly intent: OwnerWanAnyT2vIntent;
+  readonly source_binding: Readonly<{ profile_id: string; source_pins: Readonly<Record<string, unknown>> }>;
   readonly semantic_key: string;
   readonly chat_uuid: string;
   readonly created_at: string;
@@ -236,6 +256,8 @@ export class OwnerWanT2vGenerationService {
   readonly #linkService: Pick<PerUserLinkService, "getStatus">;
   readonly #catalog: DiscoveryCatalogRepository;
   readonly #catalogVersion: string;
+  readonly #catalogDirectory: string | undefined;
+  #wan30Catalog: DiscoveryCatalogRepository | undefined;
   readonly #resolveChatClient: OwnerWanT2vGenerationServiceOptions["resolveChatClient"];
   readonly #createAccountStatusService: OwnerWanT2vGenerationServiceOptions["createAccountStatusService"];
   readonly #createModelAccessService: OwnerWanT2vGenerationServiceOptions["createModelAccessService"];
@@ -260,15 +282,18 @@ export class OwnerWanT2vGenerationService {
     const options = readExactRecord(optionsInput, [
       "binding", "linkService", "catalog", "catalog_version", "resolveChatClient",
       "createAccountStatusService", "createModelAccessService"
-    ], ["now", "timeoutMs", "pollDelayMs", "maxPollAttempts"]);
+    ], ["catalogDirectory", "now", "timeoutMs", "pollDelayMs", "maxPollAttempts"]);
     this.#binding = snapshotBinding(options.binding);
     this.#linkService = snapshotLinkService(options.linkService);
     if (!isExactInstance(options.catalog, DiscoveryCatalogRepository) || options.catalog_version !== PUBLIC_CATALOG_VERSION ||
         typeof options.resolveChatClient !== "function" || types.isProxy(options.resolveChatClient) ||
         typeof options.createAccountStatusService !== "function" || types.isProxy(options.createAccountStatusService) ||
-        typeof options.createModelAccessService !== "function" || types.isProxy(options.createModelAccessService)) invalid();
+        typeof options.createModelAccessService !== "function" || types.isProxy(options.createModelAccessService) ||
+        (options.catalogDirectory !== undefined && (typeof options.catalogDirectory !== "string" ||
+          options.catalogDirectory.trim() === ""))) invalid();
     this.#catalog = options.catalog;
     this.#catalogVersion = options.catalog_version;
+    this.#catalogDirectory = options.catalogDirectory as string | undefined;
     this.#resolveChatClient = options.resolveChatClient as OwnerWanT2vGenerationServiceOptions["resolveChatClient"];
     this.#createAccountStatusService = options.createAccountStatusService as OwnerWanT2vGenerationServiceOptions["createAccountStatusService"];
     this.#createModelAccessService = options.createModelAccessService as OwnerWanT2vGenerationServiceOptions["createModelAccessService"];
@@ -361,9 +386,9 @@ export class OwnerWanT2vGenerationService {
     const deadline = this.#deadline(signal, () => recovery ? unknownError(recovery) : serviceError("PRE_DISPATCH_FAILED"));
     try {
       deadline.throwIfAborted();
-      const normalized = normalizeOwnerWanT2vGenerationParameters(request.input);
+      const normalized = normalizeGenerationIntent(request.input);
       validateLocalPromptResourceLimit(normalized.intent.prompt);
-      const source = this.#assertSourceCatalog();
+      const source = this.#assertSourceCatalog(normalized.intent.model_id);
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       const semanticKey = semanticIntentKey(principal, normalized);
       const existingRecoveryId = this.#intentToRecovery.get(semanticKey);
@@ -407,15 +432,16 @@ export class OwnerWanT2vGenerationService {
       this.#reservedIntents.delete(semanticKey);
       reservationKey = undefined;
 
-      const candidate: OwnerWanT2vGenerationWireCandidate = projectOwnerWanT2vGenerationWireCandidate(normalized);
+      const candidate = projectGenerationWireCandidate(normalized);
       const settings = Object.freeze({ ...candidate.settings_candidate });
+      const prompt = "prompt_candidate" in candidate ? candidate.prompt_candidate : normalized.intent.prompt;
       recovery.diagnostic.phase = "GENERATION_POST";
       recovery.diagnostic.post_started = true;
       postStarted = true;
       const receipt = await this.#await(deadline, () => Reflect.apply(VIDEO_START, client, [Object.freeze({
         ai_name: "wan_video",
         chat_id: chat.chat_uuid,
-        prompt: normalized.intent.prompt,
+        prompt,
         settings
       }), deadline.signal]) as Promise<MediaGenerationReceipt>);
       if (!validReceipt(receipt, chat.chat_uuid)) fail("OUTCOME_UNKNOWN");
@@ -591,13 +617,16 @@ export class OwnerWanT2vGenerationService {
     throw unknownError(recovery);
   }
 
-  async #runPreflight(attemptId: string, normalized: OwnerWanT2vGenerationNormalizedIntent, deadline: AbsoluteRequestDeadline): Promise<void> {
+  async #runPreflight(attemptId: string, normalized: OwnerWanAnyT2vNormalized, deadline: AbsoluteRequestDeadline): Promise<void> {
     if (deadline.signal.aborted) fail("PREFLIGHT_FAILED");
     let accountService: AccountStatusService;
     let accessService: ModelAccessService;
     try {
       accountService = Reflect.apply(this.#createAccountStatusService, undefined, [attemptId]) as AccountStatusService;
-      accessService = Reflect.apply(this.#createModelAccessService, undefined, [attemptId]) as ModelAccessService;
+      const accessArgs = normalized.intent.model_id === "wan_30_t2v"
+        ? [attemptId, this.#getWan30Catalog()]
+        : [attemptId];
+      accessService = Reflect.apply(this.#createModelAccessService, undefined, accessArgs) as ModelAccessService;
     } catch { fail("PREFLIGHT_FAILED"); }
     if (!isExactService(accountService, AccountStatusService, ["getAccountStatus"]) || this.#usedAccountServices.has(accountService) ||
         !isExactService(accessService, ModelAccessService, ["getModelAccess"]) || this.#usedAccessServices.has(accessService)) fail("PREFLIGHT_FAILED");
@@ -612,10 +641,21 @@ export class OwnerWanT2vGenerationService {
         cost_parameters: normalized.cost_query_candidate.values
       }), deadline.signal]) as Promise<ModelAccessResult>);
     } catch { fail("PREFLIGHT_FAILED"); }
-    assertFreshPreflight(account, access, normalized, this.#catalog, this.#readNow());
+    const modelCatalog = normalized.intent.model_id === "wan_30_t2v" ? this.#getWan30Catalog() : this.#catalog;
+    assertFreshPreflight(account, access, normalized, modelCatalog, this.#readNow());
   }
 
-  #assertSourceCatalog(): ReturnType<typeof getOwnerWanT2vGenerationParametersSource> {
+  #assertSourceCatalog(modelId?: OwnerWanAnyT2vModel): OwnerWanAnyT2vSource {
+    if (modelId === "wan_30_t2v") {
+      let source: OwnerWan30T2vGenerationSourceContract;
+      try { source = getOwnerWan30T2vGenerationSourceContract(); }
+      catch { fail("MODEL_BINDING_MISMATCH"); }
+      if (source.profile_id !== "owner-wan30-t2v-web-request-observed-1807" || source.model_id !== modelId ||
+          source.ai_name !== "wan_video" || source.effective_defaults !== "UNKNOWN" || source.dispatch_allowed !== false ||
+          source.backend_acceptance !== "UNPROVEN") fail("MODEL_BINDING_MISMATCH");
+      this.#getWan30Catalog();
+      return source;
+    }
     let source: ReturnType<typeof getOwnerWanT2vGenerationParametersSource>;
     try { source = getOwnerWanT2vGenerationParametersSource(); }
     catch { fail("MODEL_BINDING_MISMATCH"); }
@@ -626,10 +666,34 @@ export class OwnerWanT2vGenerationService {
     return source;
   }
 
-  #validateModelProfile(modelId: OwnerWanT2vGenerationModel): void {
-    this.#assertSourceCatalog();
+  #getWan30Catalog(): DiscoveryCatalogRepository {
+    if (this.#wan30Catalog) return this.#wan30Catalog;
+    let source: OwnerWan30T2vGenerationSourceContract;
+    let catalog: DiscoveryCatalogRepository;
+    try {
+      source = getOwnerWan30T2vGenerationSourceContract();
+      catalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(source.source_pins.public_catalog_version, this.#catalogDirectory));
+    } catch { fail("MODEL_BINDING_MISMATCH"); }
+    this.#wan30Catalog = catalog;
+    return catalog;
+  }
+
+  #validateModelProfile(modelId: OwnerWanAnyT2vModel): void {
+    this.#assertSourceCatalog(modelId);
     if (!MODELS.includes(modelId)) fail("MODEL_BINDING_MISMATCH");
-    const model = this.#catalog.getModel(modelId);
+    const isWan30 = modelId === "wan_30_t2v";
+    const catalog = isWan30 ? this.#getWan30Catalog() : this.#catalog;
+    const model = catalog.getModel(modelId);
+    if (isWan30) {
+      const declaredCostKeys = model.settings?.get_cost_params;
+      if (model.active !== true || model.id !== modelId || model.upstream_id !== modelId || model.ai_name !== "wan_video" ||
+          model.scope !== "video" || !model.modalities.includes("video") ||
+          !model.operations.some((operation) => operation.id === "generate-video" && operation.output_modality === "video") ||
+          !Array.isArray(declaredCostKeys) || !sameStrings(declaredCostKeys, ["resolution", "video_duration", "duration", "rendering_speed"])) {
+        fail("MODEL_BINDING_MISMATCH");
+      }
+      return;
+    }
     const source = getOwnerWanT2vGenerationParametersSource().models.find((item) => item.model_id === modelId);
     const declaredCostKeys = model.settings?.get_cost_params;
     if (!source || model.active !== true || model.id !== modelId || model.upstream_id !== modelId || model.ai_name !== "wan_video" ||
@@ -715,8 +779,8 @@ export function isOwnerWanT2vGenerationService(value: unknown): value is OwnerWa
 function createRecovery(input: {
   readonly attemptId: string;
   readonly principal: Readonly<GenerationPrincipalRef>;
-  readonly normalized: OwnerWanT2vGenerationNormalizedIntent;
-  readonly source: ReturnType<typeof getOwnerWanT2vGenerationParametersSource>;
+  readonly normalized: OwnerWanAnyT2vNormalized;
+  readonly source: OwnerWanAnyT2vSource;
   readonly chatUuid: string;
   readonly now: number;
   readonly semanticKey: string;
@@ -727,8 +791,9 @@ function createRecovery(input: {
     attemptId: input.attemptId,
     principal: input.principal,
     intent: input.normalized.intent,
-    source_binding: Object.freeze({ public_catalog_version: input.source.source_pins.public_catalog_version,
-      public_models_sha256: input.source.source_pins.public_models_sha256, form_sha256: input.source.source_pins.form_sha256 }),
+    source_binding: Object.freeze({ profile_id: "profile_id" in input.source
+      ? input.source.profile_id : "owner-wan-t2v-current-b066-1b48",
+      source_pins: Object.freeze({ ...input.source.source_pins }) }),
     semantic_key: input.semanticKey,
     chat_uuid: input.chatUuid,
     created_at: new Date(input.now).toISOString(),
@@ -853,8 +918,13 @@ function pageResult(recovery: Recovery, offset: number): OwnerWanT2vGenerationRe
     provider_terminal_status: "UNPROVEN",
     model_id: recovery.intent.model_id,
     parameters: recovery.intent.parameters,
-    cost_inputs: Object.freeze({ video_duration: recovery.intent.parameters.video_duration, resolution: recovery.intent.parameters.resolution }),
-    cost_input_confidence: "PUBLIC_KEYS_PLUS_EXPLICIT_VALUES_LOCAL_INTEGRATION_NOT_UI_CALLER_OR_QUOTE",
+    cost_inputs: recovery.intent.model_id === "wan_30_t2v"
+      ? Object.freeze({ resolution: recovery.intent.parameters.resolution, video_duration: recovery.intent.parameters.video_duration,
+        duration: 0 as const, rendering_speed: recovery.intent.parameters.rendering_speed })
+      : Object.freeze({ video_duration: recovery.intent.parameters.video_duration, resolution: recovery.intent.parameters.resolution }),
+    cost_input_confidence: recovery.intent.model_id === "wan_30_t2v"
+      ? "OBSERVED_SETTINGS_NOT_QUOTE_CALLER_JOINED"
+      : "PUBLIC_KEYS_PLUS_EXPLICIT_VALUES_LOCAL_INTEGRATION_NOT_UI_CALLER_OR_QUOTE",
     recovery_id: recovery.recovery_id,
     observed_artifact_count: recovery.artifacts.length,
     offset,
@@ -877,7 +947,7 @@ export function paginateOwnerWanT2vArtifacts(artifacts: readonly OwnerWanT2vVide
   return Object.freeze({ artifacts: page, next_offset: next < artifacts.length ? next : null });
 }
 
-function assertFreshPreflight(accountInput: unknown, accessInput: unknown, normalized: OwnerWanT2vGenerationNormalizedIntent,
+function assertFreshPreflight(accountInput: unknown, accessInput: unknown, normalized: OwnerWanAnyT2vNormalized,
   catalog: DiscoveryCatalogRepository, now: number): void {
   try {
     const account = readExactRecord(accountInput, ["balance", "subscription", "contract_evidence", "source_build", "observed_at"]);
@@ -886,7 +956,9 @@ function assertFreshPreflight(accountInput: unknown, accessInput: unknown, norma
     const access = readExactRecord(accessInput, ["catalog_kind", "catalog_version", "model_id", "ai_name", "model_type", "account_read_live",
       "parameter_keys", "parameters_redacted", "access", "cost", "discount_cost", "free_remaining_generations", "limit", "show_warning", "observed_at"]);
     const expectedCatalogVersion = `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`;
-    const expectedKeys = ["resolution", "video_duration"].sort();
+    const expectedKeys = (normalized.intent.model_id === "wan_30_t2v"
+      ? ["resolution", "video_duration", "duration", "rendering_speed"]
+      : ["video_duration", "resolution"]).sort();
     const keys = denseStrings(access.parameter_keys);
     if (account.contract_evidence !== ACCOUNT_CONTRACT_EVIDENCE || account.source_build !== ACCOUNT_SOURCE_BUILD || balance.unit !== "tokens" ||
         !(balance.available === null || validBalance(balance.available)) || !validSubscription(subscription, now) || !isFreshIso(account.observed_at, now) ||
@@ -904,9 +976,10 @@ function validateLocalPromptResourceLimit(prompt: string): void {
   if (Buffer.byteLength(prompt, "utf8") > MAX_PROMPT_UTF8_BYTES) invalid();
 }
 
-function semanticIntentKey(principal: Readonly<GenerationPrincipalRef>, normalized: OwnerWanT2vGenerationNormalizedIntent): string {
+function semanticIntentKey(principal: Readonly<GenerationPrincipalRef>, normalized: OwnerWanAnyT2vNormalized): string {
+  const profileId = "source_profile_id" in normalized ? normalized.source_profile_id : "owner-wan-t2v-current-b066-1b48";
   const payload = JSON.stringify({ principal: { tenant_id: principal.tenant_id, subject_id: principal.subject_id },
-    source: { public_catalog_version: PUBLIC_CATALOG_VERSION, public_models_sha256: PUBLIC_MODELS_SHA256 }, intent: normalized.intent });
+    source: { profile_id: profileId, source_pins: normalized.source_pins }, intent: normalized.intent });
   return createHash("sha256").update(payload).digest("hex");
 }
 
@@ -941,14 +1014,27 @@ function snapshotGenerate(value: unknown): Readonly<OwnerWanT2vGenerateInput> {
   try {
     const row = readExactRecord(value, ["attemptId", "input"]);
     const attemptId = safeAttempt(row.attemptId);
-    const normalized = normalizeOwnerWanT2vGenerationParameters(row.input);
+    const normalized = normalizeGenerationIntent(row.input);
     validateLocalPromptResourceLimit(normalized.intent.prompt);
     return Object.freeze({ attemptId, input: normalized.intent });
   } catch (error) {
     if (error instanceof OwnerWanT2vGenerationServiceError) throw error;
-    if (error instanceof OwnerWanT2vGenerationParametersError) fail("INVALID_REQUEST");
+    if (error instanceof OwnerWanT2vGenerationParametersError || error instanceof OwnerWan30T2vGenerationParametersError) fail("INVALID_REQUEST");
     fail("INVALID_REQUEST");
   }
+}
+
+function normalizeGenerationIntent(input: unknown): OwnerWanAnyT2vNormalized {
+  const row = readExactRecord(input, ["model_id", "prompt", "parameters"]);
+  if (row.model_id === "wan_30_t2v") {
+    return normalizeOwnerWan30T2vGenerationIntent({ prompt: row.prompt, parameters: row.parameters });
+  }
+  return normalizeOwnerWanT2vGenerationParameters(row);
+}
+
+function projectGenerationWireCandidate(normalized: OwnerWanAnyT2vNormalized): OwnerWanAnyT2vWireCandidate {
+  if ("source_profile_id" in normalized) return prepareOwnerWan30T2vGenerationWireCandidate(normalized.intent);
+  return projectOwnerWanT2vGenerationWireCandidate(normalized);
 }
 
 function snapshotReconcile(value: unknown): Readonly<OwnerWanT2vReconcileInput> {

@@ -10244,7 +10244,7 @@ function snapshotOwnerWanT2vVideoResultReadContext(value: unknown): Readonly<Own
     ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids"],
     ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids"]);
   if (typeof fields.chat_uuid !== "string" || typeof fields.message_id !== "string" ||
-      (fields.model_id !== "wan_26_t2v" && fields.model_id !== "wan_27_t2v") ||
+      (fields.model_id !== "wan_26_t2v" && fields.model_id !== "wan_27_t2v" && fields.model_id !== "wan_30_t2v") ||
       typeof fields.provider_chat_id !== "string" || !/^\d{1,16}$/u.test(fields.provider_chat_id) ||
       !Number.isSafeInteger(Number(fields.provider_chat_id))) throw invalidRequest();
   validatePathIdentifier(fields.chat_uuid);

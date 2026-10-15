@@ -1196,9 +1196,11 @@ export function createObservedOwnerRuntime(
             linkService,
             catalog: wanCatalog,
             catalog_version: OWNER_WAN_T2V_PUBLIC_CATALOG_VERSION,
+            ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
             resolveChatClient: resolveWanChatClient,
             createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
-            createModelAccessService: (attemptId: string) => new ModelAccessService(wanCatalog, createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string, catalog: DiscoveryCatalogRepository = wanCatalog) =>
+              new ModelAccessService(catalog, createReadClient(attemptId), now),
             now
           });
         } catch (error) {

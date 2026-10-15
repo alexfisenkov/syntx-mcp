@@ -1525,6 +1525,23 @@ export type {
   OwnerWanT2vGenerationNormalizedIntent,
   OwnerWanT2vGenerationWireCandidate
 } from "./application/owner-wan-t2v-generation-parameters.js";
+export {
+  getOwnerWan30T2vGenerationSourceContract,
+  normalizeOwnerWan30T2vGenerationIntent,
+  prepareOwnerWan30T2vGenerationWireCandidate,
+  OwnerWan30T2vGenerationParametersError
+} from "./application/owner-wan30-t2v-generation-parameters.js";
+export type {
+  OwnerWan30T2vGenerationResolution,
+  OwnerWan30T2vGenerationAspectRatio,
+  OwnerWan30T2vRenderingSpeed,
+  OwnerWan30T2vGenerationParameters,
+  OwnerWan30T2vGenerationIntent,
+  OwnerWan30T2vGenerationSourceContract,
+  OwnerWan30T2vCostQueryCandidate,
+  OwnerWan30T2vNormalizedGeneration,
+  OwnerWan30T2vGenerationWireCandidate
+} from "./application/owner-wan30-t2v-generation-parameters.js";
 
 export {
   OWNER_SUNO_GENERATION_TOOL_NAMES,

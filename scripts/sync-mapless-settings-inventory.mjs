@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { loadPublicCatalogVersion } from "../dist/src/catalog/public-catalog-history.js";
 import {
   archiveMaplessSettingsInventory,
@@ -23,10 +24,12 @@ const MAX_APP_BYTES = 5 * 1024 * 1024;
 const MAX_JS_BYTES = 2 * 1024 * 1024;
 const TOTAL_TIMEOUT_MS = 300_000;
 const REQUEST_TIMEOUT_MS = 30_000;
+const SOURCE_CATALOG_DIRECTORY = fileURLToPath(new URL("../catalog", import.meta.url));
 
 async function main(args = process.argv.slice(2), options = {}) {
   const publicVersion = parseArguments(args);
-  const publicCatalog = loadPublicCatalogVersion(publicVersion);
+  const catalogDirectory = options.catalogDirectory ?? SOURCE_CATALOG_DIRECTORY;
+  const publicCatalog = loadPublicCatalogVersion(publicVersion, catalogDirectory);
   const fetcher = createBoundedFetcher(options.fetchImpl ?? fetch);
   const started = Date.now();
   try {
@@ -93,7 +96,7 @@ async function main(args = process.argv.slice(2), options = {}) {
       },
       forms: modules
     });
-    const archived = await archiveMaplessSettingsInventory(inventory);
+    const archived = await archiveMaplessSettingsInventory(inventory, catalogDirectory);
     const stats = fetcher.stats();
     process.stdout.write(`Mapless settings inventory ${archived.status}: build=${buildId} models=${inventory.summary.total_models} structural_matches=${inventory.summary.structurally_mapped_models} unknown_form=${inventory.summary.unknown_form_models} public_settings=${inventory.summary.models_with_public_settings} requests=${stats.requests} bytes=${stats.bytes} runtime_usable=false.\nversion=${archived.version}\n`);
     return archived;
@@ -184,3 +187,5 @@ if (isMainModule(import.meta.url)) {
     process.exitCode = 1;
   });
 }
+
+export { main };

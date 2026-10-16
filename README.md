@@ -121,6 +121,81 @@ H.264, 1280×704, 5 секунд, 120 кадров, 1 921 271 байт.
 окончательное списание и жёсткий лимит стоимости не подтверждены. HTTPS-сервер
 MCP, Windows, остальные клиенты, durable restart и другие параметры не проверены.
 
+### Grok V2V: собственный видеооригинал в owner-stdio
+
+`grok_v2v` подключён отдельной группой owner-stdio, выключенной по умолчанию;
+она не включается в обычный или HTTP runtime. Для локального запуска задайте
+операторскую конфигурацию:
+
+```text
+SYNTX_OWNER_GROK_V2V=1
+SYNTX_OWNER_GROK_V2V_FFPROBE_PATH=/absolute/path/to/trusted/ffprobe
+SYNTX_OWNER_GROK_V2V_UPLOAD_DESTINATION=hidden
+```
+
+Путь должен быть абсолютным и доверенным; destination — `hidden` или `uploaded`.
+Шаблон конфигурации можно вывести только с явным подтверждением:
+
+```sh
+node scripts/print-media-mcp-config.mjs --confirm-enable-paid-tools
+```
+
+Старт сервера не вызывает `ffprobe`, не загружает файл и не запускает генерацию.
+Группа содержит шесть инструментов с закрытыми схемами: поля ниже обязательны,
+кроме явно помеченных `?`; дополнительные поля отклоняются.
+
+| Инструмент | Входные поля |
+| --- | --- |
+| `syntx_get_grok_v2v_parameters` | `model_id: "grok_v2v"` |
+| `syntx_owner_upload_grok_v2v_reference` | `link_attempt_id`, `model_id: "grok_v2v"`, `filename`, `mime_type`, `content_base64` |
+| `syntx_owner_generate_grok_v2v` | `link_attempt_id`, `model_id: "grok_v2v"`, `prompt`, `grok_reference_handle` |
+| `syntx_owner_reconcile_grok_v2v` | `link_attempt_id`, `recovery_id` |
+| `syntx_owner_list_grok_v2v_recoveries` | `link_attempt_id`, `limit?` |
+| `syntx_owner_get_grok_v2v_result_page` | `link_attempt_id`, `recovery_id`, `offset?` |
+
+Upload возвращает непрозрачный `grok_reference_handle`, не URL. Getter принимает
+явный model ID и возвращает только source-reviewed профиль: `effective_defaults`,
+`runtime_usable` и `dispatch_allowed` остаются `UNKNOWN`, `false` и `false`.
+Этот статический отчёт сам по себе не является разрешением на генерацию.
+
+Принимается один файл размером до 50 MiB, с согласованными MIME и расширением:
+MP4 (`video/mp4`, `.mp4`) или QuickTime (`video/quicktime`, `.mov`). Локальный
+параметр `filename` ограничен 128 ASCII-символами по локальной схеме; это не
+заявление об ограничении провайдера. `ffprobe` запускается только по явному
+вызову upload и требует доверенный абсолютный путь к обычному файлу, не symlink.
+Из его metadata выводятся длительность и разрешение; длительность должна быть
+в диапазоне 1–8,7 секунды до округления до двух знаков. Разрешение выбирается
+локально по площади:
+409 920 пикселей и выше — `720p`, ниже — `480p`; `aspect_ratio` зафиксирован в
+`null`. Эти значения нельзя передать или переопределить через generate.
+Wire-проекция содержит измеренные `video_duration` и `resolution`; количество
+выходов неизвестно. Prompt должен содержать непустой после `trim` корректный
+Unicode-текст длиной не более 2 000 UTF-16 code units; это локальная схема.
+Локальное чтение metadata не является полным декодированием видео или
+доказательством приёмки провайдером.
+
+Перед генерацией выполняются два свежих чтения аккаунта и model access; требуется
+`access: true` и конечная оценка не выше доступного баланса. Это проверка перед
+dispatch, а не жёсткий лимит списания или гарантия цены. Значения подписки
+читаются отдельно и не заменяют model access.
+
+Upload и generate привязаны к одному owner/attempt/client. Не повторяйте upload
+после `UPLOAD_OUTCOME_UNKNOWN`: такой upload не создаёт generation recovery.
+Не повторяйте generate после `OUTCOME_UNKNOWN`; используйте его `recovery_id` и
+GET-only reconcile. Handles действуют до 15 минут; recovery хранится в памяти
+процесса и теряется после перезапуска. Результат
+означает только локально наблюдённую доступность проверенных видеоартефактов;
+provider terminal status, общее число выходов и enforceable cost cap остаются
+неподтверждёнными.
+
+Для Grok native/service и MCP проверялись синтетические HTTP/ffprobe fixtures и
+SDK/InMemory-сценарии. Настоящий локальный Grok `ffprobe` probe также проверен на
+одном собственном синтетическом MP4; это подтверждает только разбор metadata
+этого файла, не загрузку провайдеру или приёмку других реальных файлов. Pixel
+decode, все форматы и кодеки, а также Windows не проверены. Генерация у
+провайдера Grok **не запускалась**: provider acceptance и фактическое списание
+не установлены.
+
 WAN 2.6 R2V и R2V Flash подключены к восьми default-off owner-stdio командам:
 проверка и загрузка references, генерация, GET-only восстановление и результаты.
 Один реальный Flash-запуск остался `OUTCOME_UNKNOWN` без подтверждённого ACK и

@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test dist/tests/owner-veo-omni-parameters-2054.test.js dist/tests/owner-veo-omni-parameter-tools-2055.test.js tests/owner-veo-omni-composition-2055.test.mjs",
+    "test:media:changed": "node --test dist/tests/owner-grok-v2v-parameters-2057.test.js dist/tests/owner-grok-v2v-original-probe-2058.test.js dist/tests/grok-v2v-media-upload-2059.test.js dist/tests/owner-grok-v2v-native-upload-2060.test.js dist/tests/owner-grok-v2v-original-reference-service-2061.test.js dist/tests/owner-grok-v2v-owned-preparer-2062.test.js dist/tests/owner-grok-v2v-native-generation-2063.test.js dist/tests/owner-grok-v2v-generation-service-2064.test.js dist/tests/owner-grok-v2v-tools-2065.test.js dist/tests/owner-grok-v2v-stdio-config-2066.test.js tests/print-media-grok-v2v-config-2066.test.mjs dist/tests/owner-grok-v2v-runtime-composition-2067.test.js",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

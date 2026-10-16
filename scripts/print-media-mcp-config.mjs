@@ -45,6 +45,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_HAILUO02_I2V",
   "SYNTX_OWNER_VEO_T2V",
   "SYNTX_OWNER_GROK_T2V",
+  "SYNTX_OWNER_GROK_V2V",
   "SYNTX_OWNER_HAILUO_LIVE_T2V",
   "SYNTX_OWNER_TOPAZ_ASTRA",
   "SYNTX_OWNER_TOPAZ_ENHANCE",
@@ -94,6 +95,7 @@ const HELP_TEXT = [
   "Topaz Astra operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "Topaz Enhance is enabled by SYNTX_OWNER_TOPAZ_ENHANCE=1; replace its ffprobe path and upload destination placeholders. The local probe accepts MP4 only, while public metadata also lists WebM and QuickTime. Tools run only when explicitly called; startup does not upload or generate. Paid generation has no enforceable cost cap.",
   "Flux3 owner video tools are enabled by SYNTX_OWNER_FLUX3_VIDEOS=1; replace the trusted absolute ffprobe path and upload destination placeholders. I2V accepts one to ten local image references; V2V accepts one local MP4 reference. Startup does not probe, upload, or generate.",
+  "Grok V2V is enabled by SYNTX_OWNER_GROK_V2V=1; replace its trusted absolute ffprobe path and upload destination placeholders. It accepts one MP4 or QuickTime original of 1–8.7 seconds; duration and resolution are inferred locally. Paid generation is explicitly invoked; startup does not generate and no enforceable cost cap is provided.",
   "The emitted tools can perform paid generation only when explicitly called by the client."
 ].join("\n") + "\n";
 
@@ -145,6 +147,8 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
     ["SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION", "<uploaded|hidden>"],
     ["SYNTX_OWNER_FLUX3_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION", "<uploaded|hidden>"],
+    ["SYNTX_OWNER_GROK_V2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
+    ["SYNTX_OWNER_GROK_V2V_UPLOAD_DESTINATION", "<uploaded|hidden>"],
     ["SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH", "<absolute path to ffprobe>"],
     ["SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH", "<absolute path to ffmpeg>"],
     ["SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],

@@ -165,6 +165,9 @@ import { OwnerTopazEnhanceGenerationService, OWNER_TOPAZ_ENHANCE_GENERATION_CATA
 import { OwnerFlux3MediaReferenceService } from "../application/owner-flux3-media-reference-service.js";
 import { createOwnerFlux3VideoOwnedRequestPreparer } from "../application/owner-flux3-video-owned-request-preparer.js";
 import { createOwnerFlux3VideoGenerationService, OWNER_FLUX3_VIDEO_GENERATION_CATALOG_VERSION } from "../application/owner-flux3-video-generation-service.js";
+import { OwnerGrokV2vOriginalReferenceService } from "../application/owner-grok-v2v-original-reference-service.js";
+import { createOwnerGrokV2vOwnedRequestPreparer } from "../application/owner-grok-v2v-owned-request-preparer.js";
+import { OwnerGrokV2vGenerationService, OWNER_GROK_V2V_GENERATION_CATALOG_VERSION } from "../application/owner-grok-v2v-generation-service.js";
 import { OwnerWan27R2vReferenceService } from "../application/owner-wan27-r2v-reference-service.js";
 import { OwnerWan27R2vReferenceUploadService } from "../application/owner-wan27-r2v-reference-upload-service.js";
 import { createOwnerWan27R2vRequestPreparer } from "../application/owner-wan27-r2v-request-preparer.js";
@@ -237,6 +240,11 @@ export interface ObservedOwnerRuntimeOptions {
   ownerFlux3FfprobePath?: string;
   /** Trusted Flux3 media upload destination; required only when enabled. */
   ownerFlux3UploadDestination?: "uploaded" | "hidden";
+  /** Explicit default-off Grok V2V tool group; configuration never starts an upload or generation. */
+  ownerGrokV2vEnabled?: boolean;
+  /** Trusted local executable path, not a tool input. */
+  ownerGrokV2vFfprobePath?: string;
+  ownerGrokV2vUploadDestination?: "uploaded" | "hidden";
   /** Explicit owner-stdio opt-in for the pinned private ElevenLabs TTS tools. */
   ownerElevenLabsTtsEnabled?: boolean;
   /** Explicit owner-stdio opt-in for ordered ElevenLabs multi-voice dialogue. */
@@ -1900,6 +1908,81 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ generationService, referenceService, lifecycle });
       })()
     : undefined;
+  const ownerGrokV2v = options.ownerGrokV2vEnabled === true
+    ? (() => {
+        if (typeof options.ownerGrokV2vFfprobePath !== "string" || !isAbsolute(options.ownerGrokV2vFfprobePath) ||
+            (options.ownerGrokV2vUploadDestination !== "uploaded" && options.ownerGrokV2vUploadDestination !== "hidden")) {
+          throw new Error("OWNER_GROK_V2V_OPERATOR_CONFIGURATION_REQUIRED");
+        }
+        const grokCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+          OWNER_GROK_V2V_GENERATION_CATALOG_VERSION, options.catalogDirectory
+        ));
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveGrokClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_GROK_V2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        const referenceService = new OwnerGrokV2vOriginalReferenceService({
+          ffprobePath: options.ownerGrokV2vFfprobePath, destination: options.ownerGrokV2vUploadDestination,
+          binding: authBinding, linkService, resolveClient: resolveGrokClient, now
+        });
+        let preparer: ReturnType<typeof createOwnerGrokV2vOwnedRequestPreparer> | undefined;
+        let generationService: OwnerGrokV2vGenerationService | undefined;
+        try {
+          preparer = createOwnerGrokV2vOwnedRequestPreparer({ referenceService, now });
+          generationService = new OwnerGrokV2vGenerationService({
+            binding: authBinding, linkService, catalog: grokCatalog,
+            catalog_version: OWNER_GROK_V2V_GENERATION_CATALOG_VERSION, preparer, referenceService,
+            resolveChatClient: resolveGrokClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(grokCatalog, createReadClient(attemptId), now), now
+          });
+        } catch (error) {
+          const cleanup = (async () => {
+            const errors: unknown[] = [];
+            for (const close of [() => generationService?.close(), () => preparer?.close(), () => referenceService.close()]) {
+              try { await close(); } catch (closeError) { errors.push(closeError); }
+            }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Grok V2V startup cleanup failed.");
+          })();
+          if (error !== null && (typeof error === "object" || typeof error === "function")) {
+            OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          }
+          throw error;
+        }
+        let closing: Promise<void> | undefined;
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            const errors: unknown[] = [];
+            try { await generationService!.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            try { await referenceService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            clientsByAttempt.delete(attemptId);
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Grok V2V invalidation failed.");
+          },
+          close(): Promise<void> {
+            if (closing !== undefined) return closing;
+            closing = (async () => {
+              const errors: unknown[] = [];
+              for (const close of [() => generationService!.close(), () => referenceService.close()]) {
+                try { await close(); } catch (error) { errors.push(error); }
+              }
+              clientsByAttempt.clear();
+              if (errors.length === 1) throw errors[0];
+              if (errors.length > 1) throw new AggregateError(errors, "Grok V2V shutdown failed.");
+            })();
+            return closing;
+          }
+        });
+        return Object.freeze({ referenceService, generationService, lifecycle });
+      })()
+    : undefined;
   const ownerWan27R2v = options.ownerWan27R2vEnabled === true
     ? (() => {
         if (typeof options.ownerWan27R2vFfprobePath !== "string" || !isAbsolute(options.ownerWan27R2vFfprobePath) ||
@@ -2925,7 +3008,7 @@ export function createObservedOwnerRuntime(
     : undefined;
   const ownerAuthLinkService: Pick<PerUserLinkService, "createAttempt" | "issueHandoff" | "checkAttempt" | "revoke"> =
     ownerSoulImageReferences === undefined && ownerGrokT2iImageReferences === undefined && ownerWanT2iImageReferences === undefined &&
-    ownerWanT2vVideos === undefined && ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerFlux3Videos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
+    ownerWanT2vVideos === undefined && ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerFlux3Videos === undefined && ownerGrokV2v === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
       ownerLumaT2v === undefined &&
       ownerHailuo01T2v === undefined &&
       ownerHailuo01DirectorT2v === undefined &&
@@ -2982,6 +3065,10 @@ export function createObservedOwnerRuntime(
             if (ownerFlux3Videos !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerFlux3Videos.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerGrokV2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerGrokV2v.lifecycle.invalidateAttempt(attemptId);
             }
             if (ownerWan27R2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
@@ -3106,7 +3193,7 @@ export function createObservedOwnerRuntime(
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
-        ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerFlux3Videos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined &&
+        ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerFlux3Videos === undefined && ownerGrokV2v === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined &&
         ownerTopazAstra === undefined && ownerTopazEnhance === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
@@ -3159,6 +3246,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerFlux3Videos !== undefined) {
             try { await ownerFlux3Videos.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerGrokV2v !== undefined) {
+            try { await ownerGrokV2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerLumaT2v !== undefined) {
             try { await ownerLumaT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -3294,6 +3384,9 @@ export function createObservedOwnerRuntime(
         referenceService: ownerFlux3Videos.referenceService
       }
     }),
+    ...(ownerGrokV2v === undefined ? {} : {
+      ownerGrokV2v: { generationService: ownerGrokV2v.generationService, referenceService: ownerGrokV2v.referenceService }
+    }),
     ...(ownerElevenLabsTts === undefined ? {} : {
       ownerElevenLabsTts: {
         voiceReferenceService: ownerElevenLabsTts.voiceReferenceService,
@@ -3411,6 +3504,7 @@ export function createObservedOwnerRuntime(
     ...(ownerTopazAstra === undefined ? {} : { ownerTopazAstraLifecycle: ownerTopazAstra.lifecycle }),
     ...(ownerTopazEnhance === undefined ? {} : { ownerTopazEnhanceLifecycle: ownerTopazEnhance.lifecycle }),
     ...(ownerFlux3Videos === undefined ? {} : { ownerFlux3VideosLifecycle: ownerFlux3Videos.lifecycle }),
+    ...(ownerGrokV2v === undefined ? {} : { ownerGrokV2vLifecycle: ownerGrokV2v.lifecycle }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2vLifecycle: ownerLumaT2v.lifecycle }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2vLifecycle: ownerHailuo01T2v.lifecycle }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2vLifecycle: ownerHailuo01DirectorT2v.lifecycle }),

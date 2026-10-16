@@ -490,6 +490,13 @@ import {
   type OwnerFlux3UploadDestination,
   type OwnerFlux3V2vOriginalUploadContext
 } from "./flux3-media-upload.js";
+import {
+  createOwnerGrokV2vUploadContext,
+  parseOwnerGrokV2vUploadReceipt,
+  validateOwnerGrokV2vOriginalForUpload,
+  type OwnerGrokV2vUploadContext,
+  type OwnerGrokV2vUploadDestination
+} from "./grok-v2v-media-upload.js";
 import type {
   OwnerFlux3VideoNativeChatContext,
   OwnerFlux3VideoNativeStartAck,
@@ -541,6 +548,11 @@ const OWNER_FLUX3_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
   client: SyntxChatHttpClient;
   url: string;
   context: OwnerFlux3UploadContext;
+}>>();
+const OWNER_GROK_V2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
+  client: SyntxChatHttpClient;
+  url: string;
+  context: OwnerGrokV2vUploadContext;
 }>>();
 const OWNER_ELEVENLABS_STS_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
   client: SyntxChatHttpClient;
@@ -4976,6 +4988,51 @@ export class SyntxChatHttpClient {
     return native.getOwnerFlux3VideoNativeResult(input, packet, signal);
   }
 
+  /** Creates a Grok video chat only from a genuine, current owned operation. */
+  async createOwnerGrokV2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-grok-v2v-native-context.js").OwnerGrokV2vNativeChatContext> {
+    assertNativeOwnerGrokV2v(this);
+    const native = await import("./owner-grok-v2v-native-context.js");
+    const packet = createOwnerGrokV2vNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_GROK_V2V_CREATE_CHAT, this,
+        ["video", title, requestSignal]));
+    return native.createOwnerGrokV2vNativeChat(input, packet, signal);
+  }
+
+  /** The native context consumes a sealed permit before the sole generation POST. */
+  async startGrokV2vWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<import("./owner-grok-v2v-native-context.js").OwnerGrokV2vNativeStartAck> {
+    assertNativeOwnerGrokV2v(this);
+    const native = await import("./owner-grok-v2v-native-context.js");
+    const packet = createOwnerGrokV2vNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "grok_video", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerGrokV2vWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Reads bounded owner-bound history without dispatching or retrying generation. */
+  async listOwnedGrokV2vCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-grok-v2v-native-context.js").OwnerGrokV2vNativeResultCandidates> {
+    assertNativeOwnerGrokV2v(this);
+    const native = await import("./owner-grok-v2v-native-context.js");
+    const packet = createOwnerGrokV2vNativeInvocation(this, "list", input,
+      (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnerGrokV2vNativeCandidates(input, packet, signal);
+  }
+
+  /** Resolves only a genuine result capability issued by this client's owned history. */
+  async getOwnedGrokV2vResult(input: import("./owner-grok-v2v-native-context.js").OwnerGrokV2vNativeResultReadInput,
+    signal?: AbortSignal): Promise<import("./owner-grok-v2v-native-context.js").OwnerGrokV2vNativeResult> {
+    assertNativeOwnerGrokV2v(this);
+    const native = await import("./owner-grok-v2v-native-context.js");
+    const packet = createOwnerGrokV2vNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) =>
+        this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerGrokV2vNativeResult(input, packet, signal);
+  }
+
   /** Creates one owner Hailuo-02 I2V video chat from a genuine same-client image candidate. */
   async createOwnerHailuo02I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-hailuo02-i2v-native-context.js").OwnerHailuo02I2vChatContext> {
     assertNativeOwnerHailuo02I2v(this);
@@ -7452,6 +7509,34 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** Uploads one byte-bound Grok original; its storage URL stays in the same-client witness. */
+  async uploadGrokV2vOriginal(
+    genuineProbe: unknown,
+    destination: OwnerGrokV2vUploadDestination,
+    signal?: AbortSignal
+  ): Promise<OwnerGrokV2vUploadContext> {
+    if (!isExactOwnerGrokV2vUploadClient(this) || (destination !== "uploaded" && destination !== "hidden")) throw invalidRequest();
+    let validated: ReturnType<typeof validateOwnerGrokV2vOriginalForUpload>;
+    try { validated = validateOwnerGrokV2vOriginalForUpload(genuineProbe); }
+    catch { throw invalidRequest(); }
+    const bytes = validated.bytes;
+    let form: FormData | undefined;
+    try {
+      form = this.#buildUploadForm({ bytes, filename: validated.filename, mime_type: validated.mime_type,
+        destination, check_duplicates: true, model_type: "grok_v2v" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      let reference: Readonly<{ url: string }>;
+      try { reference = parseOwnerGrokV2vUploadReceipt(raw, validated); }
+      catch { throw protocolError(); }
+      const context = createOwnerGrokV2vUploadContext(validated, destination);
+      OWNER_GROK_V2V_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url, context }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One native upload of a trusted STS MP3; only a same-client private witness retains its R2 URL. */
   async uploadElevenLabsStsOriginal(
     genuineProbe: unknown,
@@ -8551,6 +8636,7 @@ const NATIVE_OWNER_TOPAZ_ASTRA_UPLOAD = SyntxChatHttpClient.prototype.uploadTopa
 const NATIVE_OWNER_TOPAZ_ENHANCE_UPLOAD = SyntxChatHttpClient.prototype.uploadTopazEnhanceOriginal;
 const NATIVE_OWNER_FLUX3_I2V_UPLOAD = SyntxChatHttpClient.prototype.uploadFlux3I2vImage;
 const NATIVE_OWNER_FLUX3_V2V_UPLOAD = SyntxChatHttpClient.prototype.uploadFlux3V2vOriginal;
+const NATIVE_OWNER_GROK_V2V_UPLOAD = SyntxChatHttpClient.prototype.uploadGrokV2vOriginal;
 const NATIVE_OWNER_ELEVENLABS_STS_UPLOAD = SyntxChatHttpClient.prototype.uploadElevenLabsStsOriginal;
 const NATIVE_OWNER_ELEVENLABS_STS_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
 const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerElevenLabsStsChat;
@@ -9000,6 +9086,62 @@ function isExactOwnerFlux3VideoNativeClient(client: unknown): client is SyntxCha
   } catch { return false; }
 }
 
+const NATIVE_OWNER_GROK_V2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_GROK_V2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerGrokV2vChat;
+const NATIVE_OWNER_GROK_V2V_NATIVE_START = SyntxChatHttpClient.prototype.startGrokV2vWithOwnedCandidate;
+const NATIVE_OWNER_GROK_V2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedGrokV2vCandidates;
+const NATIVE_OWNER_GROK_V2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedGrokV2vResult;
+type OwnerGrokV2vNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerGrokV2vNativeInvocation {
+  readonly client: SyntxChatHttpClient;
+  readonly method: OwnerGrokV2vNativeMethod;
+  readonly input: unknown;
+  readonly callback: Function;
+}
+const OWNER_GROK_V2V_NATIVE_INVOCATIONS = new WeakMap<object, OwnerGrokV2vNativeInvocation>();
+
+function createOwnerGrokV2vNativeInvocation(client: SyntxChatHttpClient, method: OwnerGrokV2vNativeMethod,
+  input: unknown, callback: Function): object {
+  assertNativeOwnerGrokV2v(client);
+  if (typeof callback !== "function" || types.isProxy(callback)) throw invalidRequest();
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_GROK_V2V_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** Consumes one packet minted inside the four exact native Grok methods, never by a caller. */
+export function consumeOwnerGrokV2vNativeInvocation(input: unknown, packet: unknown,
+  method: OwnerGrokV2vNativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw invalidRequest();
+  const invocation = OWNER_GROK_V2V_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerGrokV2vNativeClient(invocation.client)) {
+    throw invalidRequest();
+  }
+  OWNER_GROK_V2V_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerGrokV2v(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerGrokV2vNativeClient(client)) throw invalidRequest();
+}
+
+function isExactOwnerGrokV2vNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !["createChat", "uploadGrokV2vOriginal", "createOwnerGrokV2vChat", "startGrokV2vWithOwnedCandidate",
+        "listOwnedGrokV2vCandidates", "getOwnedGrokV2vResult"].some((name) => Object.hasOwn(client, name)) &&
+      getDataMethod(client, "createChat") === NATIVE_OWNER_GROK_V2V_CREATE_CHAT &&
+      getDataMethod(client, "uploadGrokV2vOriginal") === NATIVE_OWNER_GROK_V2V_UPLOAD &&
+      getDataMethod(client, "createOwnerGrokV2vChat") === NATIVE_OWNER_GROK_V2V_NATIVE_CREATE &&
+      getDataMethod(client, "startGrokV2vWithOwnedCandidate") === NATIVE_OWNER_GROK_V2V_NATIVE_START &&
+      getDataMethod(client, "listOwnedGrokV2vCandidates") === NATIVE_OWNER_GROK_V2V_NATIVE_LIST &&
+      getDataMethod(client, "getOwnedGrokV2vResult") === NATIVE_OWNER_GROK_V2V_NATIVE_GET &&
+      Reflect.get(client, "createChat") === NATIVE_OWNER_GROK_V2V_CREATE_CHAT &&
+      Reflect.get(client, "uploadGrokV2vOriginal") === NATIVE_OWNER_GROK_V2V_UPLOAD;
+  } catch { return false; }
+}
+
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerTopazAstraChat;
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_START = SyntxChatHttpClient.prototype.startTopazAstraWithOwnedCandidate;
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedTopazAstraCandidates;
@@ -9296,6 +9438,33 @@ function isExactOwnerFlux3UploadClient(client: unknown): client is SyntxChatHttp
       SyntxChatHttpClient.prototype.uploadFlux3V2vOriginal === NATIVE_OWNER_FLUX3_V2V_UPLOAD &&
       Reflect.get(client, "uploadFlux3I2vImage") === NATIVE_OWNER_FLUX3_I2V_UPLOAD &&
       Reflect.get(client, "uploadFlux3V2vOriginal") === NATIVE_OWNER_FLUX3_V2V_UPLOAD;
+  } catch { return false; }
+}
+
+/** Private Grok bridge: only this exact client can resolve its genuine opaque upload context. */
+export function readOwnerGrokV2vUploadReferenceForClient(
+  client: unknown,
+  contextInput: unknown
+): Readonly<OwnerGrokV2vUploadContext & { readonly url: string }> | null {
+  if (!isExactOwnerGrokV2vUploadClient(client) || !contextInput || typeof contextInput !== "object" ||
+      types.isProxy(contextInput) || !Object.isFrozen(contextInput)) return null;
+  const witness = OWNER_GROK_V2V_UPLOAD_CONTEXTS.get(contextInput);
+  if (!witness || witness.client !== client || witness.context !== contextInput || !isSafeUploadReferenceUrl(witness.url)) return null;
+  const context = contextInput as OwnerGrokV2vUploadContext;
+  if (context.status !== "OWNER_GROK_V2V_ORIGINAL_UPLOADED" || context.model_id !== "grok_v2v" ||
+      context.ai_name !== "grok_video" ||
+      context.source_catalog_version !== "sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json" ||
+      (context.destination !== "uploaded" && context.destination !== "hidden")) return null;
+  return Object.freeze({ ...context, url: witness.url });
+}
+
+function isExactOwnerGrokV2vUploadClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype && !Object.hasOwn(client, "uploadGrokV2vOriginal") &&
+      getDataMethod(client, "uploadGrokV2vOriginal") === NATIVE_OWNER_GROK_V2V_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadGrokV2vOriginal === NATIVE_OWNER_GROK_V2V_UPLOAD &&
+      Reflect.get(client, "uploadGrokV2vOriginal") === NATIVE_OWNER_GROK_V2V_UPLOAD;
   } catch { return false; }
 }
 

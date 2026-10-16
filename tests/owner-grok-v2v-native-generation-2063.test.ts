@@ -261,7 +261,8 @@ test("Grok V2V uses one measured upload, exact video settings, bound owner ACK, 
 test("Grok V2V fails closed when a second positive-author request row shares the fresh chat history", {
   skip: process.platform === "win32" ? "POSIX fake-ffprobe fixture; Windows native probe path NOT_RUN" : false
 }, async () => {
-  const flow = await createFlow({ additionalOwnerRequest: "A different owner prompt in the same fresh chat." });
+  const flow = await createFlow({ prompt: "Primary prompt for the duplicate-owner-history guard case.",
+    additionalOwnerRequest: "A different owner prompt in the same fresh chat." });
   try {
     const chat = await flow.client.createOwnerGrokV2vChat(flow.operation);
     const ack = await flow.client.startGrokV2vWithOwnedCandidate({ ...flow.operation, chat });

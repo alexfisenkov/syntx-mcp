@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "7b5c3a1920386d636181eff92a10c7d796b2ed16",
+  "source_commit": "2da173f6c2b48e9addc7a565c9937dd9533290ff",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -1833,7 +1833,7 @@
     "docs/интеграция/Обновление-MCP.md": "1208e5461fd3886ecb2eecbc37ad2f1101e90b01225782a8dbd2e28918fb75e1",
     "docs/модели/WAN-image-источники-и-параметры.md": "b91c32d954187ce144fa628e77c1e3a64728953e273e9bb7807f1b6796cc541c",
     "package-lock.json": "ab3ebf027da50c57721dc70a51ad492725f79319dc36954b0d957c6bc62f67fa",
-    "package.json": "ce1dc33b5f6471bf6055c421b2581d0d4c11a89448a2bfa4ea8fa3e847077da2",
+    "package.json": "26fdb0939c7ead8cf24a4d14aa487fb94d7ffca5d9b7330aa9bcfd59e43563f9",
     "scripts/archive-versioned-settings-census.mjs": "3974bec8fa0542e21979b83f15c687f32d6874eeec7b28f5919eccbeb80727f2",
     "scripts/check-installed-banana-inpaint-flow.mjs": "31c6b5f042cea205f0e6431dda38b7432300ffbd824d66e01141497db720e9b6",
     "scripts/check-installed-elevenlabs-tts-flow.mjs": "292ba04344899203c2b373df66de95ef49506d5b2aca5fb1a771aff956323cc6",
@@ -2734,7 +2734,7 @@
     "tests/owner-grok-t2v-runtime-composition.test.ts": "a548363017d95483a39c4605b038ff71a90eb8c51fafee129fed5e4f3474fe4c",
     "tests/owner-grok-t2v-tools.test.ts": "12faec4fd2caeafce3841be9eea2d47f251010d2a91d6d4ba8b7c3b4e73fcda7",
     "tests/owner-grok-v2v-generation-service-2064.test.ts": "3128f04d7c5d0432df669babbfd09a47b3d9078ff198dc548228d3b719705d29",
-    "tests/owner-grok-v2v-native-generation-2063.test.ts": "30fb9b68bb2733451e518447dbcf13304ac91a35fdcf371a0dd6e5b0914f85fb",
+    "tests/owner-grok-v2v-native-generation-2063.test.ts": "72898469836d452ab44f31d0bb2cd6265c87644d6d70a241445742f84ab94990",
     "tests/owner-grok-v2v-native-upload-2060.test.ts": "eea888ba561d73712ad930e867f8d1b881b41fbbc2974a37395ac380de05651a",
     "tests/owner-grok-v2v-original-probe-2058.test.ts": "9c75b2f9f8d04833228a939aad5fba019b0b8c29acda26d00ec1582cc98a6b1d",
     "tests/owner-grok-v2v-original-reference-service-2061.test.ts": "230757cd697149e6c19e705d4a301c1289b66c1ff575dc9e7751214c2dd94cc3",

@@ -142,7 +142,7 @@ test("Reference context binds same-client uploaded image and reserves the observ
   assert.deepEqual(wireBefore, { prompt: `<<<${IMAGE_URL}>>> A red paper boat on a quiet blue lake. `, reference_url: IMAGE_URL });
   assert.equal(readOwnerWan30ReferencePrivateWireBinding(makeClient().client, context), null);
   const receipt = await client.generateWan30ReferenceVideo(context);
-  assert.equal(receipt.message_id, "reference-bot-1");
+  assert.equal(receipt.message_id, "5001");
   const post = observed.find((entry) => entry.path === "/api/v1/video/generate");
   assert.ok(post);
   const body = post.body as { chat_id: string; prompt: string; settings: Record<string, unknown> };

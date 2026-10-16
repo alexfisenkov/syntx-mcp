@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "474173324acb52342932abaf141f9d98b5e4fa09",
+  "source_commit": "b4b8440e53804d3738f7ff358f4c80caf8fd7b27",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2917,8 +2917,8 @@
     "tests/owner-wan30-reference-config-1876.test.mjs": "df52653e2a5af4b71a56ee64ea501251f9440eb76c6787d6c854569611d951dc",
     "tests/owner-wan30-reference-generation-parameters.test.ts": "17871c6bc0b969e3c118bd53434361d7531d4ad594c8503d26c163fa03f96b82",
     "tests/owner-wan30-reference-generation-service.test.ts": "38491a859d89271c6368a5f2af9b659fa87cd47d12c01d93e293afd71979d6b6",
-    "tests/owner-wan30-reference-mcp-1876.test.ts": "e6f1bfac78ee96685dc352c8d8c2e3355c78c75db5dfce06767c818a022ae2fb",
-    "tests/owner-wan30-reference-native-context.test.ts": "dc52aa8763bdaa3d7259687ab454617f28e8c211b5b6a7ce5268ef91b8514053",
+    "tests/owner-wan30-reference-mcp-1876.test.ts": "962fc33f447cf796073ee2490ff239c51464d2a2dd210c1059d82516ec599ab6",
+    "tests/owner-wan30-reference-native-context.test.ts": "da730381195ec74d4bbb180dcbe3a915d563323abd646e275673d3cd95850a73",
     "tests/owner-wan30-t2v-flow-1809.test.ts": "74983e77d6483769f26cc659637b22d54fad63e8cc7baf8e7d699ffba3b4f9fd",
     "tests/owner-wan30-t2v-parameters-1808.test.ts": "f3d7c2adc5cdd33a0e32b3818368ee4406433e658e2bc0b7e16e742d4b61c0a6",
     "tests/package-install-image-family-admission.test.mjs": "e5031f29f4236bc2689b1dfd4c0d739197265ca061a6949ee9784ea7e8a3ba3a",

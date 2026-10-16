@@ -17,7 +17,7 @@ import {
 import { readOwnerWan30ReferenceVideosFlag } from "../src/transports/stdio-owner.js";
 
 const CATALOG_VERSION = "sha256-19c882601bb8ecdba994adf819544ebf06fd2db30374335631bb6078a66e5a76.json";
-const CATALOG_DIRECTORY = fileURLToPath(new URL("../catalog/", import.meta.url));
+const CATALOG_DIRECTORY = fileURLToPath(new URL("../../catalog/", import.meta.url));
 
 async function connected(ownerWan30ReferenceVideosEnabled?: boolean) {
   let fetchCalls = 0;

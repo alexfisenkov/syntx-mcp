@@ -124,6 +124,7 @@ test("Flux3 V2V preflights exact cost keys twice, never replays POST, and reconc
     clock.value += 16 * 60_000;
     const completed = await service.reconcile({ attemptId: ATTEMPT, recovery_id: outcome.recovery_id! });
     assert.equal(completed.status, "completed"); assert.equal(completed.model_id, "flux3_v2v");
+    assert.deepEqual(completed.diagnostic.gaps, []);
     assert.equal(completed.status_semantics, "LOCAL_OBSERVED_AVAILABILITY_ONLY"); assert.equal(completed.output_count, "UNKNOWN");
     assert.equal(completed.backend_acceptance, "UNPROVEN"); assert.equal(completed.provider_terminal_status, "UNPROVEN");
     assert.equal(completed.cost_cap_enforced, false); assert.equal(completed.observed_artifact_count, 2);

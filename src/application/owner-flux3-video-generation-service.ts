@@ -461,7 +461,7 @@ export class OwnerFlux3VideoGenerationService {
     }
     await this.#checkPrincipal(r.attemptId, r.principal);
     if (this.#client(r.attemptId) !== r.client) fail("RECOVERY_NOT_FOUND");
-    r.artifacts = Object.freeze(artifacts); r.status = "completed"; r.d.result_status = "COMPLETE";
+    r.artifacts = Object.freeze(artifacts); r.d.gaps = []; r.status = "completed"; r.d.result_status = "COMPLETE";
     return page(r, 0);
   }
   #await<T>(deadline: AbsoluteRequestDeadline, task: () => Promise<T>): Promise<T> { deadline.throwIfAborted(); return deadline.waitFor(task()); }

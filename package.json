@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test dist/tests/owner-flux3-video-parameters-2002.test.js dist/tests/owner-flux3-i2v-image-probe-2008.test.js dist/tests/owner-flux3-v2v-original-probe-2009.test.js dist/tests/owner-flux3-media-upload-2010.test.js dist/tests/owner-flux3-video-cost-2011.test.js dist/tests/owner-flux3-media-reference-service-2012.test.js dist/tests/owner-flux3-video-owned-preparer-2013.test.js dist/tests/owner-flux3-video-native-generation-2014.test.js dist/tests/owner-flux3-video-generation-service-2018.test.js dist/tests/owner-flux3-video-mcp-2019.test.js dist/tests/owner-flux3-video-stdio-config-2019.test.js && node --test --test-name-pattern=\"emitted JSON has absolute owner-stdio target|Flux3 media placeholders|Hailuo Live T2V flag is emitted only after exact paid-tools confirmation\" tests/print-media-mcp-config.test.mjs",
+    "test:media:changed": "node --test --test-name-pattern=\"Flux3 V2V preflights exact cost keys\" dist/tests/owner-flux3-video-generation-service-2018.test.js",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

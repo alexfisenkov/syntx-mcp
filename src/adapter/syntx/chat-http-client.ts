@@ -481,6 +481,23 @@ import {
   type OwnerTopazEnhanceOriginalUploadContext
 } from "./topaz-enhance-original-upload.js";
 import {
+  createOwnerFlux3UploadContext,
+  parseOwnerFlux3UploadReceipt,
+  validateOwnerFlux3I2vImageForUpload,
+  validateOwnerFlux3V2vOriginalForUpload,
+  type OwnerFlux3I2vImageUploadContext,
+  type OwnerFlux3UploadContext,
+  type OwnerFlux3UploadDestination,
+  type OwnerFlux3V2vOriginalUploadContext
+} from "./flux3-media-upload.js";
+import type {
+  OwnerFlux3VideoNativeChatContext,
+  OwnerFlux3VideoNativeStartAck,
+  OwnerFlux3VideoNativeResultCandidates,
+  OwnerFlux3VideoNativeResult,
+  OwnerFlux3VideoNativeResultReadInput
+} from "./owner-flux3-video-native-context.js";
+import {
   parseOwnerElevenLabsStsOriginalUploadReceipt,
   validateOwnerElevenLabsStsOriginalProbeForUpload,
   type OwnerElevenLabsStsOriginalUploadReference
@@ -519,6 +536,11 @@ const OWNER_TOPAZ_ENHANCE_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
   height: number;
   duration_seconds: number;
   frame_count: number;
+}>>();
+const OWNER_FLUX3_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
+  client: SyntxChatHttpClient;
+  url: string;
+  context: OwnerFlux3UploadContext;
 }>>();
 const OWNER_ELEVENLABS_STS_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
   client: SyntxChatHttpClient;
@@ -4910,6 +4932,50 @@ export class SyntxChatHttpClient {
     return native.getOwnerTopazEnhanceNativeResult(input, packet, signal);
   }
 
+  /** Creates one owner Flux3 video chat on the source-observed generic video scope. */
+  async createOwnerFlux3VideoChat(input: unknown, signal?: AbortSignal): Promise<OwnerFlux3VideoNativeChatContext> {
+    assertNativeOwnerFlux3Video(this);
+    const native = await import("./owner-flux3-video-native-context.js");
+    const packet = createOwnerFlux3VideoNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_FLUX3_VIDEO_CREATE_CHAT, this,
+        ["video", title, requestSignal]));
+    return native.createOwnerFlux3VideoNativeChat(input, packet, signal);
+  }
+
+  /** Revalidates and consumes one genuine Flux3 permit immediately before its sole video/generate POST. */
+  async startFlux3VideoWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<OwnerFlux3VideoNativeStartAck> {
+    assertNativeOwnerFlux3Video(this);
+    const native = await import("./owner-flux3-video-native-context.js");
+    const packet = createOwnerFlux3VideoNativeInvocation(this, "start", input,
+      async (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "flux3_video", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerFlux3VideoWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Bounded GET-only owned Flux3 video history read; POST ACK identity is captured in local state. */
+  async listOwnedFlux3VideoCandidates(input: unknown, signal?: AbortSignal): Promise<OwnerFlux3VideoNativeResultCandidates> {
+    assertNativeOwnerFlux3Video(this);
+    const native = await import("./owner-flux3-video-native-context.js");
+    const packet = createOwnerFlux3VideoNativeInvocation(this, "list", input,
+      async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnerFlux3VideoNativeCandidates(input, packet, signal);
+  }
+
+  /** Reads one nominal result context minted by this client's bounded owned Flux3 history. */
+  async getOwnedFlux3VideoResult(input: OwnerFlux3VideoNativeResultReadInput, signal?: AbortSignal): Promise<OwnerFlux3VideoNativeResult> {
+    assertNativeOwnerFlux3Video(this);
+    const native = await import("./owner-flux3-video-native-context.js");
+    const packet = createOwnerFlux3VideoNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) =>
+        this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerFlux3VideoNativeResult(input, packet, signal);
+  }
+
   /** Creates one owner Hailuo-02 I2V video chat from a genuine same-client image candidate. */
   async createOwnerHailuo02I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-hailuo02-i2v-native-context.js").OwnerHailuo02I2vChatContext> {
     assertNativeOwnerHailuo02I2v(this);
@@ -7330,6 +7396,62 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One native Flux3 I2V image upload; its storage URL stays in this client's private witness. */
+  async uploadFlux3I2vImage(
+    genuineProbe: unknown,
+    destination: OwnerFlux3UploadDestination,
+    signal?: AbortSignal
+  ): Promise<OwnerFlux3I2vImageUploadContext> {
+    if (destination !== "uploaded" && destination !== "hidden") throw invalidRequest();
+    let validated: ReturnType<typeof validateOwnerFlux3I2vImageForUpload>;
+    try { validated = validateOwnerFlux3I2vImageForUpload(genuineProbe); }
+    catch { throw invalidRequest(); }
+    const bytes = validated.bytes;
+    let form: FormData | undefined;
+    try {
+      form = this.#buildUploadForm({ bytes, filename: validated.filename, mime_type: validated.mime_type,
+        destination, check_duplicates: true, model_type: "flux3_i2v" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      let reference: Readonly<{ url: string }>;
+      try { reference = parseOwnerFlux3UploadReceipt(raw, validated); }
+      catch { throw protocolError(); }
+      const context = createOwnerFlux3UploadContext(validated, destination);
+      OWNER_FLUX3_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url, context }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
+  /** One native Flux3 V2V MP4 original upload; no generation call is made here. */
+  async uploadFlux3V2vOriginal(
+    genuineProbe: unknown,
+    destination: OwnerFlux3UploadDestination,
+    signal?: AbortSignal
+  ): Promise<OwnerFlux3V2vOriginalUploadContext> {
+    if (destination !== "uploaded" && destination !== "hidden") throw invalidRequest();
+    let validated: ReturnType<typeof validateOwnerFlux3V2vOriginalForUpload>;
+    try { validated = validateOwnerFlux3V2vOriginalForUpload(genuineProbe); }
+    catch { throw invalidRequest(); }
+    const bytes = validated.bytes;
+    let form: FormData | undefined;
+    try {
+      form = this.#buildUploadForm({ bytes, filename: validated.filename, mime_type: validated.mime_type,
+        destination, check_duplicates: true, model_type: "flux3_v2v" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      let reference: Readonly<{ url: string }>;
+      try { reference = parseOwnerFlux3UploadReceipt(raw, validated); }
+      catch { throw protocolError(); }
+      const context = createOwnerFlux3UploadContext(validated, destination);
+      OWNER_FLUX3_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: reference.url, context }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One native upload of a trusted STS MP3; only a same-client private witness retains its R2 URL. */
   async uploadElevenLabsStsOriginal(
     genuineProbe: unknown,
@@ -8427,6 +8549,8 @@ export class SyntxChatHttpClient {
 
 const NATIVE_OWNER_TOPAZ_ASTRA_UPLOAD = SyntxChatHttpClient.prototype.uploadTopazAstraOriginal;
 const NATIVE_OWNER_TOPAZ_ENHANCE_UPLOAD = SyntxChatHttpClient.prototype.uploadTopazEnhanceOriginal;
+const NATIVE_OWNER_FLUX3_I2V_UPLOAD = SyntxChatHttpClient.prototype.uploadFlux3I2vImage;
+const NATIVE_OWNER_FLUX3_V2V_UPLOAD = SyntxChatHttpClient.prototype.uploadFlux3V2vOriginal;
 const NATIVE_OWNER_ELEVENLABS_STS_UPLOAD = SyntxChatHttpClient.prototype.uploadElevenLabsStsOriginal;
 const NATIVE_OWNER_ELEVENLABS_STS_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
 const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerElevenLabsStsChat;
@@ -8817,6 +8941,65 @@ function isExactOwnerWan26I2vNativeClient(client: unknown): client is SyntxChatH
   } catch { return false; }
 }
 
+const NATIVE_OWNER_FLUX3_VIDEO_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_FLUX3_VIDEO_UPLOAD_I2V = SyntxChatHttpClient.prototype.uploadFlux3I2vImage;
+const NATIVE_OWNER_FLUX3_VIDEO_UPLOAD_V2V = SyntxChatHttpClient.prototype.uploadFlux3V2vOriginal;
+const NATIVE_OWNER_FLUX3_VIDEO_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerFlux3VideoChat;
+const NATIVE_OWNER_FLUX3_VIDEO_NATIVE_START = SyntxChatHttpClient.prototype.startFlux3VideoWithOwnedCandidate;
+const NATIVE_OWNER_FLUX3_VIDEO_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedFlux3VideoCandidates;
+const NATIVE_OWNER_FLUX3_VIDEO_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedFlux3VideoResult;
+type OwnerFlux3VideoNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerFlux3VideoNativeInvocation {
+  readonly client: SyntxChatHttpClient;
+  readonly method: OwnerFlux3VideoNativeMethod;
+  readonly input: unknown;
+  readonly callback: Function;
+}
+const OWNER_FLUX3_VIDEO_NATIVE_INVOCATIONS = new WeakMap<object, OwnerFlux3VideoNativeInvocation>();
+
+function createOwnerFlux3VideoNativeInvocation(client: SyntxChatHttpClient, method: OwnerFlux3VideoNativeMethod,
+  input: unknown, callback: Function): object {
+  assertNativeOwnerFlux3Video(client);
+  if (typeof callback !== "function" || types.isProxy(callback)) throw invalidRequest();
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_FLUX3_VIDEO_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** Consumes a one-use packet minted only inside the four exact Flux3 video methods. */
+export function consumeOwnerFlux3VideoNativeInvocation(input: unknown, packet: unknown, method: OwnerFlux3VideoNativeMethod):
+  Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw invalidRequest();
+  const invocation = OWNER_FLUX3_VIDEO_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerFlux3VideoNativeClient(invocation.client)) {
+    throw invalidRequest();
+  }
+  OWNER_FLUX3_VIDEO_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerFlux3Video(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerFlux3VideoNativeClient(client)) throw invalidRequest();
+}
+
+function isExactOwnerFlux3VideoNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) && Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !["uploadFlux3I2vImage", "uploadFlux3V2vOriginal", "createOwnerFlux3VideoChat", "startFlux3VideoWithOwnedCandidate",
+        "listOwnedFlux3VideoCandidates", "getOwnedFlux3VideoResult"].some((name) => Object.hasOwn(client, name)) &&
+      getDataMethod(client, "createChat") === NATIVE_OWNER_FLUX3_VIDEO_CREATE_CHAT &&
+      getDataMethod(client, "uploadFlux3I2vImage") === NATIVE_OWNER_FLUX3_VIDEO_UPLOAD_I2V &&
+      getDataMethod(client, "uploadFlux3V2vOriginal") === NATIVE_OWNER_FLUX3_VIDEO_UPLOAD_V2V &&
+      getDataMethod(client, "createOwnerFlux3VideoChat") === NATIVE_OWNER_FLUX3_VIDEO_NATIVE_CREATE &&
+      getDataMethod(client, "startFlux3VideoWithOwnedCandidate") === NATIVE_OWNER_FLUX3_VIDEO_NATIVE_START &&
+      getDataMethod(client, "listOwnedFlux3VideoCandidates") === NATIVE_OWNER_FLUX3_VIDEO_NATIVE_LIST &&
+      getDataMethod(client, "getOwnedFlux3VideoResult") === NATIVE_OWNER_FLUX3_VIDEO_NATIVE_GET &&
+      Reflect.get(client, "createChat") === NATIVE_OWNER_FLUX3_VIDEO_CREATE_CHAT &&
+      Reflect.get(client, "uploadFlux3I2vImage") === NATIVE_OWNER_FLUX3_VIDEO_UPLOAD_I2V &&
+      Reflect.get(client, "uploadFlux3V2vOriginal") === NATIVE_OWNER_FLUX3_VIDEO_UPLOAD_V2V;
+  } catch { return false; }
+}
+
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerTopazAstraChat;
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_START = SyntxChatHttpClient.prototype.startTopazAstraWithOwnedCandidate;
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedTopazAstraCandidates;
@@ -9082,6 +9265,38 @@ export function readOwnerTopazEnhanceOriginalUploadForClient(
     source_sha256: witness.source_sha256, source_size: witness.source_size,
     source_mime_type: witness.source_mime_type, width: witness.width, height: witness.height,
     duration_seconds: witness.duration_seconds, frame_count: witness.frame_count, url: witness.url });
+}
+
+/** Private same-client bridge for the two Flux3 upload roles; URLs never enter their public contexts. */
+export function readOwnerFlux3UploadReferenceForClient(
+  client: unknown,
+  contextInput: unknown
+): Readonly<(OwnerFlux3UploadContext & { readonly url: string })> | null {
+  if (!isExactOwnerFlux3UploadClient(client) || !contextInput || typeof contextInput !== "object" ||
+      types.isProxy(contextInput) || !Object.isFrozen(contextInput)) return null;
+  const witness = OWNER_FLUX3_UPLOAD_CONTEXTS.get(contextInput);
+  if (!witness || witness.client !== client || witness.context !== contextInput || !isSafeUploadReferenceUrl(witness.url)) return null;
+  const context = contextInput as OwnerFlux3UploadContext;
+  if ((context.model_id === "flux3_i2v" && context.status !== "OWNER_FLUX3_I2V_IMAGE_UPLOADED") ||
+      (context.model_id === "flux3_v2v" && context.status !== "OWNER_FLUX3_V2V_ORIGINAL_UPLOADED") ||
+      context.ai_name !== "flux3_video" ||
+      context.source_catalog_version !== "sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json" ||
+      (context.destination !== "uploaded" && context.destination !== "hidden")) return null;
+  return Object.freeze({ ...context, url: witness.url });
+}
+
+function isExactOwnerFlux3UploadClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !["uploadFlux3I2vImage", "uploadFlux3V2vOriginal"].some((name) => Object.hasOwn(client, name)) &&
+      getDataMethod(client, "uploadFlux3I2vImage") === NATIVE_OWNER_FLUX3_I2V_UPLOAD &&
+      getDataMethod(client, "uploadFlux3V2vOriginal") === NATIVE_OWNER_FLUX3_V2V_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadFlux3I2vImage === NATIVE_OWNER_FLUX3_I2V_UPLOAD &&
+      SyntxChatHttpClient.prototype.uploadFlux3V2vOriginal === NATIVE_OWNER_FLUX3_V2V_UPLOAD &&
+      Reflect.get(client, "uploadFlux3I2vImage") === NATIVE_OWNER_FLUX3_I2V_UPLOAD &&
+      Reflect.get(client, "uploadFlux3V2vOriginal") === NATIVE_OWNER_FLUX3_V2V_UPLOAD;
+  } catch { return false; }
 }
 
 /** Private same-client bridge for STS composition; the URL never enters the DTO. */

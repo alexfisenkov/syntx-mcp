@@ -23,6 +23,76 @@ Remover и Veo Omni, а публичный флаг активности Clarity
 форма→модуль, но по-прежнему отклоняет конфликтующие соответствия. Это
 обновление инструмента исследования сайта, а не подтверждение новых генераторов.
 
+### Flux3 I2V и V2V: отдельная owner-stdio группа
+
+В исходниках есть шесть инструментов для двух отдельных video-моделей:
+`flux3_i2v` и `flux3_v2v`. Группа выключена по умолчанию и не добавляется в
+обычный HTTP runtime. Для включения только в локальном owner stdio задайте
+операторские переменные:
+
+```text
+SYNTX_OWNER_FLUX3_VIDEOS=1
+SYNTX_OWNER_FLUX3_FFPROBE_PATH=/absolute/path/to/trusted/ffprobe
+SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION=hidden
+```
+
+`SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION` принимает `hidden` или `uploaded`.
+Путь к `ffprobe` должен быть абсолютным и доверенным. `ffprobe` запускается
+только при явном вызове upload; старт сервера не проверяет файл и не генерирует
+видео. Шаблон конфигурации можно вывести существующей командой только после
+явного подтверждения платных tools:
+
+```sh
+node scripts/print-media-mcp-config.mjs --confirm-enable-paid-tools
+```
+
+Инструменты:
+
+- `syntx_get_flux3_video_parameters` — принимает явный `model_id` (`flux3_i2v`
+  или `flux3_v2v`) и возвращает профиль выбранной модели;
+- `syntx_owner_upload_flux3_video_reference` — загружает один собственный
+  reference-файл и возвращает непрозрачный `flux3_reference_handle`;
+- `syntx_owner_generate_flux3_video` — создаёт один запрос с этим handle;
+- `syntx_owner_reconcile_flux3_video` — GET-only сверка одного recovery;
+- `syntx_owner_list_flux3_video_recoveries` — ограниченный список своих
+  process-local recovery-записей;
+- `syntx_owner_get_flux3_video_result_page` — читает страницу уже наблюдавшихся
+  результатов.
+
+Сначала используйте обычный per-user Telegram link flow и передавайте один и
+тот же `link_attempt_id` в upload и generate. Для I2V можно загрузить от 1 до
+10 изображений JPEG/PNG/WebP, каждое до 10 MiB. Для V2V принимается один MP4 до
+50 MiB. Это локальные границы этой реализации; WebM, QuickTime и ссылки на
+произвольные URL через инструменты не принимаются. Upload не принимает URL,
+измеренные dimensions/duration или путь к файлу от вызывающего кода.
+Для I2V локальная проверка структуры и размеров не декодирует все пиксели; для
+V2V `ffprobe` читает метаданные, но это не полное декодирование, проверка
+качества или подтверждение приёмки провайдером.
+
+Generate требует явные `model_id`, `prompt`, `flux3_reference_handles` и все
+три `parameters`: `resolution` (`hd`/`fhd`), `video_duration` (I2V 5–20 секунд;
+V2V 5–15 секунд) и `generate_audio` (`true`/`false`). Aspect ratio фиксирован
+как `auto`; `n`, draft, URL, размеры и измеренная длительность источника не
+принимаются. Эффективные defaults и допустимость сочетаний контролов не
+подтверждены, поэтому передавайте значения явно.
+
+Перед dispatch код заново проверяет linked account, доступ к модели и текущую
+оценку цены; сведения о подписке читает отдельно, без выдуманного требования
+активного тарифа при `access: true` для этой модели. По source-bound cost contract в запрос оценки входят
+`resolution` и `video_duration`; draft остаётся unset. Это не жёсткий лимит и
+не гарантия фактического списания. При `OUTCOME_UNKNOWN` не повторяйте generate:
+используйте recovery того же запроса и только GET-сверку. Неопределённый upload
+(`UPLOAD_OUTCOME_UNKNOWN`) также нельзя повторять; generation recovery он не
+создаёт. Список
+восстановлений хранится в памяти процесса и не переживает перезапуск. Страница
+результата может содержать URL выходного артефакта; provider acceptance,
+provider terminal status и полное число результатов не подтверждаются этим
+локальным кодом.
+
+Статус этой интеграции сейчас — код и synthetic/local проверки: реальный Flux3
+upload/generation pilot ещё `NOT_RUN`. Windows, HTTPS, все MCP-хосты, полная
+матрица настроек и durable restart не проверялись.
+
 WAN 2.6 R2V и R2V Flash подключены к восьми default-off owner-stdio командам:
 проверка и загрузка references, генерация, GET-only восстановление и результаты.
 Один реальный Flash-запуск остался `OUTCOME_UNKNOWN` без подтверждённого ACK и

@@ -186,6 +186,7 @@ import { registerSyntxOwnerTopazAstraTools, type OwnerTopazAstraServiceCompositi
 import type { OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-astra-existing-media-service.js";
 import { registerSyntxOwnerTopazAstraExistingMediaTools } from "./owner-topaz-astra-existing-media-tools.js";
 import { registerSyntxOwnerTopazEnhanceTools, type OwnerTopazEnhanceServiceComposition } from "./owner-topaz-enhance-tools.js";
+import { registerSyntxOwnerFlux3VideoTools, type OwnerFlux3VideoServiceComposition } from "./owner-flux3-video-tools.js";
 import { registerSyntxOwnerHailuo02I2vTools, type OwnerHailuo02I2vServiceComposition } from "./owner-hailuo02-i2v-tools.js";
 import type { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
 import {
@@ -592,6 +593,8 @@ export interface CreateMcpServerOptions {
   ownerWan30OmniVideos?: OwnerWan30OmniVideoServiceComposition | undefined;
   /** Explicit owner-local WAN 3.0 Edit video tools; omitted from default and HTTP servers. */
   ownerWan30EditVideos?: OwnerWan30EditVideoServiceComposition | undefined;
+  /** Explicit owner-local Flux3 I2V/V2V tools; omitted from default and HTTP servers. */
+  ownerFlux3Videos?: OwnerFlux3VideoServiceComposition | undefined;
   /** Explicit owner-local ElevenLabs TTS and voice-reference tools; omitted from default and HTTP servers. */
   ownerElevenLabsTts?: OwnerElevenLabsTtsServiceComposition | undefined;
   ownerElevenLabsDialogue?: OwnerElevenLabsDialogueServiceComposition | undefined;
@@ -770,7 +773,7 @@ export function createMcpServer(
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
-        options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
+        options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerFlux3Videos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
         options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan26R2v || options.ownerWan25I2vPreview)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
@@ -1231,6 +1234,9 @@ export function createMcpServer(
   }
   if (options.ownerWan30EditVideos) {
     registerSyntxOwnerWan30EditVideoTools(server, options.ownerWan30EditVideos);
+  }
+  if (options.ownerFlux3Videos) {
+    registerSyntxOwnerFlux3VideoTools(server, options.ownerFlux3Videos);
   }
   if (options.ownerElevenLabsTts) {
     registerSyntxOwnerElevenLabsTtsTools(server, options.ownerElevenLabsTts);

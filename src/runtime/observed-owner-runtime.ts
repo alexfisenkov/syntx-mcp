@@ -162,6 +162,9 @@ import { OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-
 import { OwnerTopazEnhanceOriginalReferenceService } from "../application/owner-topaz-enhance-original-reference-service.js";
 import { createOwnerTopazEnhanceOwnedRequestPreparer } from "../application/owner-topaz-enhance-owned-request-preparer.js";
 import { OwnerTopazEnhanceGenerationService, OWNER_TOPAZ_ENHANCE_GENERATION_CATALOG_VERSION } from "../application/owner-topaz-enhance-generation-service.js";
+import { OwnerFlux3MediaReferenceService } from "../application/owner-flux3-media-reference-service.js";
+import { createOwnerFlux3VideoOwnedRequestPreparer } from "../application/owner-flux3-video-owned-request-preparer.js";
+import { createOwnerFlux3VideoGenerationService, OWNER_FLUX3_VIDEO_GENERATION_CATALOG_VERSION } from "../application/owner-flux3-video-generation-service.js";
 import { OwnerWan27R2vReferenceService } from "../application/owner-wan27-r2v-reference-service.js";
 import { OwnerWan27R2vReferenceUploadService } from "../application/owner-wan27-r2v-reference-upload-service.js";
 import { createOwnerWan27R2vRequestPreparer } from "../application/owner-wan27-r2v-request-preparer.js";
@@ -228,6 +231,12 @@ export interface ObservedOwnerRuntimeOptions {
   ownerWan30EditVideosEnabled?: boolean;
   /** Trusted absolute operator ffprobe path; required only when Edit is enabled. */
   ownerWan30EditFfprobePath?: string;
+  /** Explicit owner-stdio opt-in for Flux3 I2V/V2V; disabled by default. */
+  ownerFlux3VideosEnabled?: boolean;
+  /** Trusted absolute operator ffprobe path; required only when Flux3 video tools are enabled. */
+  ownerFlux3FfprobePath?: string;
+  /** Trusted Flux3 media upload destination; required only when enabled. */
+  ownerFlux3UploadDestination?: "uploaded" | "hidden";
   /** Explicit owner-stdio opt-in for the pinned private ElevenLabs TTS tools. */
   ownerElevenLabsTtsEnabled?: boolean;
   /** Explicit owner-stdio opt-in for ordered ElevenLabs multi-voice dialogue. */
@@ -1806,6 +1815,91 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ originalReferenceService, generationService, lifecycle });
       })()
     : undefined;
+  const ownerFlux3Videos = options.ownerFlux3VideosEnabled === true
+    ? (() => {
+        if (typeof options.ownerFlux3FfprobePath !== "string" || !isAbsolute(options.ownerFlux3FfprobePath) ||
+            (options.ownerFlux3UploadDestination !== "uploaded" && options.ownerFlux3UploadDestination !== "hidden")) {
+          throw new Error("OWNER_FLUX3_VIDEO_OPERATOR_CONFIGURATION_REQUIRED");
+        }
+        const flux3Catalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+          OWNER_FLUX3_VIDEO_GENERATION_CATALOG_VERSION,
+          options.catalogDirectory
+        ));
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveFlux3ChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_FLUX3_VIDEO_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        const referenceService = new OwnerFlux3MediaReferenceService({
+          ffprobePath: options.ownerFlux3FfprobePath,
+          destination: options.ownerFlux3UploadDestination,
+          binding: authBinding,
+          linkService,
+          resolveClient: resolveFlux3ChatClient,
+          now
+        });
+        let preparer: ReturnType<typeof createOwnerFlux3VideoOwnedRequestPreparer> | undefined;
+        let generationService: ReturnType<typeof createOwnerFlux3VideoGenerationService> | undefined;
+        try {
+          preparer = createOwnerFlux3VideoOwnedRequestPreparer({ referenceService, now });
+          generationService = createOwnerFlux3VideoGenerationService({
+            binding: authBinding,
+            linkService,
+            catalog: flux3Catalog,
+            catalog_version: OWNER_FLUX3_VIDEO_GENERATION_CATALOG_VERSION,
+            preparer,
+            referenceService,
+            resolveChatClient: resolveFlux3ChatClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(flux3Catalog, createReadClient(attemptId), now),
+            now
+          });
+        } catch (error) {
+          const cleanup = (async () => {
+            const errors: unknown[] = [];
+            for (const close of [() => generationService?.close(), () => preparer?.close(), () => referenceService.close()]) {
+              try { await close(); } catch (closeError) { errors.push(closeError); }
+            }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Flux3 video startup cleanup failed.");
+          })();
+          if (error !== null && (typeof error === "object" || typeof error === "function")) {
+            OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          }
+          throw error;
+        }
+        let closing: Promise<void> | undefined;
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            const errors: unknown[] = [];
+            try { await generationService!.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            try { await referenceService.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+            clientsByAttempt.delete(attemptId);
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Flux3 video attempt invalidation failed.");
+          },
+          close(): Promise<void> {
+            if (closing !== undefined) return closing;
+            closing = (async () => {
+              const errors: unknown[] = [];
+              for (const close of [() => generationService!.close(), () => referenceService.close()]) {
+                try { await close(); } catch (error) { errors.push(error); }
+              }
+              clientsByAttempt.clear();
+              if (errors.length === 1) throw errors[0];
+              if (errors.length > 1) throw new AggregateError(errors, "Flux3 video services did not close cleanly.");
+            })();
+            return closing;
+          }
+        });
+        return Object.freeze({ generationService, referenceService, lifecycle });
+      })()
+    : undefined;
   const ownerWan27R2v = options.ownerWan27R2vEnabled === true
     ? (() => {
         if (typeof options.ownerWan27R2vFfprobePath !== "string" || !isAbsolute(options.ownerWan27R2vFfprobePath) ||
@@ -2831,7 +2925,7 @@ export function createObservedOwnerRuntime(
     : undefined;
   const ownerAuthLinkService: Pick<PerUserLinkService, "createAttempt" | "issueHandoff" | "checkAttempt" | "revoke"> =
     ownerSoulImageReferences === undefined && ownerGrokT2iImageReferences === undefined && ownerWanT2iImageReferences === undefined &&
-    ownerWanT2vVideos === undefined && ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
+    ownerWanT2vVideos === undefined && ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerFlux3Videos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
       ownerLumaT2v === undefined &&
       ownerHailuo01T2v === undefined &&
       ownerHailuo01DirectorT2v === undefined &&
@@ -2884,6 +2978,10 @@ export function createObservedOwnerRuntime(
             if (ownerWan30EditVideos !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerWan30EditVideos.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerFlux3Videos !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerFlux3Videos.lifecycle.invalidateAttempt(attemptId);
             }
             if (ownerWan27R2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
@@ -3008,7 +3106,7 @@ export function createObservedOwnerRuntime(
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
-        ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined &&
+        ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerFlux3Videos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined &&
         ownerTopazAstra === undefined && ownerTopazEnhance === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
@@ -3058,6 +3156,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerTopazEnhance !== undefined) {
             try { await ownerTopazEnhance.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerFlux3Videos !== undefined) {
+            try { await ownerFlux3Videos.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerLumaT2v !== undefined) {
             try { await ownerLumaT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -3187,6 +3288,12 @@ export function createObservedOwnerRuntime(
     ...(ownerWan30EditVideos === undefined ? {} : {
       ownerWan30EditVideos: { generationService: ownerWan30EditVideos.generationService }
     }),
+    ...(ownerFlux3Videos === undefined ? {} : {
+      ownerFlux3Videos: {
+        generationService: ownerFlux3Videos.generationService,
+        referenceService: ownerFlux3Videos.referenceService
+      }
+    }),
     ...(ownerElevenLabsTts === undefined ? {} : {
       ownerElevenLabsTts: {
         voiceReferenceService: ownerElevenLabsTts.voiceReferenceService,
@@ -3303,6 +3410,7 @@ export function createObservedOwnerRuntime(
     ...(ownerSunoGeneration === undefined ? {} : { ownerSunoGenerationLifecycle: ownerSunoGeneration.lifecycle }),
     ...(ownerTopazAstra === undefined ? {} : { ownerTopazAstraLifecycle: ownerTopazAstra.lifecycle }),
     ...(ownerTopazEnhance === undefined ? {} : { ownerTopazEnhanceLifecycle: ownerTopazEnhance.lifecycle }),
+    ...(ownerFlux3Videos === undefined ? {} : { ownerFlux3VideosLifecycle: ownerFlux3Videos.lifecycle }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2vLifecycle: ownerLumaT2v.lifecycle }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2vLifecycle: ownerHailuo01T2v.lifecycle }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2vLifecycle: ownerHailuo01DirectorT2v.lifecycle }),

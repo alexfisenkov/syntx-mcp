@@ -56,6 +56,7 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_ELEVENLABS_STS",
   "SYNTX_OWNER_TOPAZ_ASTRA",
   "SYNTX_OWNER_TOPAZ_ENHANCE",
+  "SYNTX_OWNER_FLUX3_VIDEOS",
   "SYNTX_OWNER_WAN27_R2V",
   "SYNTX_OWNER_WAN26_I2V",
   "SYNTX_OWNER_WAN26_R2V",
@@ -139,6 +140,8 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
     "SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION",
     "SYNTX_OWNER_TOPAZ_ENHANCE_FFPROBE_PATH",
     "SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION",
+    "SYNTX_OWNER_FLUX3_FFPROBE_PATH",
+    "SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION",
     "SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH",
     "SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH",
     "SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH",
@@ -156,6 +159,23 @@ test("Hailuo 2.3 opt-in is included only in the explicitly confirmed owner confi
   assert.equal(config.mcpServers.syntx.env.SYNTX_OWNER_HAILUO23_T2V, "1");
   assert.equal(ENABLED_FLAGS.includes("SYNTX_OWNER_HAILUO23_T2V"), true);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO23_T2V"), false);
+});
+
+test("Flux3 media placeholders are emitted only behind the existing exact paid-tools confirmation", async () => {
+  const config = buildMediaMcpConfig(pathToFileURL(SCRIPT_PATH).href, "/node/bin/node");
+  const env = config.mcpServers.syntx.env;
+  assert.equal(env.SYNTX_OWNER_FLUX3_VIDEOS, "1");
+  assert.equal(env.SYNTX_OWNER_FLUX3_FFPROBE_PATH, "<absolute path to trusted ffprobe executable>");
+  assert.equal(env.SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION, "<uploaded|hidden>");
+  assert.doesNotMatch(`${env.SYNTX_OWNER_FLUX3_FFPROBE_PATH}${env.SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION}`, /\/Users\/|\/usr\/local\/bin\/ffprobe/u);
+  const stdout = [], stderr = [];
+  assert.equal(await main([], {
+    entryUrl: pathToFileURL(SCRIPT_PATH).href,
+    writeStdout: (text) => stdout.push(text),
+    writeStderr: (text) => stderr.push(text)
+  }), 0);
+  assert.equal(stdout.join("").includes('"mcpServers"'), false);
+  assert.equal(stderr.join(""), "");
 });
 
 test("Topaz Enhance requires the paid-tools confirmation and emits trusted local operator placeholders", async () => {
@@ -243,7 +263,7 @@ test("Hailuo Live T2V flag is emitted only after exact paid-tools confirmation",
   const emitted = JSON.parse(configOut.join(""));
   assert.equal(configErr.join(""), "");
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_HAILUO_LIVE_T2V, "1");
-  assert.equal(ENABLED_FLAGS.length, 46);
+  assert.equal(ENABLED_FLAGS.length, 47);
   assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_HAILUO_LIVE_T2V").length, 1);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO_LIVE_T2V"), false);
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_GROK_T2V, "1");

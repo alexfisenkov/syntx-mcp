@@ -48,6 +48,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_HAILUO_LIVE_T2V",
   "SYNTX_OWNER_TOPAZ_ASTRA",
   "SYNTX_OWNER_TOPAZ_ENHANCE",
+  "SYNTX_OWNER_FLUX3_VIDEOS",
   "SYNTX_OWNER_WAN27_R2V",
   "SYNTX_OWNER_WAN26_I2V",
   "SYNTX_OWNER_WAN26_R2V",
@@ -92,6 +93,7 @@ const HELP_TEXT = [
   "ElevenLabs STS operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "Topaz Astra operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "Topaz Enhance is enabled by SYNTX_OWNER_TOPAZ_ENHANCE=1; replace its ffprobe path and upload destination placeholders. The local probe accepts MP4 only, while public metadata also lists WebM and QuickTime. Tools run only when explicitly called; startup does not upload or generate. Paid generation has no enforceable cost cap.",
+  "Flux3 owner video tools are enabled by SYNTX_OWNER_FLUX3_VIDEOS=1; replace the trusted absolute ffprobe path and upload destination placeholders. I2V accepts one to ten local image references; V2V accepts one local MP4 reference. Startup does not probe, upload, or generate.",
   "The emitted tools can perform paid generation only when explicitly called by the client."
 ].join("\n") + "\n";
 
@@ -141,6 +143,8 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
     ["SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION", "<uploaded|hidden>"],
     ["SYNTX_OWNER_TOPAZ_ENHANCE_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION", "<uploaded|hidden>"],
+    ["SYNTX_OWNER_FLUX3_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
+    ["SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION", "<uploaded|hidden>"],
     ["SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH", "<absolute path to ffprobe>"],
     ["SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH", "<absolute path to ffmpeg>"],
     ["SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],

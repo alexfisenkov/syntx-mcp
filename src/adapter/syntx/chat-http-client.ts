@@ -203,6 +203,20 @@ import {
   type ValidatedOwnerWan27R2vImage
 } from "../../application/owner-wan27-r2v-image-policy.js";
 import {
+  OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY,
+  isValidatedOwnerWan27VideoEditImage,
+  readValidatedOwnerWan27VideoEditImage,
+  releaseValidatedOwnerWan27VideoEditImage,
+  type ValidatedOwnerWan27VideoEditImage
+} from "../../application/owner-wan27-videoedit-image-policy.js";
+import {
+  OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY,
+  isValidatedOwnerWan27VideoEditVideo,
+  readValidatedOwnerWan27VideoEditVideo,
+  releaseValidatedOwnerWan27VideoEditVideo,
+  type ValidatedOwnerWan27VideoEditVideo
+} from "../../application/owner-wan27-videoedit-video-policy.js";
+import {
   isValidatedOwnerWan26I2vImage,
   readValidatedOwnerWan26I2vImage,
   type ValidatedOwnerWan26I2vImage
@@ -5098,6 +5112,46 @@ export class SyntxChatHttpClient {
     return native.getOwnerVeoOmniReferenceNativeResult(input, packet, signal);
   }
 
+  /** Creates one owner WAN27 Video Edit chat from its genuine model-bound prepared candidate. */
+  async createOwnerWan27VideoEditChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan27-videoedit-native-context.js").OwnerWan27VideoEditNativeChatContext> {
+    assertNativeOwnerWan27VideoEdit(this);
+    const native = await import("./owner-wan27-videoedit-native-context.js");
+    const packet = createOwnerWan27VideoEditNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_WAN27_VIDEOEDIT_CREATE_CHAT, this, ["video", title, requestSignal]));
+    return native.createOwnerWan27VideoEditNativeChat(input, packet, signal);
+  }
+  /** Internal identity/one-shot boundary. MCP uses the separately budgeted generation facade. */
+  async startOwnerWan27VideoEditWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan27-videoedit-native-context.js").OwnerWan27VideoEditNativeStartAck> {
+    assertNativeOwnerWan27VideoEdit(this);
+    const native = await import("./owner-wan27-videoedit-native-context.js");
+    const packet = createOwnerWan27VideoEditNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "wan_video", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerWan27VideoEditWithOwnedCandidate(input, packet, signal);
+  }
+  /** Bounded same-owner WAN27 Video Edit history; never creates or repeats generation. */
+  async listOwnedWan27VideoEditCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan27-videoedit-native-context.js").OwnerWan27VideoEditNativeResultCandidates> {
+    assertNativeOwnerWan27VideoEdit(this);
+    const native = await import("./owner-wan27-videoedit-native-context.js");
+    const packet = createOwnerWan27VideoEditNativeInvocation(this, "list", input,
+      (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnerWan27VideoEditNativeCandidates(input, packet, signal);
+  }
+  /** Reads only a nominal WAN27 Video Edit result capability minted from this client's history. */
+  async getOwnedWan27VideoEditResult(input: import("./owner-wan27-videoedit-native-context.js").OwnerWan27VideoEditNativeResultReadInput,
+    signal?: AbortSignal): Promise<import("./owner-wan27-videoedit-native-context.js").OwnerWan27VideoEditNativeResult> {
+    assertNativeOwnerWan27VideoEdit(this);
+    const native = await import("./owner-wan27-videoedit-native-context.js");
+    const packet = createOwnerWan27VideoEditNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) =>
+        this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerWan27VideoEditNativeResult(input, packet, signal);
+  }
+
   /** Creates one owner K4 chat from its genuine model-bound prepared candidate. */
   async createOwnerKling4Chat(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling4-native-context.js").OwnerKling4NativeChatContext> {
     assertNativeOwnerKling4(this);
@@ -8002,6 +8056,132 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** Consumes one authentic WAN 2.7 Video Edit media receipt for a fixed model-bound upload. */
+  async uploadOwnerWan27VideoEditReference(
+    receiptInput: unknown,
+    signal?: AbortSignal
+  ): Promise<InternalUploadReference> {
+    let bytes: Uint8Array | undefined;
+    let form: FormData | undefined;
+    let filename: string | undefined;
+    let mimeType: string | undefined;
+    let expectedSize: number | undefined;
+    let expectedSha256: string | undefined;
+    let maxUploadBytes: number | undefined;
+
+    try {
+      if (isValidatedOwnerWan27VideoEditImage(receiptInput)) {
+        const receipt = receiptInput as Readonly<ValidatedOwnerWan27VideoEditImage>;
+        const owned = readValidatedOwnerWan27VideoEditImage(receipt);
+        if (!owned) throw invalidRequest();
+        bytes = owned.bytes;
+        if (!releaseValidatedOwnerWan27VideoEditImage(receipt)) throw invalidRequest();
+
+        const sourceMimeValid = receipt.source_mime_type === "image/jpg"
+          ? owned.mime_type === "image/jpeg"
+          : receipt.source_mime_type === owned.mime_type;
+        if (receipt.status !== "LOCAL_SOURCE_VALIDATED" || receipt.model_id !== "wan_27_videoedit" ||
+            receipt.source_policy_id !== OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.policy_id || !sourceMimeValid ||
+            !OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.source_mime_types
+              .some((sourceMime) => sourceMime === receipt.source_mime_type) ||
+            !["image/jpeg", "image/png", "image/bmp", "image/webp"].includes(owned.mime_type) ||
+            receipt.filename !== owned.filename || receipt.mime_type !== owned.mime_type ||
+            receipt.size !== owned.size || receipt.sha256 !== owned.sha256 ||
+            receipt.width !== owned.width || receipt.height !== owned.height ||
+            receipt.limits_confidence !== OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.limits_confidence ||
+            receipt.metadata_confidence !== OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.metadata_confidence ||
+            receipt.generation_permit !== false || receipt.reference_role_binding !== "NOT_ESTABLISHED" ||
+            receipt.owner_upload_binding !== "NOT_ESTABLISHED" || !Number.isSafeInteger(owned.size) ||
+            owned.size < 1 || owned.size > OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.max_file_size_bytes ||
+            bytes.byteLength !== owned.size || !Number.isSafeInteger(owned.width) || !Number.isSafeInteger(owned.height) ||
+            owned.width < OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.min_side || owned.width > OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.max_side ||
+            owned.height < OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.min_side || owned.height > OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.max_side ||
+            !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(bytes).digest("hex") !== owned.sha256) {
+          throw invalidRequest();
+        }
+        filename = owned.filename;
+        mimeType = owned.mime_type;
+        expectedSize = owned.size;
+        expectedSha256 = owned.sha256;
+        maxUploadBytes = OWNER_WAN27_VIDEOEDIT_IMAGE_POLICY.max_file_size_bytes;
+      } else if (isValidatedOwnerWan27VideoEditVideo(receiptInput)) {
+        const receipt = receiptInput as Readonly<ValidatedOwnerWan27VideoEditVideo>;
+        const owned = readValidatedOwnerWan27VideoEditVideo(receipt);
+        if (!owned) throw invalidRequest();
+        bytes = owned.bytes;
+        if (!releaseValidatedOwnerWan27VideoEditVideo(receipt)) throw invalidRequest();
+
+        if (receipt.status !== "TRUSTED_LOCAL_MEDIA_PROBE" || receipt.policy_id !== OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.policy_id ||
+            receipt.model_id !== "wan_27_videoedit" ||
+            receipt.source_catalog_version !== OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.source_catalog_version ||
+            !OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.source_mime_types.includes(receipt.mime_type) ||
+            receipt.filename !== owned.filename || receipt.mime_type !== owned.mime_type ||
+            receipt.size !== owned.size || receipt.bytes_copied !== owned.size || receipt.source_sha256 !== owned.sha256 ||
+            receipt.local_limit_kind !== "LOCAL_RESOURCE_GUARD_NOT_PROVIDER_LIMIT" ||
+            !Number.isSafeInteger(receipt.local_file_limit_bytes) || receipt.local_file_limit_bytes < 1 ||
+            receipt.local_file_limit_bytes > OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.source_max_file_size_bytes ||
+            owned.size > receipt.local_file_limit_bytes ||
+            receipt.duration_source !== "MAX_FINITE_AUDIO_VIDEO_TRACK_END_SECONDS" || receipt.crop_performed !== false ||
+            receipt.metadata_confidence !== OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.metadata_confidence ||
+            receipt.pixel_decode !== false || receipt.generation_permit !== false ||
+            receipt.upload_binding !== "NOT_ESTABLISHED" || receipt.provider_acceptance !== "UNPROVEN" ||
+            !Number.isSafeInteger(owned.size) || owned.size < 1 ||
+            owned.size > OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.source_max_file_size_bytes ||
+            bytes.byteLength !== owned.size || !Number.isSafeInteger(owned.width) ||
+            owned.width < OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.min_width || owned.width > OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.max_width ||
+            !Number.isSafeInteger(owned.height) || owned.height < OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.min_height ||
+            owned.height > OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.max_height || !Number.isFinite(owned.duration_seconds) ||
+            owned.duration_seconds < OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.min_duration_seconds ||
+            owned.duration_seconds > OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.max_duration_seconds ||
+            !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(bytes).digest("hex") !== owned.sha256) {
+          throw invalidRequest();
+        }
+        filename = owned.filename;
+        mimeType = owned.mime_type;
+        expectedSize = owned.size;
+        expectedSha256 = owned.sha256;
+        maxUploadBytes = OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY.source_max_file_size_bytes;
+      } else {
+        throw invalidRequest();
+      }
+
+      if (!filename || !mimeType || expectedSize === undefined || !expectedSha256 || maxUploadBytes === undefined ||
+          filename.length > 255 || /[\\/\u0000-\u001f\u007f]/u.test(filename) || bytes === undefined) {
+        throw invalidRequest();
+      }
+      form = this.#buildUploadForm({ bytes, filename, mime_type: mimeType, destination: "uploaded",
+        check_duplicates: true, model_type: "wan_27_videoedit" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const parsed = z.object({ files: z.array(z.object({
+        id: providerIdSchema.optional(),
+        file_id: providerIdSchema.optional(),
+        url: z.string().min(1).max(MAX_URL_LENGTH),
+        status: z.string().max(64).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)).optional(),
+        filename: z.string().max(255).optional(),
+        mime_type: z.string().max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)).optional(),
+        size: z.number().int().nonnegative().max(maxUploadBytes).optional()
+      }).strip()).length(1) }).strip().safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const uploaded = parsed.data.files[0]!;
+      if (uploaded.status?.toLowerCase() === "error" ||
+          (uploaded.filename !== undefined && (uploaded.filename.trim().length === 0 || uploaded.filename === "." ||
+            uploaded.filename === ".." || /[\\/\u0000-\u001f\u007f-\u009f]/u.test(uploaded.filename))) ||
+          (uploaded.mime_type !== undefined && uploaded.mime_type !== mimeType) ||
+          (uploaded.size !== undefined && uploaded.size !== expectedSize) ||
+          (uploaded.id !== undefined && uploaded.file_id !== undefined && uploaded.id !== uploaded.file_id)) {
+        throw protocolError();
+      }
+      let references: InternalUploadReference[];
+      try { references = parseInternalUploadReferences(raw); }
+      catch { throw protocolError(); }
+      if (references.length !== 1) throw protocolError();
+      return Object.freeze({ ...references[0]! });
+    } finally {
+      bytes?.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One fixed WAN 2.7 R2V image upload from a genuine local image receipt. */
   async uploadWan27R2vImage(
     receiptInput: ValidatedOwnerWan27R2vImage,
@@ -9510,6 +9690,48 @@ function isExactOwnerVeoOmniReferenceNativeClient(client: unknown): client is Sy
       getDataMethod(client, "getOwnedVeoOmniReferenceResult") === NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_GET &&
       Reflect.get(client, "createChat") === NATIVE_OWNER_VEO_OMNI_REFERENCE_CREATE_CHAT &&
       Reflect.get(client, "uploadOwnerVeoOmniReference") === NATIVE_OWNER_VEO_OMNI_REFERENCE_UPLOAD;
+  } catch { return false; }
+}
+
+const NATIVE_OWNER_WAN27_VIDEOEDIT_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_WAN27_VIDEOEDIT_UPLOAD = SyntxChatHttpClient.prototype.uploadOwnerWan27VideoEditReference;
+const NATIVE_OWNER_WAN27_VIDEOEDIT_CREATE = SyntxChatHttpClient.prototype.createOwnerWan27VideoEditChat;
+const NATIVE_OWNER_WAN27_VIDEOEDIT_START = SyntxChatHttpClient.prototype.startOwnerWan27VideoEditWithOwnedCandidate;
+const NATIVE_OWNER_WAN27_VIDEOEDIT_LIST = SyntxChatHttpClient.prototype.listOwnedWan27VideoEditCandidates;
+const NATIVE_OWNER_WAN27_VIDEOEDIT_GET = SyntxChatHttpClient.prototype.getOwnedWan27VideoEditResult;
+type OwnerWan27VideoEditNativeMethod = "create" | "start" | "list" | "get";
+const OWNER_WAN27_VIDEOEDIT_NATIVE_INVOCATIONS = new WeakMap<object, Readonly<{
+  client: SyntxChatHttpClient; method: OwnerWan27VideoEditNativeMethod; input: unknown; callback: Function;
+}>>();
+function createOwnerWan27VideoEditNativeInvocation(client: SyntxChatHttpClient, method: OwnerWan27VideoEditNativeMethod,
+  input: unknown, callback: Function): object {
+  assertNativeOwnerWan27VideoEdit(client);
+  if (typeof callback !== "function" || types.isProxy(callback)) throw invalidRequest();
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_WAN27_VIDEOEDIT_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+/** Only the four exact native methods can mint a same-input, once-consumed packet. */
+export function consumeOwnerWan27VideoEditNativeInvocation(input: unknown, packet: unknown,
+  method: OwnerWan27VideoEditNativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw invalidRequest();
+  const invocation = OWNER_WAN27_VIDEOEDIT_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerWan27VideoEditNativeClient(invocation.client)) throw invalidRequest();
+  OWNER_WAN27_VIDEOEDIT_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+function assertNativeOwnerWan27VideoEdit(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerWan27VideoEditNativeClient(client)) throw invalidRequest();
+}
+function isExactOwnerWan27VideoEditNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    if (!client || typeof client !== "object" || types.isProxy(client) || Object.getPrototypeOf(client) !== SyntxChatHttpClient.prototype) return false;
+    return ([
+      ["createChat", NATIVE_OWNER_WAN27_VIDEOEDIT_CREATE_CHAT], ["uploadOwnerWan27VideoEditReference", NATIVE_OWNER_WAN27_VIDEOEDIT_UPLOAD],
+      ["createOwnerWan27VideoEditChat", NATIVE_OWNER_WAN27_VIDEOEDIT_CREATE], ["startOwnerWan27VideoEditWithOwnedCandidate", NATIVE_OWNER_WAN27_VIDEOEDIT_START],
+      ["listOwnedWan27VideoEditCandidates", NATIVE_OWNER_WAN27_VIDEOEDIT_LIST], ["getOwnedWan27VideoEditResult", NATIVE_OWNER_WAN27_VIDEOEDIT_GET]
+    ] as const).every(([name, original]) => !Object.hasOwn(client, name) && typeof original === "function" &&
+      getDataMethod(client, name) === original && getDataMethod(SyntxChatHttpClient.prototype, name) === original);
   } catch { return false; }
 }
 

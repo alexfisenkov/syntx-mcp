@@ -3,9 +3,11 @@
 import { realpathSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { types } from "node:util";
 
 export const SYNTX_MEDIA_MCP_BIN = "syntx-mcp-media-config";
 export const PAID_TOOLS_CONFIRMATION_FLAG = "--confirm-enable-paid-tools";
+export const INCLUDE_KLING4_FLAG = "--include-kling4";
 
 const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_ACCOUNT_STATUS",
@@ -79,9 +81,11 @@ const HELP_TEXT = [
   "",
   "Usage:",
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG}`,
+  `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_KLING4_FLAG}`,
   "  node scripts/print-media-mcp-config.mjs --help",
   "",
   "Without the exact confirmation flag, no configuration is emitted.",
+  `Kling 4 is omitted by default; select its independent owner-stdio group with ${INCLUDE_KLING4_FLAG}. When selected, replace SYNTX_OWNER_KLING4_FFPROBE_PATH with an absolute trusted ffprobe executable path; SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES defaults to 67108864 (64 MiB), configurable from 1 through 314572800 (300 MiB). The 30 MiB image source limit is separate.`,
   "This command does not edit client settings, read credentials, log in, or call the network.",
   "The confirmed owner-stdio config enables Kling I2V with SYNTX_OWNER_KLING_I2V=1 and Hailuo-02 I2V with SYNTX_OWNER_HAILUO02_I2V=1.",
   "The confirmed owner-stdio config enables WAN 2.7 R2V with SYNTX_OWNER_WAN27_R2V=1; replace SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH and SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH placeholders with absolute trusted executable paths.",
@@ -120,13 +124,17 @@ export function parseArguments(argv) {
   if (argv.length === 1 && argv[0] === PAID_TOOLS_CONFIRMATION_FLAG) {
     return Object.freeze({ kind: "emit" });
   }
+  if (argv.length === 2 && argv[0] === PAID_TOOLS_CONFIRMATION_FLAG && argv[1] === INCLUDE_KLING4_FLAG) {
+    return Object.freeze({ kind: "emit", includeKling4: true });
+  }
   throw new MediaMcpConfigCliError();
 }
 
-export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
+export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefined) {
   if (typeof entryUrl !== "string" || typeof nodeExecutable !== "string" || !isAbsolute(nodeExecutable)) {
     throw new MediaMcpConfigCliError();
   }
+  const includeKling4 = readKling4Selection(options);
 
   let scriptPath;
   try {
@@ -162,6 +170,11 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
     ["SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES", "67108864"]
   ]);
+  if (includeKling4) {
+    env.SYNTX_OWNER_KLING4 = "1";
+    env.SYNTX_OWNER_KLING4_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
+    env.SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES = "67108864";
+  }
 
   return Object.freeze({
     mcpServers: Object.freeze({
@@ -183,12 +196,28 @@ export async function main(argv, options = {}) {
       writeStdout(HELP_TEXT);
       return 0;
     }
-    const config = buildMediaMcpConfig(options.entryUrl ?? import.meta.url, options.nodeExecutable ?? process.execPath);
+    const config = buildMediaMcpConfig(options.entryUrl ?? import.meta.url, options.nodeExecutable ?? process.execPath,
+      parsed.includeKling4 === true ? { includeKling4: true } : undefined);
     writeStdout(`${JSON.stringify(config, null, 2)}\n`);
     return 0;
   } catch {
     writeStderr("MEDIA_MCP_CONFIG_ARGUMENTS_INVALID\n");
     return 2;
+  }
+}
+
+function readKling4Selection(value) {
+  if (value === undefined) return false;
+  try {
+    if (!value || typeof value !== "object" || types.isProxy(value) || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) throw new Error();
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    const selected = descriptors.includeKling4;
+    if (keys.length !== 1 || keys[0] !== "includeKling4" || !selected || !Object.hasOwn(selected, "value") ||
+        selected.enumerable !== true || typeof selected.value !== "boolean") throw new Error();
+    return selected.value;
+  } catch {
+    throw new MediaMcpConfigCliError();
   }
 }
 

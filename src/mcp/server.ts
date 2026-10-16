@@ -231,6 +231,7 @@ import { registerSyntxOwnerVeoT2vTools } from "./owner-veo-t2v-tools.js";
 import type { OwnerVeoOmniT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerVeoOmniT2vTools } from "./owner-veo-omni-t2v-tools.js";
 import { registerSyntxOwnerVeoOmniReferenceTools, type OwnerVeoOmniReferenceToolOptions } from "./owner-veo-omni-reference-tools.js";
+import { registerSyntxOwnerKling4Tools, type OwnerKling4ToolOptions } from "./owner-kling4-tools.js";
 import type { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerGrokT2vTools } from "./owner-grok-t2v-tools.js";
 import type { OwnerHailuoLiveT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -643,6 +644,8 @@ export interface CreateMcpServerOptions {
   ownerVeoOmniT2v?: OwnerVeoOmniT2vServiceComposition | undefined;
   /** Separate process-local owned Omni references; owner stdio only, not default/HTTP/durable. */
   ownerVeoOmniReferences?: OwnerVeoOmniReferenceToolOptions | undefined;
+  /** Independent process-local K4 group; owner stdio only, not default/HTTP/durable. */
+  ownerKling4?: OwnerKling4ToolOptions | undefined;
   ownerGrokT2v?: OwnerGrokT2vServiceComposition | undefined;
   ownerHailuoLiveT2v?: OwnerHailuoLiveT2vServiceComposition | undefined;
   /** Explicit owner-local Video2Audio tools; omitted from default and HTTP servers. */
@@ -783,7 +786,7 @@ export function createMcpServer(
   options: CreateMcpServerOptions = {}
 ): McpServer {
   if (options.ownerDurableGeneration &&
-      (options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
+      (options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
         options.ownerGrokImageReferences || options.ownerClarityUpscale || options.ownerMagnificUpscale ||
         options.ownerKontextImageReferences || options.ownerWanImageReferences || options.ownerStandardImageReferences ||
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
@@ -1331,6 +1334,7 @@ export function createMcpServer(
     registerSyntxOwnerVeoOmniT2vTools(server, { service: options.ownerVeoOmniT2v.generationService });
   }
   if (options.ownerVeoOmniReferences) registerSyntxOwnerVeoOmniReferenceTools(server, options.ownerVeoOmniReferences);
+  if (options.ownerKling4) registerSyntxOwnerKling4Tools(server, options.ownerKling4);
   if (options.ownerGrokT2v) {
     registerSyntxOwnerGrokT2vTools(server, { service: options.ownerGrokT2v.generationService });
   }

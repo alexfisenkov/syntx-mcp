@@ -2025,6 +2025,12 @@ export { OwnerVeoOmniReferenceGenerationService, OwnerVeoOmniReferenceGeneration
 export { registerSyntxOwnerVeoOmniReferenceTools, OWNER_VEO_OMNI_REFERENCE_TOOL_NAMES } from "./mcp/owner-veo-omni-reference-tools.js";
 export { createOwnerVeoOmniReferenceRuntime } from "./runtime/owner-veo-omni-reference-runtime.js";
 export { readOwnerVeoOmniReferenceFlag, readOwnerVeoOmniReferenceOperatorConfiguration } from "./runtime/owner-veo-omni-reference-stdio-config.js";
+export { getOwnerKling4SourceProfile, normalizeOwnerKling4Parameters } from "./application/owner-kling4-parameters.js";
+export { OwnerKling4ReferenceService, OwnerKling4ReferenceServiceError } from "./application/owner-kling4-reference-service.js";
+export { OwnerKling4GenerationService, OwnerKling4GenerationServiceError } from "./application/owner-kling4-generation-service.js";
+export { registerSyntxOwnerKling4Tools, OWNER_KLING4_TOOL_NAMES } from "./mcp/owner-kling4-tools.js";
+export { createOwnerKling4Runtime } from "./runtime/owner-kling4-runtime.js";
+export { readOwnerKling4Flag, readOwnerKling4OperatorConfiguration } from "./runtime/owner-kling4-stdio-config.js";
 export type { OwnerVeoT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
 export {
   registerSyntxOwnerVeoT2vTools,

@@ -158,6 +158,21 @@ import {
   type ValidatedOwnerKlingKeyframesImage
 } from "../../application/owner-kling-keyframes-image-policy.js";
 import {
+  OWNER_KLING4_IMAGE_POLICY,
+  isValidatedOwnerKling4Image,
+  readValidatedOwnerKling4Image,
+  releaseValidatedOwnerKling4Image,
+  type OwnerKling4ModelId,
+  type ValidatedOwnerKling4Image
+} from "../../application/owner-kling4-image-policy.js";
+import {
+  OWNER_KLING4_OMNI_VIDEO_POLICY,
+  isValidatedOwnerKling4OmniVideo,
+  readValidatedOwnerKling4OmniVideo,
+  releaseValidatedOwnerKling4OmniVideo,
+  type ValidatedOwnerKling4OmniVideo
+} from "../../application/owner-kling4-omni-video-policy.js";
+import {
   readValidatedOwnerKlingMotionControlImage,
   releaseValidatedOwnerKlingMotionControlImage,
   type OwnerKlingMotionControlImageMimeType,
@@ -5083,6 +5098,46 @@ export class SyntxChatHttpClient {
     return native.getOwnerVeoOmniReferenceNativeResult(input, packet, signal);
   }
 
+  /** Creates one owner K4 chat from its genuine model-bound prepared candidate. */
+  async createOwnerKling4Chat(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling4-native-context.js").OwnerKling4NativeChatContext> {
+    assertNativeOwnerKling4(this);
+    const native = await import("./owner-kling4-native-context.js");
+    const packet = createOwnerKling4NativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_KLING4_CREATE_CHAT, this, ["video", title, requestSignal]));
+    return native.createOwnerKling4NativeChat(input, packet, signal);
+  }
+  /** Internal identity/one-shot boundary. MCP uses the separately budgeted generation facade. */
+  async startOwnerKling4WithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling4-native-context.js").OwnerKling4NativeStartAck> {
+    assertNativeOwnerKling4(this);
+    const native = await import("./owner-kling4-native-context.js");
+    const packet = createOwnerKling4NativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "kling", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerKling4WithOwnedCandidate(input, packet, signal);
+  }
+  /** Bounded same-owner K4 history; never creates or repeats generation. */
+  async listOwnedKling4Candidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-kling4-native-context.js").OwnerKling4NativeResultCandidates> {
+    assertNativeOwnerKling4(this);
+    const native = await import("./owner-kling4-native-context.js");
+    const packet = createOwnerKling4NativeInvocation(this, "list", input,
+      (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page)); url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnerKling4NativeCandidates(input, packet, signal);
+  }
+  /** Reads only a nominal K4 result capability minted from this client's history. */
+  async getOwnedKling4Result(input: import("./owner-kling4-native-context.js").OwnerKling4NativeResultReadInput,
+    signal?: AbortSignal): Promise<import("./owner-kling4-native-context.js").OwnerKling4NativeResult> {
+    assertNativeOwnerKling4(this);
+    const native = await import("./owner-kling4-native-context.js");
+    const packet = createOwnerKling4NativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) =>
+        this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerKling4NativeResult(input, packet, signal);
+  }
+
   /** Creates one owner Hailuo-02 I2V video chat from a genuine same-client image candidate. */
   async createOwnerHailuo02I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-hailuo02-i2v-native-context.js").OwnerHailuo02I2vChatContext> {
     assertNativeOwnerHailuo02I2v(this);
@@ -7277,6 +7332,137 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** Consumes one authentic K4 image/video receipt and returns only its safe internal upload reference. */
+  async uploadOwnerKling4Reference(
+    receiptInput: unknown,
+    signal?: AbortSignal
+  ): Promise<InternalUploadReference> {
+    let bytes: Uint8Array | undefined;
+    let form: FormData | undefined;
+    let filename: string | undefined;
+    let mimeType: string | undefined;
+    let modelId: OwnerKling4ModelId | undefined;
+    let expectedSize: number | undefined;
+    let expectedSha256: string | undefined;
+
+    try {
+      const imageModel: OwnerKling4ModelId | undefined =
+        isValidatedOwnerKling4Image(receiptInput, "kling_4_keyframes") ? "kling_4_keyframes" :
+          isValidatedOwnerKling4Image(receiptInput, "kling_4_omni") ? "kling_4_omni" : undefined;
+      if (imageModel !== undefined) {
+        const receipt = receiptInput as Readonly<ValidatedOwnerKling4Image>;
+        const owned = readValidatedOwnerKling4Image(receipt, imageModel);
+        if (!owned) throw invalidRequest();
+        bytes = owned.bytes;
+        if (!releaseValidatedOwnerKling4Image(receipt)) throw invalidRequest();
+
+        const sourceMimeValid = receipt.source_mime_type === "image/jpg"
+          ? owned.mime_type === "image/jpeg"
+          : receipt.source_mime_type === owned.mime_type;
+        const ratio = owned.width / owned.height;
+        if (receipt.status !== "LOCAL_SOURCE_VALIDATED" || receipt.model_id !== imageModel ||
+            receipt.source_policy_id !== OWNER_KLING4_IMAGE_POLICY.policy_id ||
+            !sourceMimeValid || !["image/jpeg", "image/png", "image/avif"].includes(owned.mime_type) ||
+            receipt.filename !== owned.filename || receipt.mime_type !== owned.mime_type ||
+            receipt.size !== owned.size || receipt.sha256 !== owned.sha256 ||
+            receipt.width !== owned.width || receipt.height !== owned.height ||
+            receipt.limits_confidence !== OWNER_KLING4_IMAGE_POLICY.limits_confidence ||
+            receipt.metadata_confidence !== OWNER_KLING4_IMAGE_POLICY.metadata_confidence ||
+            receipt.generation_permit !== false || receipt.reference_role_binding !== "NOT_ESTABLISHED" ||
+            receipt.owner_upload_binding !== "NOT_ESTABLISHED" ||
+            !Number.isSafeInteger(owned.size) || owned.size < 1 ||
+            owned.size > OWNER_KLING4_IMAGE_POLICY.max_file_size_bytes || bytes.byteLength !== owned.size ||
+            !Number.isSafeInteger(owned.width) || !Number.isSafeInteger(owned.height) ||
+            owned.width < OWNER_KLING4_IMAGE_POLICY.min_dimension || owned.width > OWNER_KLING4_IMAGE_POLICY.max_dimension ||
+            owned.height < OWNER_KLING4_IMAGE_POLICY.min_dimension || owned.height > OWNER_KLING4_IMAGE_POLICY.max_dimension ||
+            ratio < OWNER_KLING4_IMAGE_POLICY.aspect_ratio.min || ratio > OWNER_KLING4_IMAGE_POLICY.aspect_ratio.max ||
+            !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(bytes).digest("hex") !== owned.sha256) {
+          throw invalidRequest();
+        }
+        filename = owned.filename;
+        mimeType = owned.mime_type;
+        modelId = imageModel;
+        expectedSize = owned.size;
+        expectedSha256 = owned.sha256;
+      } else if (isValidatedOwnerKling4OmniVideo(receiptInput)) {
+        const receipt = receiptInput as Readonly<ValidatedOwnerKling4OmniVideo>;
+        const ownedBytes = readValidatedOwnerKling4OmniVideo(receipt);
+        if (!ownedBytes) throw invalidRequest();
+        bytes = ownedBytes;
+        if (!releaseValidatedOwnerKling4OmniVideo(receipt)) throw invalidRequest();
+
+        const metadata = receipt.metadata;
+        const containerMatchesMime = receipt.mime_type === "video/mp4"
+          ? metadata.container === "ISO_BMFF_MP4"
+          : receipt.mime_type === "video/quicktime" && metadata.container === "QUICKTIME_MOV";
+        const size = receipt.bytes_copied;
+        const localLimit = receipt.local_file_limit_bytes;
+        if (receipt.status !== "TRUSTED_LOCAL_MEDIA_PROBE" || receipt.model_id !== "kling_4_omni" ||
+            receipt.policy_id !== OWNER_KLING4_OMNI_VIDEO_POLICY.policy_id ||
+            receipt.source_catalog_version !== OWNER_KLING4_OMNI_VIDEO_POLICY.public_catalog_version ||
+            (receipt.mime_type !== "video/mp4" && receipt.mime_type !== "video/quicktime") ||
+            !containerMatchesMime || receipt.metadata_confidence !== "TRUSTED_FFPROBE_METADATA_NOT_PIXEL_DECODED" ||
+            receipt.generation_permit !== false || receipt.owner_upload_binding !== "NOT_ESTABLISHED" ||
+            receipt.content_quality !== "NOT_ASSESSED" ||
+            !Number.isSafeInteger(size) || size < 1 || size > OWNER_KLING4_OMNI_VIDEO_POLICY.source_max_file_size_bytes ||
+            !Number.isSafeInteger(localLimit) || localLimit < 1 ||
+            localLimit > OWNER_KLING4_OMNI_VIDEO_POLICY.source_max_file_size_bytes || size > localLimit ||
+            bytes.byteLength !== size || !/^[a-f0-9]{64}$/u.test(receipt.source_sha256) ||
+            createHash("sha256").update(bytes).digest("hex") !== receipt.source_sha256 ||
+            !Number.isSafeInteger(metadata.width) || metadata.width < OWNER_KLING4_OMNI_VIDEO_POLICY.min_width ||
+            metadata.width > OWNER_KLING4_OMNI_VIDEO_POLICY.max_width ||
+            !Number.isSafeInteger(metadata.height) || metadata.height < OWNER_KLING4_OMNI_VIDEO_POLICY.min_height ||
+            metadata.height > OWNER_KLING4_OMNI_VIDEO_POLICY.max_height ||
+            !Number.isFinite(metadata.duration_seconds) ||
+            metadata.duration_seconds < OWNER_KLING4_OMNI_VIDEO_POLICY.min_duration_seconds ||
+            metadata.duration_seconds > OWNER_KLING4_OMNI_VIDEO_POLICY.max_duration_seconds) {
+          throw invalidRequest();
+        }
+        filename = receipt.filename;
+        mimeType = receipt.mime_type;
+        modelId = "kling_4_omni";
+        expectedSize = size;
+        expectedSha256 = receipt.source_sha256;
+      } else {
+        throw invalidRequest();
+      }
+
+      if (!filename || !mimeType || !modelId || expectedSize === undefined || !expectedSha256 ||
+          filename.length > 255 || /[\\/\u0000-\u001f\u007f]/u.test(filename) || bytes === undefined) {
+        throw invalidRequest();
+      }
+      form = this.#buildUploadForm({ bytes, filename, mime_type: mimeType, destination: "uploaded",
+        check_duplicates: true, model_type: modelId }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const parsed = z.object({ files: z.array(z.object({
+        id: providerIdSchema.optional(),
+        file_id: providerIdSchema.optional(),
+        url: z.string().min(1).max(MAX_URL_LENGTH),
+        status: z.string().max(64).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)).optional(),
+        filename: z.string().max(255).optional(),
+        mime_type: z.string().max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)).optional(),
+        size: z.number().int().nonnegative().max(OWNER_KLING4_OMNI_VIDEO_POLICY.source_max_file_size_bytes).optional()
+      }).strip()).length(1) }).strip().safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const uploaded = parsed.data.files[0]!;
+      if (uploaded.status?.toLowerCase() === "error" ||
+          (uploaded.filename !== undefined && uploaded.filename !== filename) ||
+          (uploaded.mime_type !== undefined && uploaded.mime_type !== mimeType) ||
+          (uploaded.size !== undefined && uploaded.size !== expectedSize) ||
+          (uploaded.id !== undefined && uploaded.file_id !== undefined && uploaded.id !== uploaded.file_id)) {
+        throw protocolError();
+      }
+      let references: InternalUploadReference[];
+      try { references = parseInternalUploadReferences(raw); }
+      catch { throw protocolError(); }
+      if (references.length !== 1) throw protocolError();
+      return Object.freeze({ ...references[0]! });
+    } finally {
+      bytes?.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** Reads the fixed native Motion Control service preset library. */
   async listKlingMotionControlPresets(signal?: AbortSignal): Promise<OwnerKlingMotionControlPresetLibrary> {
     const raw = await this.#request(new URL("kling/motions", V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", signal);
@@ -9323,6 +9509,48 @@ function isExactOwnerVeoOmniReferenceNativeClient(client: unknown): client is Sy
       getDataMethod(client, "getOwnedVeoOmniReferenceResult") === NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_GET &&
       Reflect.get(client, "createChat") === NATIVE_OWNER_VEO_OMNI_REFERENCE_CREATE_CHAT &&
       Reflect.get(client, "uploadOwnerVeoOmniReference") === NATIVE_OWNER_VEO_OMNI_REFERENCE_UPLOAD;
+  } catch { return false; }
+}
+
+const NATIVE_OWNER_KLING4_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_KLING4_UPLOAD = SyntxChatHttpClient.prototype.uploadOwnerKling4Reference;
+const NATIVE_OWNER_KLING4_CREATE = SyntxChatHttpClient.prototype.createOwnerKling4Chat;
+const NATIVE_OWNER_KLING4_START = SyntxChatHttpClient.prototype.startOwnerKling4WithOwnedCandidate;
+const NATIVE_OWNER_KLING4_LIST = SyntxChatHttpClient.prototype.listOwnedKling4Candidates;
+const NATIVE_OWNER_KLING4_GET = SyntxChatHttpClient.prototype.getOwnedKling4Result;
+type OwnerKling4NativeMethod = "create" | "start" | "list" | "get";
+const OWNER_KLING4_NATIVE_INVOCATIONS = new WeakMap<object, Readonly<{
+  client: SyntxChatHttpClient; method: OwnerKling4NativeMethod; input: unknown; callback: Function;
+}>>();
+function createOwnerKling4NativeInvocation(client: SyntxChatHttpClient, method: OwnerKling4NativeMethod,
+  input: unknown, callback: Function): object {
+  assertNativeOwnerKling4(client);
+  if (typeof callback !== "function" || types.isProxy(callback)) throw invalidRequest();
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_KLING4_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+/** Only the four exact native methods can mint a same-input, once-consumed packet. */
+export function consumeOwnerKling4NativeInvocation(input: unknown, packet: unknown,
+  method: OwnerKling4NativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw invalidRequest();
+  const invocation = OWNER_KLING4_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerKling4NativeClient(invocation.client)) throw invalidRequest();
+  OWNER_KLING4_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+function assertNativeOwnerKling4(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerKling4NativeClient(client)) throw invalidRequest();
+}
+function isExactOwnerKling4NativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    if (!client || typeof client !== "object" || types.isProxy(client) || Object.getPrototypeOf(client) !== SyntxChatHttpClient.prototype) return false;
+    return ([
+      ["createChat", NATIVE_OWNER_KLING4_CREATE_CHAT], ["uploadOwnerKling4Reference", NATIVE_OWNER_KLING4_UPLOAD],
+      ["createOwnerKling4Chat", NATIVE_OWNER_KLING4_CREATE], ["startOwnerKling4WithOwnedCandidate", NATIVE_OWNER_KLING4_START],
+      ["listOwnedKling4Candidates", NATIVE_OWNER_KLING4_LIST], ["getOwnedKling4Result", NATIVE_OWNER_KLING4_GET]
+    ] as const).every(([name, original]) => !Object.hasOwn(client, name) && typeof original === "function" &&
+      getDataMethod(client, name) === original && getDataMethod(SyntxChatHttpClient.prototype, name) === original);
   } catch { return false; }
 }
 

@@ -29,6 +29,7 @@ import { readOwnerTopazEnhanceFlag, readOwnerTopazEnhanceOperatorConfiguration }
 import { readOwnerFlux3VideoFlag, readOwnerFlux3VideoOperatorConfiguration } from "../runtime/owner-flux3-video-stdio-config.js";
 import { readOwnerGrokV2vFlag, readOwnerGrokV2vOperatorConfiguration } from "../runtime/owner-grok-v2v-stdio-config.js";
 import { readOwnerVeoOmniReferenceFlag, readOwnerVeoOmniReferenceOperatorConfiguration } from "../runtime/owner-veo-omni-reference-stdio-config.js";
+import { readOwnerKling4Flag, readOwnerKling4OperatorConfiguration } from "../runtime/owner-kling4-stdio-config.js";
 import { readOwnerHailuo02I2vFlag } from "../runtime/owner-hailuo02-i2v-stdio-config.js";
 
 const OWNER_IMAGE_REFERENCE_REGISTRY_VERSION =
@@ -448,6 +449,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerVeoOmniReferencesEnabled = readOwnerVeoOmniReferenceFlag(process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES);
   const ownerVeoOmniReferencesOperator = readOwnerVeoOmniReferenceOperatorConfiguration(ownerVeoOmniReferencesEnabled,
     process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH, process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES);
+  const ownerKling4Enabled = readOwnerKling4Flag(process.env.SYNTX_OWNER_KLING4);
+  const ownerKling4Operator = readOwnerKling4OperatorConfiguration(ownerKling4Enabled,
+    process.env.SYNTX_OWNER_KLING4_FFPROBE_PATH, process.env.SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES);
   const ownerGrokT2vEnabled = readOwnerFlag("SYNTX_OWNER_GROK_T2V");
   const ownerHailuoLiveT2vEnabled = readOwnerFlag("SYNTX_OWNER_HAILUO_LIVE_T2V");
   const ownerVideo2AudioEnabled = readOwnerVideo2AudioFlag(process.env.SYNTX_OWNER_VIDEO2AUDIO);
@@ -489,7 +493,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const generateImageEnabled = readOwnerFlag("SYNTX_OWNER_GENERATE_IMAGE");
   const generateVideoEnabled = readOwnerFlag("SYNTX_OWNER_GENERATE_VIDEO");
   if (ownerDurableGenerationEnabled &&
-      (ownerVeoOmniReferencesEnabled || ownerContractMediaEnabled || generateImageEnabled || generateVideoEnabled || ownerImageReferencesEnabled ||
+      (ownerKling4Enabled || ownerVeoOmniReferencesEnabled || ownerContractMediaEnabled || generateImageEnabled || generateVideoEnabled || ownerImageReferencesEnabled ||
         ownerGrokImageReferencesEnabled || ownerGrokT2iImageReferencesEnabled || ownerUniImageReferencesEnabled || ownerClarityUpscaleEnabled || ownerMagnificUpscaleEnabled ||
         ownerKontextImageReferencesEnabled || ownerWanImageReferencesEnabled || ownerStandardImageReferencesEnabled ||
         ownerRunwayImageReferencesEnabled || ownerSeedreamImageReferencesEnabled || ownerSeedreamEditorImageReferencesEnabled ||
@@ -620,6 +624,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerVeoT2vEnabled,
       ownerVeoOmniT2vEnabled,
       ownerVeoOmniReferencesEnabled,
+      ownerKling4Enabled,
+      ...(ownerKling4Operator === undefined ? {} : { ownerKling4FfprobePath: ownerKling4Operator.ffprobePath,
+        ownerKling4MaxVideoFileBytes: ownerKling4Operator.maxVideoFileBytes }),
       ...(ownerVeoOmniReferencesOperator === undefined ? {} : { ownerVeoOmniReferencesFfprobePath: ownerVeoOmniReferencesOperator.ffprobePath,
         ownerVeoOmniReferencesMaxFileBytes: ownerVeoOmniReferencesOperator.maxFileBytes }),
       ownerGrokT2vEnabled,
@@ -769,7 +776,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerTopazAstraLifecycle,
         runtime.ownerHailuo02I2vLifecycle,
         runtime.ownerWan27R2vLifecycle,
-        combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle),
+        combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle),
         runtime.ownerWan26I2vLifecycle,
         runtime.ownerWan25I2vPreviewLifecycle,
         runtime.ownerWan26R2vLifecycle,
@@ -938,7 +945,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerTopazAstraLifecycle,
           runtime.ownerHailuo02I2vLifecycle,
           runtime.ownerWan27R2vLifecycle,
-          combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle),
+          combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle),
           runtime.ownerWan26I2vLifecycle,
           runtime.ownerWan25I2vPreviewLifecycle,
           runtime.ownerWan26R2vLifecycle,
@@ -1019,6 +1026,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerWan25I2vPreviewLifecycle,
         runtime.ownerKlingKeyframesLifecycle,
         runtime.ownerKlingMotionControlLifecycle,
+        runtime.ownerKling4Lifecycle,
         runtime.serverOptions.ownerFluxImageReferences?.generationService,
         runtime.serverOptions.ownerIdeogramImageReferences?.generationService,
         runtime.serverOptions.ownerBananaInpaintImageReferences?.generationService]) {

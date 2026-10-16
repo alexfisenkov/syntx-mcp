@@ -47,6 +47,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_GROK_T2V",
   "SYNTX_OWNER_HAILUO_LIVE_T2V",
   "SYNTX_OWNER_TOPAZ_ASTRA",
+  "SYNTX_OWNER_TOPAZ_ENHANCE",
   "SYNTX_OWNER_WAN27_R2V",
   "SYNTX_OWNER_WAN26_I2V",
   "SYNTX_OWNER_WAN26_R2V",
@@ -90,6 +91,7 @@ const HELP_TEXT = [
   "WAN 3.0 Edit is enabled by SYNTX_OWNER_WAN30_EDIT_VIDEOS=1; replace SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH with an absolute path to a trusted ffprobe executable. This local slice accepts only one observed owner-upload MP4 case and the Basic/16:9/480P/2s tuple. ffprobe runs only when the upload tool is explicitly called; startup does not upload, probe, or generate.",
   "ElevenLabs STS operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "Topaz Astra operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
+  "Topaz Enhance is enabled by SYNTX_OWNER_TOPAZ_ENHANCE=1; replace its ffprobe path and upload destination placeholders. The local probe accepts MP4 only, while public metadata also lists WebM and QuickTime. Tools run only when explicitly called; startup does not upload or generate. Paid generation has no enforceable cost cap.",
   "The emitted tools can perform paid generation only when explicitly called by the client."
 ].join("\n") + "\n";
 
@@ -137,6 +139,8 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
     ["SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION", "<uploaded|hidden>"],
     ["SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH", "<absolute path to ffprobe>"],
     ["SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION", "<uploaded|hidden>"],
+    ["SYNTX_OWNER_TOPAZ_ENHANCE_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
+    ["SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION", "<uploaded|hidden>"],
     ["SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH", "<absolute path to ffprobe>"],
     ["SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH", "<absolute path to ffmpeg>"],
     ["SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],

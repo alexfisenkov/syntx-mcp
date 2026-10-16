@@ -476,6 +476,11 @@ import {
   type OwnerTopazAstraOriginalUploadContext
 } from "./topaz-astra-original-upload.js";
 import {
+  parseOwnerTopazEnhanceOriginalUploadReceipt,
+  validateOwnerTopazEnhanceOriginalProbeForUpload,
+  type OwnerTopazEnhanceOriginalUploadContext
+} from "./topaz-enhance-original-upload.js";
+import {
   parseOwnerElevenLabsStsOriginalUploadReceipt,
   validateOwnerElevenLabsStsOriginalProbeForUpload,
   type OwnerElevenLabsStsOriginalUploadReference
@@ -499,6 +504,21 @@ const OWNER_TOPAZ_ASTRA_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
   height: number;
   duration_seconds: number;
   decoded_frame_count: number;
+}>>();
+const OWNER_TOPAZ_ENHANCE_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
+  client: SyntxChatHttpClient;
+  url: string;
+  model_id: OwnerTopazEnhanceOriginalUploadContext["model_id"];
+  ai_name: "topaz_ai";
+  source_catalog_version: OwnerTopazEnhanceOriginalUploadContext["source_catalog_version"];
+  destination: SyntxUploadDestination;
+  source_sha256: string;
+  source_size: number;
+  source_mime_type: "video/mp4";
+  width: number;
+  height: number;
+  duration_seconds: number;
+  frame_count: number;
 }>>();
 const OWNER_ELEVENLABS_STS_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{
   client: SyntxChatHttpClient;
@@ -4847,6 +4867,49 @@ export class SyntxChatHttpClient {
     return native.getOwnerTopazAstraNativeResult(input, packet, signal);
   }
 
+  /** Creates one owner Topaz Enhance video-upscaler chat from its genuine owned candidate. */
+  async createOwnerTopazEnhanceChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-topaz-enhance-native-context.js").OwnerTopazEnhanceNativeChatContext> {
+    assertNativeOwnerTopazEnhance(this);
+    const native = await import("./owner-topaz-enhance-native-context.js");
+    const packet = createOwnerTopazEnhanceNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_TOPAZ_ENHANCE_CREATE_CHAT, this, [title, requestSignal]));
+    return native.createOwnerTopazEnhanceNativeChat(input, packet, signal);
+  }
+
+  /** Revalidates and consumes one Enhance permit before its sole fixed video/generate POST. */
+  async startTopazEnhanceWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<import("./owner-topaz-enhance-native-context.js").OwnerTopazEnhanceNativeStartAck> {
+    assertNativeOwnerTopazEnhance(this);
+    const native = await import("./owner-topaz-enhance-native-context.js");
+    const packet = createOwnerTopazEnhanceNativeInvocation(this, "start", input,
+      async (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "topaz_ai", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerTopazEnhanceNativeGeneration(input, packet, signal);
+  }
+
+  /** Bounded GET-only owned Topaz Enhance history read. */
+  async listOwnedTopazEnhanceCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-topaz-enhance-native-context.js").OwnerTopazEnhanceNativeResultCandidates> {
+    assertNativeOwnerTopazEnhance(this);
+    const native = await import("./owner-topaz-enhance-native-context.js");
+    const packet = createOwnerTopazEnhanceNativeInvocation(this, "list", input,
+      async (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnerTopazEnhanceNativeCandidates(input, packet, signal);
+  }
+
+  /** Reads only an exact result context minted by this client's bounded Enhance history. */
+  async getOwnedTopazEnhanceResult(input: unknown, signal?: AbortSignal): Promise<import("./owner-topaz-enhance-native-context.js").OwnerTopazEnhanceNativeResult> {
+    assertNativeOwnerTopazEnhance(this);
+    const native = await import("./owner-topaz-enhance-native-context.js");
+    const packet = createOwnerTopazEnhanceNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) =>
+        this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerTopazEnhanceNativeResult(input, packet, signal);
+  }
+
   /** Creates one owner Hailuo-02 I2V video chat from a genuine same-client image candidate. */
   async createOwnerHailuo02I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-hailuo02-i2v-native-context.js").OwnerHailuo02I2vChatContext> {
     assertNativeOwnerHailuo02I2v(this);
@@ -7222,6 +7285,51 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One native Topaz Enhance MP4 upload; its R2 URL stays in the private same-client context. */
+  async uploadTopazEnhanceOriginal(
+    genuineProbe: unknown,
+    destination: SyntxUploadDestination,
+    signal?: AbortSignal
+  ): Promise<OwnerTopazEnhanceOriginalUploadContext> {
+    if (destination !== "uploaded" && destination !== "hidden") throw invalidRequest();
+    let validated: ReturnType<typeof validateOwnerTopazEnhanceOriginalProbeForUpload>;
+    try { validated = validateOwnerTopazEnhanceOriginalProbeForUpload(genuineProbe); }
+    catch { throw invalidRequest(); }
+    const bytes = validated.bytes;
+    let form: FormData | undefined;
+    try {
+      form = this.#buildUploadForm({ bytes, filename: validated.filename, mime_type: validated.mime_type,
+        destination, check_duplicates: true, model_type: validated.probe.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      let receipt: Readonly<{ url: string }>;
+      try { receipt = parseOwnerTopazEnhanceOriginalUploadReceipt(raw, validated); }
+      catch { throw protocolError(); }
+      const context: OwnerTopazEnhanceOriginalUploadContext = Object.freeze({
+        status: "OWNER_TOPAZ_ENHANCE_ORIGINAL_UPLOADED",
+        model_id: validated.probe.model_id,
+        ai_name: validated.probe.ai_name,
+        source_catalog_version: validated.probe.source_catalog_version,
+        destination,
+        source_sha256: validated.sha256,
+        source_size: validated.size,
+        source_mime_type: validated.mime_type,
+        width: validated.width,
+        height: validated.height,
+        duration_seconds: validated.duration_seconds,
+        frame_count: validated.frame_count
+      });
+      OWNER_TOPAZ_ENHANCE_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, url: receipt.url,
+        model_id: context.model_id, ai_name: context.ai_name, source_catalog_version: context.source_catalog_version,
+        destination, source_sha256: context.source_sha256, source_size: context.source_size,
+        source_mime_type: context.source_mime_type, width: context.width, height: context.height,
+        duration_seconds: context.duration_seconds, frame_count: context.frame_count }));
+      return context;
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One native upload of a trusted STS MP3; only a same-client private witness retains its R2 URL. */
   async uploadElevenLabsStsOriginal(
     genuineProbe: unknown,
@@ -8318,6 +8426,7 @@ export class SyntxChatHttpClient {
 }
 
 const NATIVE_OWNER_TOPAZ_ASTRA_UPLOAD = SyntxChatHttpClient.prototype.uploadTopazAstraOriginal;
+const NATIVE_OWNER_TOPAZ_ENHANCE_UPLOAD = SyntxChatHttpClient.prototype.uploadTopazEnhanceOriginal;
 const NATIVE_OWNER_ELEVENLABS_STS_UPLOAD = SyntxChatHttpClient.prototype.uploadElevenLabsStsOriginal;
 const NATIVE_OWNER_ELEVENLABS_STS_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
 const NATIVE_OWNER_ELEVENLABS_STS_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerElevenLabsStsChat;
@@ -8712,6 +8821,61 @@ const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_CREATE = SyntxChatHttpClient.prototype.cre
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_START = SyntxChatHttpClient.prototype.startTopazAstraWithOwnedCandidate;
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedTopazAstraCandidates;
 const NATIVE_OWNER_TOPAZ_ASTRA_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedTopazAstraResult;
+const NATIVE_OWNER_TOPAZ_ENHANCE_CREATE_CHAT = SyntxChatHttpClient.prototype.createVideoUpscalerChat;
+const NATIVE_OWNER_TOPAZ_ENHANCE_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerTopazEnhanceChat;
+const NATIVE_OWNER_TOPAZ_ENHANCE_NATIVE_START = SyntxChatHttpClient.prototype.startTopazEnhanceWithOwnedCandidate;
+const NATIVE_OWNER_TOPAZ_ENHANCE_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedTopazEnhanceCandidates;
+const NATIVE_OWNER_TOPAZ_ENHANCE_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedTopazEnhanceResult;
+type OwnerTopazEnhanceNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerTopazEnhanceNativeInvocation {
+  readonly client: SyntxChatHttpClient;
+  readonly method: OwnerTopazEnhanceNativeMethod;
+  readonly input: unknown;
+  readonly callback: Function;
+}
+const OWNER_TOPAZ_ENHANCE_NATIVE_INVOCATIONS = new WeakMap<object, OwnerTopazEnhanceNativeInvocation>();
+
+function createOwnerTopazEnhanceNativeInvocation(client: SyntxChatHttpClient, method: OwnerTopazEnhanceNativeMethod,
+  input: unknown, callback: Function): object {
+  assertNativeOwnerTopazEnhance(client);
+  if (typeof callback !== "function" || types.isProxy(callback)) throw invalidRequest();
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_TOPAZ_ENHANCE_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** Consumes a one-use packet minted only inside the four exact Enhance client wrappers. */
+export function consumeOwnerTopazEnhanceNativeInvocation(input: unknown, packet: unknown, method: OwnerTopazEnhanceNativeMethod):
+  Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw invalidRequest();
+  const invocation = OWNER_TOPAZ_ENHANCE_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerTopazEnhanceNativeClient(invocation.client)) {
+    throw invalidRequest();
+  }
+  OWNER_TOPAZ_ENHANCE_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerTopazEnhance(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerTopazEnhanceNativeClient(client)) throw invalidRequest();
+}
+
+function isExactOwnerTopazEnhanceNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) && Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !["uploadTopazEnhanceOriginal", "createOwnerTopazEnhanceChat", "startTopazEnhanceWithOwnedCandidate",
+        "listOwnedTopazEnhanceCandidates", "getOwnedTopazEnhanceResult"].some((name) => Object.hasOwn(client, name)) &&
+      getDataMethod(client, "createVideoUpscalerChat") === NATIVE_OWNER_TOPAZ_ENHANCE_CREATE_CHAT &&
+      getDataMethod(client, "uploadTopazEnhanceOriginal") === NATIVE_OWNER_TOPAZ_ENHANCE_UPLOAD &&
+      getDataMethod(client, "createOwnerTopazEnhanceChat") === NATIVE_OWNER_TOPAZ_ENHANCE_NATIVE_CREATE &&
+      getDataMethod(client, "startTopazEnhanceWithOwnedCandidate") === NATIVE_OWNER_TOPAZ_ENHANCE_NATIVE_START &&
+      getDataMethod(client, "listOwnedTopazEnhanceCandidates") === NATIVE_OWNER_TOPAZ_ENHANCE_NATIVE_LIST &&
+      getDataMethod(client, "getOwnedTopazEnhanceResult") === NATIVE_OWNER_TOPAZ_ENHANCE_NATIVE_GET &&
+      Reflect.get(client, "createVideoUpscalerChat") === NATIVE_OWNER_TOPAZ_ENHANCE_CREATE_CHAT &&
+      Reflect.get(client, "uploadTopazEnhanceOriginal") === NATIVE_OWNER_TOPAZ_ENHANCE_UPLOAD;
+  } catch { return false; }
+}
+
 type OwnerTopazAstraNativeMethod = "create" | "start" | "list" | "get";
 interface OwnerTopazAstraNativeInvocation { readonly client: SyntxChatHttpClient; readonly method: OwnerTopazAstraNativeMethod; readonly input: unknown; readonly callback: Function }
 const OWNER_TOPAZ_ASTRA_NATIVE_INVOCATIONS = new WeakMap<object, OwnerTopazAstraNativeInvocation>();
@@ -8893,6 +9057,31 @@ export function readOwnerTopazAstraOriginalUploadForClient(
     source_sha256: witness.source_sha256, source_size: witness.source_size,
     source_mime_type: witness.source_mime_type, width: witness.width, height: witness.height,
     duration_seconds: witness.duration_seconds, decoded_frame_count: witness.decoded_frame_count, url: witness.url });
+}
+
+/** Private same-client bridge for Topaz Enhance composition; the URL never enters the DTO. */
+export function readOwnerTopazEnhanceOriginalUploadForClient(
+  client: unknown,
+  contextInput: unknown
+): (OwnerTopazEnhanceOriginalUploadContext & Readonly<{ url: string }>) | null {
+  if (!client || typeof client !== "object" || types.isProxy(client) ||
+      Object.getPrototypeOf(client) !== SyntxChatHttpClient.prototype ||
+      SyntxChatHttpClient.prototype.uploadTopazEnhanceOriginal !== NATIVE_OWNER_TOPAZ_ENHANCE_UPLOAD ||
+      !contextInput || typeof contextInput !== "object" || types.isProxy(contextInput)) return null;
+  const witness = OWNER_TOPAZ_ENHANCE_UPLOAD_CONTEXTS.get(contextInput);
+  if (!witness || witness.client !== client || !isSafeUploadReferenceUrl(witness.url)) return null;
+  const value = contextInput as OwnerTopazEnhanceOriginalUploadContext;
+  if (value.status !== "OWNER_TOPAZ_ENHANCE_ORIGINAL_UPLOADED" || value.model_id !== witness.model_id ||
+      value.ai_name !== witness.ai_name || value.source_catalog_version !== witness.source_catalog_version ||
+      value.destination !== witness.destination || value.source_sha256 !== witness.source_sha256 ||
+      value.source_size !== witness.source_size || value.source_mime_type !== witness.source_mime_type ||
+      value.width !== witness.width || value.height !== witness.height ||
+      value.duration_seconds !== witness.duration_seconds || value.frame_count !== witness.frame_count) return null;
+  return Object.freeze({ status: value.status, model_id: witness.model_id, ai_name: witness.ai_name,
+    source_catalog_version: witness.source_catalog_version, destination: witness.destination,
+    source_sha256: witness.source_sha256, source_size: witness.source_size,
+    source_mime_type: witness.source_mime_type, width: witness.width, height: witness.height,
+    duration_seconds: witness.duration_seconds, frame_count: witness.frame_count, url: witness.url });
 }
 
 /** Private same-client bridge for STS composition; the URL never enters the DTO. */

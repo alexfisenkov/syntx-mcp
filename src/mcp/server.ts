@@ -185,6 +185,7 @@ import { registerSyntxOwnerElevenLabsStsExistingMediaTools } from "./owner-eleve
 import { registerSyntxOwnerTopazAstraTools, type OwnerTopazAstraServiceComposition } from "./owner-topaz-astra-tools.js";
 import type { OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-astra-existing-media-service.js";
 import { registerSyntxOwnerTopazAstraExistingMediaTools } from "./owner-topaz-astra-existing-media-tools.js";
+import { registerSyntxOwnerTopazEnhanceTools, type OwnerTopazEnhanceServiceComposition } from "./owner-topaz-enhance-tools.js";
 import { registerSyntxOwnerHailuo02I2vTools, type OwnerHailuo02I2vServiceComposition } from "./owner-hailuo02-i2v-tools.js";
 import type { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
 import {
@@ -597,6 +598,8 @@ export interface CreateMcpServerOptions {
   ownerElevenLabsSts?: OwnerElevenLabsStsServiceComposition | undefined;
   /** Explicit owner-local Topaz Astra upload, generation, and recovery tools; omitted from default and HTTP servers. */
   ownerTopazAstra?: OwnerTopazAstraComposition | undefined;
+  /** Explicit owner-local Topaz Enhance upload, generation, and recovery tools; omitted from default and HTTP servers. */
+  ownerTopazEnhance?: OwnerTopazEnhanceServiceComposition | undefined;
   /** Explicit owner-local Suno generate and recovery tools; omitted from default and HTTP servers. */
   ownerSunoGeneration?: OwnerSunoGenerationServiceComposition | undefined;
   /** Explicit owner-local reviewed Luma T2V tools; omitted from default and HTTP servers. */
@@ -767,7 +770,7 @@ export function createMcpServer(
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
-        options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
+        options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
         options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan26R2v || options.ownerWan25I2vPreview)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
@@ -1254,6 +1257,9 @@ export function createMcpServer(
     if (options.ownerTopazAstra.existingMediaService) {
       registerSyntxOwnerTopazAstraExistingMediaTools(server, options.ownerTopazAstra.existingMediaService);
     }
+  }
+  if (options.ownerTopazEnhance) {
+    registerSyntxOwnerTopazEnhanceTools(server, options.ownerTopazEnhance);
   }
   if (options.ownerSunoGeneration) {
     registerSyntxOwnerSunoGenerationTools(server, options.ownerSunoGeneration);

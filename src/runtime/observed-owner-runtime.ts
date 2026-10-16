@@ -159,6 +159,9 @@ import { OwnerTopazAstraOriginalReferenceService } from "../application/owner-to
 import { createOwnerTopazAstraOwnedRequestPreparer } from "../application/owner-topaz-astra-owned-request-preparer.js";
 import { OwnerTopazAstraGenerationService, OWNER_TOPAZ_ASTRA_GENERATION_CATALOG_VERSION } from "../application/owner-topaz-astra-generation-service.js";
 import { OwnerTopazAstraExistingMediaService } from "../application/owner-topaz-astra-existing-media-service.js";
+import { OwnerTopazEnhanceOriginalReferenceService } from "../application/owner-topaz-enhance-original-reference-service.js";
+import { createOwnerTopazEnhanceOwnedRequestPreparer } from "../application/owner-topaz-enhance-owned-request-preparer.js";
+import { OwnerTopazEnhanceGenerationService, OWNER_TOPAZ_ENHANCE_GENERATION_CATALOG_VERSION } from "../application/owner-topaz-enhance-generation-service.js";
 import { OwnerWan27R2vReferenceService } from "../application/owner-wan27-r2v-reference-service.js";
 import { OwnerWan27R2vReferenceUploadService } from "../application/owner-wan27-r2v-reference-upload-service.js";
 import { createOwnerWan27R2vRequestPreparer } from "../application/owner-wan27-r2v-request-preparer.js";
@@ -243,6 +246,12 @@ export interface ObservedOwnerRuntimeOptions {
   ownerTopazAstraFfprobePath?: string;
   /** Trusted upload destination, required only when Topaz Astra is enabled. */
   ownerTopazAstraUploadDestination?: "uploaded" | "hidden";
+  /** Explicit owner-stdio opt-in for private Topaz Enhance tools; default is off. */
+  ownerTopazEnhanceEnabled?: boolean;
+  /** Trusted absolute local ffprobe path, required only when Topaz Enhance is enabled. */
+  ownerTopazEnhanceFfprobePath?: string;
+  /** Trusted upload destination, required only when Topaz Enhance is enabled. */
+  ownerTopazEnhanceUploadDestination?: "uploaded" | "hidden";
   /** Explicit owner-stdio opt-in for private WAN 2.7 R2V reference upload tools. */
   ownerWan27R2vEnabled?: boolean;
   /** Trusted absolute local ffprobe path, required only when WAN 2.7 R2V references are enabled. */
@@ -1717,6 +1726,86 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ originalReferenceService, generationService, existingMediaService: existingMediaService!, lifecycle });
       })()
     : undefined;
+  const ownerTopazEnhance = options.ownerTopazEnhanceEnabled === true
+    ? (() => {
+        if (typeof options.ownerTopazEnhanceFfprobePath !== "string" || !isAbsolute(options.ownerTopazEnhanceFfprobePath) ||
+            (options.ownerTopazEnhanceUploadDestination !== "uploaded" && options.ownerTopazEnhanceUploadDestination !== "hidden")) {
+          throw new Error("OWNER_TOPAZ_ENHANCE_OPERATOR_CONFIGURATION_REQUIRED");
+        }
+        const enhanceCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
+          OWNER_TOPAZ_ENHANCE_GENERATION_CATALOG_VERSION,
+          options.catalogDirectory
+        ));
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveEnhanceChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_TOPAZ_ENHANCE_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        const originalReferenceService = new OwnerTopazEnhanceOriginalReferenceService({
+          ffprobePath: options.ownerTopazEnhanceFfprobePath,
+          destination: options.ownerTopazEnhanceUploadDestination,
+          binding: authBinding,
+          linkService,
+          resolveClient: resolveEnhanceChatClient,
+          now
+        });
+        let preparer: ReturnType<typeof createOwnerTopazEnhanceOwnedRequestPreparer> | undefined;
+        let generationService: OwnerTopazEnhanceGenerationService;
+        try {
+          preparer = createOwnerTopazEnhanceOwnedRequestPreparer({ originalReferenceService, now });
+          generationService = new OwnerTopazEnhanceGenerationService({
+            binding: authBinding,
+            linkService,
+            catalog: enhanceCatalog,
+            catalog_version: OWNER_TOPAZ_ENHANCE_GENERATION_CATALOG_VERSION,
+            preparer,
+            originalReferenceService,
+            resolveChatClient: resolveEnhanceChatClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string) => new ModelAccessService(enhanceCatalog, createReadClient(attemptId), now),
+            now
+          });
+        } catch (error) {
+          const cleanup = (async () => {
+            const errors: unknown[] = [];
+            for (const close of [() => generationService?.close(), () => preparer?.close(), () => originalReferenceService.close()]) {
+              try { await close(); } catch (closeError) { errors.push(closeError); }
+            }
+            clientsByAttempt.clear();
+            if (errors.length === 1) throw errors[0];
+            if (errors.length > 1) throw new AggregateError(errors, "Topaz Enhance startup cleanup failed.");
+          })();
+          if (error !== null && (typeof error === "object" || typeof error === "function")) {
+            OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          }
+          throw error;
+        }
+        let closing: Promise<void> | undefined;
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          close(): Promise<void> {
+            if (closing !== undefined) return closing;
+            closing = (async () => {
+              const errors: unknown[] = [];
+              try { await generationService.close(); } catch (error) { errors.push(error); }
+              try { await originalReferenceService.close(); } catch (error) { errors.push(error); }
+              clientsByAttempt.clear();
+              if (errors.length === 1) throw errors[0];
+              if (errors.length > 1) throw new AggregateError(errors, "Topaz Enhance services did not close cleanly.");
+            })();
+            return closing;
+          }
+        });
+        return Object.freeze({ originalReferenceService, generationService, lifecycle });
+      })()
+    : undefined;
   const ownerWan27R2v = options.ownerWan27R2vEnabled === true
     ? (() => {
         if (typeof options.ownerWan27R2vFfprobePath !== "string" || !isAbsolute(options.ownerWan27R2vFfprobePath) ||
@@ -2920,7 +3009,7 @@ export function createObservedOwnerRuntime(
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
         ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined &&
-        ownerTopazAstra === undefined &&
+        ownerTopazAstra === undefined && ownerTopazEnhance === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
         ownerStandardImageReferences === undefined && ownerRunwayImageReferences === undefined &&
@@ -2966,6 +3055,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerTopazAstra !== undefined) {
             try { await ownerTopazAstra.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerTopazEnhance !== undefined) {
+            try { await ownerTopazEnhance.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerLumaT2v !== undefined) {
             try { await ownerLumaT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -3121,6 +3213,12 @@ export function createObservedOwnerRuntime(
         existingMediaService: ownerTopazAstra.existingMediaService
       }
     }),
+    ...(ownerTopazEnhance === undefined ? {} : {
+      ownerTopazEnhance: {
+        originalReferenceService: ownerTopazEnhance.originalReferenceService,
+        generationService: ownerTopazEnhance.generationService
+      }
+    }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2v: { generationService: ownerLumaT2v.generationService } }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2v: { generationService: ownerHailuo01T2v.generationService } }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2v: { generationService: ownerHailuo01DirectorT2v.generationService } }),
@@ -3204,6 +3302,7 @@ export function createObservedOwnerRuntime(
     ...(ownerElevenLabsSts === undefined ? {} : { ownerElevenLabsStsLifecycle: ownerElevenLabsSts.lifecycle }),
     ...(ownerSunoGeneration === undefined ? {} : { ownerSunoGenerationLifecycle: ownerSunoGeneration.lifecycle }),
     ...(ownerTopazAstra === undefined ? {} : { ownerTopazAstraLifecycle: ownerTopazAstra.lifecycle }),
+    ...(ownerTopazEnhance === undefined ? {} : { ownerTopazEnhanceLifecycle: ownerTopazEnhance.lifecycle }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2vLifecycle: ownerLumaT2v.lifecycle }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2vLifecycle: ownerHailuo01T2v.lifecycle }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2vLifecycle: ownerHailuo01DirectorT2v.lifecycle }),

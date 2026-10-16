@@ -34,6 +34,9 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_BANANA_INPAINT_IMAGE_REFERENCES",
   "SYNTX_OWNER_WAN_T2V_VIDEOS",
   "SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS",
+  "SYNTX_OWNER_WAN30_REFERENCE_VIDEOS",
+  "SYNTX_OWNER_WAN30_OMNI_VIDEOS",
+  "SYNTX_OWNER_WAN30_EDIT_VIDEOS",
   "SYNTX_OWNER_ELEVENLABS_TTS",
   "SYNTX_OWNER_ELEVENLABS_DIALOGUE",
   "SYNTX_OWNER_SUNO_GENERATION",
@@ -52,6 +55,7 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_HAILUO_LIVE_T2V",
   "SYNTX_OWNER_ELEVENLABS_STS",
   "SYNTX_OWNER_TOPAZ_ASTRA",
+  "SYNTX_OWNER_TOPAZ_ENHANCE",
   "SYNTX_OWNER_WAN27_R2V",
   "SYNTX_OWNER_WAN26_I2V",
   "SYNTX_OWNER_WAN26_R2V",
@@ -133,11 +137,14 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
     "SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION",
     "SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH",
     "SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION",
+    "SYNTX_OWNER_TOPAZ_ENHANCE_FFPROBE_PATH",
+    "SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION",
     "SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH",
     "SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH",
     "SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH",
     "SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH",
     "SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH",
+    "SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH",
     "SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH"
   ].sort());
   assert.equal(JSON.stringify(config).includes("token"), false);
@@ -149,6 +156,21 @@ test("Hailuo 2.3 opt-in is included only in the explicitly confirmed owner confi
   assert.equal(config.mcpServers.syntx.env.SYNTX_OWNER_HAILUO23_T2V, "1");
   assert.equal(ENABLED_FLAGS.includes("SYNTX_OWNER_HAILUO23_T2V"), true);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO23_T2V"), false);
+});
+
+test("Topaz Enhance requires the paid-tools confirmation and emits trusted local operator placeholders", async () => {
+  const helpOut = [], helpErr = [];
+  assert.equal(await main([], { entryUrl: pathToFileURL(SCRIPT_PATH).href,
+    writeStdout: (text) => helpOut.push(text), writeStderr: (text) => helpErr.push(text) }), 0);
+  assert.equal(helpErr.join(""), "");
+  assert.match(helpOut.join(""), /SYNTX_OWNER_TOPAZ_ENHANCE=1/u);
+  assert.throws(() => JSON.parse(helpOut.join("")));
+  const config = buildMediaMcpConfig(pathToFileURL(SCRIPT_PATH).href, "/node/bin/node");
+  const env = config.mcpServers.syntx.env;
+  assert.equal(env.SYNTX_OWNER_TOPAZ_ENHANCE, "1");
+  assert.equal(env.SYNTX_OWNER_TOPAZ_ENHANCE_FFPROBE_PATH, "<absolute path to trusted ffprobe executable>");
+  assert.equal(env.SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION, "<uploaded|hidden>");
+  assert.equal(JSON.stringify(config).includes("https://"), false);
 });
 
 test("Video2Audio flag is emitted only after exact paid-tools confirmation", async () => {
@@ -221,7 +243,7 @@ test("Hailuo Live T2V flag is emitted only after exact paid-tools confirmation",
   const emitted = JSON.parse(configOut.join(""));
   assert.equal(configErr.join(""), "");
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_HAILUO_LIVE_T2V, "1");
-  assert.equal(ENABLED_FLAGS.length, 42);
+  assert.equal(ENABLED_FLAGS.length, 46);
   assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_HAILUO_LIVE_T2V").length, 1);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO_LIVE_T2V"), false);
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_GROK_T2V, "1");

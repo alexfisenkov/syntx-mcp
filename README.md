@@ -481,6 +481,83 @@ Upload принимает `link_attempt_id`, `model_id`, `filename`, `mime_type`
 [параметры STS](src/application/owner-elevenlabs-sts-parameters.ts) и
 [профиль Topaz](src/application/owner-topaz-astra-source-profile.ts).
 
+### Topaz Enhance: отдельный owner-stdio профиль
+
+`topaz_enhance` (`ai_name: topaz_ai`) — отдельный профиль, не Topaz Astra.
+Шесть команд доступны только в owner-stdio группе, выключенной по умолчанию:
+
+- `syntx_get_topaz_enhance_parameters` — статический профиль и ограничения;
+- `syntx_owner_upload_topaz_enhance_original` — локальная проверка и загрузка MP4;
+- `syntx_owner_generate_topaz_enhance` — один запрос по загруженному handle;
+- `syntx_owner_reconcile_topaz_enhance` — GET-only восстановление;
+- `syntx_owner_list_topaz_enhance_recoveries` — process-local список восстановлений;
+- `syntx_owner_get_topaz_enhance_result_page` — чтение кэшированной страницы результата.
+
+Для явного включения в stdio задаются `SYNTX_OWNER_TOPAZ_ENHANCE=1`,
+`SYNTX_OWNER_TOPAZ_ENHANCE_FFPROBE_PATH` (абсолютный путь к доверенному
+`ffprobe`) и `SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION=uploaded` либо
+`hidden`. Группа выключена, если флаг не задан или равен `0`; обычный HTTP
+сервер её не включает. Команда печати owner-media-конфигурации включает такие
+paid tools только при явном `--confirm-enable-paid-tools`; сама печать не
+запускает инструменты или генерацию. Запуск MCP тоже не загружает файлы и не
+начинает генерацию.
+
+Upload принимает свой MP4 через `content_base64` и возвращает непрозрачный
+`topaz_original_handle`, не URL. Generate использует тот же
+`link_attempt_id`, `model_id: "topaz_enhance"`, handle и все 12 явных полей
+`parameters`; prompt, `n`, URL файла и измеренные размеры/длительность от
+вызывающего кода не передаются. Пример явного набора параметров:
+
+```json
+{
+  "model_id": "topaz_enhance",
+  "parameters": {
+    "blur": 0,
+    "halo": 0,
+    "focus": "off",
+    "grain": "off",
+    "model": "rhea-1",
+    "noise": 0,
+    "details": 0,
+    "preblur": 0,
+    "upscale": 1,
+    "prenoise": 0,
+    "compression": 0,
+    "interpolation": 60
+  }
+}
+```
+
+Это выбранные значения одного запроса, не defaults или доказанная матрица.
+Допустимые модели: `ghq-5`, `rhea-1`, `prob-4`, `iris-3`, `gcg-5`; upscale:
+`1`/`2`/`4`; interpolation: `24`/`25`/`30`/`45`/`50`/`60`. Числовые
+диапазоны, `focus` и `grain` следует смотреть в
+`syntx_get_topaz_enhance_parameters`; эффективные defaults и совместимость
+комбинаций остаются неизвестны. `upscale: 4` локально отклоняется, если у
+исходника ширина не меньше 1280 или высота не меньше 720. В wire фиксируются
+`blend: 0` и `promode: 0`; это не дополнительные поля запроса.
+
+Локальная реализация принимает только MP4
+(до 50 MiB, от 2 до 26,25 секунды, максимум 10 000 кадров); публичная запись
+модели также перечисляет WebM и QuickTime, но этот локальный путь их не
+поддерживает. Доверенный `ffprobe` работает до 15 секунд и сообщает локальные
+метаданные, а не полное декодирование, качество или приёмку провайдера.
+
+16 октября 2026 года пройден один реальный локальный MCP-пилот: свой короткий
+MP4, `rhea-1` / `upscale: 1` / `interpolation: 60` и остальные значения из
+примера выше. Одна загрузка и одна генерация дали один результат после одного
+GET-only reconcile; страница прочитана через MCP, файл скачан по HTTPS и
+полностью декодирован FFmpeg (H.264, 854×480, 1,983333 секунды, 118 кадров).
+Это проверка одного случая, не всех моделей Topaz или сочетаний параметров.
+Перед каждым созданием чата и отправкой заново проверяются аккаунт,
+подписка, доступ и конечная оценка по `resolution` и округлённому
+`video_duration`; оценка должна быть ниже доступного баланса, но жёсткого
+лимита или гарантии списания нет. При `OUTCOME_UNKNOWN` не повторяйте generate:
+используйте тот же recovery для GET-only reconcile. Состояние и блокировка
+повторов process-local и теряются при перезапуске. Приёмка провайдером и его
+terminal status не подтверждены; установленный Windows stdio, HTTPS и другие
+MCP-хосты не проверены.
+
 ### Hailuo-02 Image-to-Video
 
 Opt-in `SYNTX_OWNER_HAILUO02_I2V=1` включает шесть owner-stdio команд:

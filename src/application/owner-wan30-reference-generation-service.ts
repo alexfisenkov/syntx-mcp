@@ -426,7 +426,11 @@ export class OwnerWan30ReferenceGenerationService {
     const semanticKey = semanticGenerationKey(principal, intent, image, source);
     const claim = this.#claims.get(semanticKey);
     if (claim !== undefined) {
+      if (claim.attemptId !== request.attemptId) fail("INTENT_ALREADY_CLAIMED");
       const found = claim.recovery_id ? this.#recoveries.get(claim.recovery_id) : undefined;
+      if (found && (found.attemptId !== request.attemptId || !sameGenerationPrincipal(found.principal, principal) || found.client !== client)) {
+        fail("INTENT_ALREADY_CLAIMED");
+      }
       if (found?.status === "completed" || found?.status === "partial_results") return page(found, 0);
       if (found) throw unknown(found);
       fail("INTENT_ALREADY_CLAIMED");

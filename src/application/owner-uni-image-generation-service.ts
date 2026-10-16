@@ -174,7 +174,13 @@ interface Recovery {
   provider_chat_id: string | null; result_message_id: string | null; message_object_ids: readonly string[] | null;
   readonly diagnostic: MutableDiagnostic;
 }
-interface CachedResult { readonly result: OwnerUniImageGenerationResult; readonly expires_at: number; }
+interface CachedResult {
+  readonly result: OwnerUniImageGenerationResult;
+  readonly expires_at: number;
+  readonly attemptId: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly client: SyntxChatHttpClient;
+}
 interface RunRequest { readonly attemptId: string; readonly variant: OwnerUniImageModel; readonly prompt: string;
   readonly parameters: OwnerUniImageParametersInput["parameters"]; readonly image_reference_handles: readonly string[];
   readonly main_image_reference_handle: string | null; }
@@ -314,7 +320,13 @@ export class OwnerUniImageGenerationService implements OwnerUniImageGenerationSe
       this.#pruneSuccess(this.#readNow());
       if (this.#unknownIntents.has(semanticKey)) fail("REFERENCE_ALREADY_CLAIMED");
       const cached = this.#successCache.get(semanticKey);
-      if (cached && cached.expires_at > this.#readNow()) return cached.result;
+      if (cached && cached.expires_at > this.#readNow()) {
+        if (cached.attemptId !== request.attemptId || !sameGenerationPrincipal(cached.principal, principal)) {
+          fail("REFERENCE_ALREADY_CLAIMED");
+        }
+        if (cached.client !== this.#resolveNativeClient(request.attemptId)) fail("REFERENCE_ALREADY_CLAIMED");
+        return cached.result;
+      }
       if (this.#reservedIntents.has(semanticKey)) fail("SERVICE_BUSY");
       if (this.#unknownIntents.size + this.#reservedIntents.size >= MAX_STATES) fail("SERVICE_BUSY");
       this.#reservedIntents.add(semanticKey); reservedByThisRun = true;
@@ -425,7 +437,8 @@ export class OwnerUniImageGenerationService implements OwnerUniImageGenerationSe
       if (result.status === "COMPLETE") {
         const output = toResult(recovery, result, null);
         this.#recoveries.delete(recovery.recovery_id); this.#unknownIntents.delete(recovery.semantic_key);
-        this.#successCache.set(recovery.semantic_key, { result: output, expires_at: recovery.candidate.expires_at });
+        this.#successCache.set(recovery.semantic_key, { result: output, expires_at: recovery.candidate.expires_at,
+          attemptId: recovery.attemptId, principal: recovery.principal, client });
         return output;
       }
       recovery.diagnostic.result_reason = result.reason;

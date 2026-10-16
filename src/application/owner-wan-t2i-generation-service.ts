@@ -209,7 +209,13 @@ interface Recovery {
   owner_echo_message_id: string | null; result_context: Readonly<OwnerWanT2iResultReadContext> | null;
   readonly observed_artifacts: Map<string, Readonly<InternalOwnerWanT2iImageArtifact>>; readonly diagnostic: MutableDiagnostic;
 }
-interface CachedResult { readonly result: OwnerWanT2iGenerationResult; readonly expires_at: number }
+interface CachedResult {
+  readonly result: OwnerWanT2iGenerationResult;
+  readonly expires_at: number;
+  readonly attemptId: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly client: SyntxChatHttpClient;
+}
 interface RunRequest { readonly attemptId: string; readonly input: Readonly<OwnerWanT2iParametersInput> }
 interface Run { readonly attemptId: string; readonly controller: AbortController; readonly promise: Promise<unknown> }
 
@@ -319,7 +325,14 @@ export class OwnerWanT2iGenerationService {
       const observedNow = this.#readNow(); this.#pruneSuccess(observedNow); this.#pruneRecoveries(observedNow);
       if (this.#unknownIntents.has(semanticKey)) fail("INTENT_ALREADY_CLAIMED");
       const cached = this.#successCache.get(semanticKey);
-      if (cached && cached.expires_at > this.#readNow()) return cached.result;
+      if (cached && cached.expires_at > this.#readNow()) {
+        if (cached.attemptId !== request.attemptId || !sameGenerationPrincipal(cached.principal, principal)) fail("INTENT_ALREADY_CLAIMED");
+        let currentClient: SyntxChatHttpClient;
+        try { currentClient = this.#resolveNativeClient(request.attemptId); }
+        catch { fail("INTENT_ALREADY_CLAIMED"); }
+        if (currentClient !== cached.client) fail("INTENT_ALREADY_CLAIMED");
+        return cached.result;
+      }
       if (this.#reservedIntents.has(semanticKey)) fail("SERVICE_BUSY");
       if (this.#unknownIntents.size + this.#reservedIntents.size >= MAX_STATE_ENTRIES) fail("SERVICE_BUSY");
       reservation = Object.freeze({}); this.#reservedIntents.set(semanticKey, reservation);
@@ -470,7 +483,8 @@ export class OwnerWanT2iGenerationService {
       const completedAt = this.#readNow();
       const observed = resultFor(recovery, result);
       if (this.#successCache.size < MAX_STATE_ENTRIES && recovery.candidate.expires_at_ms > completedAt) {
-        this.#successCache.set(recovery.semantic_key, { result: observed, expires_at: recovery.candidate.expires_at_ms });
+        this.#successCache.set(recovery.semantic_key, { result: observed, expires_at: recovery.candidate.expires_at_ms,
+          attemptId: recovery.attemptId, principal: recovery.principal, client });
       }
       this.#recoveries.delete(recovery.recovery_id); this.#unknownIntents.delete(recovery.semantic_key);
       return observed;

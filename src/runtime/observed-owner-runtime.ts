@@ -120,6 +120,8 @@ import { OwnerWanT2vGenerationService } from "../application/owner-wan-t2v-gener
 import { OwnerWan30FirstLastGenerationService } from "../application/owner-wan30-first-last-generation-service.js";
 import { createOwnerWan30ReferenceGenerationService } from "../application/owner-wan30-reference-generation-service.js";
 import { createOwnerWan30OmniGenerationService } from "../application/owner-wan30-omni-generation-service.js";
+import { createOwnerWan30EditGenerationService } from "../application/owner-wan30-edit-generation-service.js";
+import { createOwnerWan30EditOriginalProbe } from "../adapter/syntx/owner-wan30-edit-original-probe.js";
 import { OwnerElevenLabsVoiceReferenceService } from "../application/owner-elevenlabs-voice-reference-service.js";
 import { OwnerElevenLabsTtsGenerationService } from "../application/owner-elevenlabs-tts-generation-service.js";
 import { OwnerElevenLabsDialogueGenerationService } from "../application/owner-elevenlabs-dialogue-generation-service.js";
@@ -219,6 +221,10 @@ export interface ObservedOwnerRuntimeOptions {
   ownerWan30ReferenceVideosEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the exact C19 WAN 3.0 Omni image profile. */
   ownerWan30OmniVideosEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for the observed WAN 3.0 Edit MP4 profile. */
+  ownerWan30EditVideosEnabled?: boolean;
+  /** Trusted absolute operator ffprobe path; required only when Edit is enabled. */
+  ownerWan30EditFfprobePath?: string;
   /** Explicit owner-stdio opt-in for the pinned private ElevenLabs TTS tools. */
   ownerElevenLabsTtsEnabled?: boolean;
   /** Explicit owner-stdio opt-in for ordered ElevenLabs multi-voice dialogue. */
@@ -1339,6 +1345,52 @@ export function createObservedOwnerRuntime(
             catalog_version: catalogVersion,
             ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
             resolveClient: resolveOmniClient,
+            createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string, catalog: DiscoveryCatalogRepository) =>
+              new ModelAccessService(catalog, createReadClient(attemptId), now),
+            now
+          });
+        } catch (error) {
+          clientsByAttempt.clear();
+          throw error;
+        }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService!.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            try { await generationService!.close(); }
+            finally { clientsByAttempt.clear(); }
+          }
+        });
+        return Object.freeze({ generationService, lifecycle });
+      })()
+    : undefined;
+  const ownerWan30EditVideos = options.ownerWan30EditVideosEnabled === true
+    ? (() => {
+        const catalogVersion = "sha256-19c882601bb8ecdba994adf819544ebf06fd2db30374335631bb6078a66e5a76.json";
+        const editCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(catalogVersion, options.catalogDirectory));
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveEditClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_WAN30_EDIT_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        const originalProbe = createOwnerWan30EditOriginalProbe({ ffprobePath: options.ownerWan30EditFfprobePath });
+        let generationService: ReturnType<typeof createOwnerWan30EditGenerationService> | undefined;
+        try {
+          generationService = createOwnerWan30EditGenerationService({
+            binding: authBinding,
+            linkService,
+            catalog: editCatalog,
+            catalog_version: catalogVersion,
+            ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+            originalProbe,
+            resolveClient: resolveEditClient,
             createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
             createModelAccessService: (attemptId: string, catalog: DiscoveryCatalogRepository) =>
               new ModelAccessService(catalog, createReadClient(attemptId), now),
@@ -2690,7 +2742,7 @@ export function createObservedOwnerRuntime(
     : undefined;
   const ownerAuthLinkService: Pick<PerUserLinkService, "createAttempt" | "issueHandoff" | "checkAttempt" | "revoke"> =
     ownerSoulImageReferences === undefined && ownerGrokT2iImageReferences === undefined && ownerWanT2iImageReferences === undefined &&
-    ownerWanT2vVideos === undefined && ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
+    ownerWanT2vVideos === undefined && ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined && ownerElevenLabsTts === undefined && ownerElevenLabsDialogue === undefined && ownerElevenLabsSts === undefined && ownerSunoGeneration === undefined &&
       ownerLumaT2v === undefined &&
       ownerHailuo01T2v === undefined &&
       ownerHailuo01DirectorT2v === undefined &&
@@ -2739,6 +2791,10 @@ export function createObservedOwnerRuntime(
             if (ownerWan30OmniVideos !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerWan30OmniVideos.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerWan30EditVideos !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerWan30EditVideos.lifecycle.invalidateAttempt(attemptId);
             }
             if (ownerWan27R2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
@@ -2863,7 +2919,7 @@ export function createObservedOwnerRuntime(
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
-        ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined &&
+        ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined &&
         ownerTopazAstra === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
@@ -2886,6 +2942,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerWan30OmniVideos !== undefined) {
             try { await ownerWan30OmniVideos.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerWan30EditVideos !== undefined) {
+            try { await ownerWan30EditVideos.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerWan27R2v !== undefined) {
             try { await ownerWan27R2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -3033,6 +3092,9 @@ export function createObservedOwnerRuntime(
     ...(ownerWan30OmniVideos === undefined ? {} : {
       ownerWan30OmniVideos: { generationService: ownerWan30OmniVideos.generationService }
     }),
+    ...(ownerWan30EditVideos === undefined ? {} : {
+      ownerWan30EditVideos: { generationService: ownerWan30EditVideos.generationService }
+    }),
     ...(ownerElevenLabsTts === undefined ? {} : {
       ownerElevenLabsTts: {
         voiceReferenceService: ownerElevenLabsTts.voiceReferenceService,
@@ -3133,6 +3195,9 @@ export function createObservedOwnerRuntime(
     }),
     ...(ownerWan30OmniVideos === undefined ? {} : {
       ownerWan30OmniVideosLifecycle: ownerWan30OmniVideos.lifecycle
+    }),
+    ...(ownerWan30EditVideos === undefined ? {} : {
+      ownerWan30EditVideosLifecycle: ownerWan30EditVideos.lifecycle
     }),
     ...(ownerElevenLabsTts === undefined ? {} : { ownerElevenLabsTtsLifecycle: ownerElevenLabsTts.lifecycle }),
     ...(ownerElevenLabsDialogue === undefined ? {} : { ownerElevenLabsDialogueLifecycle: ownerElevenLabsDialogue.lifecycle }),

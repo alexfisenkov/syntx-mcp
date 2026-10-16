@@ -28,6 +28,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS",
   "SYNTX_OWNER_WAN30_REFERENCE_VIDEOS",
   "SYNTX_OWNER_WAN30_OMNI_VIDEOS",
+  "SYNTX_OWNER_WAN30_EDIT_VIDEOS",
   "SYNTX_OWNER_ELEVENLABS_TTS",
   "SYNTX_OWNER_ELEVENLABS_DIALOGUE",
   "SYNTX_OWNER_ELEVENLABS_STS",
@@ -86,6 +87,7 @@ const HELP_TEXT = [
   "WAN 3.0 First/Last Frame is enabled by SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS=1; the initial local profile supports two frames and Basic/480P/2s only. Registering tools does not upload or generate automatically.",
   "WAN 3.0 Reference is enabled by SYNTX_OWNER_WAN30_REFERENCE_VIDEOS=1; this local slice accepts one PNG/JPEG image and the single observed Basic/16:9/480P/2s tuple. Registering tools does not upload or generate automatically.",
   "WAN 3.0 Omni is enabled by SYNTX_OWNER_WAN30_OMNI_VIDEOS=1; this local slice accepts one PNG/JPEG image and the single observed Basic/16:9/480P/2s tuple. Registering tools does not upload or generate automatically.",
+  "WAN 3.0 Edit is enabled by SYNTX_OWNER_WAN30_EDIT_VIDEOS=1; replace SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH with an absolute path to a trusted ffprobe executable. This local slice accepts only one observed owner-upload MP4 case and the Basic/16:9/480P/2s tuple. ffprobe runs only when the upload tool is explicitly called; startup does not upload, probe, or generate.",
   "ElevenLabs STS operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "Topaz Astra operator placeholders must be replaced with an absolute ffprobe path and an explicit uploaded or hidden destination.",
   "The emitted tools can perform paid generation only when explicitly called by the client."
@@ -140,6 +142,7 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
     ["SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH", "<absolute path to trusted ffmpeg executable>"],
+    ["SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"]
   ]);
 

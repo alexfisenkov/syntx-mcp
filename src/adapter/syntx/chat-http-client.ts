@@ -243,6 +243,12 @@ import type {
   OwnerWan30OmniUploadedImage,
   OwnerWan30OmniValidatedImage
 } from "./owner-wan30-omni-native-context.js";
+import type {
+  OwnerWan30EditGenerationContext,
+  OwnerWan30EditOwnerAckBinding,
+  OwnerWan30EditUploadedVideo,
+  OwnerWan30EditValidatedVideo
+} from "./owner-wan30-edit-native-context.js";
 import { validateOwnerSeedreamEditorDrawingUploadData } from "../../application/owner-seedream-editor-drawing-input-validator.js";
 import {
   type OwnerSeedreamEditorImageCandidateBinding,
@@ -4633,6 +4639,80 @@ export class SyntxChatHttpClient {
     if (textObject?.object_type !== "text" || textObject.object_text !== before.prompt ||
         imageObject?.object_type !== "image" || imageObject.object_url !== before.reference_url ||
         !isSafeUploadReferenceUrl(imageObject.object_url) ||
+        ack.message_object.some((object) => object.message_id !== undefined && object.message_id !== ownerMessageId)) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
+    }
+    return Object.freeze({ status: "BOUND" });
+  }
+
+  /** One owner WAN 3.0 Edit video upload using the UI-observed multipart fields. */
+  async uploadWan30EditVideo(
+    receipt: OwnerWan30EditValidatedVideo,
+    signal?: AbortSignal
+  ): Promise<OwnerWan30EditUploadedVideo> {
+    const native = await import("./owner-wan30-edit-native-context.js");
+    return native.uploadOwnerWan30EditVideo(this, receipt, signal);
+  }
+
+  /** Consumes the nominal same-client Edit context before its single generation POST. */
+  async generateWan30EditVideo(
+    context: OwnerWan30EditGenerationContext,
+    signal?: AbortSignal
+  ): Promise<MediaGenerationReceipt> {
+    const native = await import("./owner-wan30-edit-native-context.js");
+    const request = native.consumeOwnerWan30EditGenerationContext(this, context);
+    const settings = sanitizeSettings(request.settings);
+    return this.#startMedia("video/generate", "wan_video", request.chat_id,
+      { chat_id: request.chat_id, prompt: request.prompt, settings }, signal);
+  }
+
+  /** Fixed-route owner Edit ACK check; accepts one exact text and video in either order. */
+  async getWan30EditOwnerAckBinding(
+    context: OwnerWan30EditGenerationContext,
+    ownerMessageId: string,
+    signal?: AbortSignal
+  ): Promise<OwnerWan30EditOwnerAckBinding> {
+    const native = await import("./owner-wan30-edit-native-context.js");
+    const before = native.readOwnerWan30EditPrivateAckContext(this, context);
+    if (!before) return Object.freeze({ status: "UNVERIFIED", reason: "CONTEXT_NOT_RESERVED" });
+    if (typeof ownerMessageId !== "string" || !/^\d{1,16}$/u.test(ownerMessageId) ||
+        !Number.isSafeInteger(Number(ownerMessageId))) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "MESSAGE_ID_INVALID" });
+    }
+    let raw: unknown;
+    try {
+      raw = await this.#request(new URL(`chats/${before.chat_uuid}/${ownerMessageId}`, V1_BASE_URL),
+        "GET", undefined, "JSON_REQUIRED", signal);
+    } catch {
+      return Object.freeze({ status: "UNVERIFIED", reason: "GET_UNAVAILABLE" });
+    }
+    const after = native.readOwnerWan30EditPrivateAckContext(this, context);
+    if (!after || after.chat_uuid !== before.chat_uuid || after.prompt !== before.prompt ||
+        after.reference_url !== before.reference_url) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "CONTEXT_CHANGED" });
+    }
+    const parsed = ownerWan30ReferenceAckResponseSchema.safeParse(raw);
+    if (!parsed.success) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_SHAPE_INVALID" });
+    const ack = parsed.data;
+    if (String(ack.id) !== ownerMessageId) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_ID_MISMATCH" });
+    if (ack.author_id <= 0) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_AUTHOR_NOT_OWNER" });
+    const textObjects = ack.message_object.filter((object) => object.object_type === "text");
+    const videoObjects = ack.message_object.filter((object) => object.object_type === "video");
+    if (ack.message_object.some((object) => object.model_type !== "wan_30_edit")) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_MODEL_MISMATCH" });
+    }
+    if (ack.message_object.length !== 2) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
+    const childIds = ack.message_object.flatMap((object) => object.id === undefined ? [] : [object.id]);
+    if (new Set(childIds).size !== childIds.length) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
+    }
+    if (textObjects.length !== 1 || videoObjects.length !== 1) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
+    }
+    const textObject = textObjects[0]!, videoObject = videoObjects[0]!;
+    if (textObject?.object_type !== "text" || textObject.object_text !== before.prompt ||
+        videoObject?.object_type !== "video" || videoObject.object_url !== before.reference_url ||
+        !isSafeUploadReferenceUrl(videoObject.object_url) ||
         ack.message_object.some((object) => object.message_id !== undefined && object.message_id !== ownerMessageId)) {
       return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
     }
@@ -10448,7 +10528,8 @@ function snapshotOwnerWanT2vVideoResultReadContext(value: unknown): Readonly<Own
     ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids"]);
   if (typeof fields.chat_uuid !== "string" || typeof fields.message_id !== "string" ||
       (fields.model_id !== "wan_26_t2v" && fields.model_id !== "wan_27_t2v" && fields.model_id !== "wan_30_t2v" &&
-        fields.model_id !== "wan_30_first_last_frame" && fields.model_id !== "wan_30_reference" && fields.model_id !== "wan_30_omni") ||
+        fields.model_id !== "wan_30_first_last_frame" && fields.model_id !== "wan_30_reference" && fields.model_id !== "wan_30_omni" &&
+        fields.model_id !== "wan_30_edit") ||
       typeof fields.provider_chat_id !== "string" || !/^\d{1,16}$/u.test(fields.provider_chat_id) ||
       !Number.isSafeInteger(Number(fields.provider_chat_id))) throw invalidRequest();
   validatePathIdentifier(fields.chat_uuid);

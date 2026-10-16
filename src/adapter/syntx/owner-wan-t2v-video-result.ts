@@ -6,7 +6,7 @@ const SAFE_PROVIDER_CHAT_ID = /^\d{1,16}$/u;
 const MAX_RESULT_OBJECTS = 64;
 // Owner First/Last and single-image Reference reuse this strict result reader;
 // their write lifecycles and MCP model policies remain separate.
-const WAN_T2V_MODELS = ["wan_26_t2v", "wan_27_t2v", "wan_30_t2v", "wan_30_first_last_frame", "wan_30_reference", "wan_30_omni"] as const;
+const WAN_T2V_MODELS = ["wan_26_t2v", "wan_27_t2v", "wan_30_t2v", "wan_30_first_last_frame", "wan_30_reference", "wan_30_omni", "wan_30_edit"] as const;
 
 export type OwnerWanT2vModelId = typeof WAN_T2V_MODELS[number];
 

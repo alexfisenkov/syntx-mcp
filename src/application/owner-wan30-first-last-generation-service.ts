@@ -466,7 +466,11 @@ export class OwnerWan30FirstLastGenerationService {
     const semanticKey = generationSemanticKey(initialPrincipal, intent, frames[0], frames[1], source);
     const existingClaim = this.#semanticClaims.get(semanticKey);
     if (existingClaim !== undefined) {
+      if (existingClaim.attemptId !== request.attemptId) fail("INTENT_ALREADY_CLAIMED");
       const existing = existingClaim.recovery_id ? this.#recoveries.get(existingClaim.recovery_id) : undefined;
+      if (existing && (existing.attemptId !== request.attemptId || !sameGenerationPrincipal(existing.principal, initialPrincipal))) {
+        fail("INTENT_ALREADY_CLAIMED");
+      }
       if (existing?.status === "completed" || existing?.status === "partial_results") return pageResult(existing, 0);
       if (existing) throw unknownError(existing);
       fail("INTENT_ALREADY_CLAIMED");

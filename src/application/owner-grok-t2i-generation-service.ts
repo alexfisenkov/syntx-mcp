@@ -184,7 +184,13 @@ interface Recovery {
   readonly diagnostic: MutableDiagnostic;
 }
 interface Claim { readonly intent_key: string; readonly created_at: number; state: "PREPARING" | "POST_STARTED" | "OUTCOME_UNKNOWN" }
-interface Completed { readonly result: OwnerGrokT2iGenerationResult; readonly expires_at: number }
+interface Completed {
+  readonly result: OwnerGrokT2iGenerationResult;
+  readonly expires_at: number;
+  readonly attemptId: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly client: SyntxChatHttpClient;
+}
 interface CachedAssetSet { readonly asset_set: OwnerGrokT2iOwnedAssetSet; readonly expires_at: number; readonly attemptId: string }
 type MutableDiagnostic = { -readonly [K in keyof OwnerGrokT2iUnknownDiagnostic]: OwnerGrokT2iUnknownDiagnostic[K] };
 
@@ -339,12 +345,17 @@ export class OwnerGrokT2iGenerationService {
           candidate.profile_schema_hash !== profile.profile_schema_hash || assetSet.expires_at <= this.#readNow()) fail("PRE_DISPATCH_FAILED");
       const intentKey = JSON.stringify([principal.tenant_id, principal.subject_id, candidate.intent_fingerprint]);
       this.#prune();
+      const client = this.#native(request.attemptId);
       const completed = this.#completed.get(intentKey);
-      if (completed && completed.expires_at > this.#readNow()) return completed.result;
+      if (completed && completed.expires_at > this.#readNow()) {
+        if (completed.attemptId !== request.attemptId || !sameGenerationPrincipal(completed.principal, principal) || completed.client !== client) {
+          fail("INTENT_ALREADY_CLAIMED");
+        }
+        return completed.result;
+      }
       if (this.#claims.has(intentKey)) fail("INTENT_ALREADY_CLAIMED");
       if (this.#claims.size >= MAX_HOLDS) fail("SERVICE_BUSY");
       claim = { intent_key: intentKey, created_at: this.#readNow(), state: "PREPARING" }; this.#claims.set(intentKey, claim);
-      const client = this.#native(request.attemptId);
       claim.state = "PREPARING";
       await this.#runPreflight(request, principal, candidate, deadline);
       await this.#assertCurrent(request, principal, candidate, claim, deadline);
@@ -377,7 +388,8 @@ export class OwnerGrokT2iGenerationService {
       await this.#assertRecoveryCurrent(recovery, deadline);
       const result = await this.#observe(recovery, client, deadline);
       this.#recoveries.delete(recovery.recovery_id); this.#claims.delete(intentKey);
-      this.#completed.set(intentKey, Object.freeze({ result, expires_at: recovery.source_expires_at }));
+      this.#completed.set(intentKey, Object.freeze({ result, expires_at: recovery.source_expires_at,
+        attemptId: request.attemptId, principal, client }));
       return result;
     } catch (cause) {
       if (postStarted && recovery) { if (claim) claim.state = "OUTCOME_UNKNOWN"; throw unknown(recovery); }
@@ -399,9 +411,11 @@ export class OwnerGrokT2iGenerationService {
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, recovery.principal)) fail("RECOVERY_NOT_FOUND");
       if (!recovery.owner_echo_message_id) throw unknown(recovery);
-      const result = await this.#observe(recovery, this.#native(request.attemptId), deadline);
+      const client = this.#native(request.attemptId);
+      const result = await this.#observe(recovery, client, deadline);
       this.#recoveries.delete(recovery.recovery_id); this.#claims.delete(recovery.intent_key);
-      this.#completed.set(recovery.intent_key, Object.freeze({ result, expires_at: recovery.source_expires_at }));
+      this.#completed.set(recovery.intent_key, Object.freeze({ result, expires_at: recovery.source_expires_at,
+        attemptId: recovery.attemptId, principal: recovery.principal, client }));
       return result;
     } catch (cause) {
       if (cause instanceof OwnerGrokT2iGenerationServiceError && cause.code === "RECOVERY_NOT_FOUND") throw cause;

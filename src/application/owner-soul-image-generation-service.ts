@@ -215,7 +215,13 @@ interface Recovery {
   readonly observed_artifacts: Map<string, InternalOwnerSoulImageResultArtifact>;
   readonly diagnostic: MutableDiagnostic;
 }
-interface CachedResult { readonly result: OwnerSoulImageGenerationResult; readonly expires_at: number; }
+interface CachedResult {
+  readonly result: OwnerSoulImageGenerationResult;
+  readonly expires_at: number;
+  readonly attemptId: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly client: SyntxChatHttpClient;
+}
 interface RunRequest { readonly attemptId: string; readonly input: Readonly<OwnerSoulGenerationParametersInput>; }
 interface Run { readonly attemptId: string; readonly controller: AbortController; readonly promise: Promise<unknown>; }
 
@@ -349,7 +355,14 @@ export class OwnerSoulImageGenerationService {
       const pruneNow = this.#readNow(); this.#pruneSuccess(pruneNow); this.#pruneRecoveries(pruneNow);
       if (this.#unknownIntents.has(semanticKey)) fail("INTENT_ALREADY_CLAIMED");
       const cached = this.#successCache.get(semanticKey);
-      if (cached && cached.expires_at > this.#readNow()) return cached.result;
+      if (cached && cached.expires_at > this.#readNow()) {
+        if (cached.attemptId !== request.attemptId || !sameGenerationPrincipal(cached.principal, principal)) fail("INTENT_ALREADY_CLAIMED");
+        let currentClient: SyntxChatHttpClient;
+        try { currentClient = this.#resolveNativeClient(request.attemptId); }
+        catch { fail("INTENT_ALREADY_CLAIMED"); }
+        if (currentClient !== cached.client) fail("INTENT_ALREADY_CLAIMED");
+        return cached.result;
+      }
       if (this.#reservedIntents.has(semanticKey)) fail("SERVICE_BUSY");
       if (this.#unknownIntents.size + this.#reservedIntents.size >= MAX_STATE_ENTRIES) fail("SERVICE_BUSY");
       reservation = Object.freeze({});
@@ -514,7 +527,8 @@ export class OwnerSoulImageGenerationService {
       this.#recoveries.delete(recovery.recovery_id);
       this.#unknownIntents.delete(recovery.semantic_key);
       if (this.#successCache.size < MAX_STATE_ENTRIES && recovery.candidate.expires_at_ms > this.#readNow()) {
-        this.#successCache.set(recovery.semantic_key, { result: observed, expires_at: recovery.candidate.expires_at_ms });
+        this.#successCache.set(recovery.semantic_key, { result: observed, expires_at: recovery.candidate.expires_at_ms,
+          attemptId: recovery.attemptId, principal: recovery.principal, client });
       }
       return observed;
     }

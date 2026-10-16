@@ -100,6 +100,7 @@ export type { OwnerWan27R2vGenerationToolComposition } from "./mcp/owner-wan27-r
 export { readOwnerWan27R2vFlag, readOwnerWan27R2vOperatorConfiguration } from "./transports/stdio-owner.js";
 export { readOwnerWan30ReferenceVideosFlag } from "./transports/stdio-owner.js";
 export { readOwnerWan30OmniVideosFlag } from "./transports/stdio-owner.js";
+export { readOwnerWan30EditVideosFlag, readOwnerWan30EditOperatorConfiguration } from "./transports/stdio-owner.js";
 export {
   OWNER_WAN26_I2V_TOOL_NAMES,
   SYNTX_OWNER_GET_WAN26_I2V_PARAMETERS_TOOL_NAME,
@@ -1551,6 +1552,20 @@ export {
 } from "./mcp/owner-wan30-omni-video-tools.js";
 export type { RegisterSyntxOwnerWan30OmniVideoToolsOptions } from "./mcp/owner-wan30-omni-video-tools.js";
 export type { OwnerWan30OmniVideoServiceComposition } from "./mcp/server.js";
+export {
+  OWNER_WAN30_EDIT_TOOL_NAMES,
+  OWNER_WAN30_EDIT_TOOL_INPUT_SCHEMAS,
+  OWNER_WAN30_EDIT_TOOL_OUTPUT_SCHEMAS,
+  SYNTX_GET_WAN30_EDIT_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN30_EDIT_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_WAN30_EDIT_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_WAN30_EDIT_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_WAN30_EDIT_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_WAN30_EDIT_RESULT_PAGE_TOOL_NAME,
+  registerSyntxOwnerWan30EditVideoTools
+} from "./mcp/owner-wan30-edit-video-tools.js";
+export type { RegisterSyntxOwnerWan30EditVideoToolsOptions } from "./mcp/owner-wan30-edit-video-tools.js";
+export type { OwnerWan30EditVideoServiceComposition } from "./mcp/server.js";
 export {
   getOwnerWan30FirstLastGenerationSourceContract,
   normalizeOwnerWan30FirstLastGenerationIntent,

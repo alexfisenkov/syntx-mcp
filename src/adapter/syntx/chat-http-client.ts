@@ -7446,7 +7446,8 @@ export class SyntxChatHttpClient {
       if (!parsed.success) throw protocolError();
       const uploaded = parsed.data.files[0]!;
       if (uploaded.status?.toLowerCase() === "error" ||
-          (uploaded.filename !== undefined && uploaded.filename !== filename) ||
+          (uploaded.filename !== undefined && (uploaded.filename.trim().length === 0 || uploaded.filename === "." ||
+            uploaded.filename === ".." || /[\\/\u0000-\u001f\u007f-\u009f]/u.test(uploaded.filename))) ||
           (uploaded.mime_type !== undefined && uploaded.mime_type !== mimeType) ||
           (uploaded.size !== undefined && uploaded.size !== expectedSize) ||
           (uploaded.id !== undefined && uploaded.file_id !== undefined && uploaded.id !== uploaded.file_id)) {

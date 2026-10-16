@@ -23,8 +23,19 @@ export function parseMaplessRegistryForms(source: string): Array<{ form_id: stri
     ts.forEachChild(node, visit);
   }
   visit(file);
-  if (found.length < 1 || new Set(found.map((form) => form.form_id)).size !== found.length || new Set(found.map((form) => form.module_name)).size !== found.length) throw new Error("MAPLESS_REGISTRY_MAPPING_INVALID");
-  return found.sort((left, right) => left.form_id.localeCompare(right.form_id));
+  if (found.length < 1) throw new Error("MAPLESS_REGISTRY_MAPPING_INVALID");
+  const modulesByForm = new Map<string, string>();
+  const formsByModule = new Map<string, string>();
+  for (const form of found) {
+    const existingModule = modulesByForm.get(form.form_id);
+    const existingForm = formsByModule.get(form.module_name);
+    if ((existingModule !== undefined && existingModule !== form.module_name) ||
+        (existingForm !== undefined && existingForm !== form.form_id)) throw new Error("MAPLESS_REGISTRY_MAPPING_INVALID");
+    modulesByForm.set(form.form_id, form.module_name);
+    formsByModule.set(form.module_name, form.form_id);
+  }
+  return [...modulesByForm].map(([form_id, module_name]) => ({ form_id, module_name }))
+    .sort((left, right) => left.form_id.localeCompare(right.form_id));
 }
 
 export function analyzeMaplessCompiledModule(source: string, knownSettingsKeys: ReadonlySet<string>): { parse_diagnostics: number; model_value_settings_keys: string[]; static_setting_defaults: Record<string, unknown> } {

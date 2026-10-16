@@ -187,6 +187,7 @@ import type { OwnerTopazAstraExistingMediaService } from "../application/owner-t
 import { registerSyntxOwnerTopazAstraExistingMediaTools } from "./owner-topaz-astra-existing-media-tools.js";
 import { registerSyntxOwnerTopazEnhanceTools, type OwnerTopazEnhanceServiceComposition } from "./owner-topaz-enhance-tools.js";
 import { registerSyntxOwnerFlux3VideoTools, type OwnerFlux3VideoServiceComposition } from "./owner-flux3-video-tools.js";
+import { registerSyntxOwnerVeoOmniParameterTools } from "./owner-veo-omni-parameter-tools.js";
 import { registerSyntxOwnerHailuo02I2vTools, type OwnerHailuo02I2vServiceComposition } from "./owner-hailuo02-i2v-tools.js";
 import type { OwnerSunoGenerationService } from "../application/owner-suno-generation-service.js";
 import {
@@ -1306,6 +1307,7 @@ export function createMcpServer(
   if (options.ownerKlingMotionControl) registerSyntxOwnerKlingMotionControlTools(server, options.ownerKlingMotionControl);
   if (options.ownerVeoT2v) {
     registerSyntxOwnerVeoT2vTools(server, { service: options.ownerVeoT2v.generationService });
+    registerSyntxOwnerVeoOmniParameterTools(server);
   }
   if (options.ownerGrokT2v) {
     registerSyntxOwnerGrokT2vTools(server, { service: options.ownerGrokT2v.generationService });

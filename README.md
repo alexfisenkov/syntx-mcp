@@ -188,13 +188,24 @@ GET-only reconcile. Handles действуют до 15 минут; recovery хр
 provider terminal status, общее число выходов и enforceable cost cap остаются
 неподтверждёнными.
 
-Для Grok native/service и MCP проверялись синтетические HTTP/ffprobe fixtures и
-SDK/InMemory-сценарии. Настоящий локальный Grok `ffprobe` probe также проверен на
-одном собственном синтетическом MP4; это подтверждает только разбор metadata
-этого файла, не загрузку провайдеру или приёмку других реальных файлов. Pixel
-decode, все форматы и кодеки, а также Windows не проверены. Генерация у
-провайдера Grok **не запускалась**: provider acceptance и фактическое списание
-не установлены.
+На source commit `2da173f6c2b48e9addc7a565c9937dd9533290ff` прошёл один
+owner-linked Grok V2V пилот: один собственный 5-секундный MP4,
+одна загрузка и одна генерация с известным ACK. После начального
+`OUTCOME_UNKNOWN` результат был восстановлен двумя GET-only reconcile-запросами;
+итого зафиксированы три history GET, один result GET, одна страница MCP и одно
+наблюдённое видео. Результат скачан по HTTPS и полностью декодирован локальным
+FFmpeg через `file` protocol: 1 470 471 байт, H.264, 1280×704, 4,708333 секунды,
+113 кадров. Независимая проверка подтвердила закрытие процесса, отсутствие
+socket-parent и startup manifest, потребление manifest и приватный режим файла
+`0600`.
+
+Это подтверждает только один пилотный tuple, а не остальные параметры или
+форматы. MOV/QuickTime, Windows, удалённый HTTPS MCP endpoint и совместимость
+клиентского host, provider terminal status, общее число выходов, списание,
+жёсткий cost cap и durable recovery после перезапуска не подтверждены.
+Количество выходов остаётся неизвестным; статический профиль и его
+`runtime_usable: false` / `dispatch_allowed: false` — отдельный source-report,
+не результат этого пилота.
 
 WAN 2.6 R2V и R2V Flash подключены к восьми default-off owner-stdio командам:
 проверка и загрузка references, генерация, GET-only восстановление и результаты.

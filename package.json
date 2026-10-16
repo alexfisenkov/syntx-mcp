@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test --test-name-pattern='^Grok V2V (uses one measured upload|fails closed when a second)' dist/tests/owner-grok-v2v-native-generation-2063.test.js",
+    "test:media:changed": "node -e \"console.log('NOT_RUN_UNCHANGED_MEDIA: documentation-only bundle; public safety is checked separately')\"",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

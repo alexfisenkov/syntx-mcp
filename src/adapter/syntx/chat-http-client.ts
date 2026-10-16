@@ -231,6 +231,12 @@ import type {
   OwnerWan30FirstLastUploadedFrame,
   OwnerWan30FirstLastValidatedFrame
 } from "./owner-wan30-first-last-native-context.js";
+import type {
+  OwnerWan30ReferenceGenerationContext,
+  OwnerWan30ReferenceOwnerAckBinding,
+  OwnerWan30ReferenceUploadedImage,
+  OwnerWan30ReferenceValidatedImage
+} from "./owner-wan30-reference-native-context.js";
 import { validateOwnerSeedreamEditorDrawingUploadData } from "../../application/owner-seedream-editor-drawing-input-validator.js";
 import {
   type OwnerSeedreamEditorImageCandidateBinding,
@@ -617,6 +623,29 @@ const textStartResponseSchema = z
 const mediaStartResponseSchema = z
   .object({ id: providerIdSchema })
   .strip();
+
+const ownerWan30ReferenceAckObjectSchema = z.object({
+  id: providerIdSchema.optional(),
+  message_id: providerIdSchema.optional(),
+  object_type: z.string().regex(SAFE_RESPONSE_TOKEN),
+  object_text: z.string().max(MAX_PROMPT_BYTES).nullable().optional(),
+  object_url: z.string().max(MAX_URL_LENGTH).nullable().optional(),
+  model_type: z.string().regex(SAFE_RESPONSE_TOKEN),
+  metadata: z.unknown().nullable().optional(),
+  task_id: providerIdSchema.nullable().optional(),
+  completed: z.boolean().nullable().optional(),
+  created_at: z.string().max(128).nullable().optional(),
+  updated_at: z.string().max(128).nullable().optional()
+}).strict();
+const ownerWan30ReferenceAckResponseSchema = z.object({
+  id: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  chat_id: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  author_id: z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER),
+  message_object: z.array(ownerWan30ReferenceAckObjectSchema).length(2),
+  created_at: z.string().max(128).nullable().optional(),
+  updated_at: z.string().max(128).nullable().optional(),
+  is_favorite: z.boolean().optional()
+}).strict();
 
 const uploadResponseSchema = z.object({
   id: providerIdSchema.optional(),
@@ -4462,6 +4491,72 @@ export class SyntxChatHttpClient {
     const settings = sanitizeSettings(request.settings);
     return this.#startMedia("video/generate", "wan_video", request.chat_id,
       { chat_id: request.chat_id, prompt: request.prompt, settings }, signal);
+  }
+
+  /** One owner Reference image upload; multipart tuple remains an explicit model-bound implementation inference. */
+  async uploadWan30ReferenceImage(
+    receipt: OwnerWan30ReferenceValidatedImage,
+    signal?: AbortSignal
+  ): Promise<OwnerWan30ReferenceUploadedImage> {
+    const native = await import("./owner-wan30-reference-native-context.js");
+    return native.uploadOwnerWan30ReferenceImage(this, receipt, signal);
+  }
+
+  /** Consumes the one-image Reference context before the sole owner generation POST. */
+  async generateWan30ReferenceVideo(
+    context: OwnerWan30ReferenceGenerationContext,
+    signal?: AbortSignal
+  ): Promise<MediaGenerationReceipt> {
+    const native = await import("./owner-wan30-reference-native-context.js");
+    const request = native.consumeOwnerWan30ReferenceGenerationContext(this, context);
+    const settings = sanitizeSettings(request.settings);
+    return this.#startMedia("video/generate", "wan_video", request.chat_id,
+      { chat_id: request.chat_id, prompt: request.prompt, settings }, signal);
+  }
+
+  /** Fixed-route, same-client owner ACK verification; never exposes response text or the private reference URL. */
+  async getWan30ReferenceOwnerAckBinding(
+    context: OwnerWan30ReferenceGenerationContext,
+    ownerMessageId: string,
+    signal?: AbortSignal
+  ): Promise<OwnerWan30ReferenceOwnerAckBinding> {
+    const native = await import("./owner-wan30-reference-native-context.js");
+    const before = native.readOwnerWan30ReferencePrivateAckContext(this, context);
+    if (!before) return Object.freeze({ status: "UNVERIFIED", reason: "CONTEXT_NOT_RESERVED" });
+    if (typeof ownerMessageId !== "string" || !/^\d{1,16}$/u.test(ownerMessageId) ||
+        !Number.isSafeInteger(Number(ownerMessageId))) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "MESSAGE_ID_INVALID" });
+    }
+
+    let raw: unknown;
+    try {
+      raw = await this.#request(new URL(`chats/${before.chat_uuid}/${ownerMessageId}`, V1_BASE_URL),
+        "GET", undefined, "JSON_REQUIRED", signal);
+    } catch {
+      return Object.freeze({ status: "UNVERIFIED", reason: "GET_UNAVAILABLE" });
+    }
+
+    const after = native.readOwnerWan30ReferencePrivateAckContext(this, context);
+    if (!after || after.chat_uuid !== before.chat_uuid || after.prompt !== before.prompt ||
+        after.reference_url !== before.reference_url) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "CONTEXT_CHANGED" });
+    }
+    const parsed = ownerWan30ReferenceAckResponseSchema.safeParse(raw);
+    if (!parsed.success) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_SHAPE_INVALID" });
+    const ack = parsed.data;
+    if (String(ack.id) !== ownerMessageId) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_ID_MISMATCH" });
+    if (ack.author_id <= 0) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_AUTHOR_NOT_OWNER" });
+    const [textObject, imageObject] = ack.message_object;
+    if (textObject?.model_type !== "wan_30_reference" || imageObject?.model_type !== "wan_30_reference") {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_MODEL_MISMATCH" });
+    }
+    if (textObject?.object_type !== "text" || textObject.object_text !== before.prompt ||
+        imageObject?.object_type !== "image" || imageObject.object_url !== before.reference_url ||
+        !isSafeUploadReferenceUrl(imageObject.object_url) ||
+        ack.message_object.some((object) => object.message_id !== undefined && object.message_id !== ownerMessageId)) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
+    }
+    return Object.freeze({ status: "BOUND" });
   }
 
   /** Consumes a nominal one-shot owner context and binds its same-client image upload. */
@@ -10273,7 +10368,7 @@ function snapshotOwnerWanT2vVideoResultReadContext(value: unknown): Readonly<Own
     ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids"]);
   if (typeof fields.chat_uuid !== "string" || typeof fields.message_id !== "string" ||
       (fields.model_id !== "wan_26_t2v" && fields.model_id !== "wan_27_t2v" && fields.model_id !== "wan_30_t2v" &&
-        fields.model_id !== "wan_30_first_last_frame") ||
+        fields.model_id !== "wan_30_first_last_frame" && fields.model_id !== "wan_30_reference") ||
       typeof fields.provider_chat_id !== "string" || !/^\d{1,16}$/u.test(fields.provider_chat_id) ||
       !Number.isSafeInteger(Number(fields.provider_chat_id))) throw invalidRequest();
   validatePathIdentifier(fields.chat_uuid);

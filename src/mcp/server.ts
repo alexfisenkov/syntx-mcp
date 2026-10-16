@@ -159,6 +159,8 @@ import type { OwnerWanT2vGenerationService } from "../application/owner-wan-t2v-
 import { registerSyntxOwnerWanT2vVideoTools, type RegisterSyntxOwnerWanT2vVideoToolsOptions } from "./owner-wan-t2v-video-tools.js";
 import type { OwnerWan30FirstLastGenerationService } from "../application/owner-wan30-first-last-generation-service.js";
 import { registerSyntxOwnerWan30FirstLastVideoTools, type RegisterSyntxOwnerWan30FirstLastVideoToolsOptions } from "./owner-wan30-first-last-video-tools.js";
+import type { OwnerWan30ReferenceGenerationService } from "../application/owner-wan30-reference-generation-service.js";
+import { registerSyntxOwnerWan30ReferenceVideoTools, type RegisterSyntxOwnerWan30ReferenceVideoToolsOptions } from "./owner-wan30-reference-video-tools.js";
 import { registerSyntxOwnerWan26I2vTools, type OwnerWan26I2vServiceComposition } from "./owner-wan26-i2v-tools.js";
 import { registerSyntxOwnerWan26R2vTools, type OwnerWan26R2vServiceComposition } from "./owner-wan26-r2v-tools.js";
 import { registerSyntxOwnerWan25I2vPreviewTools, type OwnerWan25I2vPreviewServiceComposition } from "./owner-wan25-i2v-tools.js";
@@ -379,6 +381,12 @@ export interface OwnerWan30FirstLastVideoServiceComposition extends RegisterSynt
     "upload" | "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "invalidateAttempt" | "close">;
 }
 
+/** Explicit owner-local WAN 3.0 Reference upload, generation, and recovery tools; omitted from default and HTTP servers. */
+export interface OwnerWan30ReferenceVideoServiceComposition extends RegisterSyntxOwnerWan30ReferenceVideoToolsOptions {
+  readonly generationService: Pick<OwnerWan30ReferenceGenerationService,
+    "uploadReferenceImage" | "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "invalidateAttempt" | "close">;
+}
+
 /** Explicit owner-local ElevenLabs TTS and voice-reference tools; omitted from default and HTTP servers. */
 export interface OwnerElevenLabsTtsServiceComposition extends RegisterSyntxOwnerElevenLabsTtsToolsOptions {
   readonly voiceReferenceService: OwnerElevenLabsVoiceReferenceService;
@@ -561,6 +569,8 @@ export interface CreateMcpServerOptions {
   ownerWanT2vVideos?: OwnerWanT2vVideoServiceComposition | undefined;
   /** Explicit owner-local WAN 3.0 First/Last frame tools; omitted from default and HTTP servers. */
   ownerWan30FirstLastVideos?: OwnerWan30FirstLastVideoServiceComposition | undefined;
+  /** Explicit owner-local WAN 3.0 Reference image tools; omitted from default and HTTP servers. */
+  ownerWan30ReferenceVideos?: OwnerWan30ReferenceVideoServiceComposition | undefined;
   /** Explicit owner-local ElevenLabs TTS and voice-reference tools; omitted from default and HTTP servers. */
   ownerElevenLabsTts?: OwnerElevenLabsTtsServiceComposition | undefined;
   ownerElevenLabsDialogue?: OwnerElevenLabsDialogueServiceComposition | undefined;
@@ -737,7 +747,7 @@ export function createMcpServer(
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
-        options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
+        options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
         options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan26R2v || options.ownerWan25I2vPreview)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
@@ -1189,6 +1199,9 @@ export function createMcpServer(
   }
   if (options.ownerWan30FirstLastVideos) {
     registerSyntxOwnerWan30FirstLastVideoTools(server, options.ownerWan30FirstLastVideos);
+  }
+  if (options.ownerWan30ReferenceVideos) {
+    registerSyntxOwnerWan30ReferenceVideoTools(server, options.ownerWan30ReferenceVideos);
   }
   if (options.ownerElevenLabsTts) {
     registerSyntxOwnerElevenLabsTtsTools(server, options.ownerElevenLabsTts);

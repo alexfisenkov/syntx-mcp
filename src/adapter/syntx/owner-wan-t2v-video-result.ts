@@ -4,9 +4,9 @@ import { isSafeUploadReferenceUrl } from "./upload-reference-bridge.js";
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
 const SAFE_PROVIDER_CHAT_ID = /^\d{1,16}$/u;
 const MAX_RESULT_OBJECTS = 64;
-// First/Last Frame reuses only this strict native result reader. Its write
-// lifecycle and MCP model policy remain in a separate owner-bound service.
-const WAN_T2V_MODELS = ["wan_26_t2v", "wan_27_t2v", "wan_30_t2v", "wan_30_first_last_frame"] as const;
+// Owner First/Last and single-image Reference reuse this strict result reader;
+// their write lifecycles and MCP model policies remain separate.
+const WAN_T2V_MODELS = ["wan_26_t2v", "wan_27_t2v", "wan_30_t2v", "wan_30_first_last_frame", "wan_30_reference"] as const;
 
 export type OwnerWanT2vModelId = typeof WAN_T2V_MODELS[number];
 

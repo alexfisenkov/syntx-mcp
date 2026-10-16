@@ -98,6 +98,7 @@ export {
 } from "./mcp/owner-wan27-r2v-generation-tools.js";
 export type { OwnerWan27R2vGenerationToolComposition } from "./mcp/owner-wan27-r2v-generation-tools.js";
 export { readOwnerWan27R2vFlag, readOwnerWan27R2vOperatorConfiguration } from "./transports/stdio-owner.js";
+export { readOwnerWan30ReferenceVideosFlag } from "./transports/stdio-owner.js";
 export {
   OWNER_WAN26_I2V_TOOL_NAMES,
   SYNTX_OWNER_GET_WAN26_I2V_PARAMETERS_TOOL_NAME,
@@ -1522,6 +1523,20 @@ export {
 export type { RegisterSyntxOwnerWan30FirstLastVideoToolsOptions } from "./mcp/owner-wan30-first-last-video-tools.js";
 export type { OwnerWan30FirstLastVideoServiceComposition } from "./mcp/server.js";
 export {
+  OWNER_WAN30_REFERENCE_TOOL_NAMES,
+  OWNER_WAN30_REFERENCE_TOOL_INPUT_SCHEMAS,
+  OWNER_WAN30_REFERENCE_TOOL_OUTPUT_SCHEMAS,
+  SYNTX_GET_WAN30_REFERENCE_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN30_REFERENCE_IMAGE_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_WAN30_REFERENCE_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_WAN30_REFERENCE_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_WAN30_REFERENCE_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_WAN30_REFERENCE_RESULT_PAGE_TOOL_NAME,
+  registerSyntxOwnerWan30ReferenceVideoTools
+} from "./mcp/owner-wan30-reference-video-tools.js";
+export type { RegisterSyntxOwnerWan30ReferenceVideoToolsOptions } from "./mcp/owner-wan30-reference-video-tools.js";
+export type { OwnerWan30ReferenceVideoServiceComposition } from "./mcp/server.js";
+export {
   getOwnerWan30FirstLastGenerationSourceContract,
   normalizeOwnerWan30FirstLastGenerationIntent,
   projectOwnerWan30FirstLastGenerationWireCandidate,
@@ -1534,6 +1549,19 @@ export type {
   OwnerWan30FirstLastNormalizedGeneration,
   OwnerWan30FirstLastWireCandidate
 } from "./application/owner-wan30-first-last-generation-parameters.js";
+export {
+  getOwnerWan30ReferenceGenerationSourceContract,
+  normalizeOwnerWan30ReferenceGenerationIntent,
+  projectOwnerWan30ReferenceGenerationWireCandidate,
+  OwnerWan30ReferenceGenerationParametersError
+} from "./application/owner-wan30-reference-generation-parameters.js";
+export type {
+  OwnerWan30ReferenceGenerationParameters,
+  OwnerWan30ReferenceGenerationIntent,
+  OwnerWan30ReferenceGenerationSourceContract,
+  OwnerWan30ReferenceNormalizedGeneration,
+  OwnerWan30ReferenceWireCandidate
+} from "./application/owner-wan30-reference-generation-parameters.js";
 export {
   OWNER_WAN_T2V_GENERATION_MODEL_IDS,
   getOwnerWanT2vGenerationParametersSource,

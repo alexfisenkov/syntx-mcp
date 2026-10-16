@@ -28,6 +28,7 @@ import { readOwnerTopazAstraFlag, readOwnerTopazAstraOperatorConfiguration } fro
 import { readOwnerTopazEnhanceFlag, readOwnerTopazEnhanceOperatorConfiguration } from "../runtime/owner-topaz-enhance-stdio-config.js";
 import { readOwnerFlux3VideoFlag, readOwnerFlux3VideoOperatorConfiguration } from "../runtime/owner-flux3-video-stdio-config.js";
 import { readOwnerGrokV2vFlag, readOwnerGrokV2vOperatorConfiguration } from "../runtime/owner-grok-v2v-stdio-config.js";
+import { readOwnerVeoOmniReferenceFlag, readOwnerVeoOmniReferenceOperatorConfiguration } from "../runtime/owner-veo-omni-reference-stdio-config.js";
 import { readOwnerHailuo02I2vFlag } from "../runtime/owner-hailuo02-i2v-stdio-config.js";
 
 const OWNER_IMAGE_REFERENCE_REGISTRY_VERSION =
@@ -444,6 +445,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerHailuo02I2vEnabled = readOwnerHailuo02I2vFlag(process.env.SYNTX_OWNER_HAILUO02_I2V);
   const ownerVeoT2vEnabled = readOwnerFlag("SYNTX_OWNER_VEO_T2V");
   const ownerVeoOmniT2vEnabled = readOwnerFlag("SYNTX_OWNER_VEO_OMNI_T2V");
+  const ownerVeoOmniReferencesEnabled = readOwnerVeoOmniReferenceFlag(process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES);
+  const ownerVeoOmniReferencesOperator = readOwnerVeoOmniReferenceOperatorConfiguration(ownerVeoOmniReferencesEnabled,
+    process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH, process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES);
   const ownerGrokT2vEnabled = readOwnerFlag("SYNTX_OWNER_GROK_T2V");
   const ownerHailuoLiveT2vEnabled = readOwnerFlag("SYNTX_OWNER_HAILUO_LIVE_T2V");
   const ownerVideo2AudioEnabled = readOwnerVideo2AudioFlag(process.env.SYNTX_OWNER_VIDEO2AUDIO);
@@ -485,7 +489,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const generateImageEnabled = readOwnerFlag("SYNTX_OWNER_GENERATE_IMAGE");
   const generateVideoEnabled = readOwnerFlag("SYNTX_OWNER_GENERATE_VIDEO");
   if (ownerDurableGenerationEnabled &&
-      (ownerContractMediaEnabled || generateImageEnabled || generateVideoEnabled || ownerImageReferencesEnabled ||
+      (ownerVeoOmniReferencesEnabled || ownerContractMediaEnabled || generateImageEnabled || generateVideoEnabled || ownerImageReferencesEnabled ||
         ownerGrokImageReferencesEnabled || ownerGrokT2iImageReferencesEnabled || ownerUniImageReferencesEnabled || ownerClarityUpscaleEnabled || ownerMagnificUpscaleEnabled ||
         ownerKontextImageReferencesEnabled || ownerWanImageReferencesEnabled || ownerStandardImageReferencesEnabled ||
         ownerRunwayImageReferencesEnabled || ownerSeedreamImageReferencesEnabled || ownerSeedreamEditorImageReferencesEnabled ||
@@ -615,6 +619,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerHailuo02I2vEnabled,
       ownerVeoT2vEnabled,
       ownerVeoOmniT2vEnabled,
+      ownerVeoOmniReferencesEnabled,
+      ...(ownerVeoOmniReferencesOperator === undefined ? {} : { ownerVeoOmniReferencesFfprobePath: ownerVeoOmniReferencesOperator.ffprobePath,
+        ownerVeoOmniReferencesMaxFileBytes: ownerVeoOmniReferencesOperator.maxFileBytes }),
       ownerGrokT2vEnabled,
       ownerHailuoLiveT2vEnabled,
       ownerVideo2AudioEnabled,
@@ -671,7 +678,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const klingMotionControlPresetReferenceService = runtime.serverOptions.ownerKlingMotionControl?.presetReferenceService;
       const klingMotionControlGenerationService = runtime.serverOptions.ownerKlingMotionControl?.generationService;
       const hailuo02I2vGenerationService = runtime.serverOptions.ownerHailuo02I2v?.generationService;
-      const veoT2vGenerationService = runtime.serverOptions.ownerVeoT2v?.generationService ?? runtime.serverOptions.ownerVeoOmniT2v?.generationService;
+      const veoT2vGenerationService = runtime.serverOptions.ownerVeoT2v?.generationService ?? runtime.serverOptions.ownerVeoOmniT2v?.generationService ?? runtime.serverOptions.ownerVeoOmniReferences?.generationService;
       const grokT2vGenerationService = runtime.serverOptions.ownerGrokT2v?.generationService;
       const hailuoLiveT2vGenerationService = runtime.serverOptions.ownerHailuoLiveT2v?.generationService;
       const video2AudioGenerationService = runtime.serverOptions.ownerVideo2Audio?.generationService;
@@ -755,7 +762,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerElevenLabsStsLifecycle,
         runtime.ownerSeedance20T2vLifecycle,
         runtime.ownerKlingT2vLifecycle,
-        combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle),
+        combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle, runtime.ownerVeoOmniReferencesLifecycle),
         runtime.ownerGrokT2vLifecycle,
         runtime.ownerHailuoLiveT2vLifecycle,
         runtime.ownerKlingI2vLifecycle,
@@ -841,7 +848,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const klingI2vGenerationService = runtime.serverOptions.ownerKlingI2v?.generationService;
       const klingKeyframesReferenceService = runtime.serverOptions.ownerKlingKeyframes?.referenceService;
       const hailuo02I2vGenerationService = runtime.serverOptions.ownerHailuo02I2v?.generationService;
-      const veoT2vGenerationService = runtime.serverOptions.ownerVeoT2v?.generationService ?? runtime.serverOptions.ownerVeoOmniT2v?.generationService;
+      const veoT2vGenerationService = runtime.serverOptions.ownerVeoT2v?.generationService ?? runtime.serverOptions.ownerVeoOmniT2v?.generationService ?? runtime.serverOptions.ownerVeoOmniReferences?.generationService;
       const grokT2vGenerationService = runtime.serverOptions.ownerGrokT2v?.generationService;
       const hailuoLiveT2vGenerationService = runtime.serverOptions.ownerHailuoLiveT2v?.generationService;
       const video2AudioGenerationService = runtime.serverOptions.ownerVideo2Audio?.generationService;
@@ -924,7 +931,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerElevenLabsStsLifecycle,
           runtime.ownerSeedance20T2vLifecycle,
           runtime.ownerKlingT2vLifecycle,
-          combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle),
+          combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle, runtime.ownerVeoOmniReferencesLifecycle),
           runtime.ownerGrokT2vLifecycle,
           runtime.ownerHailuoLiveT2vLifecycle,
           runtime.ownerKlingI2vLifecycle,
@@ -1000,7 +1007,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerElevenLabsStsLifecycle,
         runtime.ownerSeedance20T2vLifecycle,
         runtime.ownerKlingT2vLifecycle,
-        combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle),
+        combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle, runtime.ownerVeoOmniReferencesLifecycle),
         runtime.ownerGrokT2vLifecycle,
         runtime.ownerHailuoLiveT2vLifecycle,
         runtime.ownerKlingI2vLifecycle,

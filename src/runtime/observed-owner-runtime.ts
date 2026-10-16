@@ -1,5 +1,6 @@
 import { LinkedAttemptCredentialBroker } from "../adapter/syntx/link-credential-broker.js";
 import { createOwnerVeoOmniT2vRuntime } from "./owner-veo-omni-t2v-runtime.js";
+import { createOwnerVeoOmniReferenceRuntime, getOwnerVeoOmniReferenceRuntimeStartupCleanup } from "./owner-veo-omni-reference-runtime.js";
 import { SyntxChatHttpClient } from "../adapter/syntx/chat-http-client.js";
 import { SyntxHttpClient, isSyntxModelInfoCallerParameterKey } from "../adapter/syntx/http-client.js";
 import type { SyntxCostParameter } from "../adapter/syntx/http-client.js";
@@ -315,6 +316,10 @@ export interface ObservedOwnerRuntimeOptions {
   ownerVeoT2vEnabled?: boolean;
   /** Separate source-bound Omni T2V opt-in with mandatory live budget checks. */
   ownerVeoOmniT2vEnabled?: boolean;
+  /** Separate owned image/mixed-reference Omni group, never enabled by the T2V flag. */
+  ownerVeoOmniReferencesEnabled?: boolean;
+  ownerVeoOmniReferencesFfprobePath?: string;
+  ownerVeoOmniReferencesMaxFileBytes?: number;
   /** Explicit owner-stdio opt-in for source-reviewed Grok T2V without references. */
   ownerGrokT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for source-reviewed Hailuo-01 Live T2V. */
@@ -2829,6 +2834,22 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ imageReferenceService, generationService, lifecycle });
       })()
     : undefined;
+  const ownerVeoOmniReferences = options.ownerVeoOmniReferencesEnabled === true
+    ? (() => {
+        try {
+          return createOwnerVeoOmniReferenceRuntime({
+            ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+            binding: authBinding, linkService, createReadClient, createChatClient, now,
+            ffprobePath: options.ownerVeoOmniReferencesFfprobePath ?? "",
+            ...(options.ownerVeoOmniReferencesMaxFileBytes === undefined ? {} : { maxFileBytes: options.ownerVeoOmniReferencesMaxFileBytes })
+          });
+        } catch (error) {
+          const cleanup = getOwnerVeoOmniReferenceRuntimeStartupCleanup(error);
+          if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error, cleanup);
+          throw error;
+        }
+      })()
+    : undefined;
   const ownerVeoOmniT2v = options.ownerVeoOmniT2vEnabled === true
     ? createOwnerVeoOmniT2vRuntime({
         ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
@@ -3031,6 +3052,7 @@ export function createObservedOwnerRuntime(
       ownerHailuo02I2v === undefined &&
       ownerVeoT2v === undefined &&
       ownerVeoOmniT2v === undefined &&
+      ownerVeoOmniReferences === undefined &&
       ownerGrokT2v === undefined &&
       ownerHailuoLiveT2v === undefined &&
       ownerVideo2Audio === undefined &&
@@ -3156,6 +3178,10 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerVeoOmniT2v.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerVeoOmniReferences !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerVeoOmniReferences.lifecycle.invalidateAttempt(attemptId);
+            }
             if (ownerGrokT2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId);
@@ -3205,6 +3231,7 @@ export function createObservedOwnerRuntime(
         ownerHailuo02I2v === undefined &&
         ownerVeoT2v === undefined &&
         ownerVeoOmniT2v === undefined &&
+        ownerVeoOmniReferences === undefined &&
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
@@ -3303,6 +3330,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerVeoOmniT2v !== undefined) {
             try { await ownerVeoOmniT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerVeoOmniReferences !== undefined) {
+            try { await ownerVeoOmniReferences.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerGrokT2v !== undefined) {
             try { await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -3460,6 +3490,8 @@ export function createObservedOwnerRuntime(
     } }),
     ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2v: { generationService: ownerVeoT2v.generationService } }),
     ...(ownerVeoOmniT2v === undefined ? {} : { ownerVeoOmniT2v: { generationService: ownerVeoOmniT2v.generationService } }),
+    ...(ownerVeoOmniReferences === undefined ? {} : { ownerVeoOmniReferences: { referenceService: ownerVeoOmniReferences.referenceService,
+      generationService: ownerVeoOmniReferences.generationService, maxFileBytes: ownerVeoOmniReferences.maxFileBytes } }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
@@ -3537,6 +3569,7 @@ export function createObservedOwnerRuntime(
     ...(ownerHailuo02I2v === undefined ? {} : { ownerHailuo02I2vLifecycle: ownerHailuo02I2v.lifecycle }),
     ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2vLifecycle: ownerVeoT2v.lifecycle }),
     ...(ownerVeoOmniT2v === undefined ? {} : { ownerVeoOmniT2vLifecycle: ownerVeoOmniT2v.lifecycle }),
+    ...(ownerVeoOmniReferences === undefined ? {} : { ownerVeoOmniReferencesLifecycle: ownerVeoOmniReferences.lifecycle }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2vLifecycle: ownerHailuoLiveT2v.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle }),

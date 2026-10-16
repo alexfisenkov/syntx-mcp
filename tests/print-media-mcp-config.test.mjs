@@ -52,6 +52,7 @@ const ENABLED_FLAGS = [
   "SYNTX_OWNER_KLING_I2V",
   "SYNTX_OWNER_VEO_T2V",
   "SYNTX_OWNER_VEO_OMNI_T2V",
+  "SYNTX_OWNER_VEO_OMNI_REFERENCES",
   "SYNTX_OWNER_GROK_T2V",
   "SYNTX_OWNER_GROK_V2V",
   "SYNTX_OWNER_HAILUO_LIVE_T2V",
@@ -152,7 +153,9 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
     "SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH",
     "SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH",
     "SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH",
-    "SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH"
+    "SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH",
+    "SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH",
+    "SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES"
   ].sort());
   assert.equal(JSON.stringify(config).includes("token"), false);
   assert.equal(JSON.stringify(config).includes(".env"), false);
@@ -282,7 +285,11 @@ test("Hailuo Live T2V flag is emitted only after exact paid-tools confirmation",
   const emitted = JSON.parse(configOut.join(""));
   assert.equal(configErr.join(""), "");
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_HAILUO_LIVE_T2V, "1");
-  assert.equal(ENABLED_FLAGS.length, 47);
+  assert.equal(ENABLED_FLAGS.length, 50);
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_VEO_OMNI_REFERENCES, "1");
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH, "<absolute path to trusted ffprobe executable>");
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES, "67108864");
+  assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_VEO_OMNI_T2V, "1");
   assert.equal(ENABLED_FLAGS.filter((flag) => flag === "SYNTX_OWNER_HAILUO_LIVE_T2V").length, 1);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO_LIVE_T2V"), false);
   assert.equal(emitted.mcpServers.syntx.env.SYNTX_OWNER_GROK_T2V, "1");
@@ -356,7 +363,7 @@ test("Live installed config requires opt-in and checks the exact tool-list delta
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.ok(source.includes(JSON.stringify(packageJson.scripts.test)), "installed manifest test-command pin is stale");
   assert.ok(/await assertInstalledMediaMcpConfig\(installedPackagePath, consumerPath\)/u.test(source), "mandatory installed config gate missing");
-  assert.ok(/media_config_cli=PASS enabled_flags=49 joint_tools=/u.test(source), "installed config summary missing or stale");
+  assert.ok(/media_config_cli=PASS enabled_flags=50 joint_tools=/u.test(source), "installed config summary missing or stale");
   assert.ok(/config\.env\.SYNTX_OWNER_VEO_OMNI_T2V !== "1"/u.test(source), "installed Omni T2V opt-in pin missing");
   assert.ok(/config\.env\.SYNTX_OWNER_SEEDANCE20_T2V !== "1"/u.test(source), "installed Seedance20 opt-in pin missing");
   assert.ok(/config\.env\.SYNTX_OWNER_HAILUO02_T2V !== "1"/u.test(source), "installed Hailuo02 opt-in pin missing");
@@ -423,10 +430,10 @@ test("Live installed config requires opt-in and checks the exact tool-list delta
 
 test("installed config smoke pins Omni T2V opt-in, source tools, and exact default-off delta", () => {
   const source = readFileSync(new URL("../scripts/check-package-install.mjs", import.meta.url), "utf8");
-  assert.ok(/media_config_cli=PASS enabled_flags=49 joint_tools=/u.test(source), "installed config summary must reflect the 49 emitted paid-tool flags");
+  assert.ok(/media_config_cli=PASS enabled_flags=50 joint_tools=/u.test(source), "installed config summary must reflect the 50 emitted paid-tool flags");
   assert.ok(/config\.env\.SYNTX_OWNER_VEO_OMNI_T2V !== "1"/u.test(source), "installed config must emit the Omni T2V opt-in flag");
   assert.ok(source.includes("SYNTX_OWNER_VEO_OMNI_T2V:'0'"), "installed startup must exercise Omni T2V default-off");
-  assert.ok(/reviewedVideoDiagnosticsOff=await runList\(\{\.\.\.cfg\.env,[^)]*SYNTX_OWNER_VEO_OMNI_T2V:'0'/u.test(source), "reviewed-video diagnostics isolation must disable Omni T2V too");
+  assert.ok(/reviewedVideoDiagnosticsOff=await runList\(\{\.\.\.installedCfg\.env,[^)]*SYNTX_OWNER_VEO_OMNI_T2V:'0'/u.test(source), "reviewed-video diagnostics isolation must disable Omni T2V too");
   for (const name of [
     "syntx_owner_get_veo_omni_t2v_source",
     "syntx_owner_generate_veo_omni_t2v",
@@ -434,6 +441,7 @@ test("installed config smoke pins Omni T2V opt-in, source tools, and exact defau
     "syntx_owner_list_veo_omni_t2v_recoveries"
   ]) assert.ok(source.includes(name), `installed Omni source pin omits ${name}`);
   assert.ok(/jointToolCount-veoOmniOff\.count,\$\{veoOmniToolNames\.length\}/u.test(source), "Omni default-off boundary must be the exact four-tool delta");
+  assert.ok(/jointToolCount-veoOmniReferencesOff\.count,\$\{veoOmniReferenceToolNames\.length\}/u.test(source), "Omni references default-off boundary must be the exact six-tool delta");
 });
 
 test("changed-media selector is bounded and uses explicit source-backed Node test inputs", () => {

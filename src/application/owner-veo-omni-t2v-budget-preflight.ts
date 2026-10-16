@@ -15,6 +15,7 @@ const PREFLIGHT_FRESHNESS_MS = 5 * 60_000;
 const MODEL_ID = OWNER_VEO_OMNI_T2V_MODEL_ID;
 const AI_NAME = "veo3";
 const COST_PARAMETER_KEYS = Object.freeze(["upscale", "video_duration"] as const);
+const VIDEO_REFERENCE_COST_PARAMETER_KEYS = Object.freeze(["mode", "upscale", "video_duration"] as const);
 const ACCESS_KEYS = Object.freeze([
   "catalog_kind", "catalog_version", "model_id", "ai_name", "model_type", "account_read_live",
   "parameter_keys", "parameters_redacted", "access", "cost", "discount_cost",
@@ -47,6 +48,20 @@ export interface OwnerVeoOmniT2vBudgetPreflightOptions {
 export function createOwnerVeoOmniT2vBudgetedModelAccessResolver(
   options: OwnerVeoOmniT2vBudgetPreflightOptions
 ): OwnerVeoOmniT2vModelAccessResolver {
+  return createBudgetedModelAccessResolver(options, false);
+}
+
+/** Separate source-bound price branch; video_ref is not a generation setting. */
+export function createOwnerVeoOmniVideoReferenceBudgetedModelAccessResolver(
+  options: OwnerVeoOmniT2vBudgetPreflightOptions
+): OwnerVeoOmniT2vModelAccessResolver {
+  return createBudgetedModelAccessResolver(options, true);
+}
+
+function createBudgetedModelAccessResolver(
+  options: OwnerVeoOmniT2vBudgetPreflightOptions,
+  videoReference: boolean
+): OwnerVeoOmniT2vModelAccessResolver {
   if (!options || typeof options !== "object" ||
       !(options.catalog instanceof DiscoveryCatalogRepository) ||
       typeof options.resolveAccountStatus !== "function" ||
@@ -59,7 +74,7 @@ export function createOwnerVeoOmniT2vBudgetedModelAccessResolver(
 
   return async (attemptId, modelId, costParameters, signal) => {
     signal?.throwIfAborted();
-    if (modelId !== MODEL_ID || !exactCostParameters(costParameters)) unavailable();
+    if (modelId !== MODEL_ID || !exactCostParameters(costParameters, videoReference)) unavailable();
 
     let accessSnapshot: ModelAccessResult;
     try {
@@ -196,14 +211,17 @@ function validAccountStatus(
     account.balance.unit === "tokens" && finiteDecimal(account.balance.available) && freshIso(account.observed_at, now);
 }
 
-function exactCostParameters(value: unknown): value is Readonly<Record<string, SyntxCostParameter>> {
+function exactCostParameters(value: unknown, videoReference: boolean): value is Readonly<Record<string, SyntxCostParameter>> {
   if (value === null || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) return false;
   try {
     const prototype = Object.getPrototypeOf(value);
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const keys = Reflect.ownKeys(descriptors);
+    const expected = videoReference ? VIDEO_REFERENCE_COST_PARAMETER_KEYS : COST_PARAMETER_KEYS;
+    const mode = descriptors.mode;
     return (prototype === Object.prototype || prototype === null) && keys.every((key) => typeof key === "string") &&
-      sameStrings((keys as string[]).sort(), COST_PARAMETER_KEYS) &&
+      sameStrings((keys as string[]).sort(), expected) &&
+      (!videoReference || (mode?.enumerable === true && Object.hasOwn(mode, "value") && mode.value === "video_ref")) &&
       COST_PARAMETER_KEYS.every((key) => {
         const descriptor = descriptors[key];
         return descriptor?.enumerable === true && Object.hasOwn(descriptor, "value") &&

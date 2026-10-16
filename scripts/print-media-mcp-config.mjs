@@ -45,6 +45,7 @@ const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_HAILUO02_I2V",
   "SYNTX_OWNER_VEO_T2V",
   "SYNTX_OWNER_VEO_OMNI_T2V",
+  "SYNTX_OWNER_VEO_OMNI_REFERENCES",
   "SYNTX_OWNER_GROK_T2V",
   "SYNTX_OWNER_GROK_V2V",
   "SYNTX_OWNER_HAILUO_LIVE_T2V",
@@ -97,6 +98,7 @@ const HELP_TEXT = [
   "Topaz Enhance is enabled by SYNTX_OWNER_TOPAZ_ENHANCE=1; replace its ffprobe path and upload destination placeholders. The local probe accepts MP4 only, while public metadata also lists WebM and QuickTime. Tools run only when explicitly called; startup does not upload or generate. Paid generation has no enforceable cost cap.",
   "Flux3 owner video tools are enabled by SYNTX_OWNER_FLUX3_VIDEOS=1; replace the trusted absolute ffprobe path and upload destination placeholders. I2V accepts one to ten local image references; V2V accepts one local MP4 reference. Startup does not probe, upload, or generate.",
   "Grok V2V is enabled by SYNTX_OWNER_GROK_V2V=1; replace its trusted absolute ffprobe path and upload destination placeholders. It accepts one MP4 or QuickTime original of 1–8.7 seconds; duration and resolution are inferred locally. Paid generation is explicitly invoked; startup does not generate and no enforceable cost cap is provided.",
+  "Veo Omni image/video reference tools are enabled separately by SYNTX_OWNER_VEO_OMNI_REFERENCES=1; replace SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH with an absolute path to a trusted ffprobe executable. SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES defaults to 67108864 (64 MiB); the trusted operator may set a positive integer up to 1048576000 (1 GB). Startup does not probe, upload, or generate. This group is independent of SYNTX_OWNER_VEO_OMNI_T2V and has no enforceable provider cost cap.",
   "The emitted tools can perform paid generation only when explicitly called by the client."
 ].join("\n") + "\n";
 
@@ -156,7 +158,9 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable) {
     ["SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH", "<absolute path to trusted ffmpeg executable>"],
     ["SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
-    ["SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"]
+    ["SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
+    ["SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
+    ["SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES", "67108864"]
   ]);
 
   return Object.freeze({

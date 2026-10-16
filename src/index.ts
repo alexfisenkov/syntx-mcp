@@ -2019,6 +2019,12 @@ export type {
   OwnerVeoOmniT2vGenerationInput, OwnerVeoOmniT2vProfile, OwnerVeoOmniT2vSourceContract
 } from "./application/owner-veo-omni-t2v-profile.js";
 export { registerSyntxOwnerVeoOmniT2vTools, SYNTX_OWNER_VEO_OMNI_T2V_TOOL_NAMES } from "./mcp/owner-veo-omni-t2v-tools.js";
+export { getOwnerVeoOmniReferenceProfile, OWNER_VEO_OMNI_REFERENCE_PROFILE_SHA256 } from "./application/owner-veo-omni-reference-profile.js";
+export { OwnerVeoOmniReferenceService, OwnerVeoOmniReferenceServiceError } from "./application/owner-veo-omni-reference-service.js";
+export { OwnerVeoOmniReferenceGenerationService, OwnerVeoOmniReferenceGenerationServiceError } from "./application/owner-veo-omni-reference-generation-service.js";
+export { registerSyntxOwnerVeoOmniReferenceTools, OWNER_VEO_OMNI_REFERENCE_TOOL_NAMES } from "./mcp/owner-veo-omni-reference-tools.js";
+export { createOwnerVeoOmniReferenceRuntime } from "./runtime/owner-veo-omni-reference-runtime.js";
+export { readOwnerVeoOmniReferenceFlag, readOwnerVeoOmniReferenceOperatorConfiguration } from "./runtime/owner-veo-omni-reference-stdio-config.js";
 export type { OwnerVeoT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
 export {
   registerSyntxOwnerVeoT2vTools,

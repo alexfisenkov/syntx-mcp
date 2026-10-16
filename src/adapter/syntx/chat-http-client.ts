@@ -243,6 +243,11 @@ import type {
   OwnerWan30OmniUploadedImage,
   OwnerWan30OmniValidatedImage
 } from "./owner-wan30-omni-native-context.js";
+import {
+  consumeOwnerVeoOmniValidatedReference,
+  isOwnerVeoOmniValidatedReference,
+  type OwnerVeoOmniValidatedReference
+} from "../../application/owner-veo-omni-reference-input-validator.js";
 import type {
   OwnerWan30EditGenerationContext,
   OwnerWan30EditOwnerAckBinding,
@@ -5033,6 +5038,51 @@ export class SyntxChatHttpClient {
     return native.getOwnerGrokV2vNativeResult(input, packet, signal);
   }
 
+  /** Creates one owner Veo Omni references chat from a current owned candidate. */
+  async createOwnerVeoOmniReferenceChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-veo-omni-reference-native-context.js").OwnerVeoOmniReferenceNativeChatContext> {
+    assertNativeOwnerVeoOmniReference(this);
+    const native = await import("./owner-veo-omni-reference-native-context.js");
+    const packet = createOwnerVeoOmniReferenceNativeInvocation(this, "create", input,
+      (title: string, requestSignal?: AbortSignal) => Reflect.apply(NATIVE_OWNER_VEO_OMNI_REFERENCE_CREATE_CHAT, this,
+        ["video", title, requestSignal]));
+    return native.createOwnerVeoOmniReferenceNativeChat(input, packet, signal);
+  }
+
+  /** Revalidates and consumes one Omni reference permit before its only generation POST. */
+  async startOwnerVeoOmniReferenceWithOwnedCandidate(input: unknown, signal?: AbortSignal): Promise<import("./owner-veo-omni-reference-native-context.js").OwnerVeoOmniReferenceNativeStartAck> {
+    assertNativeOwnerVeoOmniReference(this);
+    const native = await import("./owner-veo-omni-reference-native-context.js");
+    const packet = createOwnerVeoOmniReferenceNativeInvocation(this, "start", input,
+      (chatUuid: string, body: Record<string, unknown>, requestSignal?: AbortSignal) =>
+        this.#startMedia("video/generate", "veo3", chatUuid, body as Record<string, JsonValue>, requestSignal));
+    return native.startOwnerVeoOmniReferenceWithOwnedCandidate(input, packet, signal);
+  }
+
+  /** Reads bounded owner-bound Omni history without dispatching or retrying generation. */
+  async listOwnedVeoOmniReferenceCandidates(input: unknown, signal?: AbortSignal): Promise<import("./owner-veo-omni-reference-native-context.js").OwnerVeoOmniReferenceNativeResultCandidates> {
+    assertNativeOwnerVeoOmniReference(this);
+    const native = await import("./owner-veo-omni-reference-native-context.js");
+    const packet = createOwnerVeoOmniReferenceNativeInvocation(this, "list", input,
+      (chatUuid: string, page: number, pageSize: number, requestSignal?: AbortSignal) => {
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("page_size", String(pageSize));
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", requestSignal);
+      });
+    return native.listOwnerVeoOmniReferenceNativeCandidates(input, packet, signal);
+  }
+
+  /** Resolves one nominal result context from this client's bounded Omni history. */
+  async getOwnedVeoOmniReferenceResult(input: import("./owner-veo-omni-reference-native-context.js").OwnerVeoOmniReferenceNativeResultReadInput,
+    signal?: AbortSignal): Promise<import("./owner-veo-omni-reference-native-context.js").OwnerVeoOmniReferenceNativeResult> {
+    assertNativeOwnerVeoOmniReference(this);
+    const native = await import("./owner-veo-omni-reference-native-context.js");
+    const packet = createOwnerVeoOmniReferenceNativeInvocation(this, "get", input,
+      (chatUuid: string, messageId: string, requestSignal?: AbortSignal) =>
+        this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", requestSignal));
+    return native.getOwnerVeoOmniReferenceNativeResult(input, packet, signal);
+  }
+
   /** Creates one owner Hailuo-02 I2V video chat from a genuine same-client image candidate. */
   async createOwnerHailuo02I2vChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-hailuo02-i2v-native-context.js").OwnerHailuo02I2vChatContext> {
     assertNativeOwnerHailuo02I2v(this);
@@ -7056,6 +7106,82 @@ export class SyntxChatHttpClient {
       size: request.bytes.byteLength,
       status: "accepted"
     };
+  }
+
+  /** One source-catalog-bound Omni upload; consumes its private byte receipt and keeps the URL internal. */
+  async uploadOwnerVeoOmniReference(
+    receipt: OwnerVeoOmniValidatedReference,
+    signal?: AbortSignal
+  ): Promise<InternalUploadReference> {
+    if (!isOwnerVeoOmniValidatedReference(receipt) || receipt.status !== "LOCAL_REFERENCE_VALIDATED" ||
+        receipt.model_id !== "veo_omni" || receipt.policy_id !== "OWNER_VEO_OMNI_REFERENCE_INPUT_C19_V1" ||
+        receipt.source_catalog_version !== "sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json" ||
+        receipt.source_build_id !== "1792156098" || receipt.dispatch_allowed !== false ||
+        receipt.owner_upload_binding !== "NOT_ESTABLISHED") throw invalidRequest();
+    const owned = consumeOwnerVeoOmniValidatedReference(receipt);
+    let bytes: Uint8Array | undefined;
+    let form: FormData | undefined;
+    try {
+      const image = owned.kind === "image" &&
+        (owned.mime_type === "image/jpeg" || owned.mime_type === "image/png" || owned.mime_type === "image/webp" || owned.mime_type === "image/avif") &&
+        (owned.source_mime_type === "image/jpg" ? owned.mime_type === "image/jpeg" : owned.source_mime_type === owned.mime_type) &&
+        owned.duration_seconds === null;
+      const video = owned.kind === "video" && (owned.mime_type === "video/mp4" || owned.mime_type === "video/quicktime") &&
+        owned.source_mime_type === owned.mime_type && typeof owned.duration_seconds === "number" &&
+        Number.isFinite(owned.duration_seconds) && owned.duration_seconds > 0 && owned.duration_seconds <= 10.2;
+      if ((!image && !video) || owned.kind !== receipt.kind || owned.filename !== receipt.filename || owned.mime_type !== receipt.mime_type ||
+          owned.source_mime_type !== receipt.source_mime_type || owned.sha256 !== receipt.sha256 ||
+          owned.size !== receipt.size || owned.bytes.byteLength !== receipt.size ||
+          !Number.isSafeInteger(owned.size) || owned.size < 1 ||
+          !Number.isSafeInteger(owned.local_max_file_bytes) || owned.local_max_file_bytes < 1 ||
+          owned.local_max_file_bytes !== receipt.local_max_file_bytes || receipt.public_max_file_bytes !== 1_048_576_000 ||
+          owned.local_max_file_bytes > 1_048_576_000 || owned.size > owned.local_max_file_bytes || owned.size > 1_048_576_000 ||
+          !Number.isSafeInteger(owned.width) || owned.width < 1 || !Number.isSafeInteger(owned.height) || owned.height < 1 ||
+          owned.width !== receipt.width || owned.height !== receipt.height || owned.duration_seconds !== receipt.duration_seconds ||
+          !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(owned.bytes).digest("hex") !== owned.sha256) {
+        throw invalidRequest();
+      }
+      try {
+        if (Buffer.isBuffer(owned.bytes) && owned.bytes.byteOffset === 0 && owned.bytes.buffer.byteLength === owned.bytes.byteLength) {
+          bytes = owned.bytes;
+        } else {
+          bytes = new Uint8Array(owned.bytes.byteLength);
+          bytes.set(owned.bytes);
+        }
+      } catch { throw invalidRequest(); }
+      if (bytes.byteLength !== owned.size || createHash("sha256").update(bytes).digest("hex") !== owned.sha256) throw invalidRequest();
+      const upload: UploadFileRequest = { bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: "uploaded", check_duplicates: true, model_type: "veo_omni" };
+      form = this.#buildUploadForm(upload, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const parsed = z.object({ files: z.array(z.object({
+        id: z.union([z.string().max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)),
+          z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).optional(),
+        file_id: z.union([z.string().max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)),
+          z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).optional(),
+        url: z.string().min(1).max(MAX_URL_LENGTH),
+        status: z.string().max(64).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)).optional(),
+        mime_type: z.string().max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)).optional(),
+        size: z.number().int().nonnegative().max(1_048_576_000).optional()
+      }).strip()).min(1).max(MAX_FILES) }).strip().safeParse(raw);
+      if (!parsed.success || parsed.data.files.length !== 1) throw protocolError();
+      const uploaded = parsed.data.files[0]!;
+      if (uploaded.status?.toLowerCase() === "error" ||
+          (uploaded.mime_type !== undefined && uploaded.mime_type !== owned.mime_type) ||
+          (uploaded.size !== undefined && uploaded.size !== owned.size) ||
+          (uploaded.id !== undefined && uploaded.file_id !== undefined && String(uploaded.id) !== String(uploaded.file_id))) {
+        throw protocolError();
+      }
+      let references: InternalUploadReference[];
+      try { references = parseInternalUploadReferences(raw); }
+      catch { throw protocolError(); }
+      if (references.length !== 1) throw protocolError();
+      return Object.freeze({ ...references[0]! });
+    } finally {
+      bytes?.fill(0);
+      owned.bytes.fill(0);
+      form?.delete("files");
+    }
   }
 
   /** Internal-only bridge for a future upload-to-generation composer. */
@@ -9139,6 +9265,64 @@ function isExactOwnerGrokV2vNativeClient(client: unknown): client is SyntxChatHt
       getDataMethod(client, "getOwnedGrokV2vResult") === NATIVE_OWNER_GROK_V2V_NATIVE_GET &&
       Reflect.get(client, "createChat") === NATIVE_OWNER_GROK_V2V_CREATE_CHAT &&
       Reflect.get(client, "uploadGrokV2vOriginal") === NATIVE_OWNER_GROK_V2V_UPLOAD;
+  } catch { return false; }
+}
+
+const NATIVE_OWNER_VEO_OMNI_REFERENCE_UPLOAD = SyntxChatHttpClient.prototype.uploadOwnerVeoOmniReference;
+const NATIVE_OWNER_VEO_OMNI_REFERENCE_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_CREATE = SyntxChatHttpClient.prototype.createOwnerVeoOmniReferenceChat;
+const NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerVeoOmniReferenceWithOwnedCandidate;
+const NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedVeoOmniReferenceCandidates;
+const NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedVeoOmniReferenceResult;
+type OwnerVeoOmniReferenceNativeMethod = "create" | "start" | "list" | "get";
+interface OwnerVeoOmniReferenceNativeInvocation {
+  readonly client: SyntxChatHttpClient;
+  readonly method: OwnerVeoOmniReferenceNativeMethod;
+  readonly input: unknown;
+  readonly callback: Function;
+}
+const OWNER_VEO_OMNI_REFERENCE_NATIVE_INVOCATIONS = new WeakMap<object, OwnerVeoOmniReferenceNativeInvocation>();
+
+function createOwnerVeoOmniReferenceNativeInvocation(client: SyntxChatHttpClient, method: OwnerVeoOmniReferenceNativeMethod,
+  input: unknown, callback: Function): object {
+  assertNativeOwnerVeoOmniReference(client);
+  if (typeof callback !== "function" || types.isProxy(callback)) throw invalidRequest();
+  const packet = Object.freeze(Object.create(null) as object);
+  OWNER_VEO_OMNI_REFERENCE_NATIVE_INVOCATIONS.set(packet, Object.freeze({ client, method, input, callback }));
+  return packet;
+}
+
+/** Consumes one invocation packet minted inside the exact four owner methods. */
+export function consumeOwnerVeoOmniReferenceNativeInvocation(input: unknown, packet: unknown,
+  method: OwnerVeoOmniReferenceNativeMethod): Readonly<{ client: SyntxChatHttpClient; callback: Function }> {
+  if (!packet || typeof packet !== "object" || types.isProxy(packet)) throw invalidRequest();
+  const invocation = OWNER_VEO_OMNI_REFERENCE_NATIVE_INVOCATIONS.get(packet);
+  if (!invocation || invocation.input !== input || invocation.method !== method || !isExactOwnerVeoOmniReferenceNativeClient(invocation.client)) {
+    throw invalidRequest();
+  }
+  OWNER_VEO_OMNI_REFERENCE_NATIVE_INVOCATIONS.delete(packet);
+  return Object.freeze({ client: invocation.client, callback: invocation.callback });
+}
+
+function assertNativeOwnerVeoOmniReference(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerVeoOmniReferenceNativeClient(client)) throw invalidRequest();
+}
+
+function isExactOwnerVeoOmniReferenceNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) &&
+      Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !["createChat", "uploadOwnerVeoOmniReference", "createOwnerVeoOmniReferenceChat",
+        "startOwnerVeoOmniReferenceWithOwnedCandidate", "listOwnedVeoOmniReferenceCandidates",
+        "getOwnedVeoOmniReferenceResult"].some((name) => Object.hasOwn(client, name)) &&
+      getDataMethod(client, "createChat") === NATIVE_OWNER_VEO_OMNI_REFERENCE_CREATE_CHAT &&
+      getDataMethod(client, "uploadOwnerVeoOmniReference") === NATIVE_OWNER_VEO_OMNI_REFERENCE_UPLOAD &&
+      getDataMethod(client, "createOwnerVeoOmniReferenceChat") === NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_CREATE &&
+      getDataMethod(client, "startOwnerVeoOmniReferenceWithOwnedCandidate") === NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_START &&
+      getDataMethod(client, "listOwnedVeoOmniReferenceCandidates") === NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_LIST &&
+      getDataMethod(client, "getOwnedVeoOmniReferenceResult") === NATIVE_OWNER_VEO_OMNI_REFERENCE_NATIVE_GET &&
+      Reflect.get(client, "createChat") === NATIVE_OWNER_VEO_OMNI_REFERENCE_CREATE_CHAT &&
+      Reflect.get(client, "uploadOwnerVeoOmniReference") === NATIVE_OWNER_VEO_OMNI_REFERENCE_UPLOAD;
   } catch { return false; }
 }
 

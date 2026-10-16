@@ -99,6 +99,7 @@ export {
 export type { OwnerWan27R2vGenerationToolComposition } from "./mcp/owner-wan27-r2v-generation-tools.js";
 export { readOwnerWan27R2vFlag, readOwnerWan27R2vOperatorConfiguration } from "./transports/stdio-owner.js";
 export { readOwnerWan30ReferenceVideosFlag } from "./transports/stdio-owner.js";
+export { readOwnerWan30OmniVideosFlag } from "./transports/stdio-owner.js";
 export {
   OWNER_WAN26_I2V_TOOL_NAMES,
   SYNTX_OWNER_GET_WAN26_I2V_PARAMETERS_TOOL_NAME,
@@ -1537,6 +1538,20 @@ export {
 export type { RegisterSyntxOwnerWan30ReferenceVideoToolsOptions } from "./mcp/owner-wan30-reference-video-tools.js";
 export type { OwnerWan30ReferenceVideoServiceComposition } from "./mcp/server.js";
 export {
+  OWNER_WAN30_OMNI_TOOL_NAMES,
+  OWNER_WAN30_OMNI_TOOL_INPUT_SCHEMAS,
+  OWNER_WAN30_OMNI_TOOL_OUTPUT_SCHEMAS,
+  SYNTX_GET_WAN30_OMNI_PARAMETERS_TOOL_NAME,
+  SYNTX_OWNER_UPLOAD_WAN30_OMNI_IMAGE_TOOL_NAME,
+  SYNTX_OWNER_GENERATE_WAN30_OMNI_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_RECONCILE_WAN30_OMNI_VIDEO_TOOL_NAME,
+  SYNTX_OWNER_LIST_WAN30_OMNI_RECOVERIES_TOOL_NAME,
+  SYNTX_OWNER_GET_WAN30_OMNI_RESULT_PAGE_TOOL_NAME,
+  registerSyntxOwnerWan30OmniVideoTools
+} from "./mcp/owner-wan30-omni-video-tools.js";
+export type { RegisterSyntxOwnerWan30OmniVideoToolsOptions } from "./mcp/owner-wan30-omni-video-tools.js";
+export type { OwnerWan30OmniVideoServiceComposition } from "./mcp/server.js";
+export {
   getOwnerWan30FirstLastGenerationSourceContract,
   normalizeOwnerWan30FirstLastGenerationIntent,
   projectOwnerWan30FirstLastGenerationWireCandidate,
@@ -1562,6 +1577,19 @@ export type {
   OwnerWan30ReferenceNormalizedGeneration,
   OwnerWan30ReferenceWireCandidate
 } from "./application/owner-wan30-reference-generation-parameters.js";
+export {
+  getOwnerWan30OmniGenerationSourceContract,
+  normalizeOwnerWan30OmniGenerationIntent,
+  projectOwnerWan30OmniGenerationWireCandidate,
+  OwnerWan30OmniGenerationParametersError
+} from "./application/owner-wan30-omni-generation-parameters.js";
+export type {
+  OwnerWan30OmniGenerationParameters,
+  OwnerWan30OmniGenerationIntent,
+  OwnerWan30OmniGenerationSourceContract,
+  OwnerWan30OmniNormalizedGeneration,
+  OwnerWan30OmniWireCandidate
+} from "./application/owner-wan30-omni-generation-parameters.js";
 export {
   OWNER_WAN_T2V_GENERATION_MODEL_IDS,
   getOwnerWanT2vGenerationParametersSource,

@@ -29,7 +29,9 @@ const INTENT: OwnerWan30ReferenceGenerationIntent = Object.freeze({
 
 interface FixtureOptions {
   readonly ackText?: string;
+  readonly ackImageUrl?: string;
   readonly ackObjects?: readonly { type: string; model: string | null }[];
+  readonly historyAckObjects?: readonly { type: string; model: string | null }[];
   readonly failSecondAccess?: boolean;
   readonly losePostAck?: boolean;
   readonly unlinkAfterUpload?: boolean;
@@ -74,7 +76,8 @@ function fixture(options: FixtureOptions = {}) {
       counts.ownerAckGets += 1; const job = jobs.get(ackMatch[1]!); assert.ok(job);
       const ackObjects = (options.ackObjects ?? [{ type: "text", model: "wan_30_reference" }, { type: "image", model: "wan_30_reference" }]).map((item, index) => ({
         id: 72000 + index, message_id: Number(ackMatch[2]), object_type: item.type, model_type: item.model,
-        object_text: index === 0 ? options.ackText ?? job.prompt : null, object_url: index === 1 ? job.imageUrl : null,
+        object_text: item.type === "text" ? options.ackText ?? job.prompt : null,
+        object_url: item.type === "image" ? options.ackImageUrl ?? job.imageUrl : null,
         completed: null, task_id: null
       }));
       return Response.json({ id: Number(ackMatch[2]), chat_id: 4812, author_id: 4123, message_object: ackObjects });
@@ -83,7 +86,7 @@ function fixture(options: FixtureOptions = {}) {
     if (historyMatch) {
       counts.historyGets += 1; const job = jobs.get(historyMatch[1]!); assert.ok(job);
       const ack = job.ack;
-      const ownerObjects = (options.ackObjects ?? [{ type: "text", model: "wan_30_reference" }, { type: "image", model: "wan_30_reference" }]).map((item, i) => ({
+      const ownerObjects = (options.historyAckObjects ?? options.ackObjects ?? [{ type: "text", model: "wan_30_reference" }, { type: "image", model: "wan_30_reference" }]).map((item, i) => ({
         id: `history-owner-object-${i}`, message_id: ack, object_type: item.type, model_type: item.model }));
       const messages: Array<Record<string, unknown>> = [{ id: ack, chat_id: 4812, author_id: 4123, message_object: ownerObjects }];
       if (options.additionalOtherAuthor) messages.push({ id: "reference-unrelated-nonbot", chat_id: 4812, author_id: 9988, message_object: [] });
@@ -172,7 +175,7 @@ test("owner ACK mismatching the native wire prompt becomes recoverable unknown a
 test("ACK must be exactly text plus same-model image; other shapes remain unknown", async (t) => {
   const cases = [
     [{ type: "text", model: "wan_30_reference" }],
-    [{ type: "image", model: "wan_30_reference" }, { type: "text", model: "wan_30_reference" }],
+    [{ type: "text", model: "wan_30_reference" }, { type: "text", model: "wan_30_reference" }],
     [{ type: "text", model: "wan_30_t2v" }, { type: "image", model: "wan_30_reference" }]
   ] as const;
   for (const ackObjects of cases) await t.test(JSON.stringify(ackObjects), async () => {
@@ -181,6 +184,22 @@ test("ACK must be exactly text plus same-model image; other shapes remain unknow
       await assert.rejects(target.generate({ attemptId: ATTEMPT, input: INTENT, image_handle: image.image_handle }),
         (error: unknown) => error instanceof OwnerWan30ReferenceGenerationServiceError && error.code === "OUTCOME_UNKNOWN");
       assert.equal(f.counts.resultGets, 0); assert.equal(f.counts.generationPosts, 1);
+    } finally { await target.close(); }
+  });
+});
+
+test("owner ACK and history accept text/image object order independently", async (t) => {
+  const forward = [{ type: "text", model: "wan_30_reference" }, { type: "image", model: "wan_30_reference" }] as const;
+  const reverse = [...forward].reverse();
+  for (const [name, options] of [
+    ["reverse exact-message ACK with forward history", { ackObjects: reverse, historyAckObjects: forward }],
+    ["forward exact-message ACK with reverse history", { ackObjects: forward, historyAckObjects: reverse }]
+  ] as const) await t.test(name, async () => {
+    const f = fixture(options), target = service(f);
+    try {
+      const image = await upload(target);
+      const result = await target.generate({ attemptId: ATTEMPT, input: INTENT, image_handle: image.image_handle });
+      assert.equal(result.status, "completed"); assert.equal(f.counts.ownerAckGets, 1); assert.equal(f.counts.resultGets, 1);
     } finally { await target.close(); }
   });
 });
@@ -229,6 +248,17 @@ test("lost POST ACK survives handle TTL and recovers only from one exact owner-h
       await assert.rejects(target.reconcile({ attemptId: ATTEMPT, recovery_id: recoveryId }),
         (error: unknown) => error instanceof OwnerWan30ReferenceGenerationServiceError && error.code === "OUTCOME_UNKNOWN");
       assert.equal(f.counts.generationPosts, 1); assert.equal(f.counts.ownerAckGets, 0); assert.equal(f.counts.resultGets, 0);
+    } finally { await target.close(); }
+  });
+  await t.test("a unique reverse-order history candidate recovers through the exact owner GET", async () => {
+    const f = fixture({ losePostAck: true, historyAckObjects: [{ type: "image", model: "wan_30_reference" }, { type: "text", model: "wan_30_reference" }] }), target = service(f);
+    try {
+      const image = await upload(target);
+      await assert.rejects(target.generate({ attemptId: ATTEMPT, input: INTENT, image_handle: image.image_handle }),
+        (error: unknown) => error instanceof OwnerWan30ReferenceGenerationServiceError && error.code === "OUTCOME_UNKNOWN");
+      const recoveryId = (await target.listRecoveries({ attemptId: ATTEMPT })).recoveries[0]!.recovery_id;
+      const result = await target.reconcile({ attemptId: ATTEMPT, recovery_id: recoveryId });
+      assert.equal(result.status, "completed"); assert.equal(f.counts.generationPosts, 1); assert.equal(f.counts.resultGets, 1);
     } finally { await target.close(); }
   });
 });

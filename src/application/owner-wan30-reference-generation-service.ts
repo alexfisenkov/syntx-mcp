@@ -834,19 +834,31 @@ function bindHistory(input: unknown, recovery: Recovery):
       }
       const parsed: Array<{ message_object_id: string; object_type: string; model_type: string | null }> = [];
       let typedAckShape = message.objects.length === 2;
+      const ackObjectTypes: string[] = [];
       for (let index = 0; index < message.objects.length; index += 1) {
         const object = exact(message.objects[index], ["message_object_id", "object_type", "model_type"]);
-        const ackObjectType = index === 0 ? "text" : "image";
         const isCandidateOther = recovery.owner_echo_message_id === null && message.author_role === "other";
-        const expectedType = message.author_role === "owner" || isCandidateOther ? ackObjectType : "video";
         if (!safeId(object.message_object_id) || objects.has(object.message_object_id) ||
-            (message.author_role !== "other" || recovery.owner_echo_message_id !== null) && object.object_type !== expectedType ||
-            (message.author_role !== "other" || recovery.owner_echo_message_id !== null) && object.model_type !== MODEL_ID) {
+            (!isCandidateOther && message.author_role !== "other" && message.author_role !== "owner" &&
+              (object.object_type !== "video" || object.model_type !== MODEL_ID)) ||
+            (message.author_role === "other" && recovery.owner_echo_message_id !== null &&
+              (object.object_type !== "video" || object.model_type !== MODEL_ID)) ||
+            (message.author_role === "owner" && ((object.object_type !== "text" && object.object_type !== "image") || object.model_type !== MODEL_ID))) {
           return { status: "INVALID", reason: "RESULT_OBJECT_TYPE_MISMATCH" };
         }
-        if (isCandidateOther && (object.object_type !== ackObjectType || object.model_type !== MODEL_ID)) typedAckShape = false;
+        if (isCandidateOther) {
+          if ((object.object_type !== "text" && object.object_type !== "image") || object.model_type !== MODEL_ID) typedAckShape = false;
+          ackObjectTypes.push(object.object_type);
+        }
+        if (message.author_role === "owner") ackObjectTypes.push(object.object_type);
         objects.add(object.message_object_id);
         parsed.push({ message_object_id: object.message_object_id, object_type: object.object_type, model_type: object.model_type });
+      }
+      if ((message.author_role === "owner" || recovery.owner_echo_message_id === null && message.author_role === "other") &&
+          (ackObjectTypes.length !== 2 || ackObjectTypes.filter((type) => type === "text").length !== 1 ||
+            ackObjectTypes.filter((type) => type === "image").length !== 1)) {
+        if (message.author_role === "owner") return { status: "INVALID", reason: "RESULT_OBJECT_TYPE_MISMATCH" };
+        typedAckShape = false;
       }
       const candidate = Object.freeze({ message_id: message.message_id, provider_chat_id: message.provider_chat_id,
         author_role: message.author_role as "owner" | "bot" | "other", objects: Object.freeze(parsed) });

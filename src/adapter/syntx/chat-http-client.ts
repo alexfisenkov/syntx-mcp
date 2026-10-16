@@ -237,6 +237,12 @@ import type {
   OwnerWan30ReferenceUploadedImage,
   OwnerWan30ReferenceValidatedImage
 } from "./owner-wan30-reference-native-context.js";
+import type {
+  OwnerWan30OmniGenerationContext,
+  OwnerWan30OmniOwnerAckBinding,
+  OwnerWan30OmniUploadedImage,
+  OwnerWan30OmniValidatedImage
+} from "./owner-wan30-omni-native-context.js";
 import { validateOwnerSeedreamEditorDrawingUploadData } from "../../application/owner-seedream-editor-drawing-input-validator.js";
 import {
   type OwnerSeedreamEditorImageCandidateBinding,
@@ -4546,10 +4552,84 @@ export class SyntxChatHttpClient {
     const ack = parsed.data;
     if (String(ack.id) !== ownerMessageId) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_ID_MISMATCH" });
     if (ack.author_id <= 0) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_AUTHOR_NOT_OWNER" });
-    const [textObject, imageObject] = ack.message_object;
-    if (textObject?.model_type !== "wan_30_reference" || imageObject?.model_type !== "wan_30_reference") {
+    const textObjects = ack.message_object.filter((object) => object.object_type === "text");
+    const imageObjects = ack.message_object.filter((object) => object.object_type === "image");
+    if (ack.message_object.some((object) => object.model_type !== "wan_30_reference")) {
       return Object.freeze({ status: "UNVERIFIED", reason: "ACK_MODEL_MISMATCH" });
     }
+    if (textObjects.length !== 1 || imageObjects.length !== 1) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
+    }
+    const textObject = textObjects[0]!, imageObject = imageObjects[0]!;
+    if (textObject?.object_type !== "text" || textObject.object_text !== before.prompt ||
+        imageObject?.object_type !== "image" || imageObject.object_url !== before.reference_url ||
+        !isSafeUploadReferenceUrl(imageObject.object_url) ||
+        ack.message_object.some((object) => object.message_id !== undefined && object.message_id !== ownerMessageId)) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
+    }
+    return Object.freeze({ status: "BOUND" });
+  }
+
+  /** One owner Omni image upload; its model multipart tuple is an implementation inference. */
+  async uploadWan30OmniImage(
+    receipt: OwnerWan30OmniValidatedImage,
+    signal?: AbortSignal
+  ): Promise<OwnerWan30OmniUploadedImage> {
+    const native = await import("./owner-wan30-omni-native-context.js");
+    return native.uploadOwnerWan30OmniImage(this, receipt, signal);
+  }
+
+  /** Consumes the nominal same-client Omni image context before its only generation POST. */
+  async generateWan30OmniVideo(
+    context: OwnerWan30OmniGenerationContext,
+    signal?: AbortSignal
+  ): Promise<MediaGenerationReceipt> {
+    const native = await import("./owner-wan30-omni-native-context.js");
+    const request = native.consumeOwnerWan30OmniGenerationContext(this, context);
+    const settings = sanitizeSettings(request.settings);
+    return this.#startMedia("video/generate", "wan_video", request.chat_id,
+      { chat_id: request.chat_id, prompt: request.prompt, settings }, signal);
+  }
+
+  /** Fixed-route same-owner Omni ACK binding; exposes neither ACK text nor private image URL. */
+  async getWan30OmniOwnerAckBinding(
+    context: OwnerWan30OmniGenerationContext,
+    ownerMessageId: string,
+    signal?: AbortSignal
+  ): Promise<OwnerWan30OmniOwnerAckBinding> {
+    const native = await import("./owner-wan30-omni-native-context.js");
+    const before = native.readOwnerWan30OmniPrivateAckContext(this, context);
+    if (!before) return Object.freeze({ status: "UNVERIFIED", reason: "CONTEXT_NOT_RESERVED" });
+    if (typeof ownerMessageId !== "string" || !/^\d{1,16}$/u.test(ownerMessageId) ||
+        !Number.isSafeInteger(Number(ownerMessageId))) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "MESSAGE_ID_INVALID" });
+    }
+    let raw: unknown;
+    try {
+      raw = await this.#request(new URL(`chats/${before.chat_uuid}/${ownerMessageId}`, V1_BASE_URL),
+        "GET", undefined, "JSON_REQUIRED", signal);
+    } catch {
+      return Object.freeze({ status: "UNVERIFIED", reason: "GET_UNAVAILABLE" });
+    }
+    const after = native.readOwnerWan30OmniPrivateAckContext(this, context);
+    if (!after || after.chat_uuid !== before.chat_uuid || after.prompt !== before.prompt ||
+        after.reference_url !== before.reference_url) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "CONTEXT_CHANGED" });
+    }
+    const parsed = ownerWan30ReferenceAckResponseSchema.safeParse(raw);
+    if (!parsed.success) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_SHAPE_INVALID" });
+    const ack = parsed.data;
+    if (String(ack.id) !== ownerMessageId) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_ID_MISMATCH" });
+    if (ack.author_id <= 0) return Object.freeze({ status: "UNVERIFIED", reason: "ACK_AUTHOR_NOT_OWNER" });
+    const textObjects = ack.message_object.filter((object) => object.object_type === "text");
+    const imageObjects = ack.message_object.filter((object) => object.object_type === "image");
+    if (ack.message_object.some((object) => object.model_type !== "wan_30_omni")) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_MODEL_MISMATCH" });
+    }
+    if (textObjects.length !== 1 || imageObjects.length !== 1) {
+      return Object.freeze({ status: "UNVERIFIED", reason: "ACK_OBJECTS_MISMATCH" });
+    }
+    const textObject = textObjects[0]!, imageObject = imageObjects[0]!;
     if (textObject?.object_type !== "text" || textObject.object_text !== before.prompt ||
         imageObject?.object_type !== "image" || imageObject.object_url !== before.reference_url ||
         !isSafeUploadReferenceUrl(imageObject.object_url) ||
@@ -10368,7 +10448,7 @@ function snapshotOwnerWanT2vVideoResultReadContext(value: unknown): Readonly<Own
     ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids"]);
   if (typeof fields.chat_uuid !== "string" || typeof fields.message_id !== "string" ||
       (fields.model_id !== "wan_26_t2v" && fields.model_id !== "wan_27_t2v" && fields.model_id !== "wan_30_t2v" &&
-        fields.model_id !== "wan_30_first_last_frame" && fields.model_id !== "wan_30_reference") ||
+        fields.model_id !== "wan_30_first_last_frame" && fields.model_id !== "wan_30_reference" && fields.model_id !== "wan_30_omni") ||
       typeof fields.provider_chat_id !== "string" || !/^\d{1,16}$/u.test(fields.provider_chat_id) ||
       !Number.isSafeInteger(Number(fields.provider_chat_id))) throw invalidRequest();
   validatePathIdentifier(fields.chat_uuid);

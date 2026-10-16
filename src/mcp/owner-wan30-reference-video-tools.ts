@@ -215,11 +215,13 @@ export function registerSyntxOwnerWan30ReferenceVideoTools(server: McpServer,
     let intent: OwnerWan30ReferenceGenerationIntent;
     try { intent = normalizeOwnerWan30ReferenceGenerationIntent({ prompt: parsed.data.prompt, parameters: parsed.data.parameters }).intent; }
     catch { return toolErrorResult(undefined, "INVALID_REQUEST", "generation"); }
+    let result: unknown;
     try {
-      const result = await options.generationService.generate({ attemptId: parsed.data.link_attempt_id,
+      result = await options.generationService.generate({ attemptId: parsed.data.link_attempt_id,
         input: intent, image_handle: parsed.data.image_handle }, signal);
-      return structured(parseSafeOutput(generationOutputSchema, result));
     } catch (error) { return toolErrorResult(error, "PRE_DISPATCH_FAILED", "generation"); }
+    try { return structured(parseSafeOutput(generationOutputSchema, result)); }
+    catch { return postDispatchOutputError(result); }
   });
 
   server.registerTool(SYNTX_OWNER_RECONCILE_WAN30_REFERENCE_VIDEO_TOOL_NAME, {
@@ -281,7 +283,7 @@ const ERROR_MESSAGES: Record<OwnerWan30ReferenceGenerationServiceErrorCode, stri
 
 function toolErrorResult(error: unknown, fallback: OwnerWan30ReferenceGenerationServiceErrorCode,
   surface: "upload" | "generation" | "list"): CallToolResult {
-  let code = fallback, recoveryId: string | undefined;
+  let code = fallback, recoveryId: string | undefined, diagnostic: Record<string, unknown> | undefined;
   if (!isProxyObject(error) && error instanceof OwnerWan30ReferenceGenerationServiceError) {
     const candidateCode = ownData(error, "code");
     if (typeof candidateCode === "string" && (OWNER_WAN30_REFERENCE_GENERATION_ERROR_CODES as readonly string[]).includes(candidateCode)) {
@@ -289,10 +291,26 @@ function toolErrorResult(error: unknown, fallback: OwnerWan30ReferenceGeneration
     }
     const candidateId = ownData(error, "recovery_id");
     if (typeof candidateId === "string" && RECOVERY_ID.test(candidateId)) recoveryId = candidateId;
+    if (code === "OUTCOME_UNKNOWN") {
+      const parsed = diagnosticSchema.safeParse(ownData(error, "diagnostic"));
+      if (parsed.success) diagnostic = parsed.data as Record<string, unknown>;
+    }
   }
   const message = surface === "list" && code !== "INVALID_REQUEST" && code !== "SERVICE_CLOSED" && code !== "PRINCIPAL_NOT_LINKED"
     ? ERROR_MESSAGES.SERVICE_BUSY : ERROR_MESSAGES[code];
-  return errorResult({ error: { code, message, ...(code === "OUTCOME_UNKNOWN" && recoveryId ? { recovery_id: recoveryId } : {}) } });
+  return errorResult({ error: { code, message, ...(code === "OUTCOME_UNKNOWN" && recoveryId ? { recovery_id: recoveryId } : {}),
+    ...(code === "OUTCOME_UNKNOWN" && diagnostic ? { diagnostic } : {}) } });
+}
+function postDispatchOutputError(value: unknown): CallToolResult {
+  let recoveryId: string | undefined, diagnostic: Record<string, unknown> | undefined;
+  if (value && typeof value === "object" && !types.isProxy(value)) {
+    const candidateId = ownData(value, "recovery_id");
+    if (typeof candidateId === "string" && RECOVERY_ID.test(candidateId)) recoveryId = candidateId;
+    const parsed = diagnosticSchema.safeParse(ownData(value, "diagnostic"));
+    if (parsed.success) diagnostic = parsed.data as Record<string, unknown>;
+  }
+  return errorResult({ error: { code: "OUTCOME_UNKNOWN", message: ERROR_MESSAGES.OUTCOME_UNKNOWN,
+    ...(recoveryId ? { recovery_id: recoveryId } : {}), ...(diagnostic ? { diagnostic } : {}) } });
 }
 function snapshotOptions(value: unknown): RegisterSyntxOwnerWan30ReferenceVideoToolsOptions {
   const options = readExactRecord(value, ["generationService"]);

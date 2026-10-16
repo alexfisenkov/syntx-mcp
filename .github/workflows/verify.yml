@@ -10,6 +10,7 @@ on:
         default: changed-media
         options:
           - changed-media
+          - docs-only
           - full
 
 permissions:
@@ -17,8 +18,8 @@ permissions:
 
 jobs:
   changed-media:
-    name: Changed media / Linux / Node 24.21.0
-    if: inputs.scope == 'changed-media'
+    name: Scoped checks / Linux / Node 24.21.0
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -37,6 +38,7 @@ jobs:
         run: npm ci
 
       - name: Build
+        if: inputs.scope == 'changed-media'
         run: npm run build
 
       - name: Install pinned Gitleaks for public source checks
@@ -54,7 +56,12 @@ jobs:
           printf '%s\n' "$scanner_dir" >> "$GITHUB_PATH"
 
       - name: Verify changed media coverage
+        if: inputs.scope == 'changed-media'
         run: npm run test:media:changed
+
+      - name: Unchanged media checks intentionally skipped for docs-only scope
+        if: inputs.scope == 'docs-only'
+        run: echo NOT_RUN_UNCHANGED_MEDIA_DOCS_ONLY
 
       - name: Verify public manifest hashes, read safety, and secrets
         run: node --test tests/public-secret-scan.test.mjs

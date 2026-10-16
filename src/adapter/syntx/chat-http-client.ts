@@ -9074,7 +9074,8 @@ export class SyntxChatHttpClient {
       }
       if (!response.ok) {
         cancelResponseBody(response);
-        throw mapHttpFailure(response.status);
+        throw mapHttpFailure(response.status,
+          response.status === 422 && isTopazAstraGenerationPost(url, method) ? "HTTP_422_OBSERVED" : undefined);
       }
       return await deadline.waitFor(
         readJsonResponse(
@@ -13786,7 +13787,7 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
-function mapHttpFailure(status: number): SyntxHttpError {
+function mapHttpFailure(status: number, observedStatus?: "HTTP_422_OBSERVED"): SyntxHttpError {
   if (status === 401 || status === 403) {
     return new SyntxHttpError(
       "AUTH_OR_ACCESS_DENIED",
@@ -13802,7 +13803,7 @@ function mapHttpFailure(status: number): SyntxHttpError {
   if (status === 408 || status === 504) {
     return timeoutError();
   }
-  return unavailableError();
+  return new SyntxHttpError("UPSTREAM_UNAVAILABLE", "SYNTX is temporarily unavailable for this request.", observedStatus);
 }
 
 function invalidRequest(): SyntxHttpError {
@@ -13842,4 +13843,8 @@ function unavailableError(): SyntxHttpError {
     "UPSTREAM_UNAVAILABLE",
     "SYNTX is temporarily unavailable for this request."
   );
+}
+
+function isTopazAstraGenerationPost(url: URL, method: "GET" | "POST" | "DELETE"): boolean {
+  return method === "POST" && url.pathname === "/api/v1/video/generate" && url.search === "?ai_name=topaz_astra";
 }

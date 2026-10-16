@@ -30,7 +30,8 @@ const pageInput = z.object({ link_attempt_id: attempt, recovery_id: z.string().r
 const diagnostic = z.object({ phase: z.enum(["VALIDATE_REQUEST", "RESOLVE_PRINCIPAL", "PREPARE_CANDIDATE", "PREFLIGHT_ONE", "CHAT_CREATE", "PREFLIGHT_TWO", "GENERATION_POST", "POST_ACK_KNOWN", "HISTORY_GET", "RESULT_GET", "RESULT_BINDING"]),
   post_started: z.boolean(), ack_known: z.boolean(), history_status: z.enum(["NOT_READ", "PENDING", "COMPLETE", "INCOMPLETE", "UNVERIFIED"]),
   owner_ack_status: z.enum(["NOT_READ", "MATCHED", "MISSING", "AMBIGUOUS", "MISMATCH"]), history_get_calls: z.number().int().min(0).max(255),
-  result_get_calls: z.number().int().min(0).max(255), result_status: z.enum(["NOT_READ", "PENDING", "COMPLETE", "UNVERIFIED"]), gaps: z.array(z.string().max(128)).max(32) }).strict();
+  result_get_calls: z.number().int().min(0).max(255), result_status: z.enum(["NOT_READ", "PENDING", "COMPLETE", "UNVERIFIED"]),
+  http_status_observed: z.literal("HTTP_422_OBSERVED").optional(), gaps: z.array(z.string().max(128)).max(32) }).strict();
 const recoveryItem = z.object({ recovery_id: z.string().regex(RECOVERY), created_at: z.iso.datetime(), model_id: model,
   status: z.enum(["outcome_unknown", "completed"]), observed_artifact_count: z.number().int().min(0).max(MAX_RESULTS), diagnostic }).strict();
 const recoveryList = z.object({ recoveries: z.array(recoveryItem).max(128) }).strict();

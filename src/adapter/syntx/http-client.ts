@@ -202,9 +202,12 @@ export type SyntxHttpErrorCode =
   | "UPSTREAM_PROTOCOL_ERROR";
 
 export class SyntxHttpError extends Error {
-  constructor(readonly code: SyntxHttpErrorCode, message: string) {
+  readonly observed_status?: "HTTP_422_OBSERVED";
+
+  constructor(readonly code: SyntxHttpErrorCode, message: string, observedStatus?: "HTTP_422_OBSERVED") {
     super(message);
     this.name = "SyntxHttpError";
+    if (observedStatus !== undefined) this.observed_status = observedStatus;
   }
 }
 

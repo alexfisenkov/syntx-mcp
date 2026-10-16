@@ -7,6 +7,7 @@ import { resolveOwnerReferencePrincipal } from "../../auth/owner-reference-princ
 import type { GenerationPrincipalRef } from "../../domain/generation-operation.js";
 import { sameGenerationPrincipal, snapshotGenerationPrincipal } from "../../domain/generation-principal.js";
 import { schemaHash } from "../../domain/generation-contract.js";
+import { SyntxHttpError } from "./http-client.js";
 import type { OwnerTopazAstraOwnedPreparedCandidate, OwnerTopazAstraOwnedRequestPreparer } from "../../application/owner-topaz-astra-owned-request-preparer.js";
 import type { OwnerTopazAstraOwnedOneShotPermit } from "../../application/owner-topaz-astra-owned-one-shot-policy.js";
 import { OwnerTopazAstraOriginalReferenceService, type OwnerTopazAstraOriginalResolution } from "../../application/owner-topaz-astra-original-reference-service.js";
@@ -84,10 +85,13 @@ const ORIGINAL_RESOLVE = OwnerTopazAstraOriginalReferenceService.prototype.resol
 const ORIGINAL_CAPTURE = OwnerTopazAstraOriginalReferenceService.prototype.withCapturedNativeOriginal;
 
 export class OwnerTopazAstraNativeError extends Error {
+  readonly http_status_observed?: "HTTP_422_OBSERVED";
+
   constructor(readonly code: "INVALID_REQUEST" | "CANDIDATE_INVALID" | "CHAT_CREATE_FAILED" | "CHAT_CONTEXT_INVALID" | "CHAT_ALREADY_CREATED" |
     "CHAT_NOT_DISPATCHED" | "OUTCOME_UNKNOWN" | "HISTORY_UNAVAILABLE" | "RESULT_CONTEXT_INVALID" | "RESULT_GET_UNAVAILABLE" |
-    "REQUEST_ABORTED" | "CAPACITY_EXCEEDED") {
+    "REQUEST_ABORTED" | "CAPACITY_EXCEEDED", httpStatusObserved?: "HTTP_422_OBSERVED") {
     super("The owner Topaz Astra native operation could not be completed safely."); this.name = "OwnerTopazAstraNativeError";
+    if (httpStatusObserved !== undefined) this.http_status_observed = httpStatusObserved;
   }
 }
 
@@ -149,7 +153,13 @@ export async function startOwnerTopazAstraNativeGeneration(input: unknown, packe
     if (signal?.aborted || ack.chat_uuid !== state.chat.chat_uuid || !safeId(ack.message_id)) fail("OUTCOME_UNKNOWN");
     state.ownerEcho = ack.message_id; state.phase = "ACKNOWLEDGED";
     return Object.freeze({ chat_uuid: ack.chat_uuid, message_id: ack.message_id });
-  } catch { state.phase = "OUTCOME_UNKNOWN"; fail("OUTCOME_UNKNOWN"); }
+  } catch (error) {
+    state.phase = "OUTCOME_UNKNOWN";
+    if (error instanceof SyntxHttpError && error.observed_status === "HTTP_422_OBSERVED") {
+      throw new OwnerTopazAstraNativeError("OUTCOME_UNKNOWN", "HTTP_422_OBSERVED");
+    }
+    fail("OUTCOME_UNKNOWN");
+  }
 }
 
 export async function listOwnerTopazAstraNativeCandidates(input: unknown, packet: unknown, signal?: AbortSignal): Promise<OwnerTopazAstraResultCandidates> {

@@ -4,8 +4,8 @@ import { AbsoluteRequestDeadline } from "../adapter/syntx/request-deadline.js";
 import { SyntxChatHttpClient, type MediaGenerationReceipt } from "../adapter/syntx/chat-http-client.js";
 import { OWNER_TOPAZ_ASTRA_PUBLIC_CATALOG_VERSION, OWNER_TOPAZ_ASTRA_MODEL_IDS,
   type OwnerTopazAstraModelId } from "./owner-topaz-astra-source-profile.js";
-import type { OwnerTopazAstraChatContext, OwnerTopazAstraResultCandidates,
-  OwnerTopazAstraResultContext } from "../adapter/syntx/owner-topaz-astra-native-context.js";
+import { OwnerTopazAstraNativeError, type OwnerTopazAstraChatContext, type OwnerTopazAstraResultCandidates,
+  type OwnerTopazAstraResultContext } from "../adapter/syntx/owner-topaz-astra-native-context.js";
 import type { OwnerWanT2vReadyVideo } from "../adapter/syntx/owner-wan-t2v-video-result.js";
 import type { AuthBinding } from "../auth/types.js";
 import { PerUserLinkService } from "../auth/link-service.js";
@@ -37,6 +37,7 @@ export type OwnerTopazAstraGenerationPhase = "VALIDATE_REQUEST" | "RESOLVE_PRINC
   "PREFLIGHT_ONE" | "CHAT_CREATE" | "PREFLIGHT_TWO" | "GENERATION_POST" | "POST_ACK_KNOWN" | "HISTORY_GET" | "RESULT_GET" | "RESULT_BINDING";
 export interface OwnerTopazAstraGenerationDiagnostic {
   readonly phase: OwnerTopazAstraGenerationPhase; readonly post_started: boolean; readonly ack_known: boolean;
+  readonly http_status_observed?: "HTTP_422_OBSERVED";
   readonly history_status: "NOT_READ" | "PENDING" | "COMPLETE" | "INCOMPLETE" | "UNVERIFIED";
   readonly owner_ack_status: "NOT_READ" | "MATCHED" | "MISSING" | "AMBIGUOUS" | "MISMATCH";
   readonly history_get_calls: number; readonly result_get_calls: number;
@@ -92,6 +93,7 @@ export class OwnerTopazAstraGenerationServiceError extends Error {
 }
 
 interface MutableDiagnostic { phase: OwnerTopazAstraGenerationPhase; post_started: boolean; ack_known: boolean;
+  http_status_observed?: "HTTP_422_OBSERVED";
   history_status: OwnerTopazAstraGenerationDiagnostic["history_status"]; owner_ack_status: OwnerTopazAstraGenerationDiagnostic["owner_ack_status"];
   history_get_calls: number; result_get_calls: number; result_status: OwnerTopazAstraGenerationDiagnostic["result_status"]; gaps: string[]; }
 interface Recovery { readonly recovery_id: string; readonly attemptId: string; readonly principal: Readonly<GenerationPrincipalRef>;
@@ -208,7 +210,12 @@ export class OwnerTopazAstraGenerationService {
       recovery.diagnostic.owner_ack_status = "MATCHED"; recovery.diagnostic.phase = "POST_ACK_KNOWN";
       return await this.#observe(recovery, deadline);
     } catch (error) {
-      if (postStarted && recovery) throw unknownError(recovery);
+      if (postStarted && recovery) {
+        if (error instanceof OwnerTopazAstraNativeError && error.http_status_observed === "HTTP_422_OBSERVED") {
+          recovery.diagnostic.http_status_observed = "HTTP_422_OBSERVED";
+        }
+        throw unknownError(recovery);
+      }
       if (semantic) this.#reserved.delete(semantic);
       if (error instanceof OwnerTopazAstraGenerationServiceError) throw error;
       if (error instanceof OwnerReferencePrincipalError) fail("PRINCIPAL_NOT_LINKED");
@@ -342,7 +349,10 @@ function snapshotPage(v: unknown): { attemptId: string; recovery_id: string; off
 function semanticKey(p: Readonly<GenerationPrincipalRef>, intent: string): string { return createHash("sha256").update(JSON.stringify([p.tenant_id, p.subject_id, intent])).digest("hex"); }
 function pageResult(r: Recovery, offset: number): OwnerTopazAstraGenerationResult { if (!Number.isSafeInteger(offset) || offset < 0 || offset > MAX_RESULTS) invalid(); const artifacts = r.artifacts.slice(offset, offset + PAGE_SIZE), next = offset + artifacts.length; return Object.freeze({ status: "completed", status_semantics: "LOCAL_OBSERVED_AVAILABILITY_ONLY", backend_acceptance: "UNPROVEN", provider_terminal_status: "UNPROVEN", cost_cap_enforced: false, recovery_id: r.recovery_id, model_id: r.binding.model_id, source_binding: Object.freeze({ public_catalog_version: OWNER_TOPAZ_ASTRA_PUBLIC_CATALOG_VERSION, profile_schema_hash: r.binding.profile_schema_hash, request_fingerprint: r.binding.request_fingerprint, intent_fingerprint: r.binding.intent_fingerprint }), observed_artifact_count: r.artifacts.length, offset, page_size: PAGE_SIZE, artifacts: Object.freeze(artifacts), has_more: next < r.artifacts.length, next_offset: next < r.artifacts.length ? next : null, diagnostic: snapshotDiagnostic(r.diagnostic) }); }
 function recoveryItem(r: Recovery): OwnerTopazAstraRecoveryListItem { return Object.freeze({ recovery_id: r.recovery_id, created_at: r.created_at, model_id: r.binding.model_id, status: r.status, observed_artifact_count: r.artifacts.length, diagnostic: snapshotDiagnostic(r.diagnostic) }); }
-function snapshotDiagnostic(d: MutableDiagnostic): OwnerTopazAstraGenerationDiagnostic { return Object.freeze({ phase: d.phase, post_started: d.post_started, ack_known: d.ack_known, history_status: d.history_status, owner_ack_status: d.owner_ack_status, history_get_calls: d.history_get_calls, result_get_calls: d.result_get_calls, result_status: d.result_status, gaps: Object.freeze(d.gaps.slice(0, 32)) }); }
+function snapshotDiagnostic(d: MutableDiagnostic): OwnerTopazAstraGenerationDiagnostic { return Object.freeze({ phase: d.phase, post_started: d.post_started, ack_known: d.ack_known,
+  ...(d.http_status_observed === undefined ? {} : { http_status_observed: d.http_status_observed }), history_status: d.history_status,
+  owner_ack_status: d.owner_ack_status, history_get_calls: d.history_get_calls, result_get_calls: d.result_get_calls,
+  result_status: d.result_status, gaps: Object.freeze(d.gaps.slice(0, 32)) }); }
 function unknownError(r: Recovery): OwnerTopazAstraGenerationServiceError { return new OwnerTopazAstraGenerationServiceError("OUTCOME_UNKNOWN", r.recovery_id, snapshotDiagnostic(r.diagnostic)); }
 function validContext(c: OwnerTopazAstraResultContext, r: Recovery): boolean { return !!c && c.chat_uuid === r.chat.chat_uuid && c.attempt_id === r.attemptId && c.model_id === r.binding.model_id && c.profile_schema_hash === r.binding.profile_schema_hash && c.intent_fingerprint === r.binding.intent_fingerprint && c.owner_echo_message_id === r.owner_echo_message_id; }
 function validVideo(v: OwnerWanT2vReadyVideo, c: OwnerTopazAstraResultContext): boolean { try { const u = new URL(v.object_url); return v.object_type === "video" && c.message_object_ids.includes(v.message_object_id) && v.mime_source === "URL_EXTENSION" && (v.mime_type === "video/mp4" || v.mime_type === "video/quicktime") && u.protocol === "https:" && u.hostname === "r2.syntx.ai" && !u.port && !u.username && !u.password && !u.hash && /\.(mp4|mov)$/iu.test(u.pathname); } catch { return false; } }

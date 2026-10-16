@@ -443,6 +443,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   );
   const ownerHailuo02I2vEnabled = readOwnerHailuo02I2vFlag(process.env.SYNTX_OWNER_HAILUO02_I2V);
   const ownerVeoT2vEnabled = readOwnerFlag("SYNTX_OWNER_VEO_T2V");
+  const ownerVeoOmniT2vEnabled = readOwnerFlag("SYNTX_OWNER_VEO_OMNI_T2V");
   const ownerGrokT2vEnabled = readOwnerFlag("SYNTX_OWNER_GROK_T2V");
   const ownerHailuoLiveT2vEnabled = readOwnerFlag("SYNTX_OWNER_HAILUO_LIVE_T2V");
   const ownerVideo2AudioEnabled = readOwnerVideo2AudioFlag(process.env.SYNTX_OWNER_VIDEO2AUDIO);
@@ -494,7 +495,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         ownerLumaT2vEnabled ||
         ownerHailuo01T2vEnabled ||
         ownerHailuo01DirectorT2vEnabled ||
-        ownerHailuo23T2vEnabled || ownerHailuo02T2vEnabled || ownerSeedance20T2vEnabled || ownerKlingT2vEnabled || ownerKlingI2vEnabled || ownerKlingKeyframesEnabled || ownerKlingMotionControlEnabled || ownerHailuo02I2vEnabled || ownerVeoT2vEnabled || ownerGrokT2vEnabled || ownerHailuoLiveT2vEnabled ||
+        ownerHailuo23T2vEnabled || ownerHailuo02T2vEnabled || ownerSeedance20T2vEnabled || ownerKlingT2vEnabled || ownerKlingI2vEnabled || ownerKlingKeyframesEnabled || ownerKlingMotionControlEnabled || ownerHailuo02I2vEnabled || ownerVeoT2vEnabled || ownerVeoOmniT2vEnabled || ownerGrokT2vEnabled || ownerHailuoLiveT2vEnabled ||
         ownerVideo2AudioEnabled ||
         ownerFluxImageReferencesEnabled || ownerSoulImageReferencesEnabled ||
         ownerIdeogramImageReferencesEnabled || ownerWanT2iImageEnabled || ownerBananaInpaintImageReferencesEnabled)) {
@@ -613,6 +614,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ...(ownerKlingMotionControlFfprobePath === undefined ? {} : { ownerKlingMotionControlFfprobePath }),
       ownerHailuo02I2vEnabled,
       ownerVeoT2vEnabled,
+      ownerVeoOmniT2vEnabled,
       ownerGrokT2vEnabled,
       ownerHailuoLiveT2vEnabled,
       ownerVideo2AudioEnabled,
@@ -669,7 +671,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const klingMotionControlPresetReferenceService = runtime.serverOptions.ownerKlingMotionControl?.presetReferenceService;
       const klingMotionControlGenerationService = runtime.serverOptions.ownerKlingMotionControl?.generationService;
       const hailuo02I2vGenerationService = runtime.serverOptions.ownerHailuo02I2v?.generationService;
-      const veoT2vGenerationService = runtime.serverOptions.ownerVeoT2v?.generationService;
+      const veoT2vGenerationService = runtime.serverOptions.ownerVeoT2v?.generationService ?? runtime.serverOptions.ownerVeoOmniT2v?.generationService;
       const grokT2vGenerationService = runtime.serverOptions.ownerGrokT2v?.generationService;
       const hailuoLiveT2vGenerationService = runtime.serverOptions.ownerHailuoLiveT2v?.generationService;
       const video2AudioGenerationService = runtime.serverOptions.ownerVideo2Audio?.generationService;
@@ -753,7 +755,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerElevenLabsStsLifecycle,
         runtime.ownerSeedance20T2vLifecycle,
         runtime.ownerKlingT2vLifecycle,
-        runtime.ownerVeoT2vLifecycle,
+        combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle),
         runtime.ownerGrokT2vLifecycle,
         runtime.ownerHailuoLiveT2vLifecycle,
         runtime.ownerKlingI2vLifecycle,
@@ -839,7 +841,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const klingI2vGenerationService = runtime.serverOptions.ownerKlingI2v?.generationService;
       const klingKeyframesReferenceService = runtime.serverOptions.ownerKlingKeyframes?.referenceService;
       const hailuo02I2vGenerationService = runtime.serverOptions.ownerHailuo02I2v?.generationService;
-      const veoT2vGenerationService = runtime.serverOptions.ownerVeoT2v?.generationService;
+      const veoT2vGenerationService = runtime.serverOptions.ownerVeoT2v?.generationService ?? runtime.serverOptions.ownerVeoOmniT2v?.generationService;
       const grokT2vGenerationService = runtime.serverOptions.ownerGrokT2v?.generationService;
       const hailuoLiveT2vGenerationService = runtime.serverOptions.ownerHailuoLiveT2v?.generationService;
       const video2AudioGenerationService = runtime.serverOptions.ownerVideo2Audio?.generationService;
@@ -922,7 +924,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerElevenLabsStsLifecycle,
           runtime.ownerSeedance20T2vLifecycle,
           runtime.ownerKlingT2vLifecycle,
-          runtime.ownerVeoT2vLifecycle,
+          combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle),
           runtime.ownerGrokT2vLifecycle,
           runtime.ownerHailuoLiveT2vLifecycle,
           runtime.ownerKlingI2vLifecycle,
@@ -998,7 +1000,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerElevenLabsStsLifecycle,
         runtime.ownerSeedance20T2vLifecycle,
         runtime.ownerKlingT2vLifecycle,
-        runtime.ownerVeoT2vLifecycle,
+        combineOwnerServiceLifecycles(runtime.ownerVeoT2vLifecycle, runtime.ownerVeoOmniT2vLifecycle),
         runtime.ownerGrokT2vLifecycle,
         runtime.ownerHailuoLiveT2vLifecycle,
         runtime.ownerKlingI2vLifecycle,

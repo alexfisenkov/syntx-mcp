@@ -44,7 +44,7 @@ test("Veo Omni static report binds current source and keeps defaults, compatibil
   });
   assert.equal(report.effective_defaults, "UNKNOWN");
   assert.equal(report.duration_upscale_compatibility, "UNKNOWN_NOT_ENFORCED");
-  assert.equal(report.settings_serializer, "PARTIALLY_JOINED_CALLER_ONLY_NOT_WIRE_CONTRACT");
+  assert.equal(report.settings_serializer, "SOURCE_JOINED_COMMON_SETTINGS_BRANCH_REFERENCES_UNBOUND");
   assert.equal(report.runtime_usable, false);
   assert.equal(report.dispatch_allowed, false);
   assert.equal(report.backend_acceptance, "UNPROVEN");

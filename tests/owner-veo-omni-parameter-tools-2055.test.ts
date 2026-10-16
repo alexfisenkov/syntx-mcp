@@ -36,12 +36,15 @@ test("read-only Veo Omni parameter tool returns the pinned static report through
     assert.deepEqual(report.source_pins, {
       public_catalog_version: "sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json",
       public_models_sha256: "sha256:92c31dba26eb9c0ccf68cdf92a105e6e808c92b187286e4fb366debe051982e1",
-      source_build_id: "1792133067",
+      source_build_id: "1792156098",
       modules: {
         veo_form: "sha256:75c37d86280482f13b12d5edd546c36c0314cac91c24984aae0a6e9c7ba925a1",
         constants: "sha256:f56c58e705e32b6a4ddfc7cc44e62fd6ca029e6c33a848621812428a365ef2c2",
         video_sender: "sha256:3dbb36e710d6e35ae9babef856678af06cb5d2352beb7a67aa60d47cd6ffc49b",
-        quality_helper: "sha256:7a38ef339db6700d1ccf7fe5a5be23e56722144f216e1db29bf7ff07b8849bf4"
+        quality_helper: "sha256:7a38ef339db6700d1ccf7fe5a5be23e56722144f216e1db29bf7ff07b8849bf4",
+        app: "sha256:eb1b2c82b9f62fbe378064bbd607cdb5cc875a4df1d2ae6f2d531d4baa59f042",
+        settings_helper: "sha256:7fb7a1113b89060cdd9af313cb3f4a140c754959fbda3d997f49bdcacabc52e6",
+        video_route: "sha256:8310cb1c9ac8221077220da873cfe785e35408b43b1cfba85d409272c9b44596"
       }
     });
     assert.deepEqual(report.controls.type, ["text", "image", "references"]);
@@ -58,7 +61,7 @@ test("read-only Veo Omni parameter tool returns the pinned static report through
       semantics: "FORM_INITIALIZER_ONLY_NOT_EFFECTIVE_DEFAULT" });
     assert.equal(report.effective_defaults, "UNKNOWN");
     assert.equal(report.duration_upscale_compatibility, "UNKNOWN_NOT_ENFORCED");
-    assert.equal(report.settings_serializer, "PARTIALLY_JOINED_CALLER_ONLY_NOT_WIRE_CONTRACT");
+    assert.equal(report.settings_serializer, "SOURCE_JOINED_COMMON_SETTINGS_BRANCH_REFERENCES_UNBOUND");
     assert.equal(report.runtime_usable, false);
     assert.equal(report.dispatch_allowed, false);
     assert.equal(report.backend_acceptance, "UNPROVEN");

@@ -69,6 +69,19 @@ import {
   type OwnerGrokT2vSourceContract
 } from "./owner-grok-t2v-profile.js";
 import {
+  OWNER_VEO_OMNI_T2V_CONTRACT_REGISTRY_VERSION,
+  OWNER_VEO_OMNI_T2V_MODEL_ID,
+  OWNER_VEO_OMNI_T2V_CONTRACT_VARIANT_ID,
+  isAuthenticOwnerVeoOmniT2vProfile,
+  type OwnerVeoOmniT2vGenerationInput,
+  type OwnerVeoOmniT2vProfile,
+  type OwnerVeoOmniT2vSourceContract
+} from "./owner-veo-omni-t2v-profile.js";
+import {
+  createOwnerVeoOmniT2vBudgetedModelAccessResolver,
+  type OwnerVeoOmniT2vAccountStatusResolver
+} from "./owner-veo-omni-t2v-budget-preflight.js";
+import {
   OwnerContractMediaError,
   OwnerContractMediaService,
   type OwnerContractMediaClient,
@@ -186,6 +199,13 @@ export type OwnerVeoT2vGenerationServiceOptions = Omit<OwnerReviewedNoReferenceT
 };
 
 export type OwnerGrokT2vGenerationServiceOptions = OwnerReviewedNoReferenceT2vServiceOptions<OwnerGrokT2vSourceContract>;
+
+export type OwnerVeoOmniT2vGenerationServiceOptions = Omit<
+  OwnerReviewedNoReferenceT2vServiceOptions<OwnerVeoOmniT2vSourceContract>, "profile"
+> & {
+  readonly profile: OwnerVeoOmniT2vProfile;
+  readonly resolveAccountStatus: OwnerVeoOmniT2vAccountStatusResolver;
+};
 
 export type OwnerKlingT2vGenerationServiceOptions = Omit<OwnerReviewedNoReferenceT2vServiceOptions<object>, "profile"> & {
   readonly catalogDirectory?: string;
@@ -895,6 +915,59 @@ export class OwnerVeoT2vGenerationService {
     if (!engine) throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
     return engine;
   }
+}
+
+/** Thin Omni T2V ABI over the authentic profile and the shared sealed engine. */
+export class OwnerVeoOmniT2vGenerationService {
+  readonly #engine: OwnerReviewedNoReferenceT2vEngine<OwnerVeoOmniT2vSourceContract>;
+
+  constructor(options: OwnerVeoOmniT2vGenerationServiceOptions) {
+    if (typeof options?.resolveAccountStatus !== "function") {
+      throw new Error("OWNER_VEO_OMNI_T2V_BUDGET_PREFLIGHT_INVALID");
+    }
+    const { profile, resolveAccountStatus, resolveModelAccess, ...engineOptions } = options;
+    if (!isAuthenticOwnerVeoOmniT2vProfile(profile) ||
+        profile.registryVersion !== OWNER_VEO_OMNI_T2V_CONTRACT_REGISTRY_VERSION ||
+        contentAddressedVersion(profile.registry) !== OWNER_VEO_OMNI_T2V_CONTRACT_REGISTRY_VERSION ||
+        profile.registry.contracts.length !== 1 || profile.modelId !== OWNER_VEO_OMNI_T2V_MODEL_ID ||
+        profile.operationId !== "generate-video" || profile.variantId !== OWNER_VEO_OMNI_T2V_CONTRACT_VARIANT_ID ||
+        profile.aiName !== "veo3" || profile.modelType !== OWNER_VEO_OMNI_T2V_MODEL_ID ||
+        profile.source.identity.model_id !== OWNER_VEO_OMNI_T2V_MODEL_ID ||
+        profile.source.identity.ai_name !== "veo3" ||
+        profile.source.identity.model_type !== OWNER_VEO_OMNI_T2V_MODEL_ID ||
+        profile.source.identity.operation_id !== "generate-video" || typeof resolveModelAccess !== "function") {
+      throw new Error("OWNER_REVIEWED_T2V_PROFILE_INVALID");
+    }
+
+    const guardedModelAccess = createOwnerVeoOmniT2vBudgetedModelAccessResolver({
+      catalog: profile.catalog,
+      resolveAccountStatus,
+      resolveModelAccess,
+      ...(engineOptions.now === undefined ? {} : { now: engineOptions.now })
+    });
+    this.#engine = new OwnerReviewedNoReferenceT2vEngine({
+      ...engineOptions,
+      profile,
+      resolveModelAccess: guardedModelAccess
+    });
+  }
+
+  getParametersSource(): OwnerVeoOmniT2vSourceContract { return this.#engine.getParametersSource(); }
+  getReviewedContract() { return this.#engine.getReviewedContract(); }
+  generate(input: OwnerVeoOmniT2vGenerationInput | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.generate(input, signal);
+  }
+  reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.reconcile(input, signal);
+  }
+  listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
+    return this.#engine.listRecoveries(attemptId, limit);
+  }
+  getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    return this.#engine.getRecoveryDiagnostic(input);
+  }
+  invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
+  close(): Promise<void> { return this.#engine.close(); }
 }
 
 /** Thin single-model Grok T2V ABI over the genuine source-bound profile and shared sealed engine. */

@@ -228,6 +228,8 @@ import {
 } from "./owner-kling-i2v-tools.js";
 import type { OwnerVeoT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerVeoT2vTools } from "./owner-veo-t2v-tools.js";
+import type { OwnerVeoOmniT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { registerSyntxOwnerVeoOmniT2vTools } from "./owner-veo-omni-t2v-tools.js";
 import type { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerGrokT2vTools } from "./owner-grok-t2v-tools.js";
 import type { OwnerHailuoLiveT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -508,6 +510,12 @@ export interface OwnerVeoT2vServiceComposition {
     "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
+/** Separate owner-local Omni T2V family; never default or durable composition. */
+export interface OwnerVeoOmniT2vServiceComposition {
+  readonly generationService: Pick<OwnerVeoOmniT2vGenerationService,
+    "getParametersSource" | "getReviewedContract" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
+}
+
 /** Explicit owner-local Grok T2V tools, enabled only by owner stdio opt-in. */
 export interface OwnerGrokT2vServiceComposition {
   readonly generationService: Pick<OwnerGrokT2vGenerationService,
@@ -631,6 +639,7 @@ export interface CreateMcpServerOptions {
   ownerKlingMotionControl?: OwnerKlingMotionControlServiceComposition | undefined;
   /** Explicit owner-local Veo T2V tools; omitted from default and HTTP servers. */
   ownerVeoT2v?: OwnerVeoT2vServiceComposition | undefined;
+  ownerVeoOmniT2v?: OwnerVeoOmniT2vServiceComposition | undefined;
   ownerGrokT2v?: OwnerGrokT2vServiceComposition | undefined;
   ownerHailuoLiveT2v?: OwnerHailuoLiveT2vServiceComposition | undefined;
   /** Explicit owner-local Video2Audio tools; omitted from default and HTTP servers. */
@@ -779,7 +788,7 @@ export function createMcpServer(
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerFlux3Videos || options.ownerGrokV2v || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
-        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan26R2v || options.ownerWan25I2vPreview)) {
+        options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerVeoOmniT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan26R2v || options.ownerWan25I2vPreview)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
   if (options.generationContractRegistry != null && options.generationContractRegistryV2 != null) {
@@ -1315,6 +1324,9 @@ export function createMcpServer(
     registerSyntxOwnerVeoT2vTools(server, { service: options.ownerVeoT2v.generationService });
     registerSyntxOwnerVeoOmniParameterTools(server);
   }
+  if (options.ownerVeoOmniT2v) {
+    registerSyntxOwnerVeoOmniT2vTools(server, { service: options.ownerVeoOmniT2v.generationService });
+  }
   if (options.ownerGrokT2v) {
     registerSyntxOwnerGrokT2vTools(server, { service: options.ownerGrokT2v.generationService });
   }
@@ -1384,6 +1396,7 @@ function createOwnerVideoRecoveryDiagnosticMap(
   addFamilyModel("veo3", options.ownerVeoT2v?.generationService);
   addFamilyModel("veo3fast", options.ownerVeoT2v?.generationService);
   addFamilyModel("veo3fast_r", options.ownerVeoT2v?.generationService);
+  addSingleModel("veo_omni", options.ownerVeoOmniT2v?.generationService);
   addSingleModel("grok_t2v", options.ownerGrokT2v?.generationService);
 
   return diagnostics;

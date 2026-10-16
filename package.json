@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node -e \"console.log('NOT_RUN_UNCHANGED_MEDIA: documentation-only bundle; public safety is checked separately')\"",
+    "test:media:changed": "node --test dist/tests/owner-veo-omni-source-join-2087.test.js dist/tests/owner-veo-omni-source-tools-2087.test.js dist/tests/owner-veo-omni-t2v-profile-2088.test.js dist/tests/owner-veo-omni-t2v-budget-2092.test.js dist/tests/owner-veo-omni-t2v-service-2092.test.js dist/tests/owner-veo-omni-t2v-tools-2093.test.js dist/tests/owner-veo-omni-t2v-runtime-2095.test.js && node --test --test-name-pattern=\"static.report|read-only\" dist/tests/owner-veo-omni-parameters-2054.test.js dist/tests/owner-veo-omni-parameter-tools-2055.test.js && node --test --test-name-pattern=\"Omni.T2V.config|emitted.JSON.has.absolute|Live.installed.config|installed.config.smoke.pins.Omni|changed-media.selector\" tests/print-media-mcp-config.test.mjs",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

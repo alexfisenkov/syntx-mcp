@@ -18,7 +18,7 @@ export const SYNTX_OWNER_GET_VIDEO_RECOVERY_DIAGNOSTIC_TOOL_NAME = "syntx_owner_
 
 export const OWNER_REVIEWED_VIDEO_RECOVERY_DIAGNOSTIC_MODEL_IDS = Object.freeze([
   "hailuo-01", "hailuo-01-director", "hailuo-02", "hailuo-2.3", "hailuo-01-live", "seedance-2.0",
-  "kling_text2video", "kling_o1_text2video", "veo3", "veo3fast", "veo3fast_r", "grok_t2v"
+  "kling_text2video", "kling_o1_text2video", "veo3", "veo3fast", "veo3fast_r", "grok_t2v", "veo_omni"
 ] as const);
 
 export type OwnerReviewedVideoRecoveryDiagnosticModelId = typeof OWNER_REVIEWED_VIDEO_RECOVERY_DIAGNOSTIC_MODEL_IDS[number];

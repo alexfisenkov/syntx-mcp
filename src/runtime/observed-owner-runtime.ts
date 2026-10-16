@@ -1,4 +1,5 @@
 import { LinkedAttemptCredentialBroker } from "../adapter/syntx/link-credential-broker.js";
+import { createOwnerVeoOmniT2vRuntime } from "./owner-veo-omni-t2v-runtime.js";
 import { SyntxChatHttpClient } from "../adapter/syntx/chat-http-client.js";
 import { SyntxHttpClient, isSyntxModelInfoCallerParameterKey } from "../adapter/syntx/http-client.js";
 import type { SyntxCostParameter } from "../adapter/syntx/http-client.js";
@@ -312,6 +313,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerHailuo02I2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for source-reviewed Veo no-reference T2V. */
   ownerVeoT2vEnabled?: boolean;
+  /** Separate source-bound Omni T2V opt-in with mandatory live budget checks. */
+  ownerVeoOmniT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for source-reviewed Grok T2V without references. */
   ownerGrokT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for source-reviewed Hailuo-01 Live T2V. */
@@ -2826,6 +2829,12 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ imageReferenceService, generationService, lifecycle });
       })()
     : undefined;
+  const ownerVeoOmniT2v = options.ownerVeoOmniT2vEnabled === true
+    ? createOwnerVeoOmniT2vRuntime({
+        ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+        binding: authBinding, linkService, createReadClient, createChatClient, now
+      })
+    : undefined;
   const ownerVeoT2v = options.ownerVeoT2vEnabled === true
     ? (() => {
         const profile = createOwnerVeoT2vProfile("veo3", options.catalogDirectory);
@@ -3021,6 +3030,7 @@ export function createObservedOwnerRuntime(
       ownerKlingMotionControl === undefined &&
       ownerHailuo02I2v === undefined &&
       ownerVeoT2v === undefined &&
+      ownerVeoOmniT2v === undefined &&
       ownerGrokT2v === undefined &&
       ownerHailuoLiveT2v === undefined &&
       ownerVideo2Audio === undefined &&
@@ -3142,6 +3152,10 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerVeoT2v.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerVeoOmniT2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerVeoOmniT2v.lifecycle.invalidateAttempt(attemptId);
+            }
             if (ownerGrokT2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId);
@@ -3190,6 +3204,7 @@ export function createObservedOwnerRuntime(
         ownerKlingMotionControl === undefined &&
         ownerHailuo02I2v === undefined &&
         ownerVeoT2v === undefined &&
+        ownerVeoOmniT2v === undefined &&
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
@@ -3285,6 +3300,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerVeoT2v !== undefined) {
             try { await ownerVeoT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerVeoOmniT2v !== undefined) {
+            try { await ownerVeoOmniT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerGrokT2v !== undefined) {
             try { await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -3441,6 +3459,7 @@ export function createObservedOwnerRuntime(
       imageReferenceService: ownerHailuo02I2v.imageReferenceService, generationService: ownerHailuo02I2v.generationService
     } }),
     ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2v: { generationService: ownerVeoT2v.generationService } }),
+    ...(ownerVeoOmniT2v === undefined ? {} : { ownerVeoOmniT2v: { generationService: ownerVeoOmniT2v.generationService } }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
@@ -3517,6 +3536,7 @@ export function createObservedOwnerRuntime(
     ...(ownerKlingMotionControl === undefined ? {} : { ownerKlingMotionControlLifecycle: ownerKlingMotionControl.lifecycle }),
     ...(ownerHailuo02I2v === undefined ? {} : { ownerHailuo02I2vLifecycle: ownerHailuo02I2v.lifecycle }),
     ...(ownerVeoT2v === undefined ? {} : { ownerVeoT2vLifecycle: ownerVeoT2v.lifecycle }),
+    ...(ownerVeoOmniT2v === undefined ? {} : { ownerVeoOmniT2vLifecycle: ownerVeoOmniT2v.lifecycle }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2vLifecycle: ownerHailuoLiveT2v.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle }),

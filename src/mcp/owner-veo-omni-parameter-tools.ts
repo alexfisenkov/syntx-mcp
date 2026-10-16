@@ -9,12 +9,15 @@ const SHA256 = /^sha256:[a-f0-9]{64}$/u;
 const sourcePinsSchema = z.object({
   public_catalog_version: z.literal("sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json"),
   public_models_sha256: z.literal("sha256:92c31dba26eb9c0ccf68cdf92a105e6e808c92b187286e4fb366debe051982e1"),
-  source_build_id: z.literal("1792133067"),
+  source_build_id: z.literal("1792156098"),
   modules: z.object({
     veo_form: z.string().regex(SHA256),
     constants: z.string().regex(SHA256),
     video_sender: z.string().regex(SHA256),
-    quality_helper: z.string().regex(SHA256)
+    quality_helper: z.string().regex(SHA256),
+    app: z.string().regex(SHA256),
+    settings_helper: z.string().regex(SHA256),
+    video_route: z.string().regex(SHA256)
   }).strict()
 }).strict();
 
@@ -43,6 +46,22 @@ const controlsSchema = z.object({
   }).strict()
 }).strict();
 
+const settingsSelectionSchema = z.object({
+  helper_effect: z.literal("GLOBAL_SETTINGS_STORE_NOT_PAYLOAD_RETURN"),
+  dispatch_owner: z.literal("VIDEO_ROUTE_NOT_OMNI_FORM"),
+  truthy_custom_payload: z.literal("REPLACE_SETTINGS_SHALLOW_SNAPSHOT"),
+  otherwise: z.literal("SHALLOW_SETTINGS_SNAPSHOT"),
+  custom_payload_reset: z.literal("NULL_ON_RESET_PAGE_SETTINGS"),
+  references: z.literal("OWNED_BINDING_REQUIRED")
+}).strict();
+
+const costProjectionSchema = z.object({
+  caller_keys: z.tuple([z.literal("upscale"), z.literal("video_duration")]),
+  video_reference_extra: z.object({ mode: z.literal("video_ref") }).strict(),
+  mode_in_generation_settings: z.literal("NOT_ESTABLISHED_BY_COST_QUERY"),
+  amount_or_quote: z.literal("UNPROVEN")
+}).strict();
+
 export const OWNER_VEO_OMNI_PARAMETER_TOOL_NAME = "syntx_get_veo_omni_parameters" as const;
 
 export const ownerVeoOmniParameterReportOutputSchema = z.object({
@@ -51,9 +70,11 @@ export const ownerVeoOmniParameterReportOutputSchema = z.object({
   ai_name: z.literal("veo3"),
   source_pins: sourcePinsSchema,
   controls: controlsSchema,
+  settings_selection: settingsSelectionSchema,
+  cost_projection: costProjectionSchema,
   effective_defaults: z.literal("UNKNOWN"),
   duration_upscale_compatibility: z.literal("UNKNOWN_NOT_ENFORCED"),
-  settings_serializer: z.literal("PARTIALLY_JOINED_CALLER_ONLY_NOT_WIRE_CONTRACT"),
+  settings_serializer: z.literal("SOURCE_JOINED_COMMON_SETTINGS_BRANCH_REFERENCES_UNBOUND"),
   runtime_usable: z.literal(false),
   dispatch_allowed: z.literal(false),
   backend_acceptance: z.literal("UNPROVEN")

@@ -2006,6 +2006,19 @@ export type {
   OwnerVeoT2vSourceContract
 } from "./application/owner-veo-t2v-profile.js";
 export { OwnerVeoT2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export { OwnerVeoOmniT2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export type { OwnerVeoOmniT2vGenerationServiceOptions } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export {
+  createOwnerVeoOmniT2vProfile,
+  OWNER_VEO_OMNI_T2V_MODEL_ID,
+  OWNER_VEO_OMNI_T2V_PUBLIC_CATALOG_VERSION,
+  OWNER_VEO_OMNI_T2V_CONTRACT_VARIANT_ID,
+  OWNER_VEO_OMNI_T2V_CONTRACT_REGISTRY_VERSION
+} from "./application/owner-veo-omni-t2v-profile.js";
+export type {
+  OwnerVeoOmniT2vGenerationInput, OwnerVeoOmniT2vProfile, OwnerVeoOmniT2vSourceContract
+} from "./application/owner-veo-omni-t2v-profile.js";
+export { registerSyntxOwnerVeoOmniT2vTools, SYNTX_OWNER_VEO_OMNI_T2V_TOOL_NAMES } from "./mcp/owner-veo-omni-t2v-tools.js";
 export type { OwnerVeoT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
 export {
   registerSyntxOwnerVeoT2vTools,

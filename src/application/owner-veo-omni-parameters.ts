@@ -6,12 +6,15 @@ const AI_NAME = "veo3" as const;
 const SOURCE_PINS = deepFreeze({
   public_catalog_version: "sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json",
   public_models_sha256: "sha256:92c31dba26eb9c0ccf68cdf92a105e6e808c92b187286e4fb366debe051982e1",
-  source_build_id: "1792133067",
+  source_build_id: "1792156098",
   modules: {
     veo_form: "sha256:75c37d86280482f13b12d5edd546c36c0314cac91c24984aae0a6e9c7ba925a1",
     constants: "sha256:f56c58e705e32b6a4ddfc7cc44e62fd6ca029e6c33a848621812428a365ef2c2",
     video_sender: "sha256:3dbb36e710d6e35ae9babef856678af06cb5d2352beb7a67aa60d47cd6ffc49b",
-    quality_helper: "sha256:7a38ef339db6700d1ccf7fe5a5be23e56722144f216e1db29bf7ff07b8849bf4"
+    quality_helper: "sha256:7a38ef339db6700d1ccf7fe5a5be23e56722144f216e1db29bf7ff07b8849bf4",
+    app: "sha256:eb1b2c82b9f62fbe378064bbd607cdb5cc875a4df1d2ae6f2d531d4baa59f042",
+    settings_helper: "sha256:7fb7a1113b89060cdd9af313cb3f4a140c754959fbda3d997f49bdcacabc52e6",
+    video_route: "sha256:8310cb1c9ac8221077220da873cfe785e35408b43b1cfba85d409272c9b44596"
   }
 } as const);
 
@@ -40,15 +43,33 @@ const CONTROL_REPORT = deepFreeze({
   }
 } as const);
 
+const SETTINGS_SELECTION = deepFreeze({
+  helper_effect: "GLOBAL_SETTINGS_STORE_NOT_PAYLOAD_RETURN",
+  dispatch_owner: "VIDEO_ROUTE_NOT_OMNI_FORM",
+  truthy_custom_payload: "REPLACE_SETTINGS_SHALLOW_SNAPSHOT",
+  otherwise: "SHALLOW_SETTINGS_SNAPSHOT",
+  custom_payload_reset: "NULL_ON_RESET_PAGE_SETTINGS",
+  references: "OWNED_BINDING_REQUIRED"
+} as const);
+
+const COST_PROJECTION = deepFreeze({
+  caller_keys: ["upscale", "video_duration"] as const,
+  video_reference_extra: { mode: "video_ref" } as const,
+  mode_in_generation_settings: "NOT_ESTABLISHED_BY_COST_QUERY",
+  amount_or_quote: "UNPROVEN"
+} as const);
+
 const REPORT: OwnerVeoOmniParameterReport = deepFreeze({
   status: "SOURCE_REVIEWED_STATIC_ONLY",
   model_id: MODEL_ID,
   ai_name: AI_NAME,
   source_pins: SOURCE_PINS,
   controls: CONTROL_REPORT,
+  settings_selection: SETTINGS_SELECTION,
+  cost_projection: COST_PROJECTION,
   effective_defaults: "UNKNOWN",
   duration_upscale_compatibility: "UNKNOWN_NOT_ENFORCED",
-  settings_serializer: "PARTIALLY_JOINED_CALLER_ONLY_NOT_WIRE_CONTRACT",
+  settings_serializer: "SOURCE_JOINED_COMMON_SETTINGS_BRANCH_REFERENCES_UNBOUND",
   runtime_usable: false,
   dispatch_allowed: false,
   backend_acceptance: "UNPROVEN"
@@ -74,6 +95,25 @@ export interface OwnerVeoOmniParameterInput {
   readonly model_id: typeof MODEL_ID;
   readonly parameters: OwnerVeoOmniExplicitParameterValues;
 }
+export interface OwnerVeoOmniCostParametersCandidate {
+  readonly upscale: 0 | 1 | 2 | 3;
+  readonly video_duration: 4 | 6 | 8 | 10;
+  readonly mode?: "video_ref";
+}
+export interface OwnerVeoOmniSettingsSelection {
+  readonly helper_effect: "GLOBAL_SETTINGS_STORE_NOT_PAYLOAD_RETURN";
+  readonly dispatch_owner: "VIDEO_ROUTE_NOT_OMNI_FORM";
+  readonly truthy_custom_payload: "REPLACE_SETTINGS_SHALLOW_SNAPSHOT";
+  readonly otherwise: "SHALLOW_SETTINGS_SNAPSHOT";
+  readonly custom_payload_reset: "NULL_ON_RESET_PAGE_SETTINGS";
+  readonly references: "OWNED_BINDING_REQUIRED";
+}
+export interface OwnerVeoOmniCostProjection {
+  readonly caller_keys: readonly ["upscale", "video_duration"];
+  readonly video_reference_extra: Readonly<{ mode: "video_ref" }>;
+  readonly mode_in_generation_settings: "NOT_ESTABLISHED_BY_COST_QUERY";
+  readonly amount_or_quote: "UNPROVEN";
+}
 export interface OwnerVeoOmniSourcePins {
   readonly public_catalog_version: string;
   readonly public_models_sha256: string;
@@ -94,9 +134,11 @@ export interface OwnerVeoOmniParameterReport {
   readonly ai_name: typeof AI_NAME;
   readonly source_pins: OwnerVeoOmniSourcePins;
   readonly controls: OwnerVeoOmniControls;
+  readonly settings_selection: OwnerVeoOmniSettingsSelection;
+  readonly cost_projection: OwnerVeoOmniCostProjection;
   readonly effective_defaults: "UNKNOWN";
   readonly duration_upscale_compatibility: "UNKNOWN_NOT_ENFORCED";
-  readonly settings_serializer: "PARTIALLY_JOINED_CALLER_ONLY_NOT_WIRE_CONTRACT";
+  readonly settings_serializer: "SOURCE_JOINED_COMMON_SETTINGS_BRANCH_REFERENCES_UNBOUND";
   readonly runtime_usable: false;
   readonly dispatch_allowed: false;
   readonly backend_acceptance: "UNPROVEN";
@@ -105,6 +147,8 @@ export interface OwnerVeoOmniNormalizedParameters {
   readonly status: "SOURCE_REVIEWED_EXPLICIT_PARAMETER_CANDIDATE";
   readonly model_id: typeof MODEL_ID;
   readonly parameters: Readonly<Omit<OwnerVeoOmniExplicitParameterValues, "reference_counts">>;
+  readonly cost_parameters_candidate: OwnerVeoOmniCostParametersCandidate;
+  readonly cost_projection_status: "SOURCE_DERIVED_READ_ONLY_CANDIDATE_NOT_A_QUOTE";
   readonly source_pins: OwnerVeoOmniSourcePins;
   readonly effective_defaults: "UNKNOWN";
   readonly runtime_usable: false;
@@ -145,10 +189,17 @@ export function normalizeOwnerVeoOmniGenerationParameters(input: unknown): Owner
       aspect_ratio: raw.aspect_ratio as "16:9" | "9:16",
       video_duration: raw.video_duration as 4 | 6 | 8 | 10
     });
+    const costParametersCandidate = deepFreeze({
+      upscale: parameters.upscale,
+      video_duration: parameters.video_duration,
+      ...(raw.type === "references" && counts.videos === 1 ? { mode: "video_ref" as const } : {})
+    });
     return deepFreeze({
       status: "SOURCE_REVIEWED_EXPLICIT_PARAMETER_CANDIDATE",
       model_id: MODEL_ID,
       parameters,
+      cost_parameters_candidate: costParametersCandidate,
+      cost_projection_status: "SOURCE_DERIVED_READ_ONLY_CANDIDATE_NOT_A_QUOTE",
       source_pins: SOURCE_PINS,
       effective_defaults: "UNKNOWN",
       runtime_usable: false,

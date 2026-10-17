@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "d1d80fa80a957da5ba3e3f4b5c327d07f37fce85",
+  "source_commit": "48286af3b92906af8e8de69eaa92b0a6c017a5f9",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -1766,7 +1766,7 @@
     ".gitleaks.toml": "649d0cd3ee28612d2dd429e42a17953e7e19c35223e5affb1cc97e477fd584f1",
     "AGENTS.md": "014cb4aee0a9002a5b5dd9f4cf41efe683ec62baaa43e5384ff2109f4ae631a1",
     "LICENSE": "0628fc2d4eb87a4e28858b8451cd20d41cd65533e96141fb6a11ffc92a04c219",
-    "README.md": "516527afa79c810a33a2fa20f193ed40169c2008648e7df0228262b0585c87b7",
+    "README.md": "80374ab618c4cc19344f99d74616431ec9413eb0d843491c9508cee941b1d75f",
     "SECURITY.md": "21a6d3c3721d76af9f6aa395c24bf6db696ca3afbb498f260a833c0bc7f98f7d",
     "catalog/generation-contracts-v2/sha256-031f29ff827ae5487d4f088edbdfc3a2fc0d62d201eeb73d8bbaf854d3bd0a2b.json": "031f29ff827ae5487d4f088edbdfc3a2fc0d62d201eeb73d8bbaf854d3bd0a2b",
     "catalog/generation-contracts-v2/sha256-04e81e24494d6c5879f0fda0e6f0e406de6ea4c4af2fae41b64d76145b193c13.json": "04e81e24494d6c5879f0fda0e6f0e406de6ea4c4af2fae41b64d76145b193c13",

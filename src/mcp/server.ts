@@ -51,6 +51,7 @@ import {
 import { OwnerVideoRecoveryStore } from "../application/owner-video-recovery.js";
 import { registerSyntxRuntimeCoverageTool } from "./runtime-coverage-tool.js";
 import { registerSyntxSettingsEvidenceTool } from "./settings-evidence-tool.js";
+import { registerSyntxSeedanceEditorSourceTool } from "./seedance-editor-source-tool.js";
 import { registerSyntxMaintenanceTools } from "./maintenance-tools.js";
 import { registerSyntxMaintenanceSkillResources } from "./maintenance-skill-resources.js";
 import {
@@ -259,6 +260,7 @@ export const SERVER_VERSION = "0.2.0";
 export const TOOL_NAMES = [
   "syntx_get_runtime_coverage",
   "syntx_get_settings_evidence",
+  "syntx_get_seedance_editor_source",
   "syntx_list_update_versions",
   "syntx_plan_mcp_update",
   "syntx_get_generation_schema",
@@ -814,6 +816,7 @@ export function createMcpServer(
   // not authenticate, contact SYNTX, mutate chats, or start paid work.
   registerSyntxRuntimeCoverageTool(server, { resolveCurrentModel: (modelId) => application.getModel(modelId) });
   registerSyntxSettingsEvidenceTool(server);
+  registerSyntxSeedanceEditorSourceTool(server);
   registerSyntxMaintenanceTools(server);
   registerSyntxMaintenanceSkillResources(server);
   const maplessSettingsInventory = options.maplessSettingsInventory === undefined

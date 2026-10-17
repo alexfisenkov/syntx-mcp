@@ -382,7 +382,7 @@ test("built owner stdio launcher registers account status only with exact operat
       ...TOOL_NAMES, ...SYNTX_AUTH_TOOL_NAMES,
       SYNTX_MODEL_ACCESS_TOOL_NAME, SYNTX_ACCOUNT_STATUS_TOOL_NAME
     ]);
-    assert.equal(listed.tools.length, 19);
+    assert.equal(listed.tools.length, 20);
     const result = await client.callTool({ name: SYNTX_ACCOUNT_STATUS_TOOL_NAME, arguments: {
       link_attempt_id: "link_unknown_attempt_0000000000"
     } }) as CallToolResult;

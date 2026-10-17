@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/print-media-omni-reference-config-2117.test.mjs tests/print-media-mcp-config-kling4-2149.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test dist/tests/owner-topaz-astra-http-status2184.test.js && node --test --test-name-pattern=\"changed-media.selector\" tests/print-media-mcp-config.test.mjs",
+    "test:media:changed": "node --test dist/tests/owner-seedance-editor-source2216.test.js dist/tests/seedance-editor-source-tool2216.test.js && node --test --test-name-pattern=\"owner runtime leaves account status unregistered by default|built owner stdio launcher registers account status only\" dist/tests/owner-runtime.test.js dist/tests/stdio.test.js",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

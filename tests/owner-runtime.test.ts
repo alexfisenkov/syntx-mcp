@@ -105,7 +105,7 @@ test("owner runtime leaves account status unregistered by default and cannot ena
   await client.connect(clientTransport);
   try {
     const listed = await client.listTools();
-    assert.equal(listed.tools.length, 18);
+    assert.equal(listed.tools.length, 19);
     assert.equal(listed.tools.some((tool) => tool.name === SYNTX_ACCOUNT_STATUS_TOOL_NAME), false);
     const result = await client.callTool({ name: SYNTX_ACCOUNT_STATUS_TOOL_NAME, arguments: {
       link_attempt_id: "link_account_attempt_0000000001", accountStatusEnabled: true

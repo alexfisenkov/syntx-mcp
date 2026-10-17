@@ -247,6 +247,7 @@ import type {
 } from "./wan26-i2v-upload-context.js";
 import type { OwnerWan26R2vImageUploadContext } from "./wan26-r2v-upload-context.js";
 import type { OwnerWan26R2vSelectedVideoUploadContext } from "./wan26-r2v-video-upload-context.js";
+import type { OwnerSeedanceEditorChatContext } from "./owner-seedance-editor-chat-context.js";
 import { copyTrustedOwnerWan26R2vVideoCropBytes, type OwnerWan26R2vVideoCropReceipt } from "../../application/owner-wan26-r2v-video-crop.js";
 import { validateOwnerWan26R2vImageUploadRequest } from "./owner-wan26-r2v-image-upload.js";
 import {
@@ -2418,6 +2419,18 @@ const OWNER_VIDEO2AUDIO_NATIVE_CANDIDATE_CHATS = new WeakMap<object, OwnerVideo2
 const OWNER_VIDEO2AUDIO_NATIVE_RESULT_CONTEXTS = new WeakMap<object, OwnerVideo2AudioNativeResultContextState>();
 const OWNER_VIDEO2AUDIO_NATIVE_RESERVED_CANDIDATES = new WeakSet<object>();
 const OWNER_VIDEO2AUDIO_NATIVE_PENDING_CREATES = new WeakMap<object, Set<object>>();
+const OWNER_SEEDANCE_EDITOR_CHAT_CONTEXT_LIMIT = 128;
+interface OwnerSeedanceEditorChatContextState {
+  readonly context: OwnerSeedanceEditorChatContext;
+  readonly attemptId: string;
+  readonly epoch: number;
+}
+interface OwnerSeedanceEditorChatClientState {
+  readonly contexts: Map<OwnerSeedanceEditorChatContext, OwnerSeedanceEditorChatContextState>;
+  readonly pending: Map<symbol, { readonly attemptId: string; readonly epoch: number }>;
+  readonly attemptEpochs: Map<string, number>;
+}
+const OWNER_SEEDANCE_EDITOR_CHAT_CLIENT_STATES = new WeakMap<object, OwnerSeedanceEditorChatClientState>();
 
 /**
  * Fixed-route gateway for the SYNTX chat and generation routes observed in the
@@ -2467,6 +2480,74 @@ export class SyntxChatHttpClient {
     const parsed = createChatResponseSchema.safeParse(raw);
     if (!parsed.success) throw protocolError();
     return { chat_uuid: parsed.data.uuid };
+  }
+
+  /** Fixed chat constructor for the actual Seedance Editor tool route. */
+  async createOwnerSeedanceEditorChat(
+    input: { readonly attemptId: string; readonly title: string },
+    signal?: AbortSignal
+  ): Promise<OwnerSeedanceEditorChatContext> {
+    const fields = readExactDataRecord(input, ["attemptId", "title"], ["attemptId", "title"]);
+    if (typeof fields.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(fields.attemptId) ||
+        typeof fields.title !== "string") throw invalidRequest();
+    const attemptId = fields.attemptId;
+    const title = fields.title;
+    validateBoundedText(title, MAX_TITLE_BYTES, true);
+
+    const state = ownerSeedanceEditorChatClientState(this);
+    if (state.contexts.size + state.pending.size >= OWNER_SEEDANCE_EDITOR_CHAT_CONTEXT_LIMIT) throw invalidRequest();
+    const reservation = Symbol("owner-seedance-editor-chat-create");
+    const epoch = state.attemptEpochs.get(attemptId) ?? 0;
+    state.pending.set(reservation, { attemptId, epoch });
+    try {
+      const raw = await this.#request(new URL("chats", V1_BASE_URL), "POST",
+        { title, scope: "tool_video_inpaint" }, "JSON_REQUIRED", signal);
+      const parsed = createChatResponseSchema.safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const chatUuid = parsed.data.uuid;
+      if ((state.attemptEpochs.get(attemptId) ?? 0) !== epoch || !state.pending.has(reservation)) throw invalidRequest();
+      for (const owned of state.contexts.values()) {
+        if (owned.context.chat_uuid === chatUuid) throw protocolError();
+      }
+      const context: OwnerSeedanceEditorChatContext = Object.freeze({
+        status: "created", chat_uuid: chatUuid, attempt_id: attemptId,
+        model_id: "seedance-2.5-editor", scope: "tool_video_inpaint", generation_permit: false
+      });
+      state.contexts.set(context, { context, attemptId, epoch });
+      return context;
+    } finally {
+      state.pending.delete(reservation);
+      pruneOwnerSeedanceEditorChatAttempt(state, attemptId);
+    }
+  }
+
+  isOwnerSeedanceEditorChat(context: unknown, attemptId: string): context is OwnerSeedanceEditorChatContext {
+    if (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId) ||
+        !context || typeof context !== "object" || types.isProxy(context) || !Object.isFrozen(context)) return false;
+    const state = OWNER_SEEDANCE_EDITOR_CHAT_CLIENT_STATES.get(this)?.contexts.get(context as OwnerSeedanceEditorChatContext);
+    return !!state && state.context === context && state.attemptId === attemptId &&
+      state.epoch === (OWNER_SEEDANCE_EDITOR_CHAT_CLIENT_STATES.get(this)?.attemptEpochs.get(attemptId) ?? 0);
+  }
+
+  invalidateOwnerSeedanceEditorChats(attemptId?: string): void {
+    if (attemptId !== undefined && (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId))) {
+      throw invalidRequest();
+    }
+    const state = OWNER_SEEDANCE_EDITOR_CHAT_CLIENT_STATES.get(this);
+    if (!state) return;
+    const attempts = new Set<string>();
+    if (attemptId !== undefined) attempts.add(attemptId);
+    else {
+      for (const contextState of state.contexts.values()) attempts.add(contextState.attemptId);
+      for (const pending of state.pending.values()) attempts.add(pending.attemptId);
+    }
+    for (const id of attempts) {
+      state.attemptEpochs.set(id, (state.attemptEpochs.get(id) ?? 0) + 1);
+      for (const [context, contextState] of state.contexts) {
+        if (contextState.attemptId === id) state.contexts.delete(context);
+      }
+      pruneOwnerSeedanceEditorChatAttempt(state, id);
+    }
   }
 
   /** Fixed internal chat creation for the owner Kling Image-to-Video bridge. */
@@ -10374,6 +10455,21 @@ function ownerVideo2AudioNativeChats(client: SyntxChatHttpClient): Map<string, O
   let chats = OWNER_VIDEO2AUDIO_NATIVE_CHATS.get(client);
   if (!chats) { chats = new Map(); OWNER_VIDEO2AUDIO_NATIVE_CHATS.set(client, chats); }
   return chats;
+}
+
+function ownerSeedanceEditorChatClientState(client: SyntxChatHttpClient): OwnerSeedanceEditorChatClientState {
+  let state = OWNER_SEEDANCE_EDITOR_CHAT_CLIENT_STATES.get(client);
+  if (!state) {
+    state = { contexts: new Map(), pending: new Map(), attemptEpochs: new Map() };
+    OWNER_SEEDANCE_EDITOR_CHAT_CLIENT_STATES.set(client, state);
+  }
+  return state;
+}
+
+function pruneOwnerSeedanceEditorChatAttempt(state: OwnerSeedanceEditorChatClientState, attemptId: string): void {
+  const hasContext = [...state.contexts.values()].some((context) => context.attemptId === attemptId);
+  const hasPending = [...state.pending.values()].some((pending) => pending.attemptId === attemptId);
+  if (!hasContext && !hasPending) state.attemptEpochs.delete(attemptId);
 }
 
 function ownerVideo2AudioNativePendingCreates(client: SyntxChatHttpClient): Set<object> {

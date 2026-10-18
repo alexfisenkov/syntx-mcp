@@ -114,7 +114,7 @@
     "live:owner:wan-i2v-smoke": "npm run build && node scripts/live-owner-wan-i2v-smoke.mjs --confirm-live-wan-i2v-smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/print-media-omni-reference-config-2117.test.mjs tests/print-media-mcp-config-kling4-2149.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs",
-    "test:media:changed": "node --test dist/tests/owner-seedance-editor-upload2227.test.js dist/tests/owner-seedance-editor-reference2228.test.js dist/tests/owner-seedance-editor-flow2230.test.js dist/tests/owner-seedance-editor-mcp2231.test.js dist/tests/owner-seedance-editor-config2232.test.js",
+    "test:media:changed": "node --test tests/print-media-seedance-editor-config2244.test.mjs",
     "start:http": "node dist/src/transports/http.js",
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",

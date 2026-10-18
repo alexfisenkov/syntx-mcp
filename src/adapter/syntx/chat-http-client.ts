@@ -217,6 +217,13 @@ import {
   type ValidatedOwnerWan27VideoEditVideo
 } from "../../application/owner-wan27-videoedit-video-policy.js";
 import {
+  OWNER_SEEDANCE_EDITOR_VIDEO_POLICY,
+  isValidatedOwnerSeedanceEditorVideo,
+  readValidatedOwnerSeedanceEditorVideo,
+  releaseValidatedOwnerSeedanceEditorVideo,
+  type ValidatedOwnerSeedanceEditorVideo
+} from "../../application/owner-seedance-editor-video-policy.js";
+import {
   isValidatedOwnerWan26I2vImage,
   readValidatedOwnerWan26I2vImage,
   type ValidatedOwnerWan26I2vImage
@@ -2519,6 +2526,35 @@ export class SyntxChatHttpClient {
       state.pending.delete(reservation);
       pruneOwnerSeedanceEditorChatAttempt(state, attemptId);
     }
+  }
+
+  /** Fixed Editor transport. Only the budgeted service can mint this nominal operation. */
+  async startOwnerSeedanceEditorOperation(operation: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const { consumeOwnerSeedanceEditorDispatch, recordOwnerSeedanceEditorTransport } = await import("../../application/owner-seedance-editor-generation-service.js");
+    const dispatch = consumeOwnerSeedanceEditorDispatch(this, operation);
+    try {
+      return await this.#startMedia("video/generate", "seedance", dispatch.chat_uuid, dispatch.body as Record<string, JsonValue>, signal,
+        status => recordOwnerSeedanceEditorTransport(this, operation, status));
+    } catch (error) {
+      if (error instanceof SyntxHttpError) recordOwnerSeedanceEditorTransport(this, operation, error.code);
+      throw error;
+    }
+  }
+
+  /** GET-only; route is derived from an own operation, not caller-supplied chat IDs. */
+  async readOwnerSeedanceEditorHistory(operation: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerSeedanceEditorHistoryRoute } = await import("../../application/owner-seedance-editor-generation-service.js");
+    const chat = readOwnerSeedanceEditorHistoryRoute(this, operation);
+    const url = new URL(`chats/${chat}/messages`, V1_BASE_URL);
+    url.searchParams.set("page", "1"); url.searchParams.set("page_size", "10");
+    return this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
+  /** GET-only; result capability was minted from this operation's verified owner history. */
+  async readOwnerSeedanceEditorResult(resultContext: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerSeedanceEditorResultRoute } = await import("../../application/owner-seedance-editor-generation-service.js");
+    const route = readOwnerSeedanceEditorResultRoute(this, resultContext);
+    return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", signal);
   }
 
   isOwnerSeedanceEditorChat(context: unknown, attemptId: string): context is OwnerSeedanceEditorChatContext {
@@ -8263,6 +8299,84 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** Consumes one locally validated Seedance Editor source video for its fixed native upload route. */
+  async uploadOwnerSeedanceEditorVideo(
+    receiptInput: unknown,
+    signal?: AbortSignal
+  ): Promise<InternalUploadReference> {
+    let bytes: Uint8Array | undefined;
+    let form: FormData | undefined;
+    try {
+      if (!isValidatedOwnerSeedanceEditorVideo(receiptInput)) throw invalidRequest();
+      const receipt = receiptInput as Readonly<ValidatedOwnerSeedanceEditorVideo>;
+      const owned = readValidatedOwnerSeedanceEditorVideo(receipt);
+      if (!owned) throw invalidRequest();
+      bytes = owned.bytes;
+      if (!releaseValidatedOwnerSeedanceEditorVideo(receipt)) throw invalidRequest();
+
+      const validMime = OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.source_mime_types.includes(owned.mime_type);
+      if (receipt.status !== "TRUSTED_LOCAL_MEDIA_PROBE" ||
+          receipt.policy_id !== OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.policy_id ||
+          receipt.model_id !== "seedance-2.5-editor" || !validMime ||
+          receipt.filename !== owned.filename || receipt.mime_type !== owned.mime_type ||
+          receipt.size !== owned.size || receipt.source_sha256 !== owned.sha256 ||
+          receipt.local_limit_kind !== "LOCAL_CONSERVATIVE_BOUND" ||
+          !Number.isSafeInteger(receipt.local_file_limit_bytes) || receipt.local_file_limit_bytes < 1 ||
+          receipt.local_file_limit_bytes > OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.local_max_file_size_bytes ||
+          owned.size > receipt.local_file_limit_bytes || owned.size !== bytes.byteLength || owned.size < 1 ||
+          owned.size > OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.local_max_file_size_bytes ||
+          !Number.isSafeInteger(owned.width) || owned.width < 1 ||
+          !Number.isSafeInteger(owned.height) || owned.height < 1 ||
+          !Number.isFinite(owned.duration_seconds) || owned.duration_seconds < OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.min_duration_seconds ||
+          owned.duration_seconds > OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.max_duration_seconds ||
+          receipt.duration_source !== OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.duration_source ||
+          receipt.metadata_confidence !== OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.metadata_confidence ||
+          receipt.pixel_decode !== false || receipt.generation_permit !== false ||
+          receipt.provider_acceptance !== "UNPROVEN" || !/^[a-f0-9]{64}$/u.test(owned.sha256) ||
+          createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          owned.filename.length > 255 || /[\\/\u0000-\u001f\u007f-\u009f]/u.test(owned.filename)) {
+        throw invalidRequest();
+      }
+
+      form = this.#buildUploadForm({
+        bytes,
+        filename: owned.filename,
+        mime_type: owned.mime_type,
+        destination: "uploaded",
+        check_duplicates: true,
+        model_type: "seedance-2.5"
+      }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const parsed = z.object({ files: z.array(z.object({
+        id: providerIdSchema.optional(),
+        file_id: providerIdSchema.optional(),
+        url: z.string().min(1).max(MAX_URL_LENGTH),
+        status: z.string().max(64).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)).optional(),
+        filename: z.string().max(255).optional(),
+        mime_type: z.string().max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value)).optional(),
+        size: z.number().int().nonnegative().max(OWNER_SEEDANCE_EDITOR_VIDEO_POLICY.local_max_file_size_bytes).optional()
+      }).strip()).length(1) }).strip().safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const uploaded = parsed.data.files[0]!;
+      if (uploaded.status?.toLowerCase() === "error" ||
+          (uploaded.filename !== undefined && (uploaded.filename.trim().length === 0 || uploaded.filename === "." ||
+            uploaded.filename === ".." || /[\\/\u0000-\u001f\u007f-\u009f]/u.test(uploaded.filename))) ||
+          (uploaded.mime_type !== undefined && uploaded.mime_type !== owned.mime_type) ||
+          (uploaded.size !== undefined && uploaded.size !== owned.size) ||
+          (uploaded.id !== undefined && uploaded.file_id !== undefined && uploaded.id !== uploaded.file_id)) {
+        throw protocolError();
+      }
+      let references: InternalUploadReference[];
+      try { references = parseInternalUploadReferences(raw); }
+      catch { throw protocolError(); }
+      if (references.length !== 1) throw protocolError();
+      return Object.freeze({ ...references[0]! });
+    } finally {
+      bytes?.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One fixed WAN 2.7 R2V image upload from a genuine local image receipt. */
   async uploadWan27R2vImage(
     receiptInput: ValidatedOwnerWan27R2vImage,
@@ -9024,14 +9138,16 @@ export class SyntxChatHttpClient {
     aiName: string,
     chatUuid: string,
     body: Record<string, JsonValue>,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    observeResponseStatus?: (status: number) => void
   ): Promise<MediaGenerationReceipt> {
     const raw = await this.#request(
       generationUrl(route, aiName),
       "POST",
       body,
       "JSON_REQUIRED",
-      signal
+      signal,
+      observeResponseStatus
     );
     const parsed = mediaStartResponseSchema.safeParse(raw);
     if (!parsed.success) throw protocolError();
@@ -9046,7 +9162,8 @@ export class SyntxChatHttpClient {
     method: "GET" | "POST" | "DELETE",
     body: Record<string, JsonValue> | undefined,
     responseMode: ResponseMode,
-    externalSignal?: AbortSignal
+    externalSignal?: AbortSignal,
+    observeResponseStatus?: (status: number) => void
   ): Promise<unknown> {
     assertFixedUpstreamUrl(url);
     const serializedBody = serializeBoundedBody(body);
@@ -9070,7 +9187,8 @@ export class SyntxChatHttpClient {
             serializedBody,
             credential,
             responseMode,
-            deadline
+            deadline,
+            observeResponseStatus
           );
         }
       );
@@ -9121,7 +9239,8 @@ export class SyntxChatHttpClient {
     body: string | undefined,
     credential: string,
     responseMode: ResponseMode,
-    deadline: AbsoluteRequestDeadline
+    deadline: AbsoluteRequestDeadline,
+    observeResponseStatus?: (status: number) => void
   ): Promise<unknown> {
     try {
       deadline.throwIfAborted();
@@ -9154,10 +9273,12 @@ export class SyntxChatHttpClient {
         throw protocolError();
       }
       if (!response.ok) {
+        observeResponseStatus?.(response.status);
         cancelResponseBody(response);
         throw mapHttpFailure(response.status,
           response.status === 422 && isTopazAstraGenerationPost(url, method) ? "HTTP_422_OBSERVED" : undefined);
       }
+      observeResponseStatus?.(response.status);
       return await deadline.waitFor(
         readJsonResponse(
           response,

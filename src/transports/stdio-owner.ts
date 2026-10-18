@@ -31,6 +31,7 @@ import { readOwnerGrokV2vFlag, readOwnerGrokV2vOperatorConfiguration } from "../
 import { readOwnerVeoOmniReferenceFlag, readOwnerVeoOmniReferenceOperatorConfiguration } from "../runtime/owner-veo-omni-reference-stdio-config.js";
 import { readOwnerKling4Flag, readOwnerKling4OperatorConfiguration } from "../runtime/owner-kling4-stdio-config.js";
 import { readOwnerWan27VideoEditFlag, readOwnerWan27VideoEditOperatorConfiguration } from "../runtime/owner-wan27-videoedit-stdio-config.js";
+import { readOwnerSeedanceEditorFlag, readOwnerSeedanceEditorOperatorConfiguration } from "../runtime/owner-seedance-editor-stdio-config.js";
 import { readOwnerHailuo02I2vFlag } from "../runtime/owner-hailuo02-i2v-stdio-config.js";
 
 const OWNER_IMAGE_REFERENCE_REGISTRY_VERSION =
@@ -454,6 +455,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerWan27VideoEditEnabled = readOwnerWan27VideoEditFlag(process.env.SYNTX_OWNER_WAN27_VIDEOEDIT);
   const ownerWan27VideoEditOperator = readOwnerWan27VideoEditOperatorConfiguration(ownerWan27VideoEditEnabled,
     process.env.SYNTX_OWNER_WAN27_VIDEOEDIT_FFPROBE_PATH, process.env.SYNTX_OWNER_WAN27_VIDEOEDIT_MAX_VIDEO_FILE_BYTES);
+  const ownerSeedanceEditorEnabled = readOwnerSeedanceEditorFlag(process.env.SYNTX_OWNER_SEEDANCE_EDITOR);
+  const ownerSeedanceEditorOperator = readOwnerSeedanceEditorOperatorConfiguration(ownerSeedanceEditorEnabled,
+    process.env.SYNTX_OWNER_SEEDANCE_EDITOR_FFPROBE_PATH, process.env.SYNTX_OWNER_SEEDANCE_EDITOR_MAX_VIDEO_FILE_BYTES);
   const ownerKling4Operator = readOwnerKling4OperatorConfiguration(ownerKling4Enabled,
     process.env.SYNTX_OWNER_KLING4_FFPROBE_PATH, process.env.SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES);
   const ownerGrokT2vEnabled = readOwnerFlag("SYNTX_OWNER_GROK_T2V");
@@ -497,7 +501,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const generateImageEnabled = readOwnerFlag("SYNTX_OWNER_GENERATE_IMAGE");
   const generateVideoEnabled = readOwnerFlag("SYNTX_OWNER_GENERATE_VIDEO");
   if (ownerDurableGenerationEnabled &&
-      (ownerWan27VideoEditEnabled || ownerKling4Enabled || ownerVeoOmniReferencesEnabled || ownerContractMediaEnabled || generateImageEnabled || generateVideoEnabled || ownerImageReferencesEnabled ||
+      (ownerSeedanceEditorEnabled || ownerWan27VideoEditEnabled || ownerKling4Enabled || ownerVeoOmniReferencesEnabled || ownerContractMediaEnabled || generateImageEnabled || generateVideoEnabled || ownerImageReferencesEnabled ||
         ownerGrokImageReferencesEnabled || ownerGrokT2iImageReferencesEnabled || ownerUniImageReferencesEnabled || ownerClarityUpscaleEnabled || ownerMagnificUpscaleEnabled ||
         ownerKontextImageReferencesEnabled || ownerWanImageReferencesEnabled || ownerStandardImageReferencesEnabled ||
         ownerRunwayImageReferencesEnabled || ownerSeedreamImageReferencesEnabled || ownerSeedreamEditorImageReferencesEnabled ||
@@ -632,6 +636,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerWan27VideoEditEnabled,
       ...(ownerWan27VideoEditOperator === undefined ? {} : { ownerWan27VideoEditFfprobePath: ownerWan27VideoEditOperator.ffprobePath,
         ownerWan27VideoEditMaxVideoFileBytes: ownerWan27VideoEditOperator.maxVideoFileBytes }),
+      ownerSeedanceEditorEnabled,
+      ...(ownerSeedanceEditorOperator === undefined ? {} : { ownerSeedanceEditorFfprobePath: ownerSeedanceEditorOperator.ffprobePath,
+        ownerSeedanceEditorMaxVideoFileBytes: ownerSeedanceEditorOperator.maxVideoFileBytes }),
       ...(ownerKling4Operator === undefined ? {} : { ownerKling4FfprobePath: ownerKling4Operator.ffprobePath,
         ownerKling4MaxVideoFileBytes: ownerKling4Operator.maxVideoFileBytes }),
       ...(ownerVeoOmniReferencesOperator === undefined ? {} : { ownerVeoOmniReferencesFfprobePath: ownerVeoOmniReferencesOperator.ffprobePath,
@@ -783,7 +790,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerTopazAstraLifecycle,
         runtime.ownerHailuo02I2vLifecycle,
         runtime.ownerWan27R2vLifecycle,
-        combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle),
+        combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle),
         runtime.ownerWan26I2vLifecycle,
         runtime.ownerWan25I2vPreviewLifecycle,
         runtime.ownerWan26R2vLifecycle,
@@ -952,7 +959,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerTopazAstraLifecycle,
           runtime.ownerHailuo02I2vLifecycle,
           runtime.ownerWan27R2vLifecycle,
-          combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle),
+          combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle),
           runtime.ownerWan26I2vLifecycle,
           runtime.ownerWan25I2vPreviewLifecycle,
           runtime.ownerWan26R2vLifecycle,
@@ -1035,6 +1042,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerKlingMotionControlLifecycle,
         runtime.ownerKling4Lifecycle,
         runtime.ownerWan27VideoEditLifecycle,
+        runtime.ownerSeedanceEditorLifecycle,
         runtime.serverOptions.ownerFluxImageReferences?.generationService,
         runtime.serverOptions.ownerIdeogramImageReferences?.generationService,
         runtime.serverOptions.ownerBananaInpaintImageReferences?.generationService]) {

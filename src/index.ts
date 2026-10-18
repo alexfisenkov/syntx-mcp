@@ -2037,6 +2037,9 @@ export { OwnerWan27VideoEditGenerationService, OwnerWan27VideoEditGenerationServ
 export { registerSyntxOwnerWan27VideoEditTools, OWNER_WAN27_VIDEOEDIT_TOOL_NAMES } from "./mcp/owner-wan27-videoedit-tools.js";
 export { createOwnerWan27VideoEditRuntime } from "./runtime/owner-wan27-videoedit-runtime.js";
 export { readOwnerWan27VideoEditFlag, readOwnerWan27VideoEditOperatorConfiguration } from "./runtime/owner-wan27-videoedit-stdio-config.js";
+export { createOwnerSeedanceEditorRuntime } from "./runtime/owner-seedance-editor-runtime.js";
+export type { OwnerSeedanceEditorRuntimeOptions } from "./runtime/owner-seedance-editor-runtime.js";
+export { readOwnerSeedanceEditorFlag, readOwnerSeedanceEditorOperatorConfiguration } from "./runtime/owner-seedance-editor-stdio-config.js";
 export type { OwnerVeoT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
 export {
   registerSyntxOwnerVeoT2vTools,

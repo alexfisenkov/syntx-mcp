@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { types } from "node:util";
 import { inspectBoundedOwnerImageBytesWithMax } from "./owner-image-reference-input-validator.js";
 
-const MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage"] as const);
+const MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage", "gen4.5i2v"] as const);
+const GEN45_MODEL_ID = "gen4.5i2v" as const;
 const ASPECT_RATIOS = Object.freeze(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"] as const);
 const RATIO_PARTS: Readonly<Record<OwnerRunwayI2vImageAspectRatio, readonly [number, number]>> = Object.freeze({
   "21:9": [21, 9], "16:9": [16, 9], "4:3": [4, 3], "1:1": [1, 1], "3:4": [3, 4], "9:16": [9, 16]
@@ -25,13 +26,17 @@ const VALIDATED = new WeakMap<object, ValidatedState>();
 export const OWNER_RUNWAY_I2V_IMAGE_POLICY = Object.freeze({
   model_ids: MODEL_IDS,
   aspect_ratios: ASPECT_RATIOS,
+  model_aspect_ratios: Object.freeze({ "gen4.5i2v": Object.freeze(["16:9"] as const), legacy: ASPECT_RATIOS }),
   supported_container_mime_types: MIME_TYPES,
   unsupported_catalog_format: "image/avif" as const,
   local_max_bytes: MAX_LOCAL_BYTES,
   local_max_bytes_policy: "LOCAL_RESOURCE_CEILING_NOT_PROVIDER_LIMIT" as const,
   max_dimension: MAX_DIMENSION,
   max_pixels: MAX_PIXELS,
-  crop_geometry: "INPUT_MUST_ALREADY_MATCH_SELECTED_ASPECT_RATIO_NO_IMPLICIT_CROP_OR_RESIZE" as const,
+  crop_geometry: Object.freeze({
+    legacy: "INPUT_MUST_ALREADY_MATCH_SELECTED_ASPECT_RATIO_NO_IMPLICIT_CROP_OR_RESIZE" as const,
+    "gen4.5i2v": "ONE_ALREADY_CROPPED_16_9_IMAGE_NO_IMPLICIT_CROP_OR_RESIZE" as const
+  }),
   metadata_confidence: "CONTAINER_METADATA_ONLY_NOT_DECODED_PIXELS" as const,
   provider_acceptance: "UNPROVEN" as const,
   upload_authority: false as const,
@@ -70,7 +75,7 @@ export function validateOwnerRunwayI2vImageUpload(input: unknown): Readonly<Vali
   let owned: Buffer | undefined;
   try {
     const fields = exactRecord(input, ["model_id", "aspect_ratio", "filename", "mime_type", "bytes"]);
-    if (!oneOf(fields.model_id, MODEL_IDS) || !oneOf(fields.aspect_ratio, ASPECT_RATIOS) ||
+    if (!oneOf(fields.model_id, MODEL_IDS) || !isSupportedAspect(fields.model_id, fields.aspect_ratio) ||
         typeof fields.filename !== "string" || !safeFilename(fields.filename) ||
         typeof fields.mime_type !== "string" || !oneOf(fields.mime_type, MIME_TYPES)) invalid();
 
@@ -212,6 +217,11 @@ function matchesAspect(width: number, height: number, aspect: OwnerRunwayI2vImag
 
 function oneOf<T extends string>(value: unknown, values: readonly T[]): value is T {
   return typeof value === "string" && values.includes(value as T);
+}
+
+function isSupportedAspect(model: unknown, aspect: unknown): aspect is OwnerRunwayI2vImageAspectRatio {
+  return model === GEN45_MODEL_ID ? aspect === "16:9" :
+    (model === "4genfirstframeimage" || model === "turbo4genfirstframeimage") && oneOf(aspect, ASPECT_RATIOS);
 }
 
 function getLiveState(input: unknown): ValidatedState | null {

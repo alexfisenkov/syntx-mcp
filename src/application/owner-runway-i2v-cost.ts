@@ -18,7 +18,7 @@ export interface OwnerRunwayI2vCostParametersInput {
 }
 
 export interface OwnerRunwayI2vCostParameters {
-  readonly video_duration: "5.0" | "10.0";
+  readonly video_duration: "5.0" | "8.0" | "10.0";
 }
 
 export interface OwnerRunwayI2vCostBinding {
@@ -50,8 +50,8 @@ export function buildOwnerRunwayI2vCostParameters(
 ): Readonly<OwnerRunwayI2vCostParameters> {
   try {
     const row = exactRecord(input, ["model_id", "video_duration"]);
-    if (!isModelId(row.model_id) || (row.video_duration !== 5 && row.video_duration !== 10)) invalid();
-    return Object.freeze({ video_duration: row.video_duration === 5 ? "5.0" : "10.0" });
+    if (!isModelId(row.model_id) || !isAllowedDuration(row.model_id, row.video_duration)) invalid();
+    return Object.freeze({ video_duration: row.video_duration === 5 ? "5.0" : row.video_duration === 8 ? "8.0" : "10.0" });
   } catch (error) {
     if (error instanceof OwnerRunwayI2vCostParametersError) throw error;
     return invalid();
@@ -72,6 +72,15 @@ export function loadOwnerRunwayI2vRuntimeCatalog(catalogDirectory?: string): Rea
     if (!model.active || model.id !== modelId || model.upstream_id !== modelId || model.ai_name !== AI_NAME ||
         !Array.isArray(keys) || keys.length !== COST_KEYS.length || keys.some((key, index) => key !== COST_KEYS[index])) {
       throw new Error("OWNER_RUNWAY_I2V_CATALOG_BINDING_MISMATCH");
+    }
+    if (modelId === "gen4.5i2v") {
+      const settings = model.settings;
+      if (!settings || settings.max_file_size !== 0 || settings.max_prompt_length !== 1_000 || settings.file_count_limit !== 1 ||
+          settings.uploadable !== true || !Array.isArray(settings.allowed_media_types) || settings.allowed_media_types.length !== 1 ||
+          settings.allowed_media_types[0] !== "images" || !Array.isArray(settings.accepted_file_types) ||
+          !["image/jpeg", "image/jpg", "image/avif", "image/webp", "image/png"].every(type => settings.accepted_file_types!.includes(type))) {
+        throw new Error("OWNER_RUNWAY_I2V_CATALOG_BINDING_MISMATCH");
+      }
     }
     return Object.freeze({ model_id: modelId, model_type: modelId, ai_name: AI_NAME, form_id: FORM_ID,
       scope: FORM_SCOPE, cost_keys: COST_KEYS });
@@ -97,6 +106,10 @@ function exactRecord(input: unknown, required: readonly string[]): Record<string
 
 function isModelId(value: unknown): value is OwnerRunwayI2vModelId {
   return typeof value === "string" && (MODEL_IDS as readonly string[]).includes(value);
+}
+
+function isAllowedDuration(modelId: OwnerRunwayI2vModelId, value: unknown): value is OwnerRunwayI2vVideoDuration {
+  return modelId === "gen4.5i2v" ? value === 5 || value === 8 || value === 10 : value === 5 || value === 10;
 }
 
 function invalid(): never { throw new OwnerRunwayI2vCostParametersError("INVALID_COST_PARAMETERS"); }

@@ -4,7 +4,7 @@ import type { AccountStatusResult } from "./account-status.js";
 import type { ModelAccessResult } from "./model-access.js";
 import type { OwnerRunwayI2vModelId } from "./owner-runway-i2v-parameters.js";
 
-const MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage"] as const);
+const MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage", "gen4.5i2v"] as const);
 const COST_KEYS = Object.freeze(["video_duration"] as const);
 const ACCESS_KEYS = Object.freeze([
   "catalog_kind", "catalog_version", "model_id", "ai_name", "model_type", "account_read_live",
@@ -30,7 +30,7 @@ export interface OwnerRunwayI2vBudgetInput {
   readonly expected_catalog_version: string;
   readonly now: number;
   readonly model_id: OwnerRunwayI2vModelId;
-  readonly cost_parameters: Readonly<{ readonly video_duration: "5.0" | "10.0" }>;
+  readonly cost_parameters: Readonly<{ readonly video_duration: "5.0" | "8.0" | "10.0" }>;
   readonly access: ModelAccessResult;
   readonly account: AccountStatusResult;
 }
@@ -52,7 +52,7 @@ export function evaluateOwnerRunwayI2vBudget(input: unknown): Readonly<OwnerRunw
         !Number.isSafeInteger(row.now) || (row.now as number) < 0 || !isModelId(row.model_id)) fail();
     const now = row.now as number;
     const cost = exactRecord(row.cost_parameters, COST_KEYS);
-    if (cost.video_duration !== "5.0" && cost.video_duration !== "10.0") fail();
+    if (!isAllowedDuration(row.model_id as OwnerRunwayI2vModelId, cost.video_duration)) fail();
 
     const access = exactRecord(row.access, ACCESS_KEYS);
     const parameterKeys = exactStringArray(access.parameter_keys);
@@ -118,6 +118,10 @@ function exactStringArray(input: unknown): string[] {
 
 function isModelId(value: unknown): value is OwnerRunwayI2vModelId {
   return typeof value === "string" && (MODEL_IDS as readonly string[]).includes(value);
+}
+
+function isAllowedDuration(modelId: OwnerRunwayI2vModelId, value: unknown): value is "5.0" | "8.0" | "10.0" {
+  return modelId === "gen4.5i2v" ? value === "5.0" || value === "8.0" || value === "10.0" : value === "5.0" || value === "10.0";
 }
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {

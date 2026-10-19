@@ -1398,6 +1398,129 @@ placeholder `<uploaded|hidden>`. Startup ничего не загружает и
 Настройки, локальные ограничения и получение результата описаны в
 [инструкции Grok I2V](docs/интеграция/Grok-I2V-MCP.md).
 
+## Новые видеогруппы: WAN, Higgsfield DOP, Hailuo и Happy Horse
+
+Независимые default-off группы с проверкой связки, подписки, баланса и
+цены, одним generation POST и GET-only получением результата:
+
+| группа | точные model ID | начальный вход |
+| --- | --- | --- |
+| WAN 2.5 T2V | `wan_25_t2v_preview` | текстовый prompt без медиа |
+| Higgsfield DOP | `dop-lite`, `dop-turbo` | одно изображение |
+| Hailuo | `hailuo-2.3-fast`, `hailuo-01-live-character`, `hailuo-3.0` | одно изображение |
+| Happy Horse | `happy_horse_first_frame`, `happy_horse_references`, `happy_horse_edit` | одно изображение либо одно edit-видео |
+| WAN 2.7 I2V | `wan_27_i2v` | одно изображение первого кадра |
+| Seedance 2.5 | `seedance-2.5` | текстовый prompt без медиа, `omni-references`/720p/16:9/5с/audio-on |
+
+```sh
+node scripts/print-media-mcp-config.mjs --confirm-enable-paid-tools --include-wan25-t2v-preview --include-higgsfield-dop --include-hailuo-initial --include-happy-horse --include-wan27-i2v
+```
+
+Проверьте общий напечатанный шаблон, оставьте нужные группы и замените
+операторские placeholder для upload destination и доверенного ffprobe. Команда
+не устанавливает подключение, не входит в аккаунт и не запускает генерации.
+
+Через MCP подтверждены результаты во всех 18 из 18 генераторных начальных срезов;
+отдельный `hailuo-minimax` selector root исключён из генерации. В подтверждённые
+входят WAN 2.5 и три Happy Horse результата, Hailuo Fast, Hailuo Live,
+WAN 2.7 I2V, Runway Gen4.5 I2V, Hailuo 3.0, Kling Elements, Kling O1
+image-to-video, HeyGen 4, Kling O1 video-to-video, ActTwo, Seedance 2.5,
+Switchx, DOP Lite и DOP Turbo.
+Ограниченный read-only reader восстановил четыре ранее
+запущенных результата с привязкой к текущему индексу, истории и detail: 1 index GET,
+6 history GET и 6 detail GET, без upload и generation. Hailuo 3.0, Kling
+Elements и Kling O1 I2V каждый получил по одному generation HTTP 200 и по
+одному результату через GET-only reconcile (`gaps: []`). HeyGen 4 и Kling O1
+V2V вернули отдельные artifacts в последующей операции; ActTwo вернул один
+существующий artifact через GET-only reader (`gaps: []`), без нового generation.
+Текущий source исправляет порядок чтения ActTwo history. Выполнившие эти
+операции процессы штатно закрыты; этот набор подтверждает конкретные артефакты,
+не все настройки или UI parity. Для Gen4.5 I2V предыдущий history GET вернул
+401; после свежего входа artifact был восстановлен GET-only, без повторного POST.
+
+| результат | возвращённый артефакт |
+| --- | --- |
+| Hailuo Fast, запрос `768p`/6 с | H.264 768×768, 5.875 с, 50 516 B |
+| Hailuo Live, запрос `720p`/6 с | H.264 720×720, 5.640 с, 167 109 B |
+| WAN 2.7 I2V, запрос `720P`/`1:1`/5 с | H.264 960×960, видеопоток 5.000 с; контейнер AAC 5.038 с, 1 049 573 B |
+| Runway Gen4.5 I2V | H.264 1280×720, 5.041667 с, 744 928 B |
+| Hailuo 3.0, запрос `2K`/5 с/`16:9`/`omni-references` | H.264 2048×1170, 5.166667 с; AAC/контейнер 5.175 с, 511 064 B |
+| Kling Elements, version `1.6`/HD/`16:9`/5 с | H.264 1920×1080, 5.100000 с, 2 557 303 B |
+| Kling O1 I2V, version `1.6`/HD/`16:9`/5 с | H.264 1920×1080, 5.041667 с, 6 332 954 B |
+| HeyGen 4, image-plus-audio initial slice | H.264 1920×1080/25 fps, video 8.000 с; AAC 48 kHz stereo/container 8.002 с, 3 832 281 B |
+| Kling O1 V2V, version `1.6`/HD/5 с | H.264 1440×1440/24 fps, 5.041667 с, 6 994 445 B |
+| ActTwo, recovered by GET-only reader | H.264 960×960/24 fps, 5.000 с, 560 975 B |
+| Seedance 2.5, `omni-references` initial slice | H.264 1280×720/24 fps, video 5.041667 с; AAC 32 kHz stereo/container 5.056 с, 3 229 754 B |
+| Switchx, один generation operation; GET-only reader вернул два видео без main/mask labels | Оба H.264 1280×720/24 fps, 5.000 с, без аудио; 1 230 874 B и 153 602 B |
+| Higgsfield DOP Lite, `Dolly In` | H.264 1280×1280/30 fps, 5.366667 с, без аудио, 26 918 160 B |
+| Higgsfield DOP Turbo, `Dolly In` | H.264 960×960/30 fps, 5.366667 с, без аудио, 11 736 778 B |
+
+Размеры и длительности относятся к измеренным файлам и потокам; они не
+подтверждают, что выбранное разрешение всегда даёт такой же выход или что
+контейнер ровно совпадает с целевой длительностью. Happy Horse first-frame с
+квадратным входом ранее вернул 960×960 при запросе `16:9`: соблюдение aspect
+ratio не доказано. Для Hailuo 3.0 выход 2048×1170 также не имеет точного
+соотношения сторон 16:9, хотя такое соотношение было запрошено.
+
+Все 18 генераторных срезов имеют возвращённые видеоартефакты для описанных
+начальных вызовов. Исторические неудачные попытки не являются текущими
+блокерами: прежний Kling O1 V2V POST получил HTTP 429 без owner acknowledgement;
+поздний artifact пришёл по отдельной операции, старый POST не повторяли. Ранний
+Seedance 2.5 с `mini` остановился на quote HTTP 400/GEN0. Отдельный вызов с
+`omni-references` прошёл quote и GEN с acknowledgement; GET-only reader вернул
+связанный видеоартефакт без повтора POST.
+Ранний квадратный вход Switchx отклонён локальным initial-slice лимитом до
+upload/GEN; отдельный вызов с допустимым входом выполнил один GEN, а GET-only
+reader вернул оба его видео. Штатный collector также исправлен под два результата
+и проверен синтетическим SDK-тестом без новой оплачиваемой генерации. Это подтверждает
+конкретные начальные вызовы, но не полную поддержку настроек или UI parity.
+Для обоих DOP-результатов использован корректный `Dolly In`; изображения
+импортированы из уже загруженного собственного файла, без upload POST, по одному
+GEN на модель и GET-only получение результата. Ранее наблюдавшиеся DOP ошибки
+для других попыток остаются историческими; они не смешиваются с этими
+артефактами и не доказывают причину или billing. Корневой `hailuo-minimax`
+исключён из селектора и не подменяется child-моделью. Старые неопределённые POST
+не повторяются. Результаты подтверждают только перечисленные начальные срезы;
+все настройки сайта, тарифы, quality guarantees, hard spend caps, Windows,
+HTTPS-host и прочие клиентские поверхности не подтверждены.
+
+Точные настройки и ограничения:
+[WAN 2.5 T2V](docs/интеграция/WAN-2.5-T2V-MCP.md),
+[DOP](docs/интеграция/Higgsfield-DOP-MCP.md),
+[Hailuo](docs/интеграция/Hailuo-Image-Video-MCP.md),
+[Happy Horse](docs/интеграция/HappyHorse-MCP.md),
+[WAN 2.7 I2V](docs/интеграция/WAN-2.7-I2V-MCP.md).
+Для обычного [Seedance 2.5 T2V](docs/интеграция/Seedance-2.5-T2V-MCP.md)
+выберите отдельный `--include-seedance25-t2v`; это не группа Editor.
+Для Runway I2V начальный `gen4.5i2v` поддерживает только
+16:9, 5/8/10 секунд и null seed; старые две модели сохраняют свои правила.
+DOP допускает read-only импорт явно выбранного собственного загруженного
+файла с точной сверкой байтов вместо повторной загрузки.
+Неизвестный платный POST не повторяется; локальные recovery пока не переживают
+перезапуск. Сравнение quote с балансом не является лимитом списания провайдера.
+
+### Ещё пять source-bound owner-групп
+
+Эти opt-in группы добавляют узкие начальные срезы, а не полную поддержку UI.
+Для Kling, Switchx, ActTwo и HeyGen ниже есть отдельные подтверждённые
+артефакты; это не означает покрытия всех настроек. Existing video recovery —
+самостоятельный read-only reader, он не является генерацией или отдельным
+результатом.
+
+| группа | начальный срез | CLI-флаг | руководство |
+| --- | --- | --- | --- |
+| Kling Media | `kling_elements`, `kling_o1_image2video`, `kling_o1_video2video`; version 1.6, HD, 5 с, без native audio | `--include-kling-media` | [Kling Media](docs/интеграция/Kling-Media-MCP.md) |
+| Switchx | одно measured video, 720P/auto, 5 с, 24 fps | `--include-switchx-video` | [Switchx](docs/интеграция/Switchx-MCP.md) |
+| ActTwo | одно character image и одно performance video; 1:1, expression 3, seed null | `--include-acttwo` | [ActTwo](docs/интеграция/ActTwo-MCP.md) |
+| HeyGen 4 | один существующий image и audio asset; upload выключен | `--include-heygen4` | [HeyGen 4](docs/интеграция/HeyGen4-MCP.md) |
+| Existing video recovery | только read-only чтение до шести известных результатов за вызов | `--include-existing-video-recovery` | [Existing video recovery](docs/интеграция/Existing-Video-Recovery-MCP.md) |
+
+Для генераторных групп перед запуском делается ровно один POST; неизвестный
+исход требует GET-only reconciliation, без повтора. Existing video recovery —
+отдельный caller-supplied reader, он не возобновляет process-local задачу и не
+создаёт новую. Все пять групп выключены по умолчанию; точная генерация
+конфигурации показана в каждом руководстве.
+
 Suno Cover имеет подтверждённые MP3-результаты для V6/V6_wild. В первой
 Extend-попытке V6 наблюдались два объекта ошибки SYNTX без аудио. Вторая
 попытка V6_wild сначала оставалась UNKNOWN из-за локального ограничения

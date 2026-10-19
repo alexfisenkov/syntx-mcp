@@ -2092,6 +2092,74 @@ export {
   readOwnerGrokI2vOperatorConfiguration
 } from "./runtime/owner-grok-i2v-stdio-config.js";
 export type { OwnerGrokI2vUploadDestination } from "./adapter/syntx/owner-grok-i2v-upload-context.js";
+export { OWNER_WAN25_T2V_MODEL_ID, OWNER_WAN25_T2V_PROFILE,
+  normalizeOwnerWan25T2vParameters } from "./application/owner-wan25-t2v-parameters.js";
+export type { OwnerWan25T2vParameters, OwnerWan25T2vNormalized } from "./application/owner-wan25-t2v-parameters.js";
+export { OwnerWan25T2vGenerationService, OwnerWan25T2vGenerationServiceError }
+  from "./application/owner-wan25-t2v-generation-service.js";
+export type { OwnerWan25T2vGenerationOptions, OwnerWan25T2vGenerationResult, OwnerWan25T2vArtifact }
+  from "./application/owner-wan25-t2v-generation-service.js";
+export { OWNER_WAN25_T2V_TOOL_NAMES, registerSyntxOwnerWan25T2vTools } from "./mcp/owner-wan25-t2v-tools.js";
+export { createOwnerWan25T2vRuntime } from "./runtime/owner-wan25-t2v-runtime.js";
+export { readOwnerWan25T2vFlag } from "./runtime/owner-wan25-t2v-stdio-config.js";
+export { OWNER_HIGGSFIELD_DOP_MODEL_IDS, getOwnerHiggsfieldDopSourceProfile,
+  normalizeOwnerHiggsfieldDopParameters } from "./application/owner-higgsfield-dop-parameters.js";
+export type { OwnerHiggsfieldDopModelId, OwnerHiggsfieldDopMotionSelection, OwnerHiggsfieldDopParametersInput }
+  from "./application/owner-higgsfield-dop-parameters.js";
+export { OwnerHiggsfieldDopReferenceService } from "./application/owner-higgsfield-dop-reference-service.js";
+export { OwnerHiggsfieldDopGenerationService } from "./application/owner-higgsfield-dop-generation-service.js";
+export { OwnerHiggsfieldDopImportService } from "./application/owner-higgsfield-dop-import-service.js";
+export { OwnerHiggsfieldDopMotionService, OWNER_HIGGSFIELD_DOP_MOTIONS_SOURCE }
+  from "./application/owner-higgsfield-dop-motion-service.js";
+export { OwnerSeedance25T2vGenerationService } from "./application/owner-reviewed-no-reference-t2v-service.js";
+export { createOwnerSeedance25T2vProfile } from "./application/owner-seedance25-t2v-profile.js";
+export { registerSyntxOwnerSeedance25T2vTools, OWNER_SEEDANCE25_T2V_TOOL_NAMES } from "./mcp/owner-seedance25-t2v-tools.js";
+export {createOwnerKlingMediaRuntime} from "./runtime/owner-kling-media-runtime.js";
+export {registerSyntxOwnerKlingMediaTools,OWNER_KLING_MEDIA_TOOL_NAMES} from "./mcp/owner-kling-media-tools.js";
+export {OwnerKlingMediaGenerationService} from "./application/owner-kling-media-generation-service.js";
+export {createOwnerSwitchxVideoRuntime} from "./runtime/owner-switchx-video-runtime.js";
+export {registerSyntxOwnerSwitchxVideoTools,OWNER_SWITCHX_VIDEO_TOOL_NAMES} from "./mcp/owner-switchx-video-tools.js";
+export {OwnerSwitchxVideoGenerationService} from "./application/owner-switchx-video-generation-service.js";
+export { createOwnerActTwoRuntime, getOwnerActTwoStartupCleanup } from "./runtime/owner-acttwo-runtime.js";
+export { readOwnerActTwoFlag, readOwnerActTwoOperatorConfiguration } from "./runtime/owner-acttwo-stdio-config.js";
+export { OwnerActTwoGenerationService } from "./application/owner-acttwo-generation-service.js";
+export { OwnerActTwoImageReferenceService } from "./application/owner-acttwo-image-reference-service.js";
+export { OwnerActTwoPerformanceVideoReferenceService } from "./application/owner-acttwo-video-reference-service.js";
+export { registerSyntxOwnerActTwoTools, OWNER_ACTTWO_TOOL_NAMES } from "./mcp/owner-acttwo-tools.js";
+export { createOwnerHeygen4Runtime, getOwnerHeygen4StartupCleanup } from "./runtime/owner-heygen4-runtime.js";
+export { readOwnerHeygen4OperatorConfiguration } from "./runtime/owner-heygen4-stdio-config.js";
+export { readOwnerHeygen4Flag } from "./transports/stdio-owner.js";
+export { OwnerHeygen4GenerationService } from "./application/owner-heygen4-generation-service.js";
+export { OwnerHeygen4ReferenceService } from "./application/owner-heygen4-reference-service.js";
+export { registerSyntxOwnerHeygen4Tools, OWNER_HEYGEN4_TOOL_NAMES } from "./mcp/owner-heygen4-tools.js";
+export { createOwnerExistingVideoRecoveryRuntime, getOwnerExistingVideoRecoveryRuntimeStartupCleanup } from "./runtime/owner-existing-video-recovery-runtime.js";
+export { readOwnerExistingVideoRecoveryFlag } from "./transports/stdio-owner.js";
+export { OwnerExistingVideoRecoveryService } from "./application/owner-existing-video-recovery-service.js";
+export { registerOwnerExistingVideoResultTools, OWNER_EXISTING_VIDEO_RESULT_TOOL_NAME } from "./mcp/owner-existing-video-recovery-tools.js";
+export { OWNER_HIGGSFIELD_DOP_TOOL_NAMES, registerSyntxOwnerHiggsfieldDopTools }
+  from "./mcp/owner-higgsfield-dop-tools.js";
+export { createOwnerHiggsfieldDopRuntime } from "./runtime/owner-higgsfield-dop-runtime.js";
+export { readOwnerHiggsfieldDopFlag, readOwnerHiggsfieldDopOperatorConfiguration }
+  from "./runtime/owner-higgsfield-dop-stdio-config.js";
+export { OWNER_HAILUO_INITIAL_MODEL_IDS, getOwnerHailuoInitialSourceProfile,
+  normalizeOwnerHailuoInitialParameters } from "./application/owner-hailuo-media-parameters.js";
+export { OwnerHailuoInitialImageVault } from "./application/owner-hailuo-initial-image-vault.js";
+export { OwnerHailuoInitialGenerationService } from "./application/owner-hailuo-initial-generation-service.js";
+export { OWNER_HAILUO_INITIAL_TOOL_NAMES, registerSyntxOwnerHailuoInitialTools } from "./mcp/owner-hailuo-initial-tools.js";
+export { createOwnerHailuoInitialRuntime } from "./runtime/owner-hailuo-initial-runtime.js";
+export { readOwnerHailuoInitialFlag, readOwnerHailuoInitialOperatorConfiguration } from "./runtime/owner-hailuo-initial-stdio-config.js";
+export { OwnerHappyHorseImageReferenceService } from "./application/owner-happy-horse-image-reference-service.js";
+export { OwnerHappyHorseEditVideoReferenceService } from "./application/owner-happy-horse-edit-video-reference-service.js";
+export { OwnerHappyHorseGenerationService } from "./application/owner-happy-horse-generation-service.js";
+export { OWNER_HAPPY_HORSE_TOOL_NAMES, registerSyntxOwnerHappyHorseTools } from "./mcp/owner-happy-horse-tools.js";
+export { createOwnerHappyHorseRuntime } from "./runtime/owner-happy-horse-runtime.js";
+export { readOwnerHappyHorseFlag, readOwnerHappyHorseOperatorConfiguration } from "./runtime/owner-happy-horse-stdio-config.js";
+export { getOwnerWan27I2vSourceProfile, normalizeOwnerWan27I2vParameters } from "./application/owner-wan27-i2v-parameters.js";
+export { OwnerWan27I2vGenerationService } from "./application/owner-wan27-i2v-generation-service.js";
+export { OwnerWan27I2vReferenceService } from "./application/owner-wan27-i2v-reference-service.js";
+export { OWNER_WAN27_I2V_TOOL_NAMES, registerSyntxOwnerWan27I2vTools } from "./mcp/owner-wan27-i2v-tools.js";
+export { createOwnerWan27I2vRuntime } from "./runtime/owner-wan27-i2v-runtime.js";
+export { readOwnerWan27I2vFlag, readOwnerWan27I2vOperatorConfiguration } from "./runtime/owner-wan27-i2v-stdio-config.js";
 export type { OwnerVeoT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
 export {
   registerSyntxOwnerVeoT2vTools,

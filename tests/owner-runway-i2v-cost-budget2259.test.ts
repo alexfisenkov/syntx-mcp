@@ -18,7 +18,7 @@ const NOW = Date.parse("2026-10-18T03:00:00.000Z");
 const OBSERVED = "2026-10-18T02:59:59.000Z";
 const CATALOG_VERSION = "2026-10-18T02:59:00.000Z.0123456789ab";
 
-test("loads the Editor-pinned immutable archive and binds both Runway IDs to the exact cost key", () => {
+test("loads the pinned immutable archive and binds the Runway I2V IDs to the exact cost key", () => {
   const before = statSync(join(CATALOG_DIRECTORY, "public", ARCHIVE_VERSION));
   const originalFetch = globalThis.fetch;
   let networkCalls = 0;
@@ -27,10 +27,10 @@ test("loads the Editor-pinned immutable archive and binds both Runway IDs to the
     const runtime = loadOwnerRunwayI2vRuntimeCatalog(CATALOG_DIRECTORY);
     assert.ok(runtime.catalog instanceof DiscoveryCatalogRepository);
     assert.equal(runtime.catalog_version, ARCHIVE_VERSION);
-    assert.deepEqual(runtime.cost_bindings, MODEL_IDS.map(model_id => ({
+    assert.deepEqual(runtime.cost_bindings, [...MODEL_IDS, "gen4.5i2v"].map(model_id => ({
       model_id, model_type: model_id, ai_name: "runway", form_id: "runway", scope: "video", cost_keys: ["video_duration"]
     })));
-    for (const id of MODEL_IDS) {
+    for (const id of [...MODEL_IDS, "gen4.5i2v"]) {
       const model = runtime.catalog.get(id);
       assert.equal(model.active, true);
       assert.equal(model.ai_name, "runway");
@@ -50,16 +50,19 @@ test("loads the Editor-pinned immutable archive and binds both Runway IDs to the
   assert.equal(after.mtimeMs, before.mtimeMs);
 });
 
-test("projects only the source-proven string video_duration cost parameter for both exact model IDs", () => {
+test("projects only source-proven video_duration strings with model-specific duration choices", () => {
   for (const model_id of MODEL_IDS) {
     assert.deepEqual(buildOwnerRunwayI2vCostParameters({ model_id, video_duration: 5 }), { video_duration: "5.0" });
     assert.deepEqual(buildOwnerRunwayI2vCostParameters({ model_id, video_duration: 10 }), { video_duration: "10.0" });
     assert.deepEqual(Object.keys(buildOwnerRunwayI2vCostParameters({ model_id, video_duration: 5 })), ["video_duration"]);
   }
   for (const invalid of [
-    { model_id: "gen4.5i2v", video_duration: 5 }, { model_id: MODEL_IDS[0], video_duration: 8 },
+    { model_id: "gen4.5i2v", video_duration: 7 }, { model_id: MODEL_IDS[0], video_duration: 8 },
     { model_id: MODEL_IDS[0], video_duration: "5.0" }, { model_id: MODEL_IDS[0], video_duration: 5, prompt: "unexpected" }
   ]) assert.throws(() => buildOwnerRunwayI2vCostParameters(invalid as never));
+  for (const [video_duration, source] of [[5, "5.0"], [8, "8.0"], [10, "10.0"]] as const) {
+    assert.deepEqual(buildOwnerRunwayI2vCostParameters({ model_id: "gen4.5i2v", video_duration }), { video_duration: source });
+  }
 });
 
 function fixture(model_id: typeof MODEL_IDS[number] = MODEL_IDS[0]) {

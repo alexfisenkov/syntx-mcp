@@ -153,7 +153,7 @@ function readMetadata(value: unknown): OwnerRunwayI2vImageUploadMetadata | null 
     const model = fields.model_id;
     const aspect = fields.aspect_ratio;
     const mime = fields.mime_type;
-    if ((model !== "4genfirstframeimage" && model !== "turbo4genfirstframeimage") ||
+    if ((model !== "4genfirstframeimage" && model !== "turbo4genfirstframeimage" && model !== "gen4.5i2v") ||
         typeof aspect !== "string" || !Object.hasOwn(RATIOS, aspect) ||
         (mime !== "image/jpeg" && mime !== "image/png" && mime !== "image/webp") ||
         !Number.isSafeInteger(fields.size) || (fields.size as number) < 1 || (fields.size as number) > 10 * 1024 * 1024 ||
@@ -162,6 +162,7 @@ function readMetadata(value: unknown): OwnerRunwayI2vImageUploadMetadata | null 
         !Number.isSafeInteger(fields.height) || (fields.height as number) < 1 || (fields.height as number) > 8_400 ||
         (fields.width as number) * (fields.height as number) > 52_500_000) return null;
     const [numerator, denominator] = RATIOS[aspect as OwnerRunwayI2vImageAspectRatio];
+    if (model === "gen4.5i2v" && aspect !== "16:9") return null;
     if ((fields.width as number) * denominator !== (fields.height as number) * numerator) return null;
     return Object.freeze({ model_id: model as OwnerRunwayI2vImageModelId, aspect_ratio: aspect as OwnerRunwayI2vImageAspectRatio,
       mime_type: mime as OwnerRunwayI2vImageMimeType, size: fields.size as number, sha256: fields.sha256,

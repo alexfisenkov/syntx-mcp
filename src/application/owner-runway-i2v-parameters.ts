@@ -1,26 +1,39 @@
 import { types } from "node:util";
 import { schemaHash } from "../domain/generation-contract.js";
 
-const MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage"] as const);
+const MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage", "gen4.5i2v"] as const);
+const LEGACY_MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage"] as const);
+const GEN45_MODEL_ID = "gen4.5i2v" as const;
 const ASPECT_RATIOS = Object.freeze(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"] as const);
 const ASPECT_SOURCE_CODES: Readonly<Record<OwnerRunwayI2vAspectRatio, string>> = Object.freeze({
   "21:9": "219", "16:9": "169", "4:3": "43", "1:1": "11", "3:4": "34", "9:16": "916"
 });
 const VIDEO_DURATIONS = Object.freeze([5, 10] as const);
+const LEGACY_VIDEO_DURATIONS = Object.freeze([5, 10] as const);
+const GEN45_ASPECT_RATIOS = Object.freeze(["16:9"] as const);
+const GEN45_VIDEO_DURATIONS = Object.freeze([5, 8, 10] as const);
 const MAX_PROMPT_UTF16 = 1_000;
 
 const SOURCE_FACTS = Object.freeze({
-  profile_id: "owner-runway-i2v-source2255-firstframe-v1",
+  profile_id: "owner-runway-i2v-source2339-gen45-v1",
   status: "STATIC_SOURCE_CONTRACT_NOT_RUNTIME_OR_PROVIDER_ACCEPTANCE" as const,
   form_id: "runway" as const,
   form_category: "video" as const,
   ai_name: "runway" as const,
   scope: "video" as const,
   model_ids: MODEL_IDS,
+  legacy_model_ids: LEGACY_MODEL_IDS,
+  gen45_model_id: GEN45_MODEL_ID,
   aspect_ratio_values: ASPECT_RATIOS,
   aspect_ratio_source_codes: ASPECT_SOURCE_CODES,
   video_duration_values: VIDEO_DURATIONS,
   video_duration_source_values: Object.freeze(["5.0", "10.0"] as const),
+  model_controls: Object.freeze({
+    legacy: Object.freeze({ aspect_ratios: ASPECT_RATIOS, video_durations: LEGACY_VIDEO_DURATIONS }),
+    "gen4.5i2v": Object.freeze({ aspect_ratios: GEN45_ASPECT_RATIOS, video_durations: GEN45_VIDEO_DURATIONS,
+      aspect_ratio_source_code: "169" as const, video_duration_source_values: Object.freeze(["5.0", "8.0", "10.0"] as const),
+      max_file_size_catalog_value: 0 as const, max_file_size_semantics: "UNKNOWN" as const, cost_keys: Object.freeze(["video_duration"] as const) })
+  }),
   form_initializer: Object.freeze({ video_duration: "5.0" as const, aspect_ratio: "1" as const, seed: null }),
   effective_defaults: "UNKNOWN" as const,
   prompt_limit: Object.freeze({ maximum_utf16_length: MAX_PROMPT_UTF16, scope: "CONSERVATIVE_LOCAL_BOUND_PUBLIC_MAXIMUM_UNIT_UNPROVEN" as const }),
@@ -36,6 +49,12 @@ const SOURCE_FACTS = Object.freeze({
     form_module: "runway.js" as const,
     form_bytes: 19_785 as const,
     form_sha256: "sha256:975b82daca30bf02e5b0591373fcf6a944b25661a42ffaa4d039c2c1ab36cb91" as const,
+    public_models_snapshot_sha256: "sha256:cb2581608a551f4bc783af85d2edd8cca6a926f8f84f41e3382885ba9a3cf054" as const,
+    gen45_model_id: "gen4.5i2v" as const,
+    gen45_file_count: 1 as const,
+    gen45_uploadable_catalog_value: true as const,
+    gen45_prompt_max_catalog_value: 1_000 as const,
+    gen45_cost_keys: Object.freeze(["video_duration"] as const),
     video_parent_sha256: "sha256:8310cb1c9ac8221077220da873cfe785e35408b43b1cfba85d409272c9b44596" as const,
     video_store_sha256: "sha256:3dbb36e710d6e35ae9babef856678af06cb5d2352beb7a67aa60d47cd6ffc49b" as const,
     reference_serializer_sha256: "sha256:0ae5d53af76019a25d158d19e16ad513a13814c667b7768ee2d70c39465493dc" as const
@@ -46,7 +65,7 @@ const SOURCE_PROFILE = Object.freeze({ ...SOURCE_FACTS, source_sha256: schemaHas
 
 export type OwnerRunwayI2vModelId = typeof MODEL_IDS[number];
 export type OwnerRunwayI2vAspectRatio = typeof ASPECT_RATIOS[number];
-export type OwnerRunwayI2vVideoDuration = typeof VIDEO_DURATIONS[number];
+export type OwnerRunwayI2vVideoDuration = 5 | 8 | 10;
 
 export interface OwnerRunwayI2vParametersInput {
   readonly model_id: OwnerRunwayI2vModelId;
@@ -62,7 +81,7 @@ export interface OwnerRunwayI2vNormalizedParameters {
   readonly source_parameters: Readonly<{
     model_type: OwnerRunwayI2vModelId;
     aspect_ratio: string;
-    video_duration: "5.0" | "10.0";
+    video_duration: "5.0" | "8.0" | "10.0";
     seed: null;
   }>;
   readonly profile_sha256: string;
@@ -90,7 +109,7 @@ export function normalizeOwnerRunwayI2vParameters(input: unknown): Readonly<Owne
   const fields = exactRecord(input, ["model_id", "prompt", "aspect_ratio", "video_duration", "seed"]);
   if (!oneOf(fields.model_id, MODEL_IDS) || typeof fields.prompt !== "string" || fields.prompt.trim().length === 0 ||
       fields.prompt.length > MAX_PROMPT_UTF16 || !isWellFormedUnicode(fields.prompt) ||
-      !oneOf(fields.aspect_ratio, ASPECT_RATIOS) || !oneOf(fields.video_duration, VIDEO_DURATIONS) || fields.seed !== null) {
+      !isSupportedAspect(fields.model_id, fields.aspect_ratio) || !isSupportedDuration(fields.model_id, fields.video_duration) || fields.seed !== null) {
     invalidParameters();
   }
   const intent = Object.freeze({
@@ -102,8 +121,8 @@ export function normalizeOwnerRunwayI2vParameters(input: unknown): Readonly<Owne
   });
   const source_parameters = Object.freeze({
     model_type: fields.model_id,
-    aspect_ratio: ASPECT_SOURCE_CODES[fields.aspect_ratio],
-    video_duration: fields.video_duration === 5 ? "5.0" as const : "10.0" as const,
+    aspect_ratio: fields.model_id === GEN45_MODEL_ID ? "169" : ASPECT_SOURCE_CODES[fields.aspect_ratio],
+    video_duration: sourceDuration(fields.video_duration),
     seed: null
   });
   return Object.freeze({
@@ -139,6 +158,23 @@ function exactRecord(value: unknown, required: readonly string[]): Record<string
 
 function oneOf<T extends string | number>(value: unknown, values: readonly T[]): value is T {
   return typeof value === "string" || typeof value === "number" ? values.includes(value as T) : false;
+}
+
+export function isOwnerRunwayI2vAspectRatio(modelId: unknown, value: unknown): value is OwnerRunwayI2vAspectRatio {
+  return isModelId(modelId) && isSupportedAspect(modelId, value);
+}
+export function isOwnerRunwayI2vVideoDuration(modelId: unknown, value: unknown): value is OwnerRunwayI2vVideoDuration {
+  return isModelId(modelId) && isSupportedDuration(modelId, value);
+}
+function isSupportedAspect(modelId: OwnerRunwayI2vModelId, value: unknown): value is OwnerRunwayI2vAspectRatio {
+  return modelId === GEN45_MODEL_ID ? value === "16:9" : oneOf(value, ASPECT_RATIOS);
+}
+function isSupportedDuration(modelId: OwnerRunwayI2vModelId, value: unknown): value is OwnerRunwayI2vVideoDuration {
+  return modelId === GEN45_MODEL_ID ? oneOf(value, GEN45_VIDEO_DURATIONS) : oneOf(value, LEGACY_VIDEO_DURATIONS);
+}
+function isModelId(value: unknown): value is OwnerRunwayI2vModelId { return oneOf(value, MODEL_IDS); }
+function sourceDuration(value: OwnerRunwayI2vVideoDuration): "5.0" | "8.0" | "10.0" {
+  return value === 5 ? "5.0" : value === 8 ? "8.0" : "10.0";
 }
 
 function isWellFormedUnicode(value: string): boolean {

@@ -43,6 +43,10 @@ import {
   type OwnerSeedance20T2vSourceContract
 } from "./owner-seedance20-t2v-profile.js";
 import {
+  isAuthenticOwnerSeedance25T2vProfile,
+  type OwnerSeedance25T2vSourceContract
+} from "./owner-seedance25-t2v-profile.js";
+import {
   OWNER_KLING_T2V_CONTRACT_REGISTRY_VERSION,
   createOwnerKlingT2vProfile,
   isAuthenticOwnerKlingT2vProfile,
@@ -149,6 +153,15 @@ export interface OwnerSeedance20T2vGenerationInput {
   readonly aspect_ratio: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16";
   readonly video_duration: number;
   readonly generate_audio: boolean;
+}
+
+export interface OwnerSeedance25T2vGenerationInput {
+  readonly attemptId: string;
+  readonly prompt: string;
+  readonly resolution: "720p";
+  readonly aspect_ratio: "16:9";
+  readonly video_duration: 5;
+  readonly generate_audio: true;
 }
 
 export type OwnerKlingT2vGenerationInput =
@@ -718,6 +731,35 @@ export class OwnerSeedance20T2vGenerationService {
   reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
     return this.#engine.reconcile(input, signal);
   }
+  listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
+    return this.#engine.listRecoveries(attemptId, limit);
+  }
+  getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
+    return this.#engine.getRecoveryDiagnostic(input);
+  }
+  invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
+  close(): Promise<void> { return this.#engine.close(); }
+}
+
+/** Thin Seedance 2.5 ordinary T2V ABI over the reviewed no-reference engine. */
+export class OwnerSeedance25T2vGenerationService {
+  readonly #engine: OwnerReviewedNoReferenceT2vEngine<OwnerSeedance25T2vSourceContract>;
+
+  constructor(options: OwnerReviewedNoReferenceT2vServiceOptions<OwnerSeedance25T2vSourceContract>) {
+    if (!isAuthenticOwnerSeedance25T2vProfile(options.profile) ||
+        contentAddressedVersion(options.profile.registry) !== options.profile.registryVersion) {
+      throw new Error("OWNER_REVIEWED_T2V_PROFILE_INVALID");
+    }
+    this.#engine = new OwnerReviewedNoReferenceT2vEngine(options);
+  }
+
+  getParametersSource(): OwnerSeedance25T2vSourceContract { return this.#engine.getParametersSource(); }
+  getReviewedContract() { return this.#engine.getReviewedContract(); }
+  generate(input: OwnerSeedance25T2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.generate(input, signal);
+  }
+  reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown,
+    signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> { return this.#engine.reconcile(input, signal); }
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
     return this.#engine.listRecoveries(attemptId, limit);
   }

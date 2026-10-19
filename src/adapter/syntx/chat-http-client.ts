@@ -153,12 +153,22 @@ import {
   type ValidatedOwnerHailuo02I2vImageUpload
 } from "../../application/owner-hailuo02-i2v-image-policy.js";
 import {
+  OWNER_HAILUO_INITIAL_IMAGE_POLICY,
+  readValidatedOwnerHailuoInitialImage,
+  releaseValidatedOwnerHailuoInitialImage
+} from "../../application/owner-hailuo-image-policy.js";
+import type { OwnerHailuoInitialModelId } from "../../application/owner-hailuo-media-parameters.js";
+import type { OwnerHailuoInitialUploadContext } from "./owner-hailuo-initial-native-context.js";
+import { invalidateOwnerHailuoInitialOperations, isOwnerHailuoInitialChatContextForClient } from "./owner-hailuo-initial-native-context.js";
+import { invalidateOwnerWan27I2vOperations, isOwnerWan27I2vChatContextForClient } from "./owner-wan27-i2v-native-context.js";
+import {
   OWNER_RUNWAY_I2V_IMAGE_POLICY,
   readValidatedOwnerRunwayI2vImageUpload,
   releaseValidatedOwnerRunwayI2vImageUpload,
   type OwnerRunwayI2vImageAspectRatio,
   type ValidatedOwnerRunwayI2vImageUpload
 } from "../../application/owner-runway-i2v-image-policy.js";
+import type { OwnerRunwayI2vModelId } from "../../application/owner-runway-i2v-parameters.js";
 import {
   OWNER_GROK_I2V_IMAGE_POLICY,
   readValidatedOwnerGrokI2vImageUpload,
@@ -274,6 +284,28 @@ import type { OwnerWan26R2vSelectedVideoUploadContext } from "./wan26-r2v-video-
 import type { OwnerSeedanceEditorChatContext } from "./owner-seedance-editor-chat-context.js";
 import type { OwnerRunwayI2vChatContext } from "./owner-runway-i2v-chat-context.js";
 import type { OwnerGrokI2vChatContext } from "./owner-grok-i2v-chat-context.js";
+import type { OwnerWan25T2vChatContext } from "./owner-wan25-t2v-chat-context.js";
+import { validateProfileVideoImageUploadResponse } from "./profile-video-image-upload-response.js";
+import { createOwnerHiggsfieldDopChatContext, type OwnerHiggsfieldDopChatContext } from "./owner-higgsfield-dop-chat-context.js";
+import { createOwnerHiggsfieldDopExistingImageContext, createOwnerHiggsfieldDopImageUploadContext,
+  type OwnerHiggsfieldDopExistingImageContext, type OwnerHiggsfieldDopImageUploadContext,
+  type OwnerHiggsfieldDopUploadDestination } from "./owner-higgsfield-dop-upload-context.js";
+import { OWNER_HIGGSFIELD_DOP_IMAGE_POLICY, readValidatedOwnerHiggsfieldDopImageUpload,
+  releaseValidatedOwnerHiggsfieldDopImageUpload } from "../../application/owner-higgsfield-dop-image-policy.js";
+import { createOwnerHappyHorseChatContext, readOwnerHappyHorseChat, type OwnerHappyHorseChatContext } from "./owner-happy-horse-chat-context.js";
+import { createOwnerKlingMediaChatContext, readOwnerKlingMediaChat } from "./owner-kling-media-chat-context.js";
+import { createOwnerHappyHorseImageUploadContext, type OwnerHappyHorseImageUploadContext,
+  type OwnerHappyHorseUploadDestination } from "./owner-happy-horse-image-context.js";
+import { createOwnerHappyHorseEditVideoUploadContext, type OwnerHappyHorseEditVideoUploadContext } from "./owner-happy-horse-video-context.js";
+import { readValidatedOwnerHappyHorseImage, releaseValidatedOwnerHappyHorseImage } from "../../application/owner-happy-horse-image-policy.js";
+import { readValidatedOwnerHappyHorseEditVideo, releaseValidatedOwnerHappyHorseEditVideo } from "../../application/owner-happy-horse-edit-video-policy.js";
+import type { OwnerHappyHorseModelId } from "../../application/owner-happy-horse-parameters.js";
+import { createOwnerActTwoChatContext, readOwnerActTwoChat, type OwnerActTwoChatContext } from "./owner-acttwo-chat-context.js";
+import { createOwnerActTwoCharacterImageUploadContext, type OwnerActTwoCharacterImageUploadContext,
+  type OwnerActTwoUploadDestination } from "./owner-acttwo-image-context.js";
+import { createOwnerActTwoPerformanceVideoUploadContext, type OwnerActTwoPerformanceVideoUploadContext } from "./owner-acttwo-video-context.js";
+import { readValidatedOwnerActTwoCharacterImage, releaseValidatedOwnerActTwoCharacterImage } from "../../application/owner-acttwo-image-policy.js";
+import { readValidatedOwnerActTwoPerformanceVideo, releaseValidatedOwnerActTwoPerformanceVideo } from "../../application/owner-acttwo-video-policy.js";
 import {
   createOwnerGrokI2vImageUploadContext,
   type OwnerGrokI2vImageUploadContext,
@@ -662,6 +694,7 @@ const MAX_ARRAY_ITEMS = 64;
 const MAX_FILES = 16;
 const MAX_URL_LENGTH = 4096;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const OWNER_RUNWAY_I2V_MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage", "gen4.5i2v"] as const);
 const RUNWAY_I2V_UPLOAD_RATIOS: Readonly<Record<OwnerRunwayI2vImageAspectRatio, readonly [number, number]>> = Object.freeze({
   "21:9": [21, 9], "16:9": [16, 9], "4:3": [4, 3], "1:1": [1, 1], "3:4": [3, 4], "9:16": [9, 16]
 });
@@ -853,6 +886,29 @@ const wan27R2vUploadResponseSchema = z.object({
     status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
   }).strip()).length(1)
 }).strip();
+const dopExistingFilesResponseSchema = z.object({
+  page: z.literal(1), page_size: z.literal(10), has_more: z.boolean(), total: z.number().int().nonnegative().nullable(),
+  items: z.array(z.object({ created_at: z.unknown(), hash: z.string(), id: z.number().int().nonnegative().max(1_000_000_000_000),
+    metadata: z.record(z.string(), z.unknown()), model_type: z.unknown(), type: z.unknown(), updated_at: z.unknown(),
+    url: z.string().min(1).max(4_096) }).strict()).max(10)
+}).strict();
+const heygen4ExistingFilesResponseSchema = z.object({
+  page: z.literal(1), page_size: z.literal(10), has_more: z.boolean(), total: z.number().int().nonnegative().nullable(),
+  items: z.array(z.object({ id: z.union([z.string().min(1).max(256), z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]),
+    type: z.string().max(32), url: z.string().min(1).max(4_096), metadata: z.record(z.string(), z.unknown()).default({}),
+    filename: z.string().max(255).optional(), mime_type: z.string().max(128).optional(), size: z.number().int().nonnegative().optional() }).strip()).max(10)
+}).strict();
+const OWNER_HEYGEN4_IMPORTED_ASSETS = new WeakMap<object, Readonly<{ client: SyntxChatHttpClient; media_type: "image" | "audio";
+  file_id: string; url: string; sha256: string; size: number }>>();
+const wan27I2vUploadResponseSchema = z.object({
+  files: z.array(z.object({
+    id: providerIdSchema.optional(), file_id: providerIdSchema.optional(), url: z.string().min(1).max(MAX_URL_LENGTH),
+    filename: z.string().max(256).optional(), mime_type: z.string().max(128).optional(),
+    content_type: z.string().max(128).optional(), size: z.number().int().nonnegative().max(20 * 1024 * 1024).optional(),
+    width: z.number().int().positive().max(8_000).optional(), height: z.number().int().positive().max(8_000).optional(),
+    status: z.string().regex(SAFE_RESPONSE_TOKEN)
+  }).strip()).length(1)
+}).strip();
 const wan26I2vUploadResponseSchema = z.object({
   files: z.array(z.object({
     id: providerIdSchema.optional(),
@@ -922,6 +978,11 @@ const klingKeyframesUploadResponseSchema = z.object({
     status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
   }).strip()).length(1)
 }).strip();
+const happyHorseUploadResponseSchema = z.object({ files: z.array(z.object({
+  id: providerIdSchema.optional(), file_id: providerIdSchema.optional(), filename: z.string().max(255).optional(),
+  url: z.string().min(1).max(MAX_URL_LENGTH), mime_type: z.string().max(128).optional(),
+  size: z.number().int().nonnegative().max(100 * 1024 * 1024).optional(), status: z.string().max(64).optional()
+}).strip()).length(1) }).strip();
 const klingMotionControlUploadResponseSchema = z.object({
   files: z.array(z.object({
     id: providerIdSchema.optional(),
@@ -2512,6 +2573,25 @@ interface OwnerGrokI2vChatClientState {
   readonly attemptEpochs: Map<string, number>;
 }
 const OWNER_GROK_I2V_CHAT_CLIENT_STATES = new WeakMap<object, OwnerGrokI2vChatClientState>();
+type OwnerProfileVideoChatContext = OwnerWan25T2vChatContext | OwnerHiggsfieldDopChatContext |
+  import("./owner-hailuo-initial-native-context.js").OwnerHailuoInitialChatContext | OwnerHappyHorseChatContext | OwnerActTwoChatContext |
+  import("./owner-wan27-i2v-native-context.js").OwnerWan27I2vChatContext |
+  import("./owner-kling-media-chat-context.js").OwnerKlingMediaChatContext;
+interface OwnerProfileVideoChatState {
+  readonly contexts: Map<object, { readonly context: OwnerProfileVideoChatContext; readonly epoch: number }>;
+  readonly pending: Map<symbol, { readonly attemptId: string; readonly modelId: string }>;
+  readonly epochs: Map<string, number>;
+}
+const OWNER_PROFILE_VIDEO_CHATS = new WeakMap<object, OwnerProfileVideoChatState>();
+function profileVideoChats(client: object): OwnerProfileVideoChatState {
+  let state = OWNER_PROFILE_VIDEO_CHATS.get(client);
+  if (!state) { state = { contexts: new Map(), pending: new Map(), epochs: new Map() }; OWNER_PROFILE_VIDEO_CHATS.set(client,state); }
+  return state;
+}
+function pruneProfileVideoAttempt(state: OwnerProfileVideoChatState, attemptId: string): void {
+  if (![...state.pending.values()].some(row => row.attemptId === attemptId) &&
+      ![...state.contexts.values()].some(row => row.context.attempt_id === attemptId)) state.epochs.delete(attemptId);
+}
 
 /**
  * Fixed-route gateway for the SYNTX chat and generation routes observed in the
@@ -2662,12 +2742,13 @@ export class SyntxChatHttpClient {
 
   /** Fixed owner Runway I2V video chat. The model is bound into its nominal context. */
   async createOwnerRunwayI2vChat(
-    input: { readonly attemptId: string; readonly model_id: "4genfirstframeimage" | "turbo4genfirstframeimage"; readonly title: string },
+    input: { readonly attemptId: string; readonly model_id: OwnerRunwayI2vModelId; readonly title: string },
     signal?: AbortSignal
   ): Promise<OwnerRunwayI2vChatContext> {
     const fields = readExactDataRecord(input, ["attemptId", "model_id", "title"], ["attemptId", "model_id", "title"]);
     if (typeof fields.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(fields.attemptId) ||
-        (fields.model_id !== "4genfirstframeimage" && fields.model_id !== "turbo4genfirstframeimage") || typeof fields.title !== "string") throw invalidRequest();
+        !isOwnerRunwayI2vModelId(fields.model_id) ||
+        typeof fields.title !== "string") throw invalidRequest();
     const attemptId = fields.attemptId;
     const modelId = fields.model_id;
     const title = fields.title;
@@ -2724,11 +2805,40 @@ export class SyntxChatHttpClient {
     return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", signal);
   }
 
+  /** Fixed Runway ActTwo video POST. Only the owner generation service can mint its one-shot token. */
+  async startOwnerActTwoOperation(operation: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const { consumeOwnerActTwoDispatch, recordOwnerActTwoTransport } = await import("../../application/owner-acttwo-generation-service.js");
+    const dispatch = consumeOwnerActTwoDispatch(this, operation);
+    try {
+      return await this.#startMedia("video/generate", "runway", dispatch.chat_uuid, dispatch.body as Record<string, JsonValue>, signal,
+        status => recordOwnerActTwoTransport(this, operation, status));
+    } catch (error) {
+      if (error instanceof SyntxHttpError) recordOwnerActTwoTransport(this, operation, error.code);
+      throw error;
+    }
+  }
+
+  /** GET-only ActTwo history read; chat UUID is recovered from the owner operation token. */
+  async readOwnerActTwoHistory(operation: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerActTwoHistoryRoute } = await import("../../application/owner-acttwo-generation-service.js");
+    const chatUuid = readOwnerActTwoHistoryRoute(this, operation);
+    const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+    url.searchParams.set("page", "1"); url.searchParams.set("page_size", "10");
+    return this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
+  /** GET-only ActTwo detail read from a nominal owner-result capability. */
+  async readOwnerActTwoResult(resultContext: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerActTwoResultRoute } = await import("../../application/owner-acttwo-generation-service.js");
+    const route = readOwnerActTwoResultRoute(this, resultContext);
+    return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
   isOwnerRunwayI2vChat(context: unknown, attemptId: string): context is OwnerRunwayI2vChatContext {
     if (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId) ||
         !context || typeof context !== "object" || types.isProxy(context) || !Object.isFrozen(context)) return false;
     const state = OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES.get(this)?.contexts.get(context as OwnerRunwayI2vChatContext);
-    return !!state && state.context === context && state.attemptId === attemptId &&
+    return !!state && state.context === context && isOwnerRunwayI2vModelId(state.context.model_id) && state.attemptId === attemptId &&
       state.epoch === (OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES.get(this)?.attemptEpochs.get(attemptId) ?? 0);
   }
 
@@ -2834,6 +2944,269 @@ export class SyntxChatHttpClient {
       for (const [context, owned] of state.contexts) if (owned.attemptId === id) state.contexts.delete(context);
       pruneOwnerGrokI2vChatAttempt(state, id);
     }
+  }
+
+  /** Fixed owner WAN25 no-media scope. The public caller cannot select AI or chat scope. */
+  async createOwnerWan25T2vChat(input: { readonly attemptId: string; readonly title: string }, signal?: AbortSignal): Promise<OwnerWan25T2vChatContext> {
+    const fields = readExactDataRecord(input,["attemptId","title"],["attemptId","title"]);
+    return await this.#createProfileVideoChat(fields.attemptId,fields.title,"wan_25_t2v_preview",signal) as OwnerWan25T2vChatContext;
+  }
+  async createOwnerHiggsfieldDopChat(input: { readonly attemptId: string; readonly title: string; readonly model_id: "dop-lite" | "dop-turbo" }, signal?: AbortSignal): Promise<OwnerHiggsfieldDopChatContext> {
+    const fields = readExactDataRecord(input,["attemptId","title","model_id"],["attemptId","title","model_id"]);
+    if (fields.model_id !== "dop-lite" && fields.model_id !== "dop-turbo") throw invalidRequest();
+    return await this.#createProfileVideoChat(fields.attemptId,fields.title,fields.model_id,signal) as OwnerHiggsfieldDopChatContext;
+  }
+  async createOwnerHappyHorseChat(input: { readonly attemptId: string; readonly title: string; readonly model_id: OwnerHappyHorseModelId },
+    signal?: AbortSignal): Promise<OwnerHappyHorseChatContext> {
+    const fields = readExactDataRecord(input,["attemptId","title","model_id"],["attemptId","title","model_id"]);
+    if (fields.model_id !== "happy_horse_first_frame" && fields.model_id !== "happy_horse_references" && fields.model_id !== "happy_horse_edit") throw invalidRequest();
+    return await this.#createProfileVideoChat(fields.attemptId,fields.title,fields.model_id,signal) as OwnerHappyHorseChatContext;
+  }
+  async createOwnerActTwoChat(input: { readonly attemptId: string; readonly title: string; readonly model_id: "acttwo" },
+    signal?: AbortSignal): Promise<OwnerActTwoChatContext> {
+    const fields = readExactDataRecord(input,["attemptId","title","model_id"],["attemptId","title","model_id"]);
+    if (fields.model_id !== "acttwo") throw invalidRequest();
+    return await this.#createProfileVideoChat(fields.attemptId,fields.title,"acttwo",signal) as OwnerActTwoChatContext;
+  }
+  async createOwnerKlingMediaChat(input: { readonly attemptId: string; readonly title: string; readonly model_id: import("../../application/owner-kling-media-parameters.js").OwnerKlingMediaModelId },
+    signal?: AbortSignal): Promise<import("./owner-kling-media-chat-context.js").OwnerKlingMediaChatContext> {
+    const fields = readExactDataRecord(input,["attemptId","title","model_id"],["attemptId","title","model_id"]);
+    if (!(["kling_elements","kling_o1_image2video","kling_o1_video2video"] as readonly unknown[]).includes(fields.model_id)) throw invalidRequest();
+    return await this.#createProfileVideoChat(fields.attemptId,fields.title,fields.model_id as import("../../application/owner-kling-media-parameters.js").OwnerKlingMediaModelId,signal) as
+      import("./owner-kling-media-chat-context.js").OwnerKlingMediaChatContext;
+  }
+  async createOwnerHailuoInitialChat(input: { readonly attemptId: string; readonly title: string; readonly model_id: OwnerHailuoInitialModelId },
+    signal?: AbortSignal): Promise<import("./owner-hailuo-initial-native-context.js").OwnerHailuoInitialChatContext> {
+    assertNativeOwnerHailuoInitial(this);
+    const fields = readExactDataRecord(input,["attemptId","title","model_id"],["attemptId","title","model_id"]);
+    if (fields.model_id !== "hailuo-2.3-fast" && fields.model_id !== "hailuo-01-live-character" && fields.model_id !== "hailuo-3.0") {
+      throw invalidRequest();
+    }
+    return await this.#createProfileVideoChat(fields.attemptId,fields.title,fields.model_id,signal) as
+      import("./owner-hailuo-initial-native-context.js").OwnerHailuoInitialChatContext;
+  }
+  async createOwnerWan27I2vChat(input: { readonly attemptId: string; readonly title: string; readonly model_id: "wan_27_i2v" },
+    signal?: AbortSignal): Promise<import("./owner-wan27-i2v-native-context.js").OwnerWan27I2vChatContext> {
+    assertNativeOwnerWan27I2v(this);
+    const fields = readExactDataRecord(input,["attemptId","title","model_id"],["attemptId","title","model_id"]);
+    if (fields.model_id !== "wan_27_i2v") throw invalidRequest();
+    return await this.#createProfileVideoChat(fields.attemptId,fields.title,"wan_27_i2v",signal) as
+      import("./owner-wan27-i2v-native-context.js").OwnerWan27I2vChatContext;
+  }
+  async #createProfileVideoChat(attempt: unknown, title: unknown,
+    modelId: "wan_25_t2v_preview" | "dop-lite" | "dop-turbo" | OwnerHailuoInitialModelId | OwnerHappyHorseModelId | "acttwo" | "wan_27_i2v" |
+      import("../../application/owner-kling-media-parameters.js").OwnerKlingMediaModelId,
+    signal?: AbortSignal): Promise<OwnerProfileVideoChatContext> {
+    if (typeof attempt !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attempt) || typeof title !== "string") throw invalidRequest();
+    validateBoundedText(title,MAX_TITLE_BYTES,true);
+    const state = profileVideoChats(this), epoch = state.epochs.get(attempt) ?? 0;
+    if (state.contexts.size + state.pending.size >= 128) throw invalidRequest();
+    const reservation = Symbol("profile-video-chat"); state.pending.set(reservation,{attemptId:attempt,modelId});
+    try {
+      const parsed = createChatResponseSchema.safeParse(await this.#request(new URL("chats",V1_BASE_URL),"POST",{title,scope:"video"},"JSON_REQUIRED",signal));
+      if (!parsed.success) throw protocolError();
+      if ((state.epochs.get(attempt) ?? 0) !== epoch || !state.pending.has(reservation)) throw invalidRequest();
+      if ([...state.contexts.values()].some(row => row.context.chat_uuid === parsed.data.uuid)) throw protocolError();
+      let context: OwnerProfileVideoChatContext;
+      if (modelId === "wan_25_t2v_preview") {
+        context = Object.freeze({status:"created",chat_uuid:parsed.data.uuid,attempt_id:attempt,model_id:modelId,scope:"video",generation_permit:false});
+      } else if (modelId === "dop-lite" || modelId === "dop-turbo") {
+        context = createOwnerHiggsfieldDopChatContext(this,{chat_uuid:parsed.data.uuid,attempt_id:attempt,model_id:modelId});
+      } else if (modelId === "happy_horse_first_frame" || modelId === "happy_horse_references" || modelId === "happy_horse_edit") {
+        context = createOwnerHappyHorseChatContext(this,{chat_uuid:parsed.data.uuid,attempt_id:attempt,model_id:modelId});
+      } else if (modelId === "acttwo") {
+        context = createOwnerActTwoChatContext(this,{chat_uuid:parsed.data.uuid,attempt_id:attempt,model_id:modelId});
+      } else if (modelId === "wan_27_i2v") {
+        const native = await import("./owner-wan27-i2v-native-context.js");
+        context = native.createOwnerWan27I2vChatContext(this,{chat_uuid:parsed.data.uuid,attempt_id:attempt,model_id:modelId});
+      } else if (modelId === "kling_elements" || modelId === "kling_o1_image2video" || modelId === "kling_o1_video2video") {
+        context = createOwnerKlingMediaChatContext(this,{chat_uuid:parsed.data.uuid,attempt_id:attempt,model_id:modelId});
+      } else {
+        const native = await import("./owner-hailuo-initial-native-context.js");
+        context = native.createOwnerHailuoInitialChatContext(this,{chat_uuid:parsed.data.uuid,attempt_id:attempt,model_id:modelId});
+      }
+      state.contexts.set(context,{context,epoch}); return context;
+    } finally { state.pending.delete(reservation); pruneProfileVideoAttempt(state,attempt); }
+  }
+  #isProfileVideoChat(context: unknown, attemptId: string, models: readonly string[]): boolean {
+    if (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId) ||
+        !context || typeof context !== "object" || types.isProxy(context)) return false;
+    const state = OWNER_PROFILE_VIDEO_CHATS.get(this), owned = state?.contexts.get(context);
+    return !!state && !!owned && owned.context === context && models.includes(owned.context.model_id) &&
+      owned.context.attempt_id === attemptId && (state.epochs.get(attemptId) ?? 0) === owned.epoch;
+  }
+  isOwnerWan25T2vChat(context: unknown, attemptId: string): context is OwnerWan25T2vChatContext {
+    return this.#isProfileVideoChat(context,attemptId,["wan_25_t2v_preview"]);
+  }
+  isOwnerHiggsfieldDopChat(context: unknown, attemptId: string): context is OwnerHiggsfieldDopChatContext {
+    return this.#isProfileVideoChat(context,attemptId,["dop-lite","dop-turbo"]);
+  }
+  isOwnerHappyHorseChat(context: unknown, attemptId: string): context is OwnerHappyHorseChatContext {
+    return this.#isProfileVideoChat(context,attemptId,["happy_horse_first_frame","happy_horse_references","happy_horse_edit"]) &&
+      readOwnerHappyHorseChat(this,context,attemptId) !== null;
+  }
+  isOwnerActTwoChat(context: unknown, attemptId: string): context is OwnerActTwoChatContext {
+    return this.#isProfileVideoChat(context,attemptId,["acttwo"]) && readOwnerActTwoChat(this,context,attemptId) !== null;
+  }
+  isOwnerKlingMediaChat(context: unknown, attemptId: string): context is import("./owner-kling-media-chat-context.js").OwnerKlingMediaChatContext {
+    return this.#isProfileVideoChat(context,attemptId,["kling_elements","kling_o1_image2video","kling_o1_video2video"]) &&
+      readOwnerKlingMediaChat(this,context,attemptId) !== null;
+  }
+  #invalidateProfileVideoChats(attemptId: string | undefined, models: readonly string[]): void {
+    if (attemptId !== undefined && (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId))) throw invalidRequest();
+    const state = OWNER_PROFILE_VIDEO_CHATS.get(this); if (!state) return;
+    const attempts = new Set<string>();
+    for (const row of state.contexts.values()) if (models.includes(row.context.model_id) && (attemptId === undefined || row.context.attempt_id === attemptId)) attempts.add(row.context.attempt_id);
+    for (const row of state.pending.values()) if (models.includes(row.modelId) && (attemptId === undefined || row.attemptId === attemptId)) attempts.add(row.attemptId);
+    for (const id of attempts) {
+      state.epochs.set(id,(state.epochs.get(id) ?? 0)+1);
+      for (const [key,row] of state.contexts) if (row.context.attempt_id === id && models.includes(row.context.model_id)) state.contexts.delete(key);
+      pruneProfileVideoAttempt(state,id);
+    }
+  }
+  invalidateOwnerWan25T2vChats(attemptId?: string): void { this.#invalidateProfileVideoChats(attemptId,["wan_25_t2v_preview"]); }
+  invalidateOwnerHiggsfieldDopChats(attemptId?: string): void { this.#invalidateProfileVideoChats(attemptId,["dop-lite","dop-turbo"]); }
+  invalidateOwnerHappyHorseChats(attemptId?: string): void { this.#invalidateProfileVideoChats(attemptId,["happy_horse_first_frame","happy_horse_references","happy_horse_edit"]); }
+  invalidateOwnerActTwoChats(attemptId?: string): void { this.#invalidateProfileVideoChats(attemptId,["acttwo"]); }
+  invalidateOwnerKlingMediaChats(attemptId?: string): void { this.#invalidateProfileVideoChats(attemptId,["kling_elements","kling_o1_image2video","kling_o1_video2video"]); }
+  invalidateOwnerHailuoInitialChats(attemptId?: string): void {
+    assertNativeOwnerHailuoInitial(this);
+    this.#invalidateProfileVideoChats(attemptId,["hailuo-2.3-fast","hailuo-01-live-character","hailuo-3.0"]);
+    invalidateOwnerHailuoInitialOperations(this,attemptId);
+  }
+  isOwnerHailuoInitialChat(context: unknown, attemptId: string): context is import("./owner-hailuo-initial-native-context.js").OwnerHailuoInitialChatContext {
+    return isExactOwnerHailuoInitialClient(this) &&
+      this.#isProfileVideoChat(context,attemptId,["hailuo-2.3-fast","hailuo-01-live-character","hailuo-3.0"]) &&
+      isOwnerHailuoInitialChatContextForClient(this,context,attemptId);
+  }
+  isOwnerWan27I2vChat(context: unknown, attemptId: string): context is import("./owner-wan27-i2v-native-context.js").OwnerWan27I2vChatContext {
+    return isExactOwnerWan27I2vNativeClient(this) && this.#isProfileVideoChat(context,attemptId,["wan_27_i2v"]) &&
+      isOwnerWan27I2vChatContextForClient(this,context,attemptId);
+  }
+  invalidateOwnerWan27I2vChats(attemptId?: string): void {
+    assertNativeOwnerWan27I2v(this);
+    this.#invalidateProfileVideoChats(attemptId,["wan_27_i2v"]);
+    invalidateOwnerWan27I2vOperations(this,attemptId);
+  }
+  async startOwnerWan25T2vOperation(token: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const {consumeOwnerWan25T2vDispatch,recordOwnerWan25T2vTransport} = await import("../../application/owner-wan25-t2v-generation-service.js");
+    const d = consumeOwnerWan25T2vDispatch(this,token);
+    try { return await this.#startMedia("video/generate","wan_video",d.chat_uuid,d.body as Record<string,JsonValue>,signal,status => recordOwnerWan25T2vTransport(this,token,status)); }
+    catch (error) { if (error instanceof SyntxHttpError) recordOwnerWan25T2vTransport(this,token,error.code); throw error; }
+  }
+  async startOwnerHiggsfieldDopOperation(token: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const {consumeOwnerHiggsfieldDopDispatch,recordOwnerHiggsfieldDopTransport} = await import("../../application/owner-higgsfield-dop-generation-service.js");
+    const d = consumeOwnerHiggsfieldDopDispatch(this,token);
+    try { return await this.#startMedia("video/generate","higgsfield",d.chat_uuid,d.body as Record<string,JsonValue>,signal,status => recordOwnerHiggsfieldDopTransport(this,token,status)); }
+    catch (error) { if (error instanceof SyntxHttpError) recordOwnerHiggsfieldDopTransport(this,token,error.code); throw error; }
+  }
+  async startOwnerHappyHorseOperation(token: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const { consumeOwnerHappyHorseDispatch, recordOwnerHappyHorseTransport } = await import("../../application/owner-happy-horse-generation-service.js");
+    const dispatch = consumeOwnerHappyHorseDispatch(this, token);
+    try {
+      return await this.#startMedia("video/generate", "happy_horse", dispatch.chat_uuid,
+        dispatch.body as Record<string, JsonValue>, signal, status => recordOwnerHappyHorseTransport(this, token, status));
+    } catch (error) {
+      if (error instanceof SyntxHttpError) recordOwnerHappyHorseTransport(this, token, error.code);
+      throw error;
+    }
+  }
+  async startOwnerKlingMediaOperation(token: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const native = await import("../../application/owner-kling-media-generation-service.js");
+    const dispatch = native.consumeOwnerKlingMediaDispatch(this, token);
+    try { return await this.#startMedia("video/generate", "kling", dispatch.chat_uuid,
+      dispatch.body as Record<string, JsonValue>, signal, status => native.recordOwnerKlingMediaTransport(this, token, status)); }
+    catch (error) { if (error instanceof SyntxHttpError) native.recordOwnerKlingMediaTransport(this, token, error.code); throw error; }
+  }
+  async readOwnerWan25T2vHistory(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    const {readOwnerWan25T2vHistoryRoute} = await import("../../application/owner-wan25-t2v-generation-service.js");
+    const url = new URL(`chats/${readOwnerWan25T2vHistoryRoute(this,token)}/messages`,V1_BASE_URL);
+    url.searchParams.set("page","1"); url.searchParams.set("page_size","10"); return this.#request(url,"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerHiggsfieldDopHistory(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    const {readOwnerHiggsfieldDopHistoryRoute} = await import("../../application/owner-higgsfield-dop-generation-service.js");
+    const url = new URL(`chats/${readOwnerHiggsfieldDopHistoryRoute(this,token)}/messages`,V1_BASE_URL);
+    url.searchParams.set("page","1"); url.searchParams.set("page_size","10"); return this.#request(url,"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerHappyHorseHistory(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerHappyHorseHistoryRoute } = await import("../../application/owner-happy-horse-generation-service.js");
+    const url = new URL(`chats/${readOwnerHappyHorseHistoryRoute(this,token)}/messages`,V1_BASE_URL);
+    url.searchParams.set("page","1"); url.searchParams.set("page_size","10");
+    return this.#request(url,"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerKlingMediaHistory(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    const native = await import("../../application/owner-kling-media-generation-service.js");
+    const url = new URL(`chats/${native.readOwnerKlingMediaHistoryRoute(this,token)}/messages`,V1_BASE_URL);
+    url.searchParams.set("page","1"); url.searchParams.set("page_size","10");
+    return this.#request(url,"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerWan25T2vResult(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    const {readOwnerWan25T2vResultRoute} = await import("../../application/owner-wan25-t2v-generation-service.js"); const r = readOwnerWan25T2vResultRoute(this,token);
+    return this.#request(new URL(`chats/${r.chat_uuid}/${r.message_id}`,V1_BASE_URL),"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerHiggsfieldDopResult(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    const {readOwnerHiggsfieldDopResultRoute} = await import("../../application/owner-higgsfield-dop-generation-service.js"); const r = readOwnerHiggsfieldDopResultRoute(this,token);
+    return this.#request(new URL(`chats/${r.chat_uuid}/${r.message_id}`,V1_BASE_URL),"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerHappyHorseResult(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerHappyHorseResultRoute } = await import("../../application/owner-happy-horse-generation-service.js");
+    const route = readOwnerHappyHorseResultRoute(this,token);
+    return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`,V1_BASE_URL),"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerKlingMediaResult(context: unknown, signal?: AbortSignal): Promise<unknown> {
+    const native = await import("../../application/owner-kling-media-generation-service.js");
+    const route = native.readOwnerKlingMediaResultRoute(this,context);
+    return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`,V1_BASE_URL),"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async startOwnerHailuoInitialOperation(token: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerHailuoInitial(this);
+    const native = await import("./owner-hailuo-initial-native-context.js");
+    const dispatch = native.consumeOwnerHailuoInitialOperation(this,token);
+    try {
+      return await this.#startMedia("video/generate","hailuo-minimax",dispatch.chat_uuid,
+        dispatch.body as Record<string,JsonValue>,signal,status => native.recordOwnerHailuoInitialTransport(this,token,status));
+    } catch (error) {
+      if (error instanceof SyntxHttpError) native.recordOwnerHailuoInitialTransport(this,token,error.code);
+      throw error;
+    }
+  }
+  async readOwnerHailuoInitialHistory(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    assertNativeOwnerHailuoInitial(this);
+    const native = await import("./owner-hailuo-initial-native-context.js");
+    const url = new URL(`chats/${native.readOwnerHailuoInitialHistoryRoute(this,token)}/messages`,V1_BASE_URL);
+    url.searchParams.set("page","1"); url.searchParams.set("page_size","10");
+    return this.#request(url,"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerHailuoInitialResult(context: unknown, signal?: AbortSignal): Promise<unknown> {
+    assertNativeOwnerHailuoInitial(this);
+    const native = await import("./owner-hailuo-initial-native-context.js");
+    const route = native.readOwnerHailuoInitialResultRoute(this,context);
+    return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`,V1_BASE_URL),"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async startOwnerWan27I2vOperation(token: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerWan27I2v(this);
+    const native = await import("./owner-wan27-i2v-native-context.js");
+    const dispatch = native.consumeOwnerWan27I2vOperation(this,token);
+    try {
+      return await this.#startMedia("video/generate","wan_video",dispatch.chat_uuid,
+        dispatch.body as Record<string,JsonValue>,signal,status => native.recordOwnerWan27I2vTransport(this,token,status));
+    } catch (error) {
+      if (error instanceof SyntxHttpError) native.recordOwnerWan27I2vTransport(this,token,error.code);
+      throw error;
+    }
+  }
+  async readOwnerWan27I2vHistory(token: unknown, signal?: AbortSignal): Promise<unknown> {
+    assertNativeOwnerWan27I2v(this);
+    const native = await import("./owner-wan27-i2v-native-context.js");
+    const url = new URL(`chats/${native.readOwnerWan27I2vHistoryRoute(this,token)}/messages`,V1_BASE_URL);
+    url.searchParams.set("page","1"); url.searchParams.set("page_size","10");
+    return this.#request(url,"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerWan27I2vResult(context: unknown, signal?: AbortSignal): Promise<unknown> {
+    assertNativeOwnerWan27I2v(this);
+    const native = await import("./owner-wan27-i2v-native-context.js");
+    const route = native.readOwnerWan27I2vResultRoute(this,context);
+    return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`,V1_BASE_URL),"GET",undefined,"JSON_REQUIRED",signal);
   }
 
   /** Fixed internal chat creation for the owner Kling Image-to-Video bridge. */
@@ -3220,6 +3593,23 @@ export class SyntxChatHttpClient {
     const parsed = inProgressResponseSchema.safeParse(raw);
     if (!parsed.success) throw protocolError();
     return parsed.data;
+  }
+
+  /** Read-only fixed page for resuming the linked owner's existing MCP video jobs. */
+  async readOwnerExistingVideoIndex(signal?:AbortSignal):Promise<unknown>{
+    const url=new URL("chats",V1_BASE_URL);
+    url.searchParams.set("scope","video");url.searchParams.set("page","1");url.searchParams.set("page_size","20");
+    return this.#request(url,"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  /** Raw data stays inside the recovery service; public tools return only bound media/errors. */
+  async readOwnerExistingVideoHistory(chatUuid:string,signal?:AbortSignal):Promise<unknown>{
+    validatePathIdentifier(chatUuid);const url=new URL(`chats/${chatUuid}/messages`,V1_BASE_URL);
+    url.searchParams.set("page","1");url.searchParams.set("page_size","10");
+    return this.#request(url,"GET",undefined,"JSON_REQUIRED",signal);
+  }
+  async readOwnerExistingVideoMessage(chatUuid:string,messageId:string,signal?:AbortSignal):Promise<unknown>{
+    validatePathIdentifier(chatUuid);validatePathIdentifier(messageId);
+    return this.#request(new URL(`chats/${chatUuid}/${messageId}`,V1_BASE_URL),"GET",undefined,"JSON_REQUIRED",signal);
   }
 
   async getMessage(
@@ -7678,6 +8068,78 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** Switchx-only upload of one locally measured video; destination comes from trusted runtime config. */
+  async uploadOwnerSwitchxVideo(input: unknown, signal?: AbortSignal): Promise<import("./owner-switchx-video-native-context.js").OwnerSwitchxVideoUploadContext> {
+    assertNativeOwnerSwitchxVideo(this);
+    const native = await import("./owner-switchx-video-native-context.js");
+    const row = exactSwitchxNativeInput(input, ["attempt_id", "principal", "destination", "video"]);
+    if (typeof row.attempt_id !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(row.attempt_id) ||
+        (row.destination !== "uploaded" && row.destination !== "hidden")) throw invalidRequest();
+    const policy = await import("../../application/owner-switchx-video-policy.js");
+    if (!policy.isValidatedOwnerSwitchxVideo(row.video)) {
+      policy.releaseValidatedOwnerSwitchxVideo(row.video);
+      throw invalidRequest();
+    }
+    const receipt = row.video;
+    const owned = policy.readValidatedOwnerSwitchxVideo(receipt);
+    if (!owned) { policy.releaseValidatedOwnerSwitchxVideo(receipt); throw invalidRequest(); }
+    const bytes = new Uint8Array(owned.bytes.byteLength);
+    bytes.set(owned.bytes);
+    owned.bytes.fill(0);
+    let form: FormData | undefined;
+    try {
+      if (receipt.status !== "TRUSTED_LOCAL_SWITCHX_VIDEO_METADATA" || receipt.model_id !== "switchx" ||
+          receipt.policy_id !== "OWNER_SWITCHX_MEASURED_VIDEO_INPUT_C19_V1" || receipt.generation_permit !== false ||
+          receipt.owner_upload_binding !== "NOT_ESTABLISHED" || receipt.provider_acceptance !== "UNPROVEN" ||
+          receipt.probe_scope !== "LOCAL_METADATA_ONLY_NO_PIXEL_DECODE" || bytes.byteLength !== receipt.size ||
+          bytes.byteLength < 1 || bytes.byteLength > MAX_UPLOAD_BYTES || createHash("sha256").update(bytes).digest("hex") !== receipt.source_sha256 ||
+          (receipt.mime_type !== "video/mp4" && receipt.mime_type !== "video/quicktime") ||
+          receipt.width !== owned.width || receipt.height !== owned.height || receipt.duration_seconds !== 5 || receipt.frame_rate !== 24) {
+        throw invalidRequest();
+      }
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type, destination: row.destination,
+        check_duplicates: true, model_type: "switchx" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      let references: InternalUploadReference[];
+      try { references = parseInternalUploadReferences(raw); } catch { throw protocolError(); }
+      if (references.length !== 1) throw protocolError();
+      return native.createOwnerSwitchxVideoUploadContext({ client: this, attempt_id: row.attempt_id, principal: row.principal,
+        destination: row.destination, reference: references[0], metadata: { filename: owned.filename, mime_type: owned.mime_type,
+          size: bytes.byteLength, sha256: receipt.source_sha256, width: owned.width, height: owned.height,
+          duration_seconds: 5, frame_rate: 24 } });
+    } finally {
+      bytes.fill(0);
+      form?.delete("files");
+      policy.releaseValidatedOwnerSwitchxVideo(receipt);
+    }
+  }
+
+  /** Creates one exact video-scoped Switchx chat from the same owner's uploaded-video context. */
+  async createOwnerSwitchxVideoChat(input: unknown, signal?: AbortSignal): Promise<import("./owner-switchx-video-native-context.js").OwnerSwitchxVideoChatContext> {
+    assertNativeOwnerSwitchxVideo(this);
+    const native = await import("./owner-switchx-video-native-context.js");
+    const row = exactSwitchxNativeInput(input, ["upload_context"]);
+    native.beginOwnerSwitchxVideoChatCreation(this, row.upload_context);
+    const created = await Reflect.apply(NATIVE_OWNER_SWITCHX_CREATE_CHAT, this,
+      ["video", `owner-switchx-video-${randomUUID()}`, signal]) as CreateChatReceipt;
+    if (!created || !isPlainRecord(created) || !isSafeSwitchxIdentifier(created.chat_uuid)) throw protocolError();
+    return native.createOwnerSwitchxVideoChatContext({ client: this, upload_context: row.upload_context, chat_uuid: created.chat_uuid });
+  }
+
+  /** One-shot Switchx dispatch; the video reference is resolved only from the captured native upload context. */
+  async startOwnerSwitchxVideo(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    assertNativeOwnerSwitchxVideo(this);
+    const native = await import("./owner-switchx-video-native-context.js");
+    const row = exactSwitchxNativeInput(input, ["context", "attempt_id", "principal", "prompt"]);
+    if (typeof row.attempt_id !== "string" || typeof row.prompt !== "string" || row.prompt.trim().length < 1 ||
+        row.prompt.length > 1_000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(row.prompt)) throw invalidRequest();
+    const captured = native.consumeOwnerSwitchxVideoStartContext(this, row.context, row.attempt_id, row.principal);
+    const settings = { model_type: "switchx", resolution: "720P", mask_mode: "auto", video_duration: 5, frame_rate: 24,
+      file_urls: [{ type: "video", url: captured.url }] };
+    return this.#startMedia("video/generate", "beeble", captured.chat_uuid,
+      { chat_id: captured.chat_uuid, prompt: row.prompt, settings }, signal);
+  }
+
   /** Dedicated Kling I2V single-image upload; its 30 MiB guard does not widen the generic 10 MiB path. */
   async uploadKlingI2VImageReference(
     request: unknown,
@@ -8034,6 +8496,75 @@ export class SyntxChatHttpClient {
       bytes.fill(0);
       form?.delete("files");
     }
+  }
+
+  /** One trusted-destination Hailuo initial image upload from a genuine locally validated receipt. */
+  async uploadOwnerHailuoInitialImage(input: unknown, signal?: AbortSignal): Promise<OwnerHailuoInitialUploadContext> {
+    assertNativeOwnerHailuoInitial(this);
+    let bytes: Uint8Array | undefined, form: FormData | undefined;
+    const fields = readExactDataRecord(input,["media","destination"],["media","destination"]);
+    if (fields.destination !== "uploaded" && fields.destination !== "hidden") throw invalidRequest();
+    const owned = readValidatedOwnerHailuoInitialImage(fields.media);
+    if (!owned) throw invalidRequest();
+    try {
+      try {
+        if (!releaseValidatedOwnerHailuoInitialImage(fields.media)) throw invalidRequest();
+        bytes = new Uint8Array(owned.size); bytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      const policy = OWNER_HAILUO_INITIAL_IMAGE_POLICY;
+      if (!bytes || !policy.model_ids.includes(owned.model_id) || owned.size !== bytes.byteLength || owned.size < 1 ||
+          owned.size > policy.local_max_bytes || createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !policy.local_supported_mime_types.includes(owned.mime_type) ||
+          !Number.isSafeInteger(owned.width) || !Number.isSafeInteger(owned.height) || owned.width < policy.min_dimension[owned.model_id] ||
+          owned.height < policy.min_dimension[owned.model_id] || owned.width > policy.max_dimension[owned.model_id] ||
+          owned.height > policy.max_dimension[owned.model_id] || owned.width * owned.height > policy.max_pixels ||
+          !owned.filename || owned.filename === "." || owned.filename === ".." || Buffer.byteLength(owned.filename,"utf8") > 255 ||
+          /[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(owned.filename)) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: fields.destination as OwnerHiggsfieldDopUploadDestination, check_duplicates: true, model_type: owned.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files",V1_BASE_URL),form,signal);
+      let reference: InternalUploadReference;
+      try { reference = validateProfileVideoImageUploadResponse(raw, { filename: owned.filename, mime_type: owned.mime_type,
+        bytes, width: owned.width, height: owned.height }); } catch { throw protocolError(); }
+      const native = await import("./owner-hailuo-initial-native-context.js");
+      return native.createOwnerHailuoInitialUploadContext(this,reference.url,{
+        model_id:owned.model_id,destination:fields.destination as "uploaded"|"hidden",mime_type:owned.mime_type,
+        size:owned.size,sha256:owned.sha256,width:owned.width,height:owned.height
+      });
+    } finally { bytes?.fill(0); form?.delete("files"); }
+  }
+
+  /** Uploads one locally validated WAN 2.7 I2V first-frame image to an operator-selected destination. */
+  async uploadOwnerWan27I2vImage(input: unknown, signal?: AbortSignal): Promise<import("./owner-wan27-i2v-native-context.js").OwnerWan27I2vImageUploadContext> {
+    assertNativeOwnerWan27I2v(this);
+    let bytes: Uint8Array | undefined, form: FormData | undefined;
+    const fields = readExactDataRecord(input,["media","destination"],["media","destination"]);
+    if (fields.destination !== "uploaded" && fields.destination !== "hidden") throw invalidRequest();
+    const policy = (await import("../../application/owner-wan27-i2v-image-policy.js")).OWNER_WAN27_I2V_IMAGE_POLICY;
+    const imagePolicy = await import("../../application/owner-wan27-i2v-image-policy.js");
+    const owned = imagePolicy.readValidatedOwnerWan27I2vImage(fields.media);
+    if (!owned) { imagePolicy.releaseValidatedOwnerWan27I2vImage(fields.media); throw invalidRequest(); }
+    try {
+      try {
+        if (!imagePolicy.releaseValidatedOwnerWan27I2vImage(fields.media)) throw invalidRequest();
+        bytes = new Uint8Array(owned.size); bytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      if (!bytes || owned.size !== bytes.byteLength || owned.size < 1 || owned.size > policy.public_bounds.max_file_size ||
+          createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !policy.canonical_mime_types.includes(owned.mime_type) ||
+          !Number.isSafeInteger(owned.width) || !Number.isSafeInteger(owned.height) ||
+          owned.width < policy.public_bounds.min_side || owned.height < policy.public_bounds.min_side ||
+          owned.width > policy.public_bounds.max_side || owned.height > policy.public_bounds.max_side ||
+          owned.width / owned.height < policy.public_bounds.min_aspect_ratio || owned.width / owned.height > policy.public_bounds.max_aspect_ratio ||
+          owned.width * owned.height > policy.local_max_pixels || !safeWan27I2vUploadFilename(owned.filename)) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: fields.destination as "uploaded"|"hidden", check_duplicates: true, model_type: "wan_27_i2v" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files",V1_BASE_URL),form,signal);
+      const reference = parseWan27I2vUploadReference(raw,owned.filename,owned.mime_type,owned.size,owned.width,owned.height);
+      const native = await import("./owner-wan27-i2v-native-context.js");
+      return native.createOwnerWan27I2vImageUploadContext(this,reference.url,{model_id:"wan_27_i2v",
+        destination:fields.destination,mime_type:owned.mime_type,size:owned.size,sha256:owned.sha256,width:owned.width,height:owned.height});
+    } finally { bytes?.fill(0); form?.delete("files"); }
   }
 
   /** One-shot native upload for one sealed Video2Audio MP4; the private URL is not returned as data. */
@@ -8625,7 +9156,7 @@ export class SyntxChatHttpClient {
     }
   }
 
-  /** One fixed hidden upload for a genuine Runway Gen4 first-frame receipt. */
+  /** One fixed hidden upload for a genuine Runway I2V first-frame receipt. */
   async uploadOwnerRunwayI2vImage(
     receiptInput: unknown,
     signal?: AbortSignal
@@ -8655,6 +9186,7 @@ export class SyntxChatHttpClient {
           !Number.isSafeInteger(owned.height) || owned.height < 1 || owned.height > OWNER_RUNWAY_I2V_IMAGE_POLICY.max_dimension ||
           owned.width * owned.height > OWNER_RUNWAY_I2V_IMAGE_POLICY.max_pixels ||
           owned.width * ratio[1] !== owned.height * ratio[0] ||
+          (owned.model_id === "gen4.5i2v" && owned.aspect_ratio !== "16:9") ||
           owned.filename.length === 0 || owned.filename === "." || owned.filename === ".." ||
           Buffer.byteLength(owned.filename, "utf8") > 255 || /[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(owned.filename)) {
         throw invalidRequest();
@@ -8747,6 +9279,303 @@ export class SyntxChatHttpClient {
       bytes?.fill(0);
       form?.delete("files");
     }
+  }
+
+  /** A single owner DOP image from a genuine local receipt; destination is trusted operator configuration. */
+  async uploadOwnerHiggsfieldDopImage(input: unknown, signal?: AbortSignal): Promise<OwnerHiggsfieldDopImageUploadContext> {
+    let bytes: Uint8Array | undefined, form: FormData | undefined;
+    const fields = readExactDataRecord(input,["media","destination"],["media","destination"]);
+    if (fields.destination !== "uploaded" && fields.destination !== "hidden") throw invalidRequest();
+    const owned = readValidatedOwnerHiggsfieldDopImageUpload(fields.media);
+    if (!owned) throw invalidRequest();
+    try {
+      try {
+        if (!releaseValidatedOwnerHiggsfieldDopImageUpload(fields.media)) throw invalidRequest();
+        bytes = new Uint8Array(owned.size); bytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      if ((owned.model_id !== "dop-lite" && owned.model_id !== "dop-turbo") || !bytes ||
+          owned.size !== bytes.byteLength || owned.size < 1 || owned.size > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.local_max_bytes ||
+          createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.supported_container_mime_types.includes(owned.mime_type) ||
+          !Number.isSafeInteger(owned.width) || !Number.isSafeInteger(owned.height) || owned.width < 1 || owned.height < 1 ||
+          owned.width > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.max_dimension || owned.height > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.max_dimension ||
+          owned.width * owned.height > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.max_pixels ||
+          !owned.filename || owned.filename === "." || owned.filename === ".." || Buffer.byteLength(owned.filename,"utf8") > 255 ||
+          /[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(owned.filename)) throw invalidRequest();
+      form = this.#buildUploadForm({bytes,filename:owned.filename,mime_type:owned.mime_type,
+        destination:fields.destination as OwnerHiggsfieldDopUploadDestination,check_duplicates:true,model_type:owned.model_id},bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files",V1_BASE_URL),form,signal);
+      let reference: InternalUploadReference;
+      try { reference = validateProfileVideoImageUploadResponse(raw, { filename: owned.filename, mime_type: owned.mime_type,
+        bytes, width: owned.width, height: owned.height }); } catch { throw protocolError(); }
+      return createOwnerHiggsfieldDopImageUploadContext(this,reference,{model_id:owned.model_id,
+        destination:fields.destination as OwnerHiggsfieldDopUploadDestination,mime_type:owned.mime_type,
+        size:owned.size,sha256:owned.sha256,width:owned.width,height:owned.height});
+    } finally { bytes?.fill(0); form?.delete("files"); }
+  }
+
+  /** Read-only import of one explicitly selected existing DOP file; never uploads or accepts caller URLs. */
+  async importOwnerHiggsfieldDopImage(input: unknown, signal?: AbortSignal): Promise<OwnerHiggsfieldDopExistingImageContext> {
+    let localBytes: Uint8Array | undefined, objectBytes: Uint8Array | undefined;
+    const fields = readExactDataRecord(input,["media","file_id","destination"],["media","file_id","destination"]);
+    if (fields.destination !== "uploaded" || typeof fields.file_id !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u.test(fields.file_id)) throw invalidRequest();
+    const owned = readValidatedOwnerHiggsfieldDopImageUpload(fields.media);
+    if (!owned) { releaseValidatedOwnerHiggsfieldDopImageUpload(fields.media); throw invalidRequest(); }
+    try {
+      try {
+        if (!releaseValidatedOwnerHiggsfieldDopImageUpload(fields.media)) throw invalidRequest();
+        localBytes = new Uint8Array(owned.size); localBytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      if ((owned.model_id !== "dop-lite" && owned.model_id !== "dop-turbo") || !localBytes || owned.size !== localBytes.byteLength ||
+          owned.size < 1 || owned.size > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.local_max_bytes ||
+          createHash("sha256").update(localBytes).digest("hex") !== owned.sha256 ||
+          !OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.supported_container_mime_types.includes(owned.mime_type) ||
+          !Number.isSafeInteger(owned.width) || !Number.isSafeInteger(owned.height) || owned.width < 1 || owned.height < 1 ||
+          owned.width > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.max_dimension || owned.height > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.max_dimension ||
+          owned.width * owned.height > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.max_pixels || !owned.filename || owned.filename === "." ||
+          owned.filename === ".." || Buffer.byteLength(owned.filename,"utf8") > 255 || /[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(owned.filename)) throw invalidRequest();
+
+      const inventoryUrl = new URL("files/uploaded",V1_BASE_URL);
+      inventoryUrl.searchParams.set("scope","all"); inventoryUrl.searchParams.set("page","1"); inventoryUrl.searchParams.set("page_size","10");
+      const rawInventory = await this.#request(inventoryUrl,"GET",undefined,"JSON_REQUIRED",signal);
+      const inventory = dopExistingFilesResponseSchema.safeParse(rawInventory);
+      if (!inventory.success || inventory.data.page !== 1 || inventory.data.page_size !== 10) throw protocolError();
+      const matches = inventory.data.items.filter(item => String(item.id) === fields.file_id);
+      if (matches.length !== 1) throw new SyntxHttpError("INVALID_REQUEST","The selected existing DOP file id is not uniquely present in the first account-files page.");
+      const url = new URL(matches[0]!.url);
+      if (!isSafeUploadReferenceUrl(url.href)) throw protocolError();
+
+      const deadline = new AbsoluteRequestDeadline(this.#requestTimeoutMs,signal,abortError);
+      try {
+        deadline.throwIfAborted();
+        const response = await deadline.waitFor(this.#fetch(url.href,{ method:"GET", headers:{ accept:"image/*" },
+          credentials:"omit", cache:"no-store", redirect:"error", signal:deadline.signal }));
+        if (response.redirected || response.type === "opaqueredirect" || (response.url.length > 0 && response.url !== url.href) ||
+            response.status !== 200 || !response.ok) { cancelResponseBody(response); throw protocolError(); }
+        const contentLength = response.headers.get("content-length");
+        if (contentLength !== null && (!/^\d+$/u.test(contentLength) || Number(contentLength) !== owned.size)) {
+          cancelResponseBody(response); throw protocolError();
+        }
+        const responseType = response.headers.get("content-type")?.split(";",1)[0]?.trim().toLowerCase();
+        const normalizedResponseType = responseType === "image/jpg" ? "image/jpeg" : responseType;
+        if (normalizedResponseType && normalizedResponseType !== "application/octet-stream" && normalizedResponseType !== owned.mime_type) {
+          cancelResponseBody(response); throw protocolError();
+        }
+        objectBytes = await deadline.waitFor(readBoundedBody(response,OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.local_max_bytes,deadline.signal));
+      } finally { deadline.close(); }
+      if (!objectBytes || objectBytes.byteLength !== owned.size || createHash("sha256").update(objectBytes).digest("hex") !== owned.sha256) {
+        throw protocolError();
+      }
+      const reference: InternalUploadReference = Object.freeze({ file_id: fields.file_id, url: url.href });
+      return createOwnerHiggsfieldDopExistingImageContext(this,reference,{ model_id:owned.model_id,destination:"uploaded",
+        mime_type:owned.mime_type,size:owned.size,sha256:owned.sha256,width:owned.width,height:owned.height },fields.file_id);
+    } finally { localBytes?.fill(0); objectBytes?.fill(0); }
+  }
+
+  /** Imports one explicitly selected HeyGen 4 account asset by exact local bytes; this path never uploads. */
+  async importOwnerHeygen4Asset(input: unknown, signal?: AbortSignal): Promise<object> {
+    let localBytes: Uint8Array | undefined, objectBytes: Uint8Array | undefined;
+    const fields = readExactDataRecord(input, ["media", "file_id", "media_type"], ["media", "file_id", "media_type"]);
+    if (typeof fields.file_id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u.test(fields.file_id) ||
+        (fields.media_type !== "image" && fields.media_type !== "audio")) throw invalidRequest();
+    const policy = await import("../../application/owner-heygen4-media-policy.js");
+    const owned = fields.media_type === "image" ? policy.readValidatedOwnerHeygen4Image(fields.media) : policy.readValidatedOwnerHeygen4Audio(fields.media);
+    if (!owned) throw invalidRequest();
+    try {
+      const release = fields.media_type === "image" ? policy.releaseValidatedOwnerHeygen4Image : policy.releaseValidatedOwnerHeygen4Audio;
+      if (!release(fields.media)) throw invalidRequest();
+      localBytes = new Uint8Array(owned.size); localBytes.set(owned.bytes);
+      if (localBytes.byteLength !== owned.size || createHash("sha256").update(localBytes).digest("hex") !== owned.sha256) throw invalidRequest();
+      const url = new URL("files/uploaded", V1_BASE_URL);
+      url.searchParams.set("scope", "all"); url.searchParams.set("page", "1"); url.searchParams.set("page_size", "10");
+      const raw = await this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+      const inventory = heygen4ExistingFilesResponseSchema.safeParse(raw);
+      if (!inventory.success || inventory.data.page !== 1 || inventory.data.page_size !== 10) throw protocolError();
+      const selected = inventory.data.items.filter(row => String(row.id) === fields.file_id);
+      if (selected.length !== 1) throw invalidRequest();
+      const item = selected[0]!;
+      const metadataName = typeof item.metadata.name === "string" ? item.metadata.name : undefined;
+      const metadataMime = typeof item.metadata.mime_type === "string" ? item.metadata.mime_type : undefined;
+      const metadataSize = typeof item.metadata.size === "number" ? item.metadata.size : undefined;
+      const inventoryType = item.type.toLowerCase();
+      const allowedType = fields.media_type === "image" ? inventoryType === "image" || inventoryType === "images" : inventoryType === "audio" || inventoryType === "audios";
+      const mime = item.mime_type ?? metadataMime, filename = item.filename ?? metadataName, size = item.size ?? metadataSize;
+      if (!allowedType || mime !== owned.mime_type || filename !== owned.filename || size !== owned.size) throw invalidRequest();
+      const objectUrl = new URL(item.url);
+      if (!isSafeUploadReferenceUrl(objectUrl.href)) throw protocolError();
+      const deadline = new AbsoluteRequestDeadline(this.#requestTimeoutMs, signal, abortError);
+      try {
+        deadline.throwIfAborted();
+        const accept = fields.media_type === "image" ? "image/*" : "audio/*";
+        const response = await deadline.waitFor(this.#fetch(objectUrl.href, { method: "GET", headers: { accept }, credentials: "omit",
+          cache: "no-store", redirect: "error", signal: deadline.signal }));
+        if (response.redirected || response.type === "opaqueredirect" || (response.url.length > 0 && response.url !== objectUrl.href) ||
+            response.status !== 200 || !response.ok) { cancelResponseBody(response); throw protocolError(); }
+        const contentLength = response.headers.get("content-length");
+        if (contentLength !== null && (!/^\d+$/u.test(contentLength) || Number(contentLength) !== owned.size)) { cancelResponseBody(response); throw protocolError(); }
+        const responseType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+        if (responseType && responseType !== "application/octet-stream" && responseType !== owned.mime_type &&
+            !(owned.mime_type === "image/jpg" && responseType === "image/jpeg")) { cancelResponseBody(response); throw protocolError(); }
+        objectBytes = await deadline.waitFor(readBoundedBody(response, 10 * 1024 * 1024, deadline.signal));
+      } finally { deadline.close(); }
+      if (!objectBytes || objectBytes.byteLength !== owned.size || createHash("sha256").update(objectBytes).digest("hex") !== owned.sha256 ||
+          !Buffer.from(localBytes).equals(Buffer.from(objectBytes))) throw protocolError();
+      const context = Object.freeze(Object.create(null) as object);
+      OWNER_HEYGEN4_IMPORTED_ASSETS.set(context, Object.freeze({ client: this, media_type: fields.media_type, file_id: fields.file_id,
+        url: objectUrl.href, sha256: owned.sha256, size: owned.size }));
+      return context;
+    } finally { owned.bytes.fill(0); localBytes?.fill(0); objectBytes?.fill(0); }
+  }
+
+  /** Starts the fixed ordered image/audio HeyGen 4 tuple from contexts minted by this client. */
+  async startOwnerHeygen4Video(input: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const fields = readExactDataRecord(input, ["chat_id", "prompt", "duration", "image", "audio"],
+      ["chat_id", "prompt", "duration", "image", "audio"]);
+    if (typeof fields.chat_id !== "string" || typeof fields.prompt !== "string" || typeof fields.duration !== "number" ||
+        !Number.isFinite(fields.duration) || fields.duration < 2 || fields.duration > 120) throw invalidRequest();
+    const image = fields.image && typeof fields.image === "object" ? OWNER_HEYGEN4_IMPORTED_ASSETS.get(fields.image as object) : undefined;
+    const audio = fields.audio && typeof fields.audio === "object" ? OWNER_HEYGEN4_IMPORTED_ASSETS.get(fields.audio as object) : undefined;
+    if (!image || !audio || image.client !== this || audio.client !== this || image.media_type !== "image" || audio.media_type !== "audio" ||
+        image.file_id === audio.file_id) throw invalidRequest();
+    const settings = Object.freeze({ model_type: "heygen4", aspect_ratio: "16:9", duration: fields.duration,
+      file_urls: Object.freeze([{ type: "image", url: image.url }, { type: "audio", url: audio.url }]) });
+    return this.#startMedia("video/generate", "heygen", fields.chat_id,
+      { chat_id: fields.chat_id, prompt: fields.prompt, settings } as unknown as Record<string, JsonValue>, signal);
+  }
+
+  /** One bounded account-owned HeyGen history read, used only for GET recovery. */
+  async readOwnerHeygen4History(chatId: string, signal?: AbortSignal): Promise<unknown> {
+    if (typeof chatId !== "string" || !/^[A-Za-z0-9_-]{1,160}$/u.test(chatId)) throw invalidRequest();
+    const url = new URL(`chats/${chatId}/messages`, V1_BASE_URL); url.searchParams.set("page", "1"); url.searchParams.set("page_size", "10");
+    return this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
+  /** Reads one message by the id observed in owned HeyGen history. */
+  async readOwnerHeygen4Result(chatId: string, messageId: string, signal?: AbortSignal): Promise<unknown> {
+    if (typeof chatId !== "string" || !/^[A-Za-z0-9_-]{1,160}$/u.test(chatId) || typeof messageId !== "string" ||
+        !/^[A-Za-z0-9_-]{1,160}$/u.test(messageId)) throw invalidRequest();
+    return this.#request(new URL(`chats/${chatId}/${messageId}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
+  /** Uploads one genuine HappyHorse image receipt to an operator-selected destination. */
+  async uploadOwnerHappyHorseImage(input: unknown, signal?: AbortSignal): Promise<OwnerHappyHorseImageUploadContext> {
+    let bytes: Uint8Array | undefined, form: FormData | undefined;
+    const fields = readExactDataRecord(input, ["media", "destination"], ["media", "destination"]);
+    if (fields.destination !== "uploaded" && fields.destination !== "hidden") throw invalidRequest();
+    const owned = readValidatedOwnerHappyHorseImage(fields.media);
+    if (!owned) { releaseValidatedOwnerHappyHorseImage(fields.media); throw invalidRequest(); }
+    try {
+      try {
+        if (!releaseValidatedOwnerHappyHorseImage(fields.media)) throw invalidRequest();
+        bytes = new Uint8Array(owned.size); bytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      if ((owned.model_id !== "happy_horse_first_frame" && owned.model_id !== "happy_horse_references") || !bytes ||
+          bytes.byteLength !== owned.size || bytes.byteLength < 1 || bytes.byteLength > 10 * 1024 * 1024 ||
+          createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          (owned.mime_type !== "image/jpeg" && owned.mime_type !== "image/png" && owned.mime_type !== "image/webp") ||
+          !Number.isSafeInteger(owned.width) || owned.width < 400 || owned.width > 8_000 ||
+          !Number.isSafeInteger(owned.height) || owned.height < 400 || owned.height > 8_000 || owned.width * owned.height > 52_500_000 ||
+          !safeHappyHorseFilename(owned.filename)) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: fields.destination as OwnerHappyHorseUploadDestination, check_duplicates: true, model_type: owned.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      let reference: InternalUploadReference;
+      try { reference = validateProfileVideoImageUploadResponse(raw, { filename: owned.filename, mime_type: owned.mime_type,
+        bytes, width: owned.width, height: owned.height }); } catch { throw protocolError(); }
+      return createOwnerHappyHorseImageUploadContext(this, reference.url, { model_id: owned.model_id,
+        destination: fields.destination as OwnerHappyHorseUploadDestination, mime_type: owned.mime_type, size: owned.size,
+        sha256: owned.sha256, width: owned.width, height: owned.height });
+    } finally { bytes?.fill(0); form?.delete("files"); }
+  }
+
+  /** Uploads one genuine locally measured HappyHorse edit video; probe ceilings remain local guards only. */
+  async uploadOwnerHappyHorseEditVideo(input: unknown, signal?: AbortSignal): Promise<OwnerHappyHorseEditVideoUploadContext> {
+    let bytes: Uint8Array | undefined, form: FormData | undefined;
+    const fields = readExactDataRecord(input, ["media", "destination"], ["media", "destination"]);
+    if (fields.destination !== "uploaded" && fields.destination !== "hidden") throw invalidRequest();
+    const owned = readValidatedOwnerHappyHorseEditVideo(fields.media);
+    if (!owned) { releaseValidatedOwnerHappyHorseEditVideo(fields.media); throw invalidRequest(); }
+    try {
+      try {
+        if (!releaseValidatedOwnerHappyHorseEditVideo(fields.media)) throw invalidRequest();
+        bytes = new Uint8Array(owned.size); bytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      if (!bytes || owned.model_id !== "happy_horse_edit" || bytes.byteLength !== owned.size || bytes.byteLength < 16 ||
+          bytes.byteLength > 100 * 1024 * 1024 || createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          (owned.mime_type !== "video/mp4" && owned.mime_type !== "video/quicktime") ||
+          !Number.isSafeInteger(owned.width) || owned.width < 400 || owned.width > 2_160 ||
+          !Number.isSafeInteger(owned.height) || owned.height < 400 || owned.height > 2_160 || owned.width * owned.height > 52_500_000 ||
+          !Number.isFinite(owned.measured_duration_seconds) || owned.measured_duration_seconds < 3 || owned.measured_duration_seconds > 30 ||
+          owned.local_limit_confidence !== "CONSERVATIVE_LOCAL_PROBE_CEILING_NOT_PROVIDER_LIMIT" || !safeHappyHorseFilename(owned.filename)) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: fields.destination as OwnerHappyHorseUploadDestination, check_duplicates: true, model_type: "happy_horse_edit" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const parsed = happyHorseUploadResponseSchema.safeParse(raw); if (!parsed.success) throw protocolError();
+      const row = parsed.data.files[0]!;
+      if ((row.status !== undefined && row.status.toLowerCase() !== "success") ||
+          (row.filename !== undefined && row.filename !== owned.filename) ||
+          (row.mime_type !== undefined && row.mime_type !== owned.mime_type) ||
+          (row.size !== undefined && row.size !== owned.size) ||
+          (row.id !== undefined && row.file_id !== undefined && String(row.id) !== String(row.file_id))) throw protocolError();
+      let references: InternalUploadReference[]; try { references = parseInternalUploadReferences(raw); } catch { throw protocolError(); }
+      if (references.length !== 1) throw protocolError();
+      return createOwnerHappyHorseEditVideoUploadContext(this, references[0]!, owned, fields.destination as OwnerHappyHorseUploadDestination);
+    } finally { bytes?.fill(0); form?.delete("files"); }
+  }
+
+  /** Uploads one locally validated ActTwo character image to a trusted operator destination. */
+  async uploadOwnerActTwoCharacterImage(input: unknown, signal?: AbortSignal): Promise<OwnerActTwoCharacterImageUploadContext> {
+    let bytes: Uint8Array | undefined, form: FormData | undefined;
+    const fields = readExactDataRecord(input, ["media", "destination"], ["media", "destination"]);
+    if (fields.destination !== "uploaded" && fields.destination !== "hidden") throw invalidRequest();
+    const owned = readValidatedOwnerActTwoCharacterImage(fields.media);
+    if (!owned) { releaseValidatedOwnerActTwoCharacterImage(fields.media); throw invalidRequest(); }
+    try {
+      try {
+        if (!releaseValidatedOwnerActTwoCharacterImage(fields.media)) throw invalidRequest();
+        bytes = new Uint8Array(owned.size); bytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      if (!bytes || owned.model_id !== "acttwo" || owned.size !== bytes.byteLength || owned.size < 1 || owned.size > 20 * 1024 * 1024 ||
+          createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          (owned.mime_type !== "image/jpeg" && owned.mime_type !== "image/png") || !Number.isSafeInteger(owned.width) || owned.width < 1 ||
+          owned.width > 8_400 || !Number.isSafeInteger(owned.height) || owned.height < 1 || owned.height > 8_400 ||
+          owned.width * owned.height > 52_500_000 || !safeActTwoFilename(owned.filename)) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: fields.destination as OwnerActTwoUploadDestination, check_duplicates: true, model_type: "acttwo" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseActTwoUploadReference(raw, { filename: owned.filename, mime_type: owned.mime_type, size: owned.size });
+      return createOwnerActTwoCharacterImageUploadContext(this, reference, { model_id: "acttwo",
+        destination: fields.destination as OwnerActTwoUploadDestination, mime_type: owned.mime_type, size: owned.size,
+        sha256: owned.sha256, width: owned.width, height: owned.height });
+    } finally { bytes?.fill(0); form?.delete("files"); }
+  }
+
+  /** Uploads one ffprobe-measured, five-second ActTwo performance MP4 to a trusted destination. */
+  async uploadOwnerActTwoPerformanceVideo(input: unknown, signal?: AbortSignal): Promise<OwnerActTwoPerformanceVideoUploadContext> {
+    let bytes: Uint8Array | undefined, form: FormData | undefined;
+    const fields = readExactDataRecord(input, ["media", "destination"], ["media", "destination"]);
+    if (fields.destination !== "uploaded" && fields.destination !== "hidden") throw invalidRequest();
+    const owned = readValidatedOwnerActTwoPerformanceVideo(fields.media);
+    if (!owned) { releaseValidatedOwnerActTwoPerformanceVideo(fields.media); throw invalidRequest(); }
+    try {
+      try {
+        if (!releaseValidatedOwnerActTwoPerformanceVideo(fields.media)) throw invalidRequest();
+        bytes = new Uint8Array(owned.size); bytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      if (!bytes || owned.model_id !== "acttwo" || owned.size !== bytes.byteLength || owned.size < 16 || owned.size > 20 * 1024 * 1024 ||
+          createHash("sha256").update(bytes).digest("hex") !== owned.sha256 || owned.mime_type !== "video/mp4" ||
+          !Number.isSafeInteger(owned.width) || owned.width < 300 || owned.width > 8_400 ||
+          !Number.isSafeInteger(owned.height) || owned.height < 300 || owned.height > 8_400 || owned.width * owned.height > 52_500_000 ||
+          owned.measured_duration_seconds !== 5 || !safeActTwoFilename(owned.filename)) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: fields.destination as OwnerActTwoUploadDestination, check_duplicates: true, model_type: "acttwo" }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const reference = parseActTwoUploadReference(raw, { filename: owned.filename, mime_type: owned.mime_type, size: owned.size });
+      return createOwnerActTwoPerformanceVideoUploadContext(this, reference, { model_id: "acttwo",
+        destination: fields.destination as OwnerActTwoUploadDestination, mime_type: owned.mime_type, size: owned.size,
+        sha256: owned.sha256, width: owned.width, height: owned.height, measured_duration_seconds: owned.measured_duration_seconds });
+    } finally { bytes?.fill(0); form?.delete("files"); }
   }
 
   /** One fixed WAN 2.7 R2V image upload from a genuine local image receipt. */
@@ -9731,6 +10560,22 @@ const NATIVE_OWNER_HAILUO02_I2V_NATIVE_CREATE = SyntxChatHttpClient.prototype.cr
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_START = SyntxChatHttpClient.prototype.startOwnerHailuo02I2vWithOwnedCandidate;
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_LIST = SyntxChatHttpClient.prototype.listOwnedHailuo02I2vCandidates;
 const NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET = SyntxChatHttpClient.prototype.getOwnedHailuo02I2vResult;
+const NATIVE_OWNER_HAILUO_INITIAL_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_HAILUO_INITIAL_UPLOAD = SyntxChatHttpClient.prototype.uploadOwnerHailuoInitialImage;
+const NATIVE_OWNER_HAILUO_INITIAL_CREATE = SyntxChatHttpClient.prototype.createOwnerHailuoInitialChat;
+const NATIVE_OWNER_HAILUO_INITIAL_IS_CHAT = SyntxChatHttpClient.prototype.isOwnerHailuoInitialChat;
+const NATIVE_OWNER_HAILUO_INITIAL_INVALIDATE = SyntxChatHttpClient.prototype.invalidateOwnerHailuoInitialChats;
+const NATIVE_OWNER_HAILUO_INITIAL_START = SyntxChatHttpClient.prototype.startOwnerHailuoInitialOperation;
+const NATIVE_OWNER_HAILUO_INITIAL_HISTORY = SyntxChatHttpClient.prototype.readOwnerHailuoInitialHistory;
+const NATIVE_OWNER_HAILUO_INITIAL_RESULT = SyntxChatHttpClient.prototype.readOwnerHailuoInitialResult;
+const NATIVE_OWNER_WAN27_I2V_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_WAN27_I2V_UPLOAD = SyntxChatHttpClient.prototype.uploadOwnerWan27I2vImage;
+const NATIVE_OWNER_WAN27_I2V_CREATE = SyntxChatHttpClient.prototype.createOwnerWan27I2vChat;
+const NATIVE_OWNER_WAN27_I2V_IS_CHAT = SyntxChatHttpClient.prototype.isOwnerWan27I2vChat;
+const NATIVE_OWNER_WAN27_I2V_INVALIDATE = SyntxChatHttpClient.prototype.invalidateOwnerWan27I2vChats;
+const NATIVE_OWNER_WAN27_I2V_START = SyntxChatHttpClient.prototype.startOwnerWan27I2vOperation;
+const NATIVE_OWNER_WAN27_I2V_HISTORY = SyntxChatHttpClient.prototype.readOwnerWan27I2vHistory;
+const NATIVE_OWNER_WAN27_I2V_RESULT = SyntxChatHttpClient.prototype.readOwnerWan27I2vResult;
 type OwnerWan25I2vPacketMethod = "create" | "start" | "list" | "get";
 interface OwnerWan25I2vNativeInvocation {
   readonly client: SyntxChatHttpClient;
@@ -9975,6 +10820,61 @@ function isExactOwnerHailuo02I2vNativeClient(client: unknown): client is SyntxCh
       getDataMethod(client, "getOwnedHailuo02I2vResult") === NATIVE_OWNER_HAILUO02_I2V_NATIVE_GET &&
       SyntxChatHttpClient.prototype.uploadHailuo02I2vImage === NATIVE_OWNER_HAILUO02_I2V_UPLOAD &&
       Reflect.get(client, "uploadHailuo02I2vImage") === NATIVE_OWNER_HAILUO02_I2V_UPLOAD;
+  } catch { return false; }
+}
+
+function assertNativeOwnerHailuoInitial(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerHailuoInitialClient(client)) throw new Error("OWNER_HAILUO_INITIAL_NATIVE_CLIENT_INVALID");
+}
+function isExactOwnerHailuoInitialClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) && Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !Object.hasOwn(client, "createChat") && !Object.hasOwn(client, "uploadOwnerHailuoInitialImage") &&
+      !Object.hasOwn(client, "createOwnerHailuoInitialChat") && !Object.hasOwn(client, "startOwnerHailuoInitialOperation") &&
+      !Object.hasOwn(client, "isOwnerHailuoInitialChat") && !Object.hasOwn(client, "invalidateOwnerHailuoInitialChats") &&
+      !Object.hasOwn(client, "readOwnerHailuoInitialHistory") && !Object.hasOwn(client, "readOwnerHailuoInitialResult") &&
+      getDataMethod(client, "createChat") === NATIVE_OWNER_HAILUO_INITIAL_CREATE_CHAT &&
+      getDataMethod(client, "uploadOwnerHailuoInitialImage") === NATIVE_OWNER_HAILUO_INITIAL_UPLOAD &&
+      getDataMethod(client, "createOwnerHailuoInitialChat") === NATIVE_OWNER_HAILUO_INITIAL_CREATE &&
+      getDataMethod(client, "isOwnerHailuoInitialChat") === NATIVE_OWNER_HAILUO_INITIAL_IS_CHAT &&
+      getDataMethod(client, "invalidateOwnerHailuoInitialChats") === NATIVE_OWNER_HAILUO_INITIAL_INVALIDATE &&
+      getDataMethod(client, "startOwnerHailuoInitialOperation") === NATIVE_OWNER_HAILUO_INITIAL_START &&
+      getDataMethod(client, "readOwnerHailuoInitialHistory") === NATIVE_OWNER_HAILUO_INITIAL_HISTORY &&
+      getDataMethod(client, "readOwnerHailuoInitialResult") === NATIVE_OWNER_HAILUO_INITIAL_RESULT &&
+      Reflect.get(client, "createOwnerHailuoInitialChat") === NATIVE_OWNER_HAILUO_INITIAL_CREATE &&
+      Reflect.get(client, "isOwnerHailuoInitialChat") === NATIVE_OWNER_HAILUO_INITIAL_IS_CHAT &&
+      Reflect.get(client, "invalidateOwnerHailuoInitialChats") === NATIVE_OWNER_HAILUO_INITIAL_INVALIDATE &&
+      Reflect.get(client, "uploadOwnerHailuoInitialImage") === NATIVE_OWNER_HAILUO_INITIAL_UPLOAD &&
+      SyntxChatHttpClient.prototype.invalidateOwnerHailuoInitialChats === NATIVE_OWNER_HAILUO_INITIAL_INVALIDATE;
+  } catch { return false; }
+}
+
+function assertNativeOwnerWan27I2v(client: unknown): asserts client is SyntxChatHttpClient {
+  if (!isExactOwnerWan27I2vNativeClient(client)) throw new Error("OWNER_WAN27_I2V_NATIVE_CLIENT_INVALID");
+}
+function isExactOwnerWan27I2vNativeClient(client: unknown): client is SyntxChatHttpClient {
+  try {
+    return !!client && typeof client === "object" && !types.isProxy(client) && Object.getPrototypeOf(client) === SyntxChatHttpClient.prototype &&
+      !Object.hasOwn(client,"createChat") && !Object.hasOwn(client,"uploadOwnerWan27I2vImage") &&
+      !Object.hasOwn(client,"createOwnerWan27I2vChat") && !Object.hasOwn(client,"isOwnerWan27I2vChat") &&
+      !Object.hasOwn(client,"invalidateOwnerWan27I2vChats") && !Object.hasOwn(client,"startOwnerWan27I2vOperation") &&
+      !Object.hasOwn(client,"readOwnerWan27I2vHistory") && !Object.hasOwn(client,"readOwnerWan27I2vResult") &&
+      getDataMethod(client,"createChat") === NATIVE_OWNER_WAN27_I2V_CREATE_CHAT &&
+      getDataMethod(client,"uploadOwnerWan27I2vImage") === NATIVE_OWNER_WAN27_I2V_UPLOAD &&
+      getDataMethod(client,"createOwnerWan27I2vChat") === NATIVE_OWNER_WAN27_I2V_CREATE &&
+      getDataMethod(client,"isOwnerWan27I2vChat") === NATIVE_OWNER_WAN27_I2V_IS_CHAT &&
+      getDataMethod(client,"invalidateOwnerWan27I2vChats") === NATIVE_OWNER_WAN27_I2V_INVALIDATE &&
+      getDataMethod(client,"startOwnerWan27I2vOperation") === NATIVE_OWNER_WAN27_I2V_START &&
+      getDataMethod(client,"readOwnerWan27I2vHistory") === NATIVE_OWNER_WAN27_I2V_HISTORY &&
+      getDataMethod(client,"readOwnerWan27I2vResult") === NATIVE_OWNER_WAN27_I2V_RESULT &&
+      Reflect.get(client,"uploadOwnerWan27I2vImage") === NATIVE_OWNER_WAN27_I2V_UPLOAD &&
+      Reflect.get(client,"createOwnerWan27I2vChat") === NATIVE_OWNER_WAN27_I2V_CREATE &&
+      Reflect.get(client,"isOwnerWan27I2vChat") === NATIVE_OWNER_WAN27_I2V_IS_CHAT &&
+      Reflect.get(client,"invalidateOwnerWan27I2vChats") === NATIVE_OWNER_WAN27_I2V_INVALIDATE &&
+      Reflect.get(client,"startOwnerWan27I2vOperation") === NATIVE_OWNER_WAN27_I2V_START &&
+      Reflect.get(client,"readOwnerWan27I2vHistory") === NATIVE_OWNER_WAN27_I2V_HISTORY &&
+      Reflect.get(client,"readOwnerWan27I2vResult") === NATIVE_OWNER_WAN27_I2V_RESULT &&
+      SyntxChatHttpClient.prototype.invalidateOwnerWan27I2vChats === NATIVE_OWNER_WAN27_I2V_INVALIDATE;
   } catch { return false; }
 }
 
@@ -10970,6 +11870,10 @@ function pruneOwnerSeedanceEditorChatAttempt(state: OwnerSeedanceEditorChatClien
   const hasContext = [...state.contexts.values()].some((context) => context.attemptId === attemptId);
   const hasPending = [...state.pending.values()].some((pending) => pending.attemptId === attemptId);
   if (!hasContext && !hasPending) state.attemptEpochs.delete(attemptId);
+}
+
+function isOwnerRunwayI2vModelId(value: unknown): value is OwnerRunwayI2vModelId {
+  return typeof value === "string" && (OWNER_RUNWAY_I2V_MODEL_IDS as readonly string[]).includes(value);
 }
 
 function ownerRunwayI2vChatClientState(client: SyntxChatHttpClient): OwnerRunwayI2vChatClientState {
@@ -12960,6 +13864,30 @@ function parseWan27R2vUploadReference(
   return Object.freeze(references[0]!);
 }
 
+function parseWan27I2vUploadReference(raw: unknown, filename: string, mimeType: string, size: number,
+  width: number, height: number): InternalUploadReference {
+  const parsed = wan27I2vUploadResponseSchema.safeParse(raw);
+  if (!parsed.success) throw protocolError();
+  const [file] = parsed.data.files, status = file?.status.toLowerCase();
+  if (!file || (status !== "success" && status !== "duplicate") ||
+      (file.filename !== undefined && file.filename !== filename) ||
+      (file.mime_type !== undefined && file.mime_type !== mimeType) ||
+      (file.content_type !== undefined && file.content_type !== mimeType) ||
+      (file.mime_type !== undefined && file.content_type !== undefined && file.mime_type !== file.content_type) ||
+      (file.size !== undefined && file.size !== size) ||
+      (file.width !== undefined && file.width !== width) || (file.height !== undefined && file.height !== height) ||
+      ((file.width === undefined) !== (file.height === undefined)) ||
+      (status === "duplicate" && (file.filename === undefined || file.size === undefined ||
+        (file.mime_type === undefined && file.content_type === undefined) || file.width === undefined || file.height === undefined)) ||
+      (file.id !== undefined && file.file_id !== undefined && String(file.id) !== String(file.file_id))) throw protocolError();
+  let references: InternalUploadReference[];
+  try { references = parseInternalUploadReferences({ files: [{ ...(file.id === undefined ? {} : { id: file.id }),
+    ...(file.file_id === undefined ? {} : { file_id: file.file_id }), url: file.url }] }); }
+  catch { throw protocolError(); }
+  if (references.length !== 1) throw protocolError();
+  return Object.freeze(references[0]!);
+}
+
 function parseWan26R2vVideoUploadReference(
   raw: unknown,
   expectedModel: OwnerWan26R2vSelectedVideoUploadContext["model_id"],
@@ -13025,6 +13953,37 @@ function isWan26I2vAudioMime(value: unknown): value is OwnerWan26I2vAudioUploadC
 function isSafeWan26I2vUploadFilename(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 255 && value === value.trim() &&
     value !== "." && value !== ".." && !/[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(value);
+}
+
+function safeHappyHorseFilename(value: string): boolean {
+  return value.length > 0 && value === value.trim() && value !== "." && value !== ".." &&
+    !/[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(value) && Buffer.byteLength(value,"utf8") <= 255;
+}
+
+function safeActTwoFilename(value: string): boolean {
+  return value.length > 0 && value === value.trim() && value !== "." && value !== ".." &&
+    !/[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(value) && Buffer.byteLength(value, "utf8") <= 255;
+}
+
+function parseActTwoUploadReference(raw: unknown, expected: Readonly<{ filename: string; mime_type: string; size: number }>): InternalUploadReference {
+  const parsed = happyHorseUploadResponseSchema.safeParse(raw);
+  if (!parsed.success) throw protocolError();
+  const [file] = parsed.data.files, status = file?.status?.toLowerCase();
+  if (!file || (status !== "success" && status !== "duplicate") ||
+      (file.filename !== undefined && file.filename !== expected.filename) ||
+      (file.mime_type !== undefined && file.mime_type !== expected.mime_type) ||
+      (file.size !== undefined && file.size !== expected.size) ||
+      (status === "duplicate" && (file.filename === undefined || file.mime_type === undefined || file.size === undefined)) ||
+      (file.id !== undefined && file.file_id !== undefined && String(file.id) !== String(file.file_id))) throw protocolError();
+  let references: InternalUploadReference[];
+  try { references = parseInternalUploadReferences(raw); } catch { throw protocolError(); }
+  if (references.length !== 1) throw protocolError();
+  return Object.freeze(references[0]!);
+}
+
+function safeWan27I2vUploadFilename(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value === value.trim() && value !== "." && value !== ".." &&
+    !/[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(value) && Buffer.byteLength(value,"utf8") <= 255;
 }
 
 function parseStandardImageUploadReference(
@@ -13662,6 +14621,14 @@ function assertFixedUpstreamUrl(url: URL): void {
     /^\/api\/v1\/chats\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}(?:\/inprogress|\/messages|\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}|\/messages\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}\/cancel)?$/u;
   const isGeneration = url.pathname.endsWith("/generate");
   const isChatHistory = /\/chats\/[A-Za-z0-9][A-Za-z0-9._~-]{0,159}\/messages$/u.test(url.pathname);
+  const isOwnerDopExistingFiles = url.pathname === "/api/v1/files/uploaded" &&
+    url.searchParams.size === 3 && url.searchParams.getAll("scope").length === 1 && url.searchParams.get("scope") === "all" &&
+    url.searchParams.getAll("page").length === 1 && url.searchParams.get("page") === "1" &&
+    url.searchParams.getAll("page_size").length === 1 && url.searchParams.get("page_size") === "10";
+  const isOwnerExistingVideoIndex=url.pathname==="/api/v1/chats"&&url.searchParams.size===3&&
+    url.searchParams.getAll("scope").length===1&&url.searchParams.get("scope")==="video"&&
+    url.searchParams.getAll("page").length===1&&url.searchParams.get("page")==="1"&&
+    url.searchParams.getAll("page_size").length===1&&url.searchParams.get("page_size")==="20";
   const isOwnerSunoAudioChatIndex = url.pathname === "/api/v1/chats" && url.searchParams.get("scope") === "audio";
   const isOwnerTopazAstraExistingChatIndex = url.pathname === "/api/v1/chats" && url.search.length > 0 &&
     url.searchParams.size === 3 && url.searchParams.getAll("scope").length === 1 && url.searchParams.get("scope") === "tool_video_upscaler" &&
@@ -13674,7 +14641,7 @@ function assertFixedUpstreamUrl(url: URL): void {
     url.username.length > 0 ||
     url.password.length > 0 ||
     url.hash.length > 0 ||
-    (!fixedPaths.includes(url.pathname) && !dynamicPath.test(url.pathname)) ||
+    (!fixedPaths.includes(url.pathname) && !dynamicPath.test(url.pathname) && !isOwnerDopExistingFiles) ||
     (isGeneration &&
       (url.searchParams.size !== 1 ||
         url.searchParams.getAll("ai_name").length !== 1)) ||
@@ -13689,7 +14656,7 @@ function assertFixedUpstreamUrl(url: URL): void {
       url.searchParams.getAll("page").length !== 1 || !/^(?:[1-9]|[1-9]\d|100)$/u.test(url.searchParams.get("page") ?? "") ||
       url.searchParams.getAll("page_size").length !== 1 ||
       url.searchParams.get("page_size") !== String(OWNER_SUNO_EXISTING_INDEX_PAGE_SIZE))) ||
-    (!isGeneration && !isChatHistory && !isOwnerSunoAudioChatIndex && !isOwnerTopazAstraExistingChatIndex && url.search.length > 0)
+    (!isGeneration && !isChatHistory && !isOwnerSunoAudioChatIndex && !isOwnerTopazAstraExistingChatIndex && !isOwnerDopExistingFiles && !isOwnerExistingVideoIndex && url.search.length > 0)
   ) {
     throw invalidRequest();
   }
@@ -14473,4 +15440,46 @@ function unavailableError(): SyntxHttpError {
 
 function isTopazAstraGenerationPost(url: URL, method: "GET" | "POST" | "DELETE"): boolean {
   return method === "POST" && url.pathname === "/api/v1/video/generate" && url.search === "?ai_name=topaz_astra";
+}
+
+const NATIVE_OWNER_SWITCHX_CREATE_CHAT = SyntxChatHttpClient.prototype.createChat;
+const NATIVE_OWNER_SWITCHX_START_VIDEO = SyntxChatHttpClient.prototype.startVideo;
+const NATIVE_OWNER_SWITCHX_UPLOAD_REFERENCES = SyntxChatHttpClient.prototype.uploadFileReferences;
+const NATIVE_OWNER_SWITCHX_UPLOAD_VIDEO = SyntxChatHttpClient.prototype.uploadOwnerSwitchxVideo;
+const NATIVE_OWNER_SWITCHX_CREATE_VIDEO_CHAT = SyntxChatHttpClient.prototype.createOwnerSwitchxVideoChat;
+const NATIVE_OWNER_SWITCHX_START_VIDEO_WITH_CONTEXT = SyntxChatHttpClient.prototype.startOwnerSwitchxVideo;
+
+/** Exact-client guard for the fixed Switchx upload/chat/start boundary. */
+export function isOwnerSwitchxVideoNativeClient(value: unknown): value is SyntxChatHttpClient {
+  try {
+    if (!value || typeof value !== "object" || types.isProxy(value) || Object.getPrototypeOf(value) !== SyntxChatHttpClient.prototype) return false;
+    return ([
+      ["createChat", NATIVE_OWNER_SWITCHX_CREATE_CHAT], ["startVideo", NATIVE_OWNER_SWITCHX_START_VIDEO],
+      ["uploadFileReferences", NATIVE_OWNER_SWITCHX_UPLOAD_REFERENCES], ["uploadOwnerSwitchxVideo", NATIVE_OWNER_SWITCHX_UPLOAD_VIDEO],
+      ["createOwnerSwitchxVideoChat", NATIVE_OWNER_SWITCHX_CREATE_VIDEO_CHAT], ["startOwnerSwitchxVideo", NATIVE_OWNER_SWITCHX_START_VIDEO_WITH_CONTEXT]
+    ] as const).every(([key, native]) => typeof native === "function" && !Object.hasOwn(value, key) &&
+      getDataMethod(value, key) === native && getDataMethod(SyntxChatHttpClient.prototype, key) === native);
+  } catch { return false; }
+}
+
+function assertNativeOwnerSwitchxVideo(value: unknown): asserts value is SyntxChatHttpClient {
+  if (!isOwnerSwitchxVideoNativeClient(value)) throw invalidRequest();
+}
+
+function exactSwitchxNativeInput(value: unknown, keys: readonly string[]): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) throw invalidRequest();
+  let descriptors: PropertyDescriptorMap;
+  try { descriptors = Object.getOwnPropertyDescriptors(value); } catch { throw invalidRequest(); }
+  const actual = Reflect.ownKeys(descriptors);
+  if ((Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) || actual.length !== keys.length ||
+      actual.some((key) => typeof key !== "string" || !keys.includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) {
+    throw invalidRequest();
+  }
+  const result = Object.create(null) as Record<string, unknown>;
+  for (const key of actual as string[]) result[key] = descriptors[key]!.value;
+  return result;
+}
+
+function isSafeSwitchxIdentifier(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u.test(value);
 }

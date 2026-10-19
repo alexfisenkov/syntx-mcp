@@ -211,6 +211,13 @@ import type { OwnerHailuo02T2vGenerationService } from "../application/owner-rev
 import { registerSyntxOwnerHailuo02T2vTools } from "./owner-hailuo02-t2v-tools.js";
 import type { OwnerSeedance20T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerSeedance20T2vTools } from "./owner-seedance20-t2v-tools.js";
+import type { OwnerSeedance25T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { registerSyntxOwnerSeedance25T2vTools } from "./owner-seedance25-t2v-tools.js";
+import {registerSyntxOwnerKlingMediaTools,type OwnerKlingMediaToolOptions} from "./owner-kling-media-tools.js";
+import {registerSyntxOwnerSwitchxVideoTools,type RegisterSyntxOwnerSwitchxVideoToolsOptions} from "./owner-switchx-video-tools.js";
+import { registerSyntxOwnerActTwoTools, type OwnerActTwoToolOptions } from "./owner-acttwo-tools.js";
+import { registerSyntxOwnerHeygen4Tools, type RegisterSyntxOwnerHeygen4ToolsOptions } from "./owner-heygen4-tools.js";
+import { registerOwnerExistingVideoResultTools, type OwnerExistingVideoRecoveryToolOptions } from "./owner-existing-video-recovery-tools.js";
 import type { OwnerKlingT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerKlingT2vTools } from "./owner-kling-t2v-tools.js";
 import type { OwnerKlingI2VImageReferenceService } from "../application/owner-kling-i2v-reference-service.js";
@@ -237,6 +244,11 @@ import { registerSyntxOwnerWan27VideoEditTools, type OwnerWan27VideoEditToolOpti
 import { registerSyntxOwnerSeedanceEditorTools, type OwnerSeedanceEditorToolOptions } from "./owner-seedance-editor-tools.js";
 import { registerSyntxOwnerRunwayI2vTools, type OwnerRunwayI2vToolOptions } from "./owner-runway-i2v-tools.js";
 import { registerSyntxOwnerGrokI2vTools, type OwnerGrokI2vToolOptions } from "./owner-grok-i2v-tools.js";
+import { registerSyntxOwnerWan25T2vTools, type OwnerWan25T2vToolOptions } from "./owner-wan25-t2v-tools.js";
+import { registerSyntxOwnerHiggsfieldDopTools, type OwnerHiggsfieldDopToolOptions } from "./owner-higgsfield-dop-tools.js";
+import { registerSyntxOwnerHailuoInitialTools, type OwnerHailuoInitialToolOptions } from "./owner-hailuo-initial-tools.js";
+import { registerSyntxOwnerHappyHorseTools, type OwnerHappyHorseToolOptions } from "./owner-happy-horse-tools.js";
+import { registerSyntxOwnerWan27I2vTools, type OwnerWan27I2vToolOptions } from "./owner-wan27-i2v-tools.js";
 import type { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerGrokT2vTools } from "./owner-grok-t2v-tools.js";
 import type { OwnerHailuoLiveT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -637,6 +649,13 @@ export interface CreateMcpServerOptions {
   /** Explicit owner-local Hailuo-02 I2V image upload, generation, and recovery tools; omitted by default and HTTP servers. */
   ownerHailuo02I2v?: OwnerHailuo02I2vServiceComposition | undefined;
   ownerSeedance20T2v?: OwnerSeedance20T2vServiceComposition | undefined;
+  ownerKlingMedia?: OwnerKlingMediaToolOptions | undefined;
+  ownerSwitchxVideo?: RegisterSyntxOwnerSwitchxVideoToolsOptions | undefined;
+  ownerActTwo?: OwnerActTwoToolOptions | undefined;
+  ownerHeygen4?: RegisterSyntxOwnerHeygen4ToolsOptions | undefined;
+  ownerExistingVideoRecovery?: OwnerExistingVideoRecoveryToolOptions | undefined;
+  ownerSeedance25T2v?: {readonly generationService: Pick<OwnerSeedance25T2vGenerationService,
+    "getParametersSource"|"generate"|"reconcile"|"listRecoveries"|"getRecoveryDiagnostic">} | undefined;
   /** Explicit owner-local Kling T2V and O1 tools; omitted from default and HTTP servers. */
   ownerKlingT2v?: OwnerKlingT2vServiceComposition | undefined;
   /** Explicit owner-local Kling I2V tools; omitted from default and HTTP servers. */
@@ -659,6 +678,11 @@ export interface CreateMcpServerOptions {
   ownerRunwayI2v?: OwnerRunwayI2vToolOptions | undefined;
   /** Explicit owner-local Grok I2V image upload, generation, result, and recovery; omitted from default and HTTP servers. */
   ownerGrokI2v?: OwnerGrokI2vToolOptions | undefined;
+  ownerWan25T2v?: OwnerWan25T2vToolOptions | undefined;
+  ownerHiggsfieldDop?: OwnerHiggsfieldDopToolOptions | undefined;
+  ownerHailuoInitial?: OwnerHailuoInitialToolOptions | undefined;
+  ownerHappyHorse?: OwnerHappyHorseToolOptions | undefined;
+  ownerWan27I2v?: OwnerWan27I2vToolOptions | undefined;
   ownerGrokT2v?: OwnerGrokT2vServiceComposition | undefined;
   ownerHailuoLiveT2v?: OwnerHailuoLiveT2vServiceComposition | undefined;
   /** Explicit owner-local Video2Audio tools; omitted from default and HTTP servers. */
@@ -799,14 +823,14 @@ export function createMcpServer(
   options: CreateMcpServerOptions = {}
 ): McpServer {
   if (options.ownerDurableGeneration &&
-      (options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerRunwayI2v || options.ownerGrokI2v || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
+      (options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerRunwayI2v || options.ownerGrokI2v || options.ownerWan25T2v || options.ownerHiggsfieldDop || options.ownerHailuoInitial || options.ownerHappyHorse || options.ownerWan27I2v || options.ownerKlingMedia || options.ownerSwitchxVideo || options.ownerActTwo || options.ownerHeygen4 || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
         options.ownerGrokImageReferences || options.ownerClarityUpscale || options.ownerMagnificUpscale ||
         options.ownerKontextImageReferences || options.ownerWanImageReferences || options.ownerStandardImageReferences ||
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerFlux3Videos || options.ownerGrokV2v || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
-        options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v ||
+        options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v || options.ownerSeedance25T2v ||
         options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerVeoOmniT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan26R2v || options.ownerWan25I2vPreview)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
   }
@@ -1328,6 +1352,14 @@ export function createMcpServer(
   if (options.ownerSeedance20T2v) {
     registerSyntxOwnerSeedance20T2vTools(server, { service: options.ownerSeedance20T2v.generationService });
   }
+  if (options.ownerSeedance25T2v) {
+    registerSyntxOwnerSeedance25T2vTools(server, {service:options.ownerSeedance25T2v.generationService});
+  }
+  if(options.ownerKlingMedia)registerSyntxOwnerKlingMediaTools(server,options.ownerKlingMedia);
+  if(options.ownerSwitchxVideo)registerSyntxOwnerSwitchxVideoTools(server,options.ownerSwitchxVideo);
+  if (options.ownerActTwo) registerSyntxOwnerActTwoTools(server, options.ownerActTwo);
+  if (options.ownerHeygen4) registerSyntxOwnerHeygen4Tools(server, options.ownerHeygen4);
+  if (options.ownerExistingVideoRecovery) registerOwnerExistingVideoResultTools(server, options.ownerExistingVideoRecovery);
   if (options.ownerKlingT2v) {
     registerSyntxOwnerKlingT2vTools(server, { service: options.ownerKlingT2v.generationService });
   }
@@ -1353,6 +1385,11 @@ export function createMcpServer(
   if (options.ownerSeedanceEditor) registerSyntxOwnerSeedanceEditorTools(server, options.ownerSeedanceEditor);
   if (options.ownerRunwayI2v) registerSyntxOwnerRunwayI2vTools(server, options.ownerRunwayI2v);
   if (options.ownerGrokI2v) registerSyntxOwnerGrokI2vTools(server, options.ownerGrokI2v);
+  if (options.ownerWan25T2v) registerSyntxOwnerWan25T2vTools(server, options.ownerWan25T2v);
+  if (options.ownerHiggsfieldDop) registerSyntxOwnerHiggsfieldDopTools(server, options.ownerHiggsfieldDop);
+  if (options.ownerHailuoInitial) registerSyntxOwnerHailuoInitialTools(server, options.ownerHailuoInitial);
+  if (options.ownerHappyHorse) registerSyntxOwnerHappyHorseTools(server, options.ownerHappyHorse);
+  if (options.ownerWan27I2v) registerSyntxOwnerWan27I2vTools(server, options.ownerWan27I2v);
   if (options.ownerGrokT2v) {
     registerSyntxOwnerGrokT2vTools(server, { service: options.ownerGrokT2v.generationService });
   }
@@ -1417,6 +1454,7 @@ function createOwnerVideoRecoveryDiagnosticMap(
   addSingleModel("hailuo-2.3", options.ownerHailuo23T2v?.generationService);
   addSingleModel("hailuo-01-live", options.ownerHailuoLiveT2v?.generationService);
   addSingleModel("seedance-2.0", options.ownerSeedance20T2v?.generationService);
+  addSingleModel("seedance-2.5", options.ownerSeedance25T2v?.generationService);
   addFamilyModel("kling_text2video", options.ownerKlingT2v?.generationService);
   addFamilyModel("kling_o1_text2video", options.ownerKlingT2v?.generationService);
   addFamilyModel("veo3", options.ownerVeoT2v?.generationService);

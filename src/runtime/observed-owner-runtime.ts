@@ -6,6 +6,16 @@ import { createOwnerWan27VideoEditRuntime, getOwnerWan27VideoEditRuntimeStartupC
 import { createOwnerSeedanceEditorRuntime, getOwnerSeedanceEditorRuntimeStartupCleanup } from "./owner-seedance-editor-runtime.js";
 import { createOwnerRunwayI2vRuntime, getOwnerRunwayI2vRuntimeStartupCleanup } from "./owner-runway-i2v-runtime.js";
 import { createOwnerGrokI2vRuntime, getOwnerGrokI2vRuntimeStartupCleanup } from "./owner-grok-i2v-runtime.js";
+import { createOwnerWan25T2vRuntime, getOwnerWan25T2vRuntimeStartupCleanup } from "./owner-wan25-t2v-runtime.js";
+import { createOwnerHiggsfieldDopRuntime, getOwnerHiggsfieldDopRuntimeStartupCleanup } from "./owner-higgsfield-dop-runtime.js";
+import { createOwnerHailuoInitialRuntime, getOwnerHailuoInitialRuntimeStartupCleanup } from "./owner-hailuo-initial-runtime.js";
+import { createOwnerHappyHorseRuntime, getOwnerHappyHorseStartupCleanup } from "./owner-happy-horse-runtime.js";
+import { createOwnerWan27I2vRuntime, getOwnerWan27I2vRuntimeStartupCleanup } from "./owner-wan27-i2v-runtime.js";
+import {createOwnerKlingMediaRuntime,getOwnerKlingMediaStartupCleanup} from "./owner-kling-media-runtime.js";
+import {createOwnerSwitchxVideoRuntime,getOwnerSwitchxVideoStartupCleanup} from "./owner-switchx-video-runtime.js";
+import { createOwnerActTwoRuntime, getOwnerActTwoStartupCleanup } from "./owner-acttwo-runtime.js";
+import { createOwnerHeygen4Runtime, getOwnerHeygen4StartupCleanup } from "./owner-heygen4-runtime.js";
+import { createOwnerExistingVideoRecoveryRuntime, getOwnerExistingVideoRecoveryRuntimeStartupCleanup } from "./owner-existing-video-recovery-runtime.js";
 import { SyntxChatHttpClient } from "../adapter/syntx/chat-http-client.js";
 import { SyntxHttpClient, isSyntxModelInfoCallerParameterKey } from "../adapter/syntx/http-client.js";
 import type { SyntxCostParameter } from "../adapter/syntx/http-client.js";
@@ -150,6 +160,8 @@ import { OwnerHailuo02T2vGenerationService } from "../application/owner-reviewed
 import { createOwnerHailuo02T2vProfile } from "../application/owner-hailuo02-t2v-profile.js";
 import { OwnerSeedance20T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerSeedance20T2vProfile } from "../application/owner-seedance20-t2v-profile.js";
+import { OwnerSeedance25T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { createOwnerSeedance25T2vProfile } from "../application/owner-seedance25-t2v-profile.js";
 import { OwnerKlingT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerKlingT2vProfile } from "../application/owner-kling-t2v-profile.js";
 import { OwnerVeoT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -305,6 +317,7 @@ export interface ObservedOwnerRuntimeOptions {
   ownerHailuo02T2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for Seedance 2.0 mini with no references. */
   ownerSeedance20T2vEnabled?: boolean;
+  ownerSeedance25T2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for source-reviewed Kling T2V and O1 T2V. */
   ownerKlingT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for source-pinned owner Kling I2V upload and generation. */
@@ -339,6 +352,28 @@ export interface ObservedOwnerRuntimeOptions {
   ownerGrokI2vEnabled?: boolean;
   /** Explicit operator-selected image upload destination; required only when Grok I2V is enabled. */
   ownerGrokI2vUploadDestination?: "uploaded" | "hidden";
+  ownerWan25T2vEnabled?: boolean;
+  ownerHiggsfieldDopEnabled?: boolean;
+  ownerHiggsfieldDopUploadDestination?: "uploaded" | "hidden";
+  ownerHailuoInitialEnabled?: boolean;
+  ownerHailuoInitialUploadDestination?: "uploaded" | "hidden";
+  ownerHappyHorseEnabled?: boolean;
+  ownerHappyHorseUploadDestination?: "uploaded" | "hidden";
+  ownerHappyHorseFfprobePath?: string;
+  ownerWan27I2vEnabled?: boolean;
+  ownerKlingMediaEnabled?:boolean;
+  ownerKlingMediaUploadDestination?:"uploaded"|"hidden";
+  ownerKlingMediaFfprobePath?:string;
+  ownerSwitchxVideoEnabled?:boolean;
+  ownerSwitchxVideoUploadDestination?:"uploaded"|"hidden";
+  ownerSwitchxVideoFfprobePath?:string;
+  ownerActTwoEnabled?: boolean;
+  ownerActTwoUploadDestination?: "uploaded" | "hidden";
+  ownerActTwoFfprobePath?: string;
+  ownerHeygen4Enabled?: boolean;
+  ownerHeygen4FfprobePath?: string;
+  ownerExistingVideoRecoveryEnabled?: boolean;
+  ownerWan27I2vUploadDestination?: "uploaded" | "hidden";
   ownerKling4FfprobePath?: string;
   ownerKling4MaxVideoFileBytes?: number;
   /** Explicit owner-stdio opt-in for source-reviewed Grok T2V without references. */
@@ -2554,6 +2589,43 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ profile, generationService, lifecycle });
       })()
     : undefined;
+  const ownerSeedance25T2v = options.ownerSeedance25T2vEnabled === true
+    ? (() => {
+        const profile = createOwnerSeedance25T2vProfile(options.catalogDirectory);
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveSeedance25ChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_SEEDANCE25_T2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        let generationService: OwnerSeedance25T2vGenerationService;
+        try {
+          generationService = new OwnerSeedance25T2vGenerationService({
+            profile, binding: authBinding, linkService,
+            resolveSubscription: (attemptId, signal) => createReadClient(attemptId).getSubscription(signal),
+            resolveModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            resolveChatClient: resolveSeedance25ChatClient, now
+          });
+        } catch (error) { clientsByAttempt.clear(); throw error; }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            try { await generationService.close(); }
+            finally { clientsByAttempt.clear(); }
+          }
+        });
+        return Object.freeze({ profile, generationService, lifecycle });
+      })()
+    : undefined;
   const ownerKlingT2v = options.ownerKlingT2vEnabled === true
     ? (() => {
         const profile = createOwnerKlingT2vProfile("kling_text2video", options.catalogDirectory);
@@ -2912,6 +2984,50 @@ export function createObservedOwnerRuntime(
         }
       })()
     : undefined;
+  const ownerWan25T2v = options.ownerWan25T2vEnabled === true
+    ? (() => {
+        try { return createOwnerWan25T2vRuntime({ ...(options.catalogDirectory === undefined ? {} : {catalogDirectory:options.catalogDirectory}),
+          binding:authBinding,linkService,createReadClient,createChatClient,now }); }
+        catch(error) { const cleanup = getOwnerWan25T2vRuntimeStartupCleanup(error);
+          if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error,cleanup); throw error; }
+      })() : undefined;
+  const ownerHiggsfieldDop = options.ownerHiggsfieldDopEnabled === true
+    ? (() => {
+        const uploadDestination = options.ownerHiggsfieldDopUploadDestination;
+        if (uploadDestination !== "uploaded" && uploadDestination !== "hidden") throw new Error("OWNER_HIGGSFIELD_DOP_UPLOAD_DESTINATION_REQUIRED");
+        try { return createOwnerHiggsfieldDopRuntime({ ...(options.catalogDirectory === undefined ? {} : {catalogDirectory:options.catalogDirectory}),
+          binding:authBinding,linkService,createReadClient,createChatClient,now,uploadDestination }); }
+        catch(error) { const cleanup = getOwnerHiggsfieldDopRuntimeStartupCleanup(error);
+          if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error,cleanup); throw error; }
+      })() : undefined;
+  const ownerHailuoInitial = options.ownerHailuoInitialEnabled === true
+    ? (() => {
+        const uploadDestination = options.ownerHailuoInitialUploadDestination;
+        if (uploadDestination !== "uploaded" && uploadDestination !== "hidden") throw new Error("OWNER_HAILUO_INITIAL_UPLOAD_DESTINATION_REQUIRED");
+        try { return createOwnerHailuoInitialRuntime({ ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+          binding: authBinding, linkService, createReadClient, createChatClient, now, uploadDestination }); }
+        catch (error) { const cleanup = getOwnerHailuoInitialRuntimeStartupCleanup(error);
+          if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error, cleanup); throw error; }
+      })() : undefined;
+  const ownerHappyHorse = options.ownerHappyHorseEnabled === true
+    ? (() => {
+        const uploadDestination = options.ownerHappyHorseUploadDestination;
+        if (uploadDestination !== "uploaded" && uploadDestination !== "hidden") throw new Error("OWNER_HAPPY_HORSE_UPLOAD_DESTINATION_REQUIRED");
+        try { return createOwnerHappyHorseRuntime({ ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+          binding: authBinding, linkService, createReadClient, createChatClient, now, uploadDestination,
+          ffprobePath: options.ownerHappyHorseFfprobePath ?? "" }); }
+        catch (error) { const cleanup = getOwnerHappyHorseStartupCleanup(error);
+          if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error, cleanup); throw error; }
+      })() : undefined;
+  const ownerWan27I2v = options.ownerWan27I2vEnabled === true
+    ? (() => {
+        const uploadDestination = options.ownerWan27I2vUploadDestination;
+        if (uploadDestination !== "uploaded" && uploadDestination !== "hidden") throw new Error("OWNER_WAN27_I2V_UPLOAD_DESTINATION_REQUIRED");
+        try { return createOwnerWan27I2vRuntime({ ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+          binding: authBinding, linkService, createReadClient, createChatClient, now, uploadDestination }); }
+        catch (error) { const cleanup = getOwnerWan27I2vRuntimeStartupCleanup(error);
+          if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error, cleanup); throw error; }
+      })() : undefined;
   const ownerKling4 = options.ownerKling4Enabled === true
     ? (() => {
         try {
@@ -2925,6 +3041,53 @@ export function createObservedOwnerRuntime(
         }
       })()
     : undefined;
+  const ownerKlingMedia = options.ownerKlingMediaEnabled === true ? (()=>{
+    const uploadDestination=options.ownerKlingMediaUploadDestination;
+    if(uploadDestination!=="uploaded"&&uploadDestination!=="hidden")throw new Error("OWNER_KLING_MEDIA_UPLOAD_DESTINATION_REQUIRED");
+    try{return createOwnerKlingMediaRuntime({binding:authBinding,linkService,createReadClient,createChatClient,now,uploadDestination,
+      ffprobePath:options.ownerKlingMediaFfprobePath??"",...(options.catalogDirectory===undefined?{}:{catalogDirectory:options.catalogDirectory})});}
+    catch(error){const cleanup=getOwnerKlingMediaStartupCleanup(error);
+      if(cleanup&&error&&typeof error==="object")OWNER_RUNTIME_STARTUP_CLEANUPS.set(error,cleanup);throw error;}
+  })():undefined;
+  const ownerSwitchxVideo = options.ownerSwitchxVideoEnabled === true ? (()=>{
+    const uploadDestination=options.ownerSwitchxVideoUploadDestination;
+    if(uploadDestination!=="uploaded"&&uploadDestination!=="hidden")throw new Error("OWNER_SWITCHX_VIDEO_UPLOAD_DESTINATION_REQUIRED");
+    try{return createOwnerSwitchxVideoRuntime({binding:authBinding,linkService,createReadClient,createChatClient,now,uploadDestination,
+      ffprobePath:options.ownerSwitchxVideoFfprobePath??"",...(options.catalogDirectory===undefined?{}:{catalogDirectory:options.catalogDirectory})});}
+    catch(error){const cleanup=getOwnerSwitchxVideoStartupCleanup(error);
+      if(cleanup&&error&&typeof error==="object")OWNER_RUNTIME_STARTUP_CLEANUPS.set(error,cleanup);throw error;}
+  })():undefined;
+  const ownerActTwo = options.ownerActTwoEnabled === true ? (() => {
+    const uploadDestination = options.ownerActTwoUploadDestination;
+    if (uploadDestination !== "uploaded" && uploadDestination !== "hidden") throw new Error("OWNER_ACTTWO_UPLOAD_DESTINATION_REQUIRED");
+    try {
+      return createOwnerActTwoRuntime({ binding: authBinding, linkService, createReadClient, createChatClient, now, uploadDestination,
+        ffprobePath: options.ownerActTwoFfprobePath ?? "", ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }) });
+    } catch (error) {
+      const cleanup = getOwnerActTwoStartupCleanup(error);
+      if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error, cleanup);
+      throw error;
+    }
+  })() : undefined;
+  const ownerHeygen4 = options.ownerHeygen4Enabled === true ? (() => {
+    try {
+      return createOwnerHeygen4Runtime({ binding: authBinding, linkService, createReadClient, createChatClient, now,
+        ffprobePath: options.ownerHeygen4FfprobePath ?? "", ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }) });
+    } catch (error) {
+      const cleanup = getOwnerHeygen4StartupCleanup(error);
+      if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error, cleanup);
+      throw error;
+    }
+  })() : undefined;
+  const ownerExistingVideoRecovery = options.ownerExistingVideoRecoveryEnabled === true ? (() => {
+    try {
+      return createOwnerExistingVideoRecoveryRuntime({ binding: authBinding, linkService, createChatClient, now });
+    } catch (error) {
+      const cleanup = getOwnerExistingVideoRecoveryRuntimeStartupCleanup(error);
+      if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error, cleanup);
+      throw error;
+    }
+  })() : undefined;
   const ownerVeoOmniReferences = options.ownerVeoOmniReferencesEnabled === true
     ? (() => {
         try {
@@ -3135,7 +3298,7 @@ export function createObservedOwnerRuntime(
       ownerHailuo01DirectorT2v === undefined &&
       ownerHailuo23T2v === undefined &&
       ownerHailuo02T2v === undefined &&
-      ownerSeedance20T2v === undefined &&
+      ownerSeedance20T2v === undefined && ownerSeedance25T2v === undefined &&
       ownerKlingT2v === undefined &&
       ownerKlingI2v === undefined &&
       ownerKlingKeyframes === undefined &&
@@ -3143,7 +3306,7 @@ export function createObservedOwnerRuntime(
       ownerHailuo02I2v === undefined &&
       ownerVeoT2v === undefined &&
       ownerVeoOmniT2v === undefined &&
-      ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined && ownerRunwayI2v === undefined && ownerGrokI2v === undefined &&
+      ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined && ownerRunwayI2v === undefined && ownerGrokI2v === undefined && ownerWan25T2v === undefined && ownerHiggsfieldDop === undefined && ownerHailuoInitial === undefined && ownerHappyHorse === undefined && ownerWan27I2v === undefined && ownerKlingMedia === undefined && ownerSwitchxVideo === undefined && ownerActTwo === undefined && ownerHeygen4 === undefined && ownerExistingVideoRecovery === undefined &&
       ownerGrokT2v === undefined &&
       ownerHailuoLiveT2v === undefined &&
       ownerVideo2Audio === undefined &&
@@ -3241,6 +3404,9 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerSeedance20T2v.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerSeedance25T2v !== undefined) {
+              await linkService.getStatus(binding,attemptId); await ownerSeedance25T2v.lifecycle.invalidateAttempt(attemptId);
+            }
             if (ownerKlingT2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerKlingT2v.lifecycle.invalidateAttempt(attemptId);
@@ -3293,6 +3459,26 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerGrokI2v.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerWan25T2v !== undefined) {
+              await linkService.getStatus(binding,attemptId); await ownerWan25T2v.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerHiggsfieldDop !== undefined) {
+              await linkService.getStatus(binding,attemptId); await ownerHiggsfieldDop.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerHailuoInitial !== undefined) {
+              await linkService.getStatus(binding,attemptId); await ownerHailuoInitial.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerHappyHorse !== undefined) {
+              await linkService.getStatus(binding,attemptId); await ownerHappyHorse.lifecycle.invalidateAttempt(attemptId);
+            }
+            if (ownerWan27I2v !== undefined) {
+              await linkService.getStatus(binding,attemptId); await ownerWan27I2v.lifecycle.invalidateAttempt(attemptId);
+            }
+            if(ownerKlingMedia!==undefined){await linkService.getStatus(binding,attemptId);await ownerKlingMedia.lifecycle.invalidateAttempt(attemptId);}
+            if(ownerSwitchxVideo!==undefined){await linkService.getStatus(binding,attemptId);await ownerSwitchxVideo.lifecycle.invalidateAttempt(attemptId);}
+            if (ownerActTwo !== undefined) { await linkService.getStatus(binding, attemptId); await ownerActTwo.lifecycle.invalidateAttempt(attemptId); }
+            if (ownerHeygen4 !== undefined) { await linkService.getStatus(binding, attemptId); await ownerHeygen4.lifecycle.invalidateAttempt(attemptId); }
+            if (ownerExistingVideoRecovery !== undefined) { await linkService.getStatus(binding, attemptId); await ownerExistingVideoRecovery.lifecycle.invalidateAttempt(attemptId); }
             if (ownerGrokT2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId);
@@ -3334,7 +3520,7 @@ export function createObservedOwnerRuntime(
         ownerHailuo01DirectorT2v === undefined &&
         ownerHailuo23T2v === undefined &&
         ownerHailuo02T2v === undefined &&
-        ownerSeedance20T2v === undefined &&
+        ownerSeedance20T2v === undefined && ownerSeedance25T2v === undefined &&
         ownerKlingT2v === undefined &&
         ownerKlingI2v === undefined &&
         ownerKlingKeyframes === undefined &&
@@ -3342,7 +3528,7 @@ export function createObservedOwnerRuntime(
         ownerHailuo02I2v === undefined &&
         ownerVeoT2v === undefined &&
         ownerVeoOmniT2v === undefined &&
-        ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined && ownerRunwayI2v === undefined && ownerGrokI2v === undefined &&
+        ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined && ownerRunwayI2v === undefined && ownerGrokI2v === undefined && ownerWan25T2v === undefined && ownerHiggsfieldDop === undefined && ownerHailuoInitial === undefined && ownerHappyHorse === undefined && ownerWan27I2v === undefined && ownerKlingMedia === undefined && ownerSwitchxVideo === undefined && ownerActTwo === undefined && ownerHeygen4 === undefined && ownerExistingVideoRecovery === undefined &&
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
@@ -3421,6 +3607,9 @@ export function createObservedOwnerRuntime(
           if (ownerSeedance20T2v !== undefined) {
             try { await ownerSeedance20T2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
+          if (ownerSeedance25T2v !== undefined) {
+            try { await ownerSeedance25T2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
           if (ownerKlingT2v !== undefined) {
             try { await ownerKlingT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
@@ -3460,6 +3649,26 @@ export function createObservedOwnerRuntime(
           if (ownerGrokI2v !== undefined) {
             try { await ownerGrokI2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
+          if (ownerWan25T2v !== undefined) {
+            try { await ownerWan25T2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerHiggsfieldDop !== undefined) {
+            try { await ownerHiggsfieldDop.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerHailuoInitial !== undefined) {
+            try { await ownerHailuoInitial.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerHappyHorse !== undefined) {
+            try { await ownerHappyHorse.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerWan27I2v !== undefined) {
+            try { await ownerWan27I2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if(ownerKlingMedia!==undefined){try{await ownerKlingMedia.lifecycle.invalidateAttempt(attemptId);}catch(error){errors.push(error);}}
+          if(ownerSwitchxVideo!==undefined){try{await ownerSwitchxVideo.lifecycle.invalidateAttempt(attemptId);}catch(error){errors.push(error);}}
+          if (ownerActTwo !== undefined) { try { await ownerActTwo.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); } }
+          if (ownerHeygen4 !== undefined) { try { await ownerHeygen4.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); } }
+          if (ownerExistingVideoRecovery !== undefined) { try { await ownerExistingVideoRecovery.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); } }
           if (ownerGrokT2v !== undefined) {
             try { await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
@@ -3599,6 +3808,7 @@ export function createObservedOwnerRuntime(
     ...(ownerHailuo23T2v === undefined ? {} : { ownerHailuo23T2v: { generationService: ownerHailuo23T2v.generationService } }),
     ...(ownerHailuo02T2v === undefined ? {} : { ownerHailuo02T2v: { generationService: ownerHailuo02T2v.generationService } }),
     ...(ownerSeedance20T2v === undefined ? {} : { ownerSeedance20T2v: { generationService: ownerSeedance20T2v.generationService } }),
+    ...(ownerSeedance25T2v === undefined ? {} : { ownerSeedance25T2v: { generationService: ownerSeedance25T2v.generationService } }),
     ...(ownerKlingT2v === undefined ? {} : { ownerKlingT2v: { generationService: ownerKlingT2v.generationService } }),
     ...(ownerKlingI2v === undefined ? {} : { ownerKlingI2v: { referenceService: ownerKlingI2v.referenceService,
       generationService: ownerKlingI2v.generationService } }),
@@ -3635,6 +3845,17 @@ export function createObservedOwnerRuntime(
       referenceService: ownerGrokI2v.referenceService,
       generationService: ownerGrokI2v.generationService
     } }),
+    ...(ownerWan25T2v === undefined ? {} : {ownerWan25T2v:{generationService:ownerWan25T2v.generationService}}),
+    ...(ownerHiggsfieldDop === undefined ? {} : {ownerHiggsfieldDop:{referenceService:ownerHiggsfieldDop.referenceService,importService:ownerHiggsfieldDop.importService,motionService:ownerHiggsfieldDop.motionService,generationService:ownerHiggsfieldDop.generationService}}),
+    ...(ownerHailuoInitial === undefined ? {} : {ownerHailuoInitial:{imageVault:ownerHailuoInitial.imageVault,generationService:ownerHailuoInitial.generationService}}),
+    ...(ownerHappyHorse === undefined ? {} : {ownerHappyHorse:{referenceService:ownerHappyHorse.referenceService,editVideoReferenceService:ownerHappyHorse.editVideoReferenceService,generationService:ownerHappyHorse.generationService}}),
+    ...(ownerWan27I2v === undefined ? {} : {ownerWan27I2v:{referenceService:ownerWan27I2v.imageVault,generationService:ownerWan27I2v.generationService}}),
+    ...(ownerKlingMedia===undefined?{}:{ownerKlingMedia:{referenceService:ownerKlingMedia.referenceService,generationService:ownerKlingMedia.generationService}}),
+    ...(ownerSwitchxVideo===undefined?{}:{ownerSwitchxVideo:{service:ownerSwitchxVideo.generationService}}),
+    ...(ownerActTwo === undefined ? {} : { ownerActTwo: { imageReferenceService: ownerActTwo.imageReferenceService,
+      videoReferenceService: ownerActTwo.videoReferenceService, generationService: ownerActTwo.generationService } }),
+    ...(ownerHeygen4 === undefined ? {} : { ownerHeygen4: { importService: ownerHeygen4.importService, service: ownerHeygen4.generationService } }),
+    ...(ownerExistingVideoRecovery === undefined ? {} : { ownerExistingVideoRecovery: { recoveryService: ownerExistingVideoRecovery.recoveryService } }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
@@ -3705,6 +3926,7 @@ export function createObservedOwnerRuntime(
     ...(ownerHailuo23T2v === undefined ? {} : { ownerHailuo23T2vLifecycle: ownerHailuo23T2v.lifecycle }),
     ...(ownerHailuo02T2v === undefined ? {} : { ownerHailuo02T2vLifecycle: ownerHailuo02T2v.lifecycle }),
     ...(ownerSeedance20T2v === undefined ? {} : { ownerSeedance20T2vLifecycle: ownerSeedance20T2v.lifecycle }),
+    ...(ownerSeedance25T2v === undefined ? {} : { ownerSeedance25T2vLifecycle: ownerSeedance25T2v.lifecycle }),
     ...(ownerKlingT2v === undefined ? {} : { ownerKlingT2vLifecycle: ownerKlingT2v.lifecycle }),
     ...(ownerKlingI2v === undefined ? {} : { ownerKlingI2vLifecycle: ownerKlingI2v.lifecycle }),
     ...(ownerKlingKeyframes === undefined ? {} : { ownerKlingKeyframesLifecycle: ownerKlingKeyframes.lifecycle }),
@@ -3718,6 +3940,16 @@ export function createObservedOwnerRuntime(
     ...(ownerSeedanceEditor === undefined ? {} : { ownerSeedanceEditorLifecycle: ownerSeedanceEditor.lifecycle }),
     ...(ownerRunwayI2v === undefined ? {} : { ownerRunwayI2vLifecycle: ownerRunwayI2v.lifecycle }),
     ...(ownerGrokI2v === undefined ? {} : { ownerGrokI2vLifecycle: ownerGrokI2v.lifecycle }),
+    ...(ownerWan25T2v === undefined ? {} : {ownerWan25T2vLifecycle:ownerWan25T2v.lifecycle}),
+    ...(ownerHiggsfieldDop === undefined ? {} : {ownerHiggsfieldDopLifecycle:ownerHiggsfieldDop.lifecycle}),
+    ...(ownerHailuoInitial === undefined ? {} : {ownerHailuoInitialLifecycle:ownerHailuoInitial.lifecycle}),
+    ...(ownerHappyHorse === undefined ? {} : {ownerHappyHorseLifecycle:ownerHappyHorse.lifecycle}),
+    ...(ownerWan27I2v === undefined ? {} : {ownerWan27I2vLifecycle:ownerWan27I2v.lifecycle}),
+    ...(ownerKlingMedia===undefined?{}:{ownerKlingMediaLifecycle:ownerKlingMedia.lifecycle}),
+    ...(ownerSwitchxVideo===undefined?{}:{ownerSwitchxVideoLifecycle:ownerSwitchxVideo.lifecycle}),
+    ...(ownerActTwo === undefined ? {} : { ownerActTwoLifecycle: ownerActTwo.lifecycle }),
+    ...(ownerHeygen4 === undefined ? {} : { ownerHeygen4Lifecycle: ownerHeygen4.lifecycle }),
+    ...(ownerExistingVideoRecovery === undefined ? {} : { ownerExistingVideoRecoveryLifecycle: ownerExistingVideoRecovery.lifecycle }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2vLifecycle: ownerHailuoLiveT2v.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle }),

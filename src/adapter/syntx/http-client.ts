@@ -55,6 +55,15 @@ const elevenLabsVoiceRowSchema = z.object({
   name: z.string().min(1).max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value))
 }).strip();
 const elevenLabsVoiceRowsSchema = z.array(elevenLabsVoiceRowSchema).max(MAX_ELEVENLABS_VOICE_ROWS);
+const higgsfieldDopMotionIdSchema = z.union([
+  z.string().min(1).max(160).refine(value => !/[\u0000-\u001f\u007f]/u.test(value)),
+  z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
+]);
+const higgsfieldDopMotionRowsSchema = z.array(z.object({
+  id: higgsfieldDopMotionIdSchema,
+  title: z.string().min(1).max(256).refine(value => !/[\u0000-\u001f\u007f]/u.test(value)),
+  preview_uri: z.string().max(4_096)
+}).strip()).min(1).max(256);
 const elevenLabsVoicePageSchema = z.object({
   results: elevenLabsVoiceRowsSchema,
   total: z.number().int().nonnegative().max(1_000_000_000).nullable(),
@@ -68,13 +77,29 @@ const elevenLabsVoiceListRequestSchema = z.strictObject({
 });
 
 const uploadedFileText = z.string().max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value));
+const uploadedFileMetadataSchema = z.object({
+  name: uploadedFileText.optional(),
+  mime_type: uploadedFileText.optional(),
+  size: z.number().int().nonnegative().max(1_000_000_000_000).optional()
+}).strip();
 const uploadedFileSchema = z.object({
   id: z.union([uploadedFileText, z.number().int().nonnegative().max(1_000_000_000_000)]).optional(),
   filename: uploadedFileText.optional(),
   mime_type: uploadedFileText.optional(),
   size: z.number().int().nonnegative().max(1_000_000_000_000).optional(),
-  created_at: uploadedFileText.max(64).optional()
-}).strip();
+  created_at: uploadedFileText.max(64).optional(),
+  metadata: uploadedFileMetadataSchema.optional()
+}).strip().superRefine((item, context) => {
+  if (item.filename !== undefined && item.metadata?.name !== undefined && item.filename !== item.metadata.name) {
+    context.addIssue({ code: "custom", message: "Uploaded-file filename fields conflict." });
+  }
+  if (item.mime_type !== undefined && item.metadata?.mime_type !== undefined && item.mime_type !== item.metadata.mime_type) {
+    context.addIssue({ code: "custom", message: "Uploaded-file MIME fields conflict." });
+  }
+  if (item.size !== undefined && item.metadata?.size !== undefined && item.size !== item.metadata.size) {
+    context.addIssue({ code: "custom", message: "Uploaded-file size fields conflict." });
+  }
+});
 const uploadedFilesSchema = z.object({
   page: z.number().int().min(1).max(1000),
   page_size: z.number().int().min(1).max(100),
@@ -142,6 +167,10 @@ export interface SyntxElevenLabsVoicePage {
   total: number | null;
   has_more: boolean | null;
   voices: SyntxElevenLabsVoice[];
+}
+export interface SyntxHiggsfieldDopMotion {
+  readonly id: string | number;
+  readonly title: string;
 }
 
 export type SyntxJsonShapeType = "null" | "object" | "array" | "string" | "number" | "boolean";
@@ -289,13 +318,18 @@ export class SyntxHttpClient {
         page_size: parsed.data.page_size,
         has_more: parsed.data.has_more,
         total: parsed.data.total ?? null,
-        items: parsed.data.items.map((item) => ({
-          ...(item.id === undefined ? {} : { id: String(item.id) }),
-          ...(item.filename === undefined ? {} : { filename: item.filename }),
-          ...(item.mime_type === undefined ? {} : { mime_type: item.mime_type }),
-          ...(item.size === undefined ? {} : { size: item.size }),
-          ...(item.created_at === undefined ? {} : { created_at: item.created_at })
-        }))
+        items: parsed.data.items.map((item) => {
+          const filename = item.filename ?? item.metadata?.name;
+          const mimeType = item.mime_type ?? item.metadata?.mime_type;
+          const size = item.size ?? item.metadata?.size;
+          return {
+            ...(item.id === undefined ? {} : { id: String(item.id) }),
+            ...(filename === undefined ? {} : { filename }),
+            ...(mimeType === undefined ? {} : { mime_type: mimeType }),
+            ...(size === undefined ? {} : { size }),
+            ...(item.created_at === undefined ? {} : { created_at: item.created_at })
+          };
+        })
       };
     }, signal, JSON.parse, this.#uploadedFilesMaxResponseBytes);
   }
@@ -330,6 +364,23 @@ export class SyntxHttpClient {
         voices: parsed.data.results.map((voice) => ({ voice_id: voice.voice_id, name: voice.name }))
       };
     }, signal);
+  }
+
+  /** Fixed authenticated source catalogue read; preview URIs are deliberately discarded. */
+  async listOwnerHiggsfieldDopMotions(signal?: AbortSignal): Promise<readonly SyntxHiggsfieldDopMotion[]> {
+    const url = new URL("higgsfield/motions", V1_BASE_URL);
+    return this.#withCredential(url, raw => {
+      const parsed = higgsfieldDopMotionRowsSchema.safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const seen = new Set<string>();
+      const motions = parsed.data.map(row => {
+        const identity = `${typeof row.id}:${String(row.id)}`;
+        if (seen.has(identity)) throw protocolError();
+        seen.add(identity);
+        return Object.freeze({ id: row.id, title: row.title });
+      });
+      return Object.freeze(motions);
+    }, signal, JSON.parse, 128 * 1024);
   }
 
   /** Diagnostic-only shape inspection; never returns response values. */
@@ -670,6 +721,7 @@ function assertReadUrl(url: URL): void {
     !(
       (url.pathname === "/api/v1/user/balance" && url.search === "") ||
       (url.pathname === "/api/v1/user/subscription" && url.search === "?ref=false") ||
+      (url.pathname === "/api/v1/higgsfield/motions" && url.search === "") ||
       (url.pathname === "/api/v1/files/uploaded" && /^\?scope=(?:all|uploaded|hidden)&page=\d{1,4}&page_size=\d{1,3}$/u.test(url.search)) ||
       (url.pathname === "/api/v1/audio/elevenlabs/voice_examples" && url.search === "?page=1&page_size=10")
     )

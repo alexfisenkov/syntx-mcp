@@ -12,7 +12,7 @@ const MAX_IMAGE_BYTES = OWNER_RUNWAY_I2V_IMAGE_POLICY.local_max_bytes;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
 const MAX_DIMENSION = 8_400;
 const MAX_ARTIFACTS = 64;
-const MODEL_IDS = ["4genfirstframeimage", "turbo4genfirstframeimage"] as const;
+const MODEL_IDS = ["4genfirstframeimage", "turbo4genfirstframeimage", "gen4.5i2v"] as const;
 const ASPECT_RATIOS = ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"] as const;
 const IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;
 const RATIO_PARTS: Readonly<Record<(typeof ASPECT_RATIOS)[number], readonly [number, number]>> = Object.freeze({
@@ -65,6 +65,9 @@ const uploadInput = z.object({
   mime_type: mimeType,
   content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64)
 }).strict().superRefine((value, context) => {
+  if (value.model_id === "gen4.5i2v" && value.aspect_ratio !== "16:9") {
+    context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Gen4.5 I2V initial slice requires explicit 16:9." });
+  }
   const extension = value.filename.slice(value.filename.lastIndexOf(".")).toLowerCase();
   const validExtension = value.mime_type === "image/jpeg" ? [".jpg", ".jpeg"].includes(extension)
     : value.mime_type === "image/png" ? extension === ".png" : extension === ".webp";
@@ -75,10 +78,17 @@ const generateInput = z.object({
   model_id: modelId,
   prompt: z.string().min(1).max(1_000).refine(isWellFormedUnicode),
   aspect_ratio: aspectRatio,
-  video_duration: z.union([z.literal(5), z.literal(10)]),
+  video_duration: z.union([z.literal(5), z.literal(8), z.literal(10)]),
   seed: z.null(),
   reference_handle: handle
-}).strict().refine(value => value.prompt.trim().length > 0, "Prompt must not be blank.");
+}).strict().superRefine((value, context) => {
+  if (value.prompt.trim().length === 0) context.addIssue({ code: "custom", path: ["prompt"], message: "Prompt must not be blank." });
+  if (value.model_id === "gen4.5i2v") {
+    if (value.aspect_ratio !== "16:9") context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Gen4.5 I2V initial slice requires explicit 16:9." });
+  } else if (value.video_duration !== 5 && value.video_duration !== 10) {
+    context.addIssue({ code: "custom", path: ["video_duration"], message: "The legacy Runway I2V models support only 5 or 10 seconds in this slice." });
+  }
+});
 const reconcileInput = z.object({ link_attempt_id: attempt, recovery_id: recoveryId }).strict();
 const listInput = z.object({ link_attempt_id: attempt }).strict();
 

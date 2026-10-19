@@ -41,6 +41,14 @@ jobs:
         if: inputs.scope == 'changed-media'
         run: npm run build
 
+      - name: Install media probe tools for changed video checks
+        if: inputs.scope == 'changed-media'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg
+          /usr/bin/ffmpeg -version
+          /usr/bin/ffprobe -version
+
       - name: Install pinned Gitleaks for public source checks
         shell: bash
         run: |
@@ -57,6 +65,17 @@ jobs:
 
       - name: Verify changed media coverage
         if: inputs.scope == 'changed-media'
+        env:
+          SYNTX_HAPPY_HORSE_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_HAPPY_HORSE_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_KLING_MEDIA_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_KLING_MEDIA_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_ACTTWO_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_ACTTWO_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_HEYGEN4_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_HEYGEN4_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_SWITCHX_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_SWITCHX_TEST_FFPROBE: /usr/bin/ffprobe
         run: npm run test:media:changed
 
       - name: Unchanged media checks intentionally skipped for docs-only scope

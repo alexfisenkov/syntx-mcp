@@ -21,9 +21,10 @@ import { normalizeOwnerRunwayI2vParameters, getOwnerRunwayI2vSourceProfile } fro
 import { buildOwnerRunwayI2vWire, type OwnerRunwayI2vWireCandidate } from "./owner-runway-i2v-wire.js";
 import { OwnerRunwayI2vReferenceService, isOwnerRunwayI2vReferenceService,
   type OwnerRunwayI2vOwnedReferences } from "./owner-runway-i2v-reference-service.js";
+import type { OwnerRunwayI2vModelId } from "./owner-runway-i2v-parameters.js";
 
-type ModelId = "4genfirstframeimage" | "turbo4genfirstframeimage";
-const MODELS = ["4genfirstframeimage", "turbo4genfirstframeimage"] as const;
+type ModelId = OwnerRunwayI2vModelId;
+const MODELS = ["4genfirstframeimage", "turbo4genfirstframeimage", "gen4.5i2v"] as const;
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const RECOVERY = /^runway_i2v_recovery_[0-9a-f-]{36}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
@@ -33,8 +34,14 @@ const OPERATIONS = new WeakMap<object, Operation>();
 const RESULTS = new WeakMap<object, { op: Operation; row: HistoryRow }>();
 const GENERATE = z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.enum(MODELS),
   prompt: z.string().min(1).max(1000), aspect_ratio: z.enum(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]),
-  video_duration: z.union([z.literal(5), z.literal(10)]), seed: z.null(),
-  reference_handle: z.string().regex(/^runway_i2v_reference_[0-9a-f-]{36}$/u) }).strict();
+  video_duration: z.union([z.literal(5), z.literal(8), z.literal(10)]), seed: z.null(),
+  reference_handle: z.string().regex(/^runway_i2v_reference_[0-9a-f-]{36}$/u) }).strict().superRefine((value, context) => {
+    if (value.model_id === "gen4.5i2v") {
+      if (value.aspect_ratio !== "16:9") context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Gen4.5 I2V initial slice requires explicit 16:9." });
+    } else if (value.video_duration !== 5 && value.video_duration !== 10) {
+      context.addIssue({ code: "custom", path: ["video_duration"], message: "The legacy Runway I2V models support only 5 or 10 seconds in this slice." });
+    }
+  });
 const id = z.union([z.string().regex(ID), z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).transform(String);
 const objectSchema = z.object({ id, message_id: id, object_type: z.string().max(128),
   object_text: z.string().max(20000).nullable().optional(), object_url: z.string().max(4096).nullable().optional(),
@@ -137,7 +144,7 @@ export class OwnerRunwayI2vGenerationService {
         await this.#preflight(op, deadline);
         this.#records.set(recovery, op); OPERATIONS.set(token, op);
         await this.#current(op, deadline); op.validate(true);
-        try { op.chat = await deadline.waitFor(SyntxChatHttpClient.prototype.createOwnerRunwayI2vChat.call(op.client,
+        try { op.chat = await deadline.waitFor(createRunwayI2vChat(op.client,
           { attemptId: request.attemptId, model_id: request.model_id, title: "owner-runway-i2v-" + randomUUID() }, deadline.signal)); }
         catch { CLAIMS.add(semantic); op.result = unknownResult(request.model_id, recovery, ["CHAT_CREATE_OUTCOME_UNKNOWN"]); return op.result; }
         await this.#preflight(op, deadline);
@@ -313,6 +320,14 @@ function operationUnknown(op: Operation, reason: string): OwnerRunwayI2vGenerati
   return unknownResult(op.request.model_id, op.recovery, [reason,
     ...(op.responseStatus === undefined ? [] : [`GENERATION_HTTP_${op.responseStatus}`]),
     ...(op.transportCode === undefined ? [] : [`GENERATION_TRANSPORT_${op.transportCode}`])]);
+}
+async function createRunwayI2vChat(client: SyntxChatHttpClient, input: { attemptId: string; model_id: ModelId; title: string },
+  signal: AbortSignal): Promise<OwnerRunwayI2vChatContext> {
+  const method = Reflect.get(client, "createOwnerRunwayI2vChat");
+  if (typeof method !== "function") fail("NATIVE_METHOD_UNAVAILABLE");
+  const context: unknown = await Reflect.apply(method, client, [input, signal]);
+  if (!SyntxChatHttpClient.prototype.isOwnerRunwayI2vChat.call(client, context, input.attemptId)) fail("CHAT_CONTEXT_INVALID");
+  return context as OwnerRunwayI2vChatContext;
 }
 function genuine(value: unknown, ctor: { prototype: object }, methods: readonly string[]): boolean {
   return !!value && typeof value === "object" && !types.isProxy(value) && Object.getPrototypeOf(value) === ctor.prototype &&

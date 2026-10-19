@@ -9,7 +9,7 @@ import {
 } from "./owner-runway-i2v-parameters.js";
 import { OWNER_RUNWAY_I2V_IMAGE_POLICY } from "./owner-runway-i2v-image-policy.js";
 
-const MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage"] as const);
+const MODEL_IDS = Object.freeze(["4genfirstframeimage", "turbo4genfirstframeimage", "gen4.5i2v"] as const);
 const RATIO_PARTS: Readonly<Record<OwnerRunwayI2vAspectRatio, readonly [number, number]>> = Object.freeze({
   "21:9": [21, 9], "16:9": [16, 9], "4:3": [4, 3], "1:1": [1, 1], "3:4": [3, 4], "9:16": [9, 16]
 });
@@ -27,7 +27,7 @@ export interface OwnerRunwayI2vWireInput {
   readonly settings: Readonly<{
     readonly model_type: typeof MODEL_IDS[number];
     readonly aspect_ratio: string;
-    readonly video_duration: "5.0" | "10.0";
+    readonly video_duration: "5.0" | "8.0" | "10.0";
     readonly seed: null;
     readonly file_urls: readonly Readonly<{ readonly type: "image"; readonly url: string }>[];
   }>;

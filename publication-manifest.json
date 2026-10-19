@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "fe481a6d602ff5c9dc7ee53728506f5c02eff1e7",
+  "source_commit": "37524aef1028f33dbeb12cf77384d7ebe2cde75e",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -1980,7 +1980,7 @@
   ],
   "file_sha256": {
     ".gitattributes": "e6a761bace28c69308bf1c43ab5f2f398d01de3cfbae6e2cb316ea86226b0fbe",
-    ".github/workflows/verify.yml": "85058e62712704dcff143022ffa8df15a008af814bd01a89e868a34e37d0c142",
+    ".github/workflows/verify.yml": "8dfe63af9aaafab6c02c5eee8ba8d2fff4eaaab3f7d5da575d70d7157f54d7a5",
     ".gitignore": "d69b6e3b1799372e2e768fd634e2171f918155cb202498225e7eafadb90db99b",
     ".gitleaks.toml": "649d0cd3ee28612d2dd429e42a17953e7e19c35223e5affb1cc97e477fd584f1",
     "AGENTS.md": "014cb4aee0a9002a5b5dd9f4cf41efe683ec62baaa43e5384ff2109f4ae631a1",
@@ -3741,7 +3741,7 @@
     "tests/print-media-grok-v2v-config-2066.test.mjs": "52ff5224bb5a54bdddbc4df74174eb49adcbd584439f635761e81adfd1d4776b",
     "tests/print-media-hailuo-config2331.test.mjs": "29c3bcfa47a7ea7af857d4068b949e6ab24c187b1da0596ea749c3dac14f6b61",
     "tests/print-media-happy-horse-config2337.test.mjs": "fcda94e2941ef3fe15ee02777f53ece5aed3424c829c7486611885d14d13a338",
-    "tests/print-media-kling-switchx2357.test.mjs": "78db883f3f8f060b9bc2d6e9743908aaeab55973cf6cb6260cbe59b8f078856f",
+    "tests/print-media-kling-switchx2357.test.mjs": "5ee592399499d6407b9234cd9e1346c0ffe2f7a195dc932c70017a1bd352a8a9",
     "tests/print-media-mcp-config-kling4-2149.test.mjs": "ee1da007e60c70f0bff0675885c051904b76bf57da73c67c225ff25e182484e6",
     "tests/print-media-mcp-config.test.mjs": "f234962de0248ab10826a4f8c0b550ac0ff13bbe46f1b37c9f71104b76341073",
     "tests/print-media-omni-reference-config-2117.test.mjs": "a88e95219f94e6ca70134c41e3833bf1594ef1c58fa76eadfc8afaab1ddda22f",

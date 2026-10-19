@@ -11,6 +11,7 @@ on:
         options:
           - changed-media
           - docs-only
+          - media-cli-fix
           - full
 
 permissions:
@@ -19,7 +20,7 @@ permissions:
 jobs:
   changed-media:
     name: Scoped checks / Linux / Node 24.21.0
-    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only'
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -81,6 +82,12 @@ jobs:
       - name: Unchanged media checks intentionally skipped for docs-only scope
         if: inputs.scope == 'docs-only'
         run: echo NOT_RUN_UNCHANGED_MEDIA_DOCS_ONLY
+
+      - name: Verify corrected media CLI regression and export guards
+        if: inputs.scope == 'media-cli-fix'
+        run: |
+          node --test tests/print-media-kling-switchx2357.test.mjs
+          node --test --test-name-pattern="allowlisted media guides|exports only the exact committed" tests/export-public-snapshot.test.mjs
 
       - name: Verify public manifest hashes, read safety, and secrets
         run: node --test tests/public-secret-scan.test.mjs

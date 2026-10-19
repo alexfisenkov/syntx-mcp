@@ -7,7 +7,7 @@ test('2357 Kling media and Switchx are independent default-off operator-owned gr
  for(const [flag,key,group] of [['--include-kling-media','includeKlingMedia','KLING_MEDIA'],['--include-switchx-video','includeSwitchxVideo','SWITCHX_VIDEO']]){
   assert.deepEqual(parseArguments(['--confirm-enable-paid-tools',flag]),{kind:'emit',[key]:true});
   const selected=buildMediaMcpConfig(url,process.execPath,{[key]:true}).mcpServers.syntx.env;
-  assert.equal(Object.hasOwn(base,'SYNTX_OWNER_'+group),false);
+  assert.equal(base['SYNTX_OWNER_'+group],'0');
   assert.deepEqual(Object.fromEntries(Object.entries(selected).filter(([k,v])=>base[k]!==v)),{
    ['SYNTX_OWNER_'+group]:'1',['SYNTX_OWNER_'+group+'_UPLOAD_DESTINATION']:'<uploaded|hidden>',
    ['SYNTX_OWNER_'+group+'_FFPROBE_PATH']:'<absolute path to trusted ffprobe executable>'});

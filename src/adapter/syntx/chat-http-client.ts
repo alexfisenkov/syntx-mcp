@@ -160,6 +160,12 @@ import {
   type ValidatedOwnerRunwayI2vImageUpload
 } from "../../application/owner-runway-i2v-image-policy.js";
 import {
+  OWNER_GROK_I2V_IMAGE_POLICY,
+  readValidatedOwnerGrokI2vImageUpload,
+  releaseValidatedOwnerGrokI2vImageUpload,
+  type ValidatedOwnerGrokI2vImageUpload
+} from "../../application/owner-grok-i2v-image-policy.js";
+import {
   createOwnerRunwayI2vImageUploadContext,
   type OwnerRunwayI2vImageUploadContext
 } from "./owner-runway-i2v-upload-context.js";
@@ -267,6 +273,12 @@ import type { OwnerWan26R2vImageUploadContext } from "./wan26-r2v-upload-context
 import type { OwnerWan26R2vSelectedVideoUploadContext } from "./wan26-r2v-video-upload-context.js";
 import type { OwnerSeedanceEditorChatContext } from "./owner-seedance-editor-chat-context.js";
 import type { OwnerRunwayI2vChatContext } from "./owner-runway-i2v-chat-context.js";
+import type { OwnerGrokI2vChatContext } from "./owner-grok-i2v-chat-context.js";
+import {
+  createOwnerGrokI2vImageUploadContext,
+  type OwnerGrokI2vImageUploadContext,
+  type OwnerGrokI2vUploadDestination
+} from "./owner-grok-i2v-upload-context.js";
 import { copyTrustedOwnerWan26R2vVideoCropBytes, type OwnerWan26R2vVideoCropReceipt } from "../../application/owner-wan26-r2v-video-crop.js";
 import { validateOwnerWan26R2vImageUploadRequest } from "./owner-wan26-r2v-image-upload.js";
 import {
@@ -671,6 +683,7 @@ const MAX_BANANA_INPAINT_AUXILIARY_UPLOAD_BYTES = 50 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_ORIGINAL_UPLOAD_BYTES = 30 * 1024 * 1024;
 const MAX_SEEDREAM_EDITOR_DRAWING_UPLOAD_BYTES = 32 * 1024 * 1024;
 const MAX_KLING_I2V_IMAGE_UPLOAD_BYTES = 30 * 1024 * 1024;
+const MAX_GROK_I2V_IMAGE_UPLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_KLING_MOTION_CONTROL_IMAGE_UPLOAD_BYTES = 64 * 1024 * 1024;
 const MAX_KLING_MOTION_CONTROL_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 const HAILUO02_I2V_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<Hailuo02I2vUploadContextState>>();
@@ -884,6 +897,17 @@ const runwayI2vUploadResponseSchema = z.object({
     url: z.string().min(1).max(MAX_URL_LENGTH),
     mime_type: z.string().max(128).optional(),
     size: z.number().int().nonnegative().max(MAX_UPLOAD_BYTES).optional(),
+    status: z.string().max(64).optional()
+  }).strip()).length(1)
+}).strip();
+const grokI2vUploadResponseSchema = z.object({
+  files: z.array(z.object({
+    id: providerIdSchema.optional(),
+    file_id: providerIdSchema.optional(),
+    filename: z.string().max(255).optional(),
+    url: z.string().min(1).max(MAX_URL_LENGTH),
+    mime_type: z.string().max(128).optional(),
+    size: z.number().int().nonnegative().max(MAX_GROK_I2V_IMAGE_UPLOAD_BYTES).optional(),
     status: z.string().max(64).optional()
   }).strip()).length(1)
 }).strip();
@@ -2476,6 +2500,18 @@ interface OwnerRunwayI2vChatClientState {
   readonly attemptEpochs: Map<string, number>;
 }
 const OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES = new WeakMap<object, OwnerRunwayI2vChatClientState>();
+const OWNER_GROK_I2V_CHAT_CONTEXT_LIMIT = 128;
+interface OwnerGrokI2vChatContextState {
+  readonly context: OwnerGrokI2vChatContext;
+  readonly attemptId: string;
+  readonly epoch: number;
+}
+interface OwnerGrokI2vChatClientState {
+  readonly contexts: Map<OwnerGrokI2vChatContext, OwnerGrokI2vChatContextState>;
+  readonly pending: Map<symbol, { readonly attemptId: string; readonly epoch: number }>;
+  readonly attemptEpochs: Map<string, number>;
+}
+const OWNER_GROK_I2V_CHAT_CLIENT_STATES = new WeakMap<object, OwnerGrokI2vChatClientState>();
 
 /**
  * Fixed-route gateway for the SYNTX chat and generation routes observed in the
@@ -2710,6 +2746,93 @@ export class SyntxChatHttpClient {
       state.attemptEpochs.set(id, (state.attemptEpochs.get(id) ?? 0) + 1);
       for (const [context, contextState] of state.contexts) if (contextState.attemptId === id) state.contexts.delete(context);
       pruneOwnerRunwayI2vChatAttempt(state, id);
+    }
+  }
+
+  /** Fixed owner Grok I2V video chat; callers cannot supply the provider AI name or scope. */
+  async createOwnerGrokI2vChat(
+    input: { readonly attemptId: string; readonly model_id: "grok_i2v" | "grok_15_i2v"; readonly title: string },
+    signal?: AbortSignal
+  ): Promise<OwnerGrokI2vChatContext> {
+    const fields = readExactDataRecord(input, ["attemptId", "model_id", "title"], ["attemptId", "model_id", "title"]);
+    if (typeof fields.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(fields.attemptId) ||
+        (fields.model_id !== "grok_i2v" && fields.model_id !== "grok_15_i2v") || typeof fields.title !== "string") throw invalidRequest();
+    const attemptId = fields.attemptId, modelId = fields.model_id, title = fields.title;
+    validateBoundedText(title, MAX_TITLE_BYTES, true);
+
+    const state = ownerGrokI2vChatClientState(this);
+    if (state.contexts.size + state.pending.size >= OWNER_GROK_I2V_CHAT_CONTEXT_LIMIT) throw invalidRequest();
+    const reservation = Symbol("owner-grok-i2v-chat-create"), epoch = state.attemptEpochs.get(attemptId) ?? 0;
+    state.pending.set(reservation, { attemptId, epoch });
+    try {
+      const raw = await this.#request(new URL("chats", V1_BASE_URL), "POST", { title, scope: "video" }, "JSON_REQUIRED", signal);
+      const parsed = createChatResponseSchema.safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const chatUuid = parsed.data.uuid;
+      if ((state.attemptEpochs.get(attemptId) ?? 0) !== epoch || !state.pending.has(reservation)) throw invalidRequest();
+      for (const owned of state.contexts.values()) if (owned.context.chat_uuid === chatUuid) throw protocolError();
+      const context: OwnerGrokI2vChatContext = Object.freeze({ status: "created", chat_uuid: chatUuid,
+        attempt_id: attemptId, model_id: modelId, scope: "video", generation_permit: false });
+      state.contexts.set(context, { context, attemptId, epoch });
+      return context;
+    } finally {
+      state.pending.delete(reservation);
+      pruneOwnerGrokI2vChatAttempt(state, attemptId);
+    }
+  }
+
+  /** Fixed Grok I2V generation POST. Only the owner generation service can mint its dispatch token. */
+  async startOwnerGrokI2vOperation(operation: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const { consumeOwnerGrokI2vDispatch, recordOwnerGrokI2vTransport } = await import("../../application/owner-grok-i2v-generation-service.js");
+    const dispatch = consumeOwnerGrokI2vDispatch(this, operation);
+    try {
+      return await this.#startMedia("video/generate", "grok_video", dispatch.chat_uuid,
+        dispatch.body as Record<string, JsonValue>, signal,
+        status => recordOwnerGrokI2vTransport(this, operation, status));
+    } catch (error) {
+      if (error instanceof SyntxHttpError) recordOwnerGrokI2vTransport(this, operation, error.code);
+      throw error;
+    }
+  }
+
+  /** GET-only; history route is derived from an owner operation capability. */
+  async readOwnerGrokI2vHistory(operation: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerGrokI2vHistoryRoute } = await import("../../application/owner-grok-i2v-generation-service.js");
+    const chatUuid = readOwnerGrokI2vHistoryRoute(this, operation);
+    const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+    url.searchParams.set("page", "1"); url.searchParams.set("page_size", "10");
+    return this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
+  /** GET-only; provider message route comes only from verified owner history. */
+  async readOwnerGrokI2vResult(resultContext: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerGrokI2vResultRoute } = await import("../../application/owner-grok-i2v-generation-service.js");
+    const route = readOwnerGrokI2vResultRoute(this, resultContext);
+    return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
+  isOwnerGrokI2vChat(context: unknown, attemptId: string): context is OwnerGrokI2vChatContext {
+    if (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId) ||
+        !context || typeof context !== "object" || types.isProxy(context) || !Object.isFrozen(context)) return false;
+    const state = OWNER_GROK_I2V_CHAT_CLIENT_STATES.get(this)?.contexts.get(context as OwnerGrokI2vChatContext);
+    return !!state && state.context === context && state.attemptId === attemptId &&
+      state.epoch === (OWNER_GROK_I2V_CHAT_CLIENT_STATES.get(this)?.attemptEpochs.get(attemptId) ?? 0);
+  }
+
+  invalidateOwnerGrokI2vChats(attemptId?: string): void {
+    if (attemptId !== undefined && (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId))) throw invalidRequest();
+    const state = OWNER_GROK_I2V_CHAT_CLIENT_STATES.get(this);
+    if (!state) return;
+    const attempts = new Set<string>();
+    if (attemptId !== undefined) attempts.add(attemptId);
+    else {
+      for (const owned of state.contexts.values()) attempts.add(owned.attemptId);
+      for (const pending of state.pending.values()) attempts.add(pending.attemptId);
+    }
+    for (const id of attempts) {
+      state.attemptEpochs.set(id, (state.attemptEpochs.get(id) ?? 0) + 1);
+      for (const [context, owned] of state.contexts) if (owned.attemptId === id) state.contexts.delete(context);
+      pruneOwnerGrokI2vChatAttempt(state, id);
     }
   }
 
@@ -7429,11 +7552,9 @@ export class SyntxChatHttpClient {
     signal?: AbortSignal
   ): Promise<UploadFileReceipt> {
     validateUploadFileRequest(request);
-    const bytes = new Uint8Array(request.bytes.byteLength);
-    bytes.set(request.bytes);
     const raw = await this.#requestUpload(
       new URL("chats/upload-files", V1_BASE_URL),
-      this.#buildUploadForm(request, bytes),
+      this.#buildUploadForm(request, request.bytes),
       signal
     );
     const parsed = uploadResponseSchema.safeParse(raw);
@@ -8566,6 +8687,68 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** Fixed image upload with an operator-bound destination; callers cannot choose the provider model type. */
+  async uploadOwnerGrokI2vImage(
+    input: unknown,
+    signal?: AbortSignal
+  ): Promise<OwnerGrokI2vImageUploadContext> {
+    let bytes: Uint8Array | undefined;
+    let form: FormData | undefined;
+    try {
+      const fields = readExactDataRecord(input, ["media", "destination"], ["media", "destination"]);
+      if (fields.destination !== "uploaded" && fields.destination !== "hidden") throw invalidRequest();
+      const receipt = fields.media;
+      const owned = readValidatedOwnerGrokI2vImageUpload(receipt);
+      if (!owned) throw invalidRequest();
+      try {
+        if (!releaseValidatedOwnerGrokI2vImageUpload(receipt)) throw invalidRequest();
+        // #buildUploadForm wraps bytes.buffer in a Blob, so use a fresh exact-length backing store.
+        // Buffer.from(shortBytes) can point into Node's shared 8 KiB slab and would upload its entire buffer.
+        bytes = new Uint8Array(owned.size);
+        bytes.set(owned.bytes);
+      } finally { owned.bytes.fill(0); }
+      const validated = receipt as Readonly<ValidatedOwnerGrokI2vImageUpload>;
+      const modelMax = OWNER_GROK_I2V_IMAGE_POLICY.local_max_bytes[owned.model_id];
+      if (validated.status !== "LOCAL_IMAGE_VALIDATED_NOT_UPLOAD_AUTHORITY" || validated.upload_authority !== false ||
+          validated.provider_acceptance !== "UNPROVEN" || validated.metadata_confidence !== OWNER_GROK_I2V_IMAGE_POLICY.metadata_confidence ||
+          validated.size_limit_confidence !== OWNER_GROK_I2V_IMAGE_POLICY.local_max_bytes_policy ||
+          validated.model_id !== owned.model_id || !OWNER_GROK_I2V_IMAGE_POLICY.model_ids.includes(owned.model_id) ||
+          validated.filename !== owned.filename || validated.mime_type !== owned.mime_type ||
+          !OWNER_GROK_I2V_IMAGE_POLICY.supported_container_mime_types.includes(owned.mime_type) ||
+          validated.size !== owned.size || validated.width !== owned.width || validated.height !== owned.height ||
+          validated.sha256 !== owned.sha256 || !bytes || owned.size !== bytes.byteLength || owned.size < 1 || owned.size > modelMax ||
+          !/^[a-f0-9]{64}$/u.test(owned.sha256) || createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !Number.isSafeInteger(owned.width) || owned.width < 1 || owned.width > OWNER_GROK_I2V_IMAGE_POLICY.max_dimension ||
+          !Number.isSafeInteger(owned.height) || owned.height < 1 || owned.height > OWNER_GROK_I2V_IMAGE_POLICY.max_dimension ||
+          owned.width * owned.height > OWNER_GROK_I2V_IMAGE_POLICY.max_pixels ||
+          (owned.model_id === "grok_i2v" && owned.width * 9 !== owned.height * 16) ||
+          owned.filename.length === 0 || owned.filename === "." || owned.filename === ".." ||
+          Buffer.byteLength(owned.filename, "utf8") > 255 || /[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(owned.filename)) throw invalidRequest();
+
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: fields.destination as OwnerGrokI2vUploadDestination, check_duplicates: true, model_type: owned.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const parsed = grokI2vUploadResponseSchema.safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const uploaded = parsed.data.files[0]!;
+      if ((uploaded.status !== undefined && uploaded.status.toLowerCase() !== "success") ||
+          (uploaded.filename !== undefined && uploaded.filename !== owned.filename) ||
+          (uploaded.mime_type !== undefined && uploaded.mime_type !== owned.mime_type) ||
+          (uploaded.size !== undefined && uploaded.size !== owned.size) ||
+          (uploaded.id !== undefined && uploaded.file_id !== undefined && String(uploaded.id) !== String(uploaded.file_id))) throw protocolError();
+      let references: InternalUploadReference[];
+      try { references = parseInternalUploadReferences(raw); } catch { throw protocolError(); }
+      if (references.length !== 1) throw protocolError();
+      return createOwnerGrokI2vImageUploadContext(this, references[0]!, {
+        model_id: owned.model_id, destination: fields.destination as OwnerGrokI2vUploadDestination,
+        mime_type: owned.mime_type, size: owned.size, sha256: owned.sha256, width: owned.width, height: owned.height
+      });
+    } finally {
+      bytes?.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One fixed WAN 2.7 R2V image upload from a genuine local image receipt. */
   async uploadWan27R2vImage(
     receiptInput: ValidatedOwnerWan27R2vImage,
@@ -9242,7 +9425,14 @@ export class SyntxChatHttpClient {
 
   #buildUploadForm(request: UploadFileRequest, bytes: Uint8Array): FormData {
     const form = new FormData();
-    form.append("files", new Blob([bytes.buffer as ArrayBuffer], { type: request.mime_type }), request.filename);
+    const exactBytes = new Uint8Array(bytes.byteLength);
+    exactBytes.set(bytes);
+    try {
+      // Blob snapshots its source bytes; clearing this exact-range temporary cannot affect the multipart File.
+      form.append("files", new Blob([exactBytes.buffer as ArrayBuffer], { type: request.mime_type }), request.filename);
+    } finally {
+      exactBytes.fill(0);
+    }
     form.append("destination", request.destination);
     form.append("check_duplicates", "true");
     form.append("model_type", request.model_type);
@@ -10794,6 +10984,21 @@ function ownerRunwayI2vChatClientState(client: SyntxChatHttpClient): OwnerRunway
 function pruneOwnerRunwayI2vChatAttempt(state: OwnerRunwayI2vChatClientState, attemptId: string): void {
   const hasContext = [...state.contexts.values()].some((context) => context.attemptId === attemptId);
   const hasPending = [...state.pending.values()].some((pending) => pending.attemptId === attemptId);
+  if (!hasContext && !hasPending) state.attemptEpochs.delete(attemptId);
+}
+
+function ownerGrokI2vChatClientState(client: SyntxChatHttpClient): OwnerGrokI2vChatClientState {
+  let state = OWNER_GROK_I2V_CHAT_CLIENT_STATES.get(client);
+  if (!state) {
+    state = { contexts: new Map(), pending: new Map(), attemptEpochs: new Map() };
+    OWNER_GROK_I2V_CHAT_CLIENT_STATES.set(client, state);
+  }
+  return state;
+}
+
+function pruneOwnerGrokI2vChatAttempt(state: OwnerGrokI2vChatClientState, attemptId: string): void {
+  const hasContext = [...state.contexts.values()].some(context => context.attemptId === attemptId);
+  const hasPending = [...state.pending.values()].some(pending => pending.attemptId === attemptId);
   if (!hasContext && !hasPending) state.attemptEpochs.delete(attemptId);
 }
 

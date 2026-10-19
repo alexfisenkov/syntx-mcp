@@ -241,25 +241,28 @@ test("exports only the exact committed source tree, preserves bootstrap, hashes 
   } finally { rmSync(temp, { recursive: true, force: true }); }
 });
 
-test("exports only the allowlisted Runway guide through broad docs exclusion while private roots and receipts stay excluded", () => {
+test("exports only the allowlisted media guides through broad docs exclusion while private roots and receipts stay excluded", () => {
   const temp = fixtureRoot();
   const source = join(temp, "source");
   const destination = join(temp, "public-checkout");
   const guide = "docs/интеграция/Runway-Gen4-I2V-MCP.md";
+  const grokGuide = "docs/интеграция/Grok-I2V-MCP.md";
   const privateDoc = "docs/интеграция/private-runway-note.md";
   const protectedRootFile = "docs/контроль/private.md";
   const privateReceipt = ".публикация/receipt.json";
   const bookkeeping = ".публикация/editor2238-ci.json";
   const envFile = ".env.secret";
   const guideBytes = Buffer.from("# Runway MCP guide\nSanitized public integration instructions.\n");
+  const grokGuideBytes = Buffer.from("# Grok I2V MCP guide\nSanitized public integration instructions.\n");
   try {
     initializeRepo(source);
     seedCommit(source);
     const policy = JSON.parse(readFileSync(join(source, "tools/publication/public-source-policy.json"), "utf8"));
-    policy.included_files = [...new Set([...policy.included_files, guide, protectedRootFile, envFile])];
+    policy.included_files = [...new Set([...policy.included_files, guide, grokGuide, protectedRootFile, envFile])];
     policy.excluded_prefixes = [...new Set([...policy.excluded_prefixes, ".публикация"])];
     writePath(source, "tools/publication/public-source-policy.json", `${JSON.stringify(policy, null, 2)}\n`);
     writePath(source, guide, guideBytes);
+    writePath(source, grokGuide, grokGuideBytes);
     writePath(source, privateDoc, `${PRIVATE_SENTINEL}\n`);
     writePath(source, protectedRootFile, `${PRIVATE_SENTINEL}\n`);
     writePath(source, privateReceipt, `${PRIVATE_SENTINEL}\n`);
@@ -277,6 +280,9 @@ test("exports only the allowlisted Runway guide through broad docs exclusion whi
     assert.equal(manifest.included_paths.includes(guide), true);
     assert.equal(manifest.file_sha256[guide], sha256(guideBytes));
     assert.deepEqual(readFileSync(join(destination, ...guide.split("/"))), guideBytes);
+    assert.equal(manifest.included_paths.includes(grokGuide), true);
+    assert.equal(manifest.file_sha256[grokGuide], sha256(grokGuideBytes));
+    assert.deepEqual(readFileSync(join(destination, ...grokGuide.split("/"))), grokGuideBytes);
 
     for (const path of [privateDoc, protectedRootFile, privateReceipt, bookkeeping, envFile]) {
       assert.equal(manifest.included_paths.includes(path), false, `private path exported: ${path}`);

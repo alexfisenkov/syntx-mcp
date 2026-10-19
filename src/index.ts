@@ -2048,6 +2048,50 @@ export { registerSyntxOwnerRunwayI2vTools, OWNER_RUNWAY_I2V_TOOL_NAMES } from ".
 export { createOwnerRunwayI2vRuntime } from "./runtime/owner-runway-i2v-runtime.js";
 export type { OwnerRunwayI2vRuntimeOptions } from "./runtime/owner-runway-i2v-runtime.js";
 export { readOwnerRunwayI2vFlag } from "./runtime/owner-runway-i2v-stdio-config.js";
+export {
+  getOwnerGrokI2vSourceProfile,
+  normalizeOwnerGrokI2vParameters
+} from "./application/owner-grok-i2v-parameters.js";
+export type {
+  OwnerGrokI2vAspectRatio,
+  OwnerGrokI2vModelId,
+  OwnerGrokI2vNormalizedParameters,
+  OwnerGrokI2vParametersInput,
+  OwnerGrokI2vResolution,
+  OwnerGrokI2vVideoDuration
+} from "./application/owner-grok-i2v-parameters.js";
+export {
+  OwnerGrokI2vReferenceService,
+  OwnerGrokI2vReferenceServiceError
+} from "./application/owner-grok-i2v-reference-service.js";
+export type {
+  OwnerGrokI2vOwnedReferences,
+  OwnerGrokI2vReferenceServiceOptions,
+  OwnerGrokI2vReferenceServiceErrorCode,
+  OwnerGrokI2vReferenceUploadInput,
+  OwnerGrokI2vReferenceUploadReceipt
+} from "./application/owner-grok-i2v-reference-service.js";
+export {
+  OwnerGrokI2vGenerationService,
+  OwnerGrokI2vGenerationError
+} from "./application/owner-grok-i2v-generation-service.js";
+export type {
+  OwnerGrokI2vArtifact,
+  OwnerGrokI2vGenerationOptions,
+  OwnerGrokI2vGenerationResult
+} from "./application/owner-grok-i2v-generation-service.js";
+export {
+  OWNER_GROK_I2V_TOOL_NAMES,
+  registerSyntxOwnerGrokI2vTools
+} from "./mcp/owner-grok-i2v-tools.js";
+export type { OwnerGrokI2vToolOptions } from "./mcp/owner-grok-i2v-tools.js";
+export { createOwnerGrokI2vRuntime } from "./runtime/owner-grok-i2v-runtime.js";
+export type { OwnerGrokI2vRuntimeOptions } from "./runtime/owner-grok-i2v-runtime.js";
+export {
+  readOwnerGrokI2vFlag,
+  readOwnerGrokI2vOperatorConfiguration
+} from "./runtime/owner-grok-i2v-stdio-config.js";
+export type { OwnerGrokI2vUploadDestination } from "./adapter/syntx/owner-grok-i2v-upload-context.js";
 export type { OwnerVeoT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
 export {
   registerSyntxOwnerVeoT2vTools,

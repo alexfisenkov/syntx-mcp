@@ -11,6 +11,7 @@ export const INCLUDE_KLING4_FLAG = "--include-kling4";
 export const INCLUDE_WAN27_VIDEOEDIT_FLAG = "--include-wan27-videoedit";
 export const INCLUDE_SEEDANCE_EDITOR_FLAG = "--include-seedance-editor";
 export const INCLUDE_RUNWAY_I2V_FLAG = "--include-runway-i2v";
+export const INCLUDE_GROK_I2V_FLAG = "--include-grok-i2v";
 
 const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_ACCOUNT_STATUS",
@@ -88,11 +89,13 @@ const HELP_TEXT = [
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_WAN27_VIDEOEDIT_FLAG}`,
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_SEEDANCE_EDITOR_FLAG}`,
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_RUNWAY_I2V_FLAG}`,
+  `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_GROK_I2V_FLAG}`,
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_KLING4_FLAG} ${INCLUDE_WAN27_VIDEOEDIT_FLAG}`,
   "  node scripts/print-media-mcp-config.mjs --help",
   "",
-  "Without the exact confirmation flag, no configuration is emitted. Kling 4, WAN 2.7 Video Edit, Seedance Editor, and Runway I2V are omitted unless their independent include flag is selected.",
+  "Without the exact confirmation flag, no configuration is emitted. Kling 4, WAN 2.7 Video Edit, Seedance Editor, Runway I2V, and Grok I2V are omitted unless their independent include flag is selected.",
   `Runway I2V is EXPERIMENTAL and omitted by default; select ${INCLUDE_RUNWAY_I2V_FLAG}. The initial Gen-4/Turbo slice accepts one already-cropped PNG/JPEG/WebP image up to a local 10 MiB ceiling, six explicit aspect ratios, 5 or 10 seconds, and seed:null only. Startup does not upload or generate. There is no enforceable provider cost cap; live provider E2E is not implied by registration.`,
+  `Grok I2V is EXPERIMENTAL and omitted by default; select ${INCLUDE_GROK_I2V_FLAG}. When selected, replace SYNTX_OWNER_GROK_I2V_UPLOAD_DESTINATION with exactly uploaded or hidden; no destination is inferred. grok_i2v uses the restricted local 16:9/6-or-10-second slice, a 5,000 UTF-16-unit prompt bound, and a 20 MiB local image ceiling. grok_15_i2v uses seven listed ratios, integer duration 1–15, a 2,000 UTF-16-unit prompt bound, and a 10 MiB local image ceiling. Both use 480p or 720p and expose no seed input. These limits are local/catalog-derived metadata, not provider acceptance. Startup does not upload or generate, and no enforceable provider cost cap is present.`,
   `Kling 4 is omitted by default; select its independent owner-stdio group with ${INCLUDE_KLING4_FLAG}. When selected, replace SYNTX_OWNER_KLING4_FFPROBE_PATH with an absolute trusted ffprobe executable path; SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES defaults to 67108864 (64 MiB), configurable from 1 through 314572800 (300 MiB). The 30 MiB image source limit is separate.`,
   `WAN 2.7 Video Edit is omitted by default; select its independent owner-stdio group with ${INCLUDE_WAN27_VIDEOEDIT_FLAG}. When selected, replace SYNTX_OWNER_WAN27_VIDEOEDIT_FFPROBE_PATH with an absolute trusted ffprobe executable path; SYNTX_OWNER_WAN27_VIDEOEDIT_MAX_VIDEO_FILE_BYTES defaults to 67108864 (64 MiB), with a 100 MiB source ceiling. Its local image cap is 20 MiB; width and height are each limited to 240–4096. It requires an already-trimmed 2–10 second video; no implicit crop is performed and there is no enforceable provider cost cap. Startup only registers explicitly callable paid tools; it does not upload or generate automatically.`,
   `Seedance Editor is EXPERIMENTAL and omitted by default; select its independent owner-stdio group with ${INCLUDE_SEEDANCE_EDITOR_FLAG}. Live provider E2E is unconfirmed. The local input is one MP4/MOV video, 4–30 seconds, with a 64 MiB default and 100 MiB ceiling. Replace SYNTX_OWNER_SEEDANCE_EDITOR_FFPROBE_PATH with an absolute path to a trusted ffprobe executable. Startup does not upload, probe, or generate; paid actions are explicitly called and there is no enforceable provider cost cap.`,
@@ -138,6 +141,7 @@ export function parseArguments(argv) {
   let includeWan27VideoEdit = false;
   let includeSeedanceEditor = false;
   let includeRunwayI2v = false;
+  let includeGrokI2v = false;
   for (const argument of argv) {
     if (seen.has(argument)) throw new MediaMcpConfigCliError();
     seen.add(argument);
@@ -146,13 +150,15 @@ export function parseArguments(argv) {
     else if (argument === INCLUDE_WAN27_VIDEOEDIT_FLAG) includeWan27VideoEdit = true;
     else if (argument === INCLUDE_SEEDANCE_EDITOR_FLAG) includeSeedanceEditor = true;
     else if (argument === INCLUDE_RUNWAY_I2V_FLAG) includeRunwayI2v = true;
+    else if (argument === INCLUDE_GROK_I2V_FLAG) includeGrokI2v = true;
     else throw new MediaMcpConfigCliError();
   }
   if (!confirmed) throw new MediaMcpConfigCliError();
   return Object.freeze({ kind: "emit", ...(includeKling4 ? { includeKling4: true } : {}),
     ...(includeWan27VideoEdit ? { includeWan27VideoEdit: true } : {}),
     ...(includeSeedanceEditor ? { includeSeedanceEditor: true } : {}),
-    ...(includeRunwayI2v ? { includeRunwayI2v: true } : {}) });
+    ...(includeRunwayI2v ? { includeRunwayI2v: true } : {}),
+    ...(includeGrokI2v ? { includeGrokI2v: true } : {}) });
 }
 
 export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefined) {
@@ -211,6 +217,10 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefine
     env.SYNTX_OWNER_SEEDANCE_EDITOR_MAX_VIDEO_FILE_BYTES = "67108864";
   }
   if (selection.includeRunwayI2v) env.SYNTX_OWNER_RUNWAY_I2V = "1";
+  if (selection.includeGrokI2v) {
+    env.SYNTX_OWNER_GROK_I2V = "1";
+    env.SYNTX_OWNER_GROK_I2V_UPLOAD_DESTINATION = "<uploaded|hidden>";
+  }
 
   return Object.freeze({
     mcpServers: Object.freeze({
@@ -236,7 +246,8 @@ export async function main(argv, options = {}) {
       ...(parsed.includeKling4 === true ? { includeKling4: true } : {}),
       ...(parsed.includeWan27VideoEdit === true ? { includeWan27VideoEdit: true } : {}),
       ...(parsed.includeSeedanceEditor === true ? { includeSeedanceEditor: true } : {}),
-      ...(parsed.includeRunwayI2v === true ? { includeRunwayI2v: true } : {})
+      ...(parsed.includeRunwayI2v === true ? { includeRunwayI2v: true } : {}),
+      ...(parsed.includeGrokI2v === true ? { includeGrokI2v: true } : {})
     };
     const config = buildMediaMcpConfig(options.entryUrl ?? import.meta.url, options.nodeExecutable ?? process.execPath,
       Object.keys(selection).length === 0 ? undefined : selection);
@@ -249,13 +260,14 @@ export async function main(argv, options = {}) {
 }
 
 function readOptionalSelections(value) {
-  if (value === undefined) return Object.freeze({ includeKling4: false, includeWan27VideoEdit: false, includeSeedanceEditor: false, includeRunwayI2v: false });
+  if (value === undefined) return Object.freeze({ includeKling4: false, includeWan27VideoEdit: false, includeSeedanceEditor: false, includeRunwayI2v: false, includeGrokI2v: false });
   try {
     if (!value || typeof value !== "object" || types.isProxy(value) || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) throw new Error();
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const keys = Reflect.ownKeys(descriptors);
-    if (keys.length < 1 || keys.length > 4 || keys.some((key) =>
-      key !== "includeKling4" && key !== "includeWan27VideoEdit" && key !== "includeSeedanceEditor" && key !== "includeRunwayI2v")) throw new Error();
+    if (keys.length < 1 || keys.length > 5 || keys.some((key) =>
+      key !== "includeKling4" && key !== "includeWan27VideoEdit" && key !== "includeSeedanceEditor" &&
+      key !== "includeRunwayI2v" && key !== "includeGrokI2v")) throw new Error();
     for (const key of keys) {
       const descriptor = descriptors[key];
       if (!descriptor || !Object.hasOwn(descriptor, "value") || descriptor.enumerable !== true || typeof descriptor.value !== "boolean") throw new Error();
@@ -263,7 +275,8 @@ function readOptionalSelections(value) {
     return Object.freeze({ includeKling4: descriptors.includeKling4?.value ?? false,
       includeWan27VideoEdit: descriptors.includeWan27VideoEdit?.value ?? false,
       includeSeedanceEditor: descriptors.includeSeedanceEditor?.value ?? false,
-      includeRunwayI2v: descriptors.includeRunwayI2v?.value ?? false });
+      includeRunwayI2v: descriptors.includeRunwayI2v?.value ?? false,
+      includeGrokI2v: descriptors.includeGrokI2v?.value ?? false });
   } catch {
     throw new MediaMcpConfigCliError();
   }

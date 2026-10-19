@@ -13,6 +13,7 @@
   "included_files": [
     ".gitattributes",
     ".gitleaks.toml",
+    "docs/интеграция/Grok-I2V-MCP.md",
     "docs/интеграция/Runway-Gen4-I2V-MCP.md",
     "LICENSE",
     "package-lock.json",

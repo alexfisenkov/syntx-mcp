@@ -13,6 +13,7 @@
   "included_files": [
     ".gitattributes",
     ".gitleaks.toml",
+    "docs/интеграция/Runway-Gen4-I2V-MCP.md",
     "LICENSE",
     "package-lock.json",
     "package.json",
@@ -37,7 +38,8 @@
     "docs/проект"
   ],
   "excluded_prefixes": [
-    "docs"
+    "docs",
+    ".публикация"
   ],
   "excluded_paths": [
     ".env.example",

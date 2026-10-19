@@ -235,6 +235,7 @@ import { registerSyntxOwnerVeoOmniReferenceTools, type OwnerVeoOmniReferenceTool
 import { registerSyntxOwnerKling4Tools, type OwnerKling4ToolOptions } from "./owner-kling4-tools.js";
 import { registerSyntxOwnerWan27VideoEditTools, type OwnerWan27VideoEditToolOptions } from "./owner-wan27-videoedit-tools.js";
 import { registerSyntxOwnerSeedanceEditorTools, type OwnerSeedanceEditorToolOptions } from "./owner-seedance-editor-tools.js";
+import { registerSyntxOwnerRunwayI2vTools, type OwnerRunwayI2vToolOptions } from "./owner-runway-i2v-tools.js";
 import type { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerGrokT2vTools } from "./owner-grok-t2v-tools.js";
 import type { OwnerHailuoLiveT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -653,6 +654,8 @@ export interface CreateMcpServerOptions {
   ownerWan27VideoEdit?: OwnerWan27VideoEditToolOptions | undefined;
   /** Explicit owner-local Seedance Editor video upload, generation, and recovery; omitted from default and HTTP servers. */
   ownerSeedanceEditor?: OwnerSeedanceEditorToolOptions | undefined;
+  /** Explicit owner-local Runway Gen4 I2V upload, generation, and recovery; omitted from default and HTTP servers. */
+  ownerRunwayI2v?: OwnerRunwayI2vToolOptions | undefined;
   ownerGrokT2v?: OwnerGrokT2vServiceComposition | undefined;
   ownerHailuoLiveT2v?: OwnerHailuoLiveT2vServiceComposition | undefined;
   /** Explicit owner-local Video2Audio tools; omitted from default and HTTP servers. */
@@ -793,7 +796,7 @@ export function createMcpServer(
   options: CreateMcpServerOptions = {}
 ): McpServer {
   if (options.ownerDurableGeneration &&
-      (options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
+      (options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerRunwayI2v || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
         options.ownerGrokImageReferences || options.ownerClarityUpscale || options.ownerMagnificUpscale ||
         options.ownerKontextImageReferences || options.ownerWanImageReferences || options.ownerStandardImageReferences ||
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
@@ -1345,6 +1348,7 @@ export function createMcpServer(
   if (options.ownerKling4) registerSyntxOwnerKling4Tools(server, options.ownerKling4);
   if (options.ownerWan27VideoEdit) registerSyntxOwnerWan27VideoEditTools(server, options.ownerWan27VideoEdit);
   if (options.ownerSeedanceEditor) registerSyntxOwnerSeedanceEditorTools(server, options.ownerSeedanceEditor);
+  if (options.ownerRunwayI2v) registerSyntxOwnerRunwayI2vTools(server, options.ownerRunwayI2v);
   if (options.ownerGrokT2v) {
     registerSyntxOwnerGrokT2vTools(server, { service: options.ownerGrokT2v.generationService });
   }

@@ -4,6 +4,7 @@ import { createOwnerVeoOmniReferenceRuntime, getOwnerVeoOmniReferenceRuntimeStar
 import { createOwnerKling4Runtime, getOwnerKling4RuntimeStartupCleanup } from "./owner-kling4-runtime.js";
 import { createOwnerWan27VideoEditRuntime, getOwnerWan27VideoEditRuntimeStartupCleanup } from "./owner-wan27-videoedit-runtime.js";
 import { createOwnerSeedanceEditorRuntime, getOwnerSeedanceEditorRuntimeStartupCleanup } from "./owner-seedance-editor-runtime.js";
+import { createOwnerRunwayI2vRuntime, getOwnerRunwayI2vRuntimeStartupCleanup } from "./owner-runway-i2v-runtime.js";
 import { SyntxChatHttpClient } from "../adapter/syntx/chat-http-client.js";
 import { SyntxHttpClient, isSyntxModelInfoCallerParameterKey } from "../adapter/syntx/http-client.js";
 import type { SyntxCostParameter } from "../adapter/syntx/http-client.js";
@@ -331,6 +332,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerSeedanceEditorEnabled?: boolean;
   ownerSeedanceEditorFfprobePath?: string;
   ownerSeedanceEditorMaxVideoFileBytes?: number;
+  /** Independent opt-in for the bounded owner Runway Gen4 I2V image workflow. */
+  ownerRunwayI2vEnabled?: boolean;
   ownerKling4FfprobePath?: string;
   ownerKling4MaxVideoFileBytes?: number;
   /** Explicit owner-stdio opt-in for source-reviewed Grok T2V without references. */
@@ -2876,6 +2879,18 @@ export function createObservedOwnerRuntime(
         }
       })()
     : undefined;
+  const ownerRunwayI2v = options.ownerRunwayI2vEnabled === true
+    ? (() => {
+        try {
+          return createOwnerRunwayI2vRuntime({ ...(options.catalogDirectory === undefined ? {} : { catalogDirectory: options.catalogDirectory }),
+            binding: authBinding, linkService, createReadClient, createChatClient, now });
+        } catch (error) {
+          const cleanup = getOwnerRunwayI2vRuntimeStartupCleanup(error);
+          if (cleanup && error && typeof error === "object") OWNER_RUNTIME_STARTUP_CLEANUPS.set(error, cleanup);
+          throw error;
+        }
+      })()
+    : undefined;
   const ownerKling4 = options.ownerKling4Enabled === true
     ? (() => {
         try {
@@ -3107,7 +3122,7 @@ export function createObservedOwnerRuntime(
       ownerHailuo02I2v === undefined &&
       ownerVeoT2v === undefined &&
       ownerVeoOmniT2v === undefined &&
-      ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined &&
+      ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined && ownerRunwayI2v === undefined &&
       ownerGrokT2v === undefined &&
       ownerHailuoLiveT2v === undefined &&
       ownerVideo2Audio === undefined &&
@@ -3249,6 +3264,10 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerSeedanceEditor.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerRunwayI2v !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerRunwayI2v.lifecycle.invalidateAttempt(attemptId);
+            }
             if (ownerGrokT2v !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId);
@@ -3298,7 +3317,7 @@ export function createObservedOwnerRuntime(
         ownerHailuo02I2v === undefined &&
         ownerVeoT2v === undefined &&
         ownerVeoOmniT2v === undefined &&
-        ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined &&
+        ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined && ownerRunwayI2v === undefined &&
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
         ownerVideo2Audio === undefined &&
@@ -3409,6 +3428,9 @@ export function createObservedOwnerRuntime(
           }
           if (ownerSeedanceEditor !== undefined) {
             try { await ownerSeedanceEditor.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerRunwayI2v !== undefined) {
+            try { await ownerRunwayI2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerGrokT2v !== undefined) {
             try { await ownerGrokT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -3577,6 +3599,10 @@ export function createObservedOwnerRuntime(
       generationService: ownerSeedanceEditor.generationService,
       maxVideoFileBytes: ownerSeedanceEditor.maxVideoFileBytes
     } }),
+    ...(ownerRunwayI2v === undefined ? {} : { ownerRunwayI2v: {
+      referenceService: ownerRunwayI2v.referenceService,
+      generationService: ownerRunwayI2v.generationService
+    } }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
@@ -3658,6 +3684,7 @@ export function createObservedOwnerRuntime(
     ...(ownerKling4 === undefined ? {} : { ownerKling4Lifecycle: ownerKling4.lifecycle }),
     ...(ownerWan27VideoEdit === undefined ? {} : { ownerWan27VideoEditLifecycle: ownerWan27VideoEdit.lifecycle }),
     ...(ownerSeedanceEditor === undefined ? {} : { ownerSeedanceEditorLifecycle: ownerSeedanceEditor.lifecycle }),
+    ...(ownerRunwayI2v === undefined ? {} : { ownerRunwayI2vLifecycle: ownerRunwayI2v.lifecycle }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2vLifecycle: ownerHailuoLiveT2v.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle }),

@@ -153,6 +153,17 @@ import {
   type ValidatedOwnerHailuo02I2vImageUpload
 } from "../../application/owner-hailuo02-i2v-image-policy.js";
 import {
+  OWNER_RUNWAY_I2V_IMAGE_POLICY,
+  readValidatedOwnerRunwayI2vImageUpload,
+  releaseValidatedOwnerRunwayI2vImageUpload,
+  type OwnerRunwayI2vImageAspectRatio,
+  type ValidatedOwnerRunwayI2vImageUpload
+} from "../../application/owner-runway-i2v-image-policy.js";
+import {
+  createOwnerRunwayI2vImageUploadContext,
+  type OwnerRunwayI2vImageUploadContext
+} from "./owner-runway-i2v-upload-context.js";
+import {
   readValidatedOwnerKlingKeyframesImage,
   type OwnerKlingKeyframesImageCanonicalMimeType,
   type ValidatedOwnerKlingKeyframesImage
@@ -255,6 +266,7 @@ import type {
 import type { OwnerWan26R2vImageUploadContext } from "./wan26-r2v-upload-context.js";
 import type { OwnerWan26R2vSelectedVideoUploadContext } from "./wan26-r2v-video-upload-context.js";
 import type { OwnerSeedanceEditorChatContext } from "./owner-seedance-editor-chat-context.js";
+import type { OwnerRunwayI2vChatContext } from "./owner-runway-i2v-chat-context.js";
 import { copyTrustedOwnerWan26R2vVideoCropBytes, type OwnerWan26R2vVideoCropReceipt } from "../../application/owner-wan26-r2v-video-crop.js";
 import { validateOwnerWan26R2vImageUploadRequest } from "./owner-wan26-r2v-image-upload.js";
 import {
@@ -638,6 +650,9 @@ const MAX_ARRAY_ITEMS = 64;
 const MAX_FILES = 16;
 const MAX_URL_LENGTH = 4096;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const RUNWAY_I2V_UPLOAD_RATIOS: Readonly<Record<OwnerRunwayI2vImageAspectRatio, readonly [number, number]>> = Object.freeze({
+  "21:9": [21, 9], "16:9": [16, 9], "4:3": [4, 3], "1:1": [1, 1], "3:4": [3, 4], "9:16": [9, 16]
+});
 // Mirrors the observed Magnific FileUpload UI fallback; this is not a provider limit.
 const MAX_MAGNIFIC_UPLOAD_BYTES = 10 * 1024 * 1024;
 // Local bounded-resource guard for the validated Kontext input; not a provider limit.
@@ -859,6 +874,17 @@ const hailuo02I2vUploadResponseSchema = z.object({
     mime_type: z.string().max(128).optional(),
     size: z.number().int().nonnegative().max(MAX_UPLOAD_BYTES).optional(),
     status: z.string().regex(SAFE_RESPONSE_TOKEN).optional()
+  }).strip()).length(1)
+}).strip();
+const runwayI2vUploadResponseSchema = z.object({
+  files: z.array(z.object({
+    id: providerIdSchema.optional(),
+    file_id: providerIdSchema.optional(),
+    filename: z.string().max(255).optional(),
+    url: z.string().min(1).max(MAX_URL_LENGTH),
+    mime_type: z.string().max(128).optional(),
+    size: z.number().int().nonnegative().max(MAX_UPLOAD_BYTES).optional(),
+    status: z.string().max(64).optional()
   }).strip()).length(1)
 }).strip();
 const klingKeyframesUploadResponseSchema = z.object({
@@ -2438,6 +2464,18 @@ interface OwnerSeedanceEditorChatClientState {
   readonly attemptEpochs: Map<string, number>;
 }
 const OWNER_SEEDANCE_EDITOR_CHAT_CLIENT_STATES = new WeakMap<object, OwnerSeedanceEditorChatClientState>();
+const OWNER_RUNWAY_I2V_CHAT_CONTEXT_LIMIT = 128;
+interface OwnerRunwayI2vChatContextState {
+  readonly context: OwnerRunwayI2vChatContext;
+  readonly attemptId: string;
+  readonly epoch: number;
+}
+interface OwnerRunwayI2vChatClientState {
+  readonly contexts: Map<OwnerRunwayI2vChatContext, OwnerRunwayI2vChatContextState>;
+  readonly pending: Map<symbol, { readonly attemptId: string; readonly epoch: number }>;
+  readonly attemptEpochs: Map<string, number>;
+}
+const OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES = new WeakMap<object, OwnerRunwayI2vChatClientState>();
 
 /**
  * Fixed-route gateway for the SYNTX chat and generation routes observed in the
@@ -2583,6 +2621,95 @@ export class SyntxChatHttpClient {
         if (contextState.attemptId === id) state.contexts.delete(context);
       }
       pruneOwnerSeedanceEditorChatAttempt(state, id);
+    }
+  }
+
+  /** Fixed owner Runway I2V video chat. The model is bound into its nominal context. */
+  async createOwnerRunwayI2vChat(
+    input: { readonly attemptId: string; readonly model_id: "4genfirstframeimage" | "turbo4genfirstframeimage"; readonly title: string },
+    signal?: AbortSignal
+  ): Promise<OwnerRunwayI2vChatContext> {
+    const fields = readExactDataRecord(input, ["attemptId", "model_id", "title"], ["attemptId", "model_id", "title"]);
+    if (typeof fields.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(fields.attemptId) ||
+        (fields.model_id !== "4genfirstframeimage" && fields.model_id !== "turbo4genfirstframeimage") || typeof fields.title !== "string") throw invalidRequest();
+    const attemptId = fields.attemptId;
+    const modelId = fields.model_id;
+    const title = fields.title;
+    validateBoundedText(title, MAX_TITLE_BYTES, true);
+
+    const state = ownerRunwayI2vChatClientState(this);
+    if (state.contexts.size + state.pending.size >= OWNER_RUNWAY_I2V_CHAT_CONTEXT_LIMIT) throw invalidRequest();
+    const reservation = Symbol("owner-runway-i2v-chat-create");
+    const epoch = state.attemptEpochs.get(attemptId) ?? 0;
+    state.pending.set(reservation, { attemptId, epoch });
+    try {
+      const raw = await this.#request(new URL("chats", V1_BASE_URL), "POST", { title, scope: "video" }, "JSON_REQUIRED", signal);
+      const parsed = createChatResponseSchema.safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const chatUuid = parsed.data.uuid;
+      if ((state.attemptEpochs.get(attemptId) ?? 0) !== epoch || !state.pending.has(reservation)) throw invalidRequest();
+      for (const owned of state.contexts.values()) if (owned.context.chat_uuid === chatUuid) throw protocolError();
+      const context: OwnerRunwayI2vChatContext = Object.freeze({ status: "created", chat_uuid: chatUuid,
+        attempt_id: attemptId, model_id: modelId, scope: "video", generation_permit: false });
+      state.contexts.set(context, { context, attemptId, epoch });
+      return context;
+    } finally {
+      state.pending.delete(reservation);
+      pruneOwnerRunwayI2vChatAttempt(state, attemptId);
+    }
+  }
+
+  /** Fixed Runway video POST. Dispatch tokens are minted by the owner generation service only. */
+  async startOwnerRunwayI2vOperation(operation: unknown, signal?: AbortSignal): Promise<MediaGenerationReceipt> {
+    const { consumeOwnerRunwayI2vDispatch, recordOwnerRunwayI2vTransport } = await import("../../application/owner-runway-i2v-generation-service.js");
+    const dispatch = consumeOwnerRunwayI2vDispatch(this, operation);
+    try {
+      return await this.#startMedia("video/generate", "runway", dispatch.chat_uuid, dispatch.body as Record<string, JsonValue>, signal,
+        status => recordOwnerRunwayI2vTransport(this, operation, status));
+    } catch (error) {
+      if (error instanceof SyntxHttpError) recordOwnerRunwayI2vTransport(this, operation, error.code);
+      throw error;
+    }
+  }
+
+  /** GET-only; history chat UUID is recovered from the owner operation token. */
+  async readOwnerRunwayI2vHistory(operation: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerRunwayI2vHistoryRoute } = await import("../../application/owner-runway-i2v-generation-service.js");
+    const chatUuid = readOwnerRunwayI2vHistoryRoute(this, operation);
+    const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+    url.searchParams.set("page", "1"); url.searchParams.set("page_size", "10");
+    return this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
+  /** GET-only; route is taken from a result capability minted after owned-history verification. */
+  async readOwnerRunwayI2vResult(resultContext: unknown, signal?: AbortSignal): Promise<unknown> {
+    const { readOwnerRunwayI2vResultRoute } = await import("../../application/owner-runway-i2v-generation-service.js");
+    const route = readOwnerRunwayI2vResultRoute(this, resultContext);
+    return this.#request(new URL(`chats/${route.chat_uuid}/${route.message_id}`, V1_BASE_URL), "GET", undefined, "JSON_REQUIRED", signal);
+  }
+
+  isOwnerRunwayI2vChat(context: unknown, attemptId: string): context is OwnerRunwayI2vChatContext {
+    if (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId) ||
+        !context || typeof context !== "object" || types.isProxy(context) || !Object.isFrozen(context)) return false;
+    const state = OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES.get(this)?.contexts.get(context as OwnerRunwayI2vChatContext);
+    return !!state && state.context === context && state.attemptId === attemptId &&
+      state.epoch === (OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES.get(this)?.attemptEpochs.get(attemptId) ?? 0);
+  }
+
+  invalidateOwnerRunwayI2vChats(attemptId?: string): void {
+    if (attemptId !== undefined && (typeof attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(attemptId))) throw invalidRequest();
+    const state = OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES.get(this);
+    if (!state) return;
+    const attempts = new Set<string>();
+    if (attemptId !== undefined) attempts.add(attemptId);
+    else {
+      for (const contextState of state.contexts.values()) attempts.add(contextState.attemptId);
+      for (const pending of state.pending.values()) attempts.add(pending.attemptId);
+    }
+    for (const id of attempts) {
+      state.attemptEpochs.set(id, (state.attemptEpochs.get(id) ?? 0) + 1);
+      for (const [context, contextState] of state.contexts) if (contextState.attemptId === id) state.contexts.delete(context);
+      pruneOwnerRunwayI2vChatAttempt(state, id);
     }
   }
 
@@ -8377,6 +8504,68 @@ export class SyntxChatHttpClient {
     }
   }
 
+  /** One fixed hidden upload for a genuine Runway Gen4 first-frame receipt. */
+  async uploadOwnerRunwayI2vImage(
+    receiptInput: unknown,
+    signal?: AbortSignal
+  ): Promise<OwnerRunwayI2vImageUploadContext> {
+    let bytes: Uint8Array | undefined;
+    let form: FormData | undefined;
+    try {
+      const owned = readValidatedOwnerRunwayI2vImageUpload(receiptInput);
+      if (!owned) throw invalidRequest();
+      bytes = owned.bytes;
+      if (!releaseValidatedOwnerRunwayI2vImageUpload(receiptInput)) throw invalidRequest();
+      const receipt = receiptInput as Readonly<ValidatedOwnerRunwayI2vImageUpload>;
+      const ratio = RUNWAY_I2V_UPLOAD_RATIOS[owned.aspect_ratio];
+      if (receipt.status !== "LOCAL_IMAGE_VALIDATED_NOT_UPLOAD_AUTHORITY" ||
+          receipt.upload_authority !== false || receipt.provider_acceptance !== "UNPROVEN" ||
+          receipt.metadata_confidence !== "CONTAINER_METADATA_ONLY_NOT_DECODED_PIXELS" ||
+          receipt.size_limit_confidence !== "LOCAL_RESOURCE_CEILING_NOT_PROVIDER_LIMIT" ||
+          receipt.model_id !== owned.model_id || !OWNER_RUNWAY_I2V_IMAGE_POLICY.model_ids.includes(owned.model_id) ||
+          receipt.aspect_ratio !== owned.aspect_ratio || !OWNER_RUNWAY_I2V_IMAGE_POLICY.aspect_ratios.includes(owned.aspect_ratio) ||
+          receipt.filename !== owned.filename || receipt.mime_type !== owned.mime_type ||
+          !OWNER_RUNWAY_I2V_IMAGE_POLICY.supported_container_mime_types.includes(owned.mime_type) ||
+          receipt.size !== owned.size || receipt.width !== owned.width || receipt.height !== owned.height ||
+          receipt.sha256 !== owned.sha256 || owned.size !== bytes.byteLength || owned.size < 1 ||
+          owned.size > OWNER_RUNWAY_I2V_IMAGE_POLICY.local_max_bytes || !/^[a-f0-9]{64}$/u.test(owned.sha256) ||
+          createHash("sha256").update(bytes).digest("hex") !== owned.sha256 ||
+          !Number.isSafeInteger(owned.width) || owned.width < 1 || owned.width > OWNER_RUNWAY_I2V_IMAGE_POLICY.max_dimension ||
+          !Number.isSafeInteger(owned.height) || owned.height < 1 || owned.height > OWNER_RUNWAY_I2V_IMAGE_POLICY.max_dimension ||
+          owned.width * owned.height > OWNER_RUNWAY_I2V_IMAGE_POLICY.max_pixels ||
+          owned.width * ratio[1] !== owned.height * ratio[0] ||
+          owned.filename.length === 0 || owned.filename === "." || owned.filename === ".." ||
+          Buffer.byteLength(owned.filename, "utf8") > 255 || /[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(owned.filename)) {
+        throw invalidRequest();
+      }
+
+      form = this.#buildUploadForm({ bytes, filename: owned.filename, mime_type: owned.mime_type,
+        destination: "hidden", check_duplicates: true, model_type: owned.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const parsed = runwayI2vUploadResponseSchema.safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const uploaded = parsed.data.files[0]!;
+      if (uploaded.status !== undefined && uploaded.status.toLowerCase() !== "success" ||
+          (uploaded.filename !== undefined && uploaded.filename !== owned.filename) ||
+          (uploaded.mime_type !== undefined && uploaded.mime_type !== owned.mime_type) ||
+          (uploaded.size !== undefined && uploaded.size !== owned.size) ||
+          (uploaded.id !== undefined && uploaded.file_id !== undefined && String(uploaded.id) !== String(uploaded.file_id))) {
+        throw protocolError();
+      }
+      let references: InternalUploadReference[];
+      try { references = parseInternalUploadReferences(raw); }
+      catch { throw protocolError(); }
+      if (references.length !== 1) throw protocolError();
+      return createOwnerRunwayI2vImageUploadContext(this, references[0]!, {
+        model_id: owned.model_id, aspect_ratio: owned.aspect_ratio, mime_type: owned.mime_type,
+        size: owned.size, sha256: owned.sha256, width: owned.width, height: owned.height
+      });
+    } finally {
+      bytes?.fill(0);
+      form?.delete("files");
+    }
+  }
+
   /** One fixed WAN 2.7 R2V image upload from a genuine local image receipt. */
   async uploadWan27R2vImage(
     receiptInput: ValidatedOwnerWan27R2vImage,
@@ -10588,6 +10777,21 @@ function ownerSeedanceEditorChatClientState(client: SyntxChatHttpClient): OwnerS
 }
 
 function pruneOwnerSeedanceEditorChatAttempt(state: OwnerSeedanceEditorChatClientState, attemptId: string): void {
+  const hasContext = [...state.contexts.values()].some((context) => context.attemptId === attemptId);
+  const hasPending = [...state.pending.values()].some((pending) => pending.attemptId === attemptId);
+  if (!hasContext && !hasPending) state.attemptEpochs.delete(attemptId);
+}
+
+function ownerRunwayI2vChatClientState(client: SyntxChatHttpClient): OwnerRunwayI2vChatClientState {
+  let state = OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES.get(client);
+  if (!state) {
+    state = { contexts: new Map(), pending: new Map(), attemptEpochs: new Map() };
+    OWNER_RUNWAY_I2V_CHAT_CLIENT_STATES.set(client, state);
+  }
+  return state;
+}
+
+function pruneOwnerRunwayI2vChatAttempt(state: OwnerRunwayI2vChatClientState, attemptId: string): void {
   const hasContext = [...state.contexts.values()].some((context) => context.attemptId === attemptId);
   const hasPending = [...state.pending.values()].some((pending) => pending.attemptId === attemptId);
   if (!hasContext && !hasPending) state.attemptEpochs.delete(attemptId);

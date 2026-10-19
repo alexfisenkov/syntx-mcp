@@ -166,9 +166,10 @@ function pathIsUnder(path, root) {
 function isSourceExcluded(path, policy) {
   if (policy.excluded_roots.some((root) => pathIsUnder(path, root))) return "root";
   if (policy.excluded_paths.includes(path)) return "path";
-  if (policy.excluded_prefixes.some((prefix) => pathIsUnder(path, prefix))) return "prefix";
   if (path === ".env" || path === ".npmrc") return "path";
   if (path.startsWith(".env.") && path !== ".env.example") return "path";
+  if (policy.included_files.includes(path)) return null;
+  if (policy.excluded_prefixes.some((prefix) => pathIsUnder(path, prefix))) return "prefix";
   return null;
 }
 

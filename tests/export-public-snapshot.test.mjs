@@ -241,6 +241,58 @@ test("exports only the exact committed source tree, preserves bootstrap, hashes 
   } finally { rmSync(temp, { recursive: true, force: true }); }
 });
 
+test("exports only the allowlisted Runway guide through broad docs exclusion while private roots and receipts stay excluded", () => {
+  const temp = fixtureRoot();
+  const source = join(temp, "source");
+  const destination = join(temp, "public-checkout");
+  const guide = "docs/интеграция/Runway-Gen4-I2V-MCP.md";
+  const privateDoc = "docs/интеграция/private-runway-note.md";
+  const protectedRootFile = "docs/контроль/private.md";
+  const privateReceipt = ".публикация/receipt.json";
+  const bookkeeping = ".публикация/editor2238-ci.json";
+  const envFile = ".env.secret";
+  const guideBytes = Buffer.from("# Runway MCP guide\nSanitized public integration instructions.\n");
+  try {
+    initializeRepo(source);
+    seedCommit(source);
+    const policy = JSON.parse(readFileSync(join(source, "tools/publication/public-source-policy.json"), "utf8"));
+    policy.included_files = [...new Set([...policy.included_files, guide, protectedRootFile, envFile])];
+    policy.excluded_prefixes = [...new Set([...policy.excluded_prefixes, ".публикация"])];
+    writePath(source, "tools/publication/public-source-policy.json", `${JSON.stringify(policy, null, 2)}\n`);
+    writePath(source, guide, guideBytes);
+    writePath(source, privateDoc, `${PRIVATE_SENTINEL}\n`);
+    writePath(source, protectedRootFile, `${PRIVATE_SENTINEL}\n`);
+    writePath(source, privateReceipt, `${PRIVATE_SENTINEL}\n`);
+    writePath(source, bookkeeping, `${PRIVATE_SENTINEL}\n`);
+    writePath(source, envFile, `${PRIVATE_SENTINEL}\n`);
+    git(source, "add", "--all");
+    git(source, "commit", "--quiet", "-m", "synthetic Runway export policy fixture");
+    const sourceCommit = git(source, "rev-parse", "HEAD");
+    initializeRepo(destination);
+    makeBootstrap(destination);
+
+    const result = runExporter(source, destination, sourceCommit);
+    assert.equal(result.status, 0, result.stderr);
+    const manifest = JSON.parse(readFileSync(join(destination, "publication-manifest.json"), "utf8"));
+    assert.equal(manifest.included_paths.includes(guide), true);
+    assert.equal(manifest.file_sha256[guide], sha256(guideBytes));
+    assert.deepEqual(readFileSync(join(destination, ...guide.split("/"))), guideBytes);
+
+    for (const path of [privateDoc, protectedRootFile, privateReceipt, bookkeeping, envFile]) {
+      assert.equal(manifest.included_paths.includes(path), false, `private path exported: ${path}`);
+      assert.equal(walkFiles(destination).includes(path), false, `private filename leaked: ${path}`);
+    }
+    assert.equal(manifest.excluded_paths.includes(protectedRootFile), false,
+      "a private-root exclusion remains opaque even when included_files maliciously names it");
+    assert.equal(manifest.excluded_paths.includes(envFile), true,
+      "environment-file protections remain active before exact-file allowlisting");
+    for (const path of walkFiles(destination)) {
+      const bytes = readFileSync(join(destination, ...path.split("/")));
+      assert.equal(bytes.includes(Buffer.from(PRIVATE_SENTINEL)), false, `private marker leaked in ${path}`);
+    }
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
 test("exports only committed blobs and excludes dirty working-tree marker content", () => {
   const temp = fixtureRoot();
   const source = join(temp, "source");

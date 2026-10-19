@@ -2040,6 +2040,14 @@ export { readOwnerWan27VideoEditFlag, readOwnerWan27VideoEditOperatorConfigurati
 export { createOwnerSeedanceEditorRuntime } from "./runtime/owner-seedance-editor-runtime.js";
 export type { OwnerSeedanceEditorRuntimeOptions } from "./runtime/owner-seedance-editor-runtime.js";
 export { readOwnerSeedanceEditorFlag, readOwnerSeedanceEditorOperatorConfiguration } from "./runtime/owner-seedance-editor-stdio-config.js";
+export { getOwnerRunwayI2vSourceProfile, normalizeOwnerRunwayI2vParameters } from "./application/owner-runway-i2v-parameters.js";
+export type { OwnerRunwayI2vModelId, OwnerRunwayI2vParametersInput } from "./application/owner-runway-i2v-parameters.js";
+export { OwnerRunwayI2vReferenceService, OwnerRunwayI2vReferenceServiceError } from "./application/owner-runway-i2v-reference-service.js";
+export { OwnerRunwayI2vGenerationService, OwnerRunwayI2vGenerationError } from "./application/owner-runway-i2v-generation-service.js";
+export { registerSyntxOwnerRunwayI2vTools, OWNER_RUNWAY_I2V_TOOL_NAMES } from "./mcp/owner-runway-i2v-tools.js";
+export { createOwnerRunwayI2vRuntime } from "./runtime/owner-runway-i2v-runtime.js";
+export type { OwnerRunwayI2vRuntimeOptions } from "./runtime/owner-runway-i2v-runtime.js";
+export { readOwnerRunwayI2vFlag } from "./runtime/owner-runway-i2v-stdio-config.js";
 export type { OwnerVeoT2vGenerationInput } from "./application/owner-reviewed-no-reference-t2v-service.js";
 export {
   registerSyntxOwnerVeoT2vTools,

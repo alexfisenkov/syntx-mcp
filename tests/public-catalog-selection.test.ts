@@ -43,6 +43,57 @@ test("default discovery selects the immutable current public snapshot", () => {
   }
 });
 
+test("default MCP read catalog is current while owner-native catalog remains pinned", async () => {
+  const previous = process.env.SYNTX_PUBLIC_CATALOG_VERSION;
+  try {
+    delete process.env.SYNTX_PUBLIC_CATALOG_VERSION;
+    const requests: string[] = [];
+    const fetchImpl: typeof fetch = async (input) => {
+      requests.push(input instanceof Request ? input.url : String(input));
+      throw new Error("Catalog composition must not contact an upstream service.");
+    };
+    const runtime = createObservedOwnerRuntime({ fetchImpl });
+    const app = runtime.application;
+    const currentVersion = "2026-10-28T15:13:44.167Z.b8b18eb66638";
+
+    const kimi = app.searchModels({ query: "kimi-k3", include_inactive: true, limit: 10 });
+    assert.equal(kimi.catalog_version, currentVersion);
+    assert.deepEqual(kimi.models.map((model) => model.id), ["kimi-k3", "kimi-k3.1-pro"]);
+    const terra = app.searchModels({ query: "gpt-6.1-terra", include_inactive: true, limit: 10 });
+    assert.equal(terra.total, 1);
+    assert.equal(terra.models[0]?.id, "gpt-6.1-terra");
+
+    const gptImage = app.getModel("gpt-image-1");
+    assert.ok("ai_name" in gptImage.model);
+    const gptImageModel = gptImage.model;
+    assert.equal(gptImage.catalog_version, currentVersion);
+    assert.equal(gptImageModel.active, false);
+    assert.equal(gptImageModel.default, false);
+    assert.equal((gptImageModel.settings as Record<string, unknown>).uploadable, true);
+    assert.equal(gptImage.runtime_usable, false);
+    assert.equal("runtime_capability" in gptImageModel, false);
+
+    assert.equal(runtime.catalog.fetched_at, "2026-10-08T13:18:39.393Z");
+    assert.equal(runtime.catalog.getModel("gpt-image-1").active, true);
+    assert.equal(runtime.serverOptions.modelAccess?.catalog.fetched_at, gptImageModel.fetched_at);
+    assert.equal(runtime.serverOptions.modelAccess?.catalog.source_hashes.models, gptImageModel.source_hashes.models);
+    assert.deepEqual(requests, []);
+
+    await assert.rejects(
+      app.estimateGeneration({ model_id: "gpt-image-1", operation_id: "generate-image", parameters: {} }),
+      (error: unknown) => error instanceof ApplicationError && error.code === "COMPLIANCE_GATE_BLOCKED"
+    );
+    await assert.rejects(
+      app.startGeneration({ model_id: "gpt-image-1", operation_id: "generate-image", parameters: {},
+        idempotency_key: "current-discovery-read-only", confirmation_id: "current-discovery-read-only" }),
+      (error: unknown) => error instanceof ApplicationError && error.code === "COMPLIANCE_GATE_BLOCKED"
+    );
+    assert.deepEqual(requests, []);
+  } finally {
+    restoreVersionEnvironment(previous);
+  }
+});
+
 test("MCP discovery includes public snapshot provenance, counts, and full observed limits", async () => {
   const previous = process.env.SYNTX_PUBLIC_CATALOG_VERSION;
   try {
@@ -50,11 +101,12 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
     await withClient(createMcpServer(createDefaultApplication()), async (client) => {
       const search = await call(client, "syntx_search_models", { include_inactive: true, limit: 100 });
       const metadata = search.structuredContent?.catalog_metadata as Record<string, unknown>;
-      assert.equal(metadata.fetched_at, "2026-10-08T13:18:39.393Z");
+      assert.equal(metadata.fetched_at, "2026-10-28T15:13:44.167Z");
       const summary = metadata.summary as Record<string, unknown>;
-      assert.equal(summary.model_total, 200);
-      assert.equal(summary.model_active, 167);
-      assert.equal(summary.model_inactive, 33);
+      assert.equal(summary.model_total, 211);
+      assert.equal(summary.model_active, 173);
+      assert.equal(summary.model_inactive, 38);
+      assert.equal(summary.llm_model_total, 46);
       assert.equal(metadata.public_settings_coverage, "ALLOWLISTED_PUBLIC_API_FIELDS");
       const sources = metadata.sources as Record<string, { url: string; canonical_sha256: string }>;
       assert.match(sources.models?.url ?? "", /^https:\/\/api\.syntx\.ai\/api\/v1\/ai\/models/u);
@@ -68,8 +120,15 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
       assert.equal(typeof finalCursor, "string");
       const final = await call(client, "syntx_search_models", { include_inactive: true, limit: 100, cursor: finalCursor as string });
       const thirdPage = final.structuredContent?.models as Array<Record<string, unknown>>;
-      assert.equal(firstPage.length + secondPage.length + thirdPage.length, 205);
-      assert.equal([...firstPage, ...secondPage, ...thirdPage].filter((model) => model.active === true).length, 172);
+      assert.equal(firstPage.length + secondPage.length + thirdPage.length, 217);
+      assert.equal([...firstPage, ...secondPage, ...thirdPage].filter((model) => model.active === true).length, 179);
+
+      const kimi = await call(client, "syntx_search_models", { query: "kimi-k3", include_inactive: true, limit: 10 });
+      assert.deepEqual((kimi.structuredContent?.models as Array<Record<string, unknown>>).map((model) => model.id),
+        ["kimi-k3", "kimi-k3.1-pro"]);
+      const terra = await call(client, "syntx_search_models", { query: "gpt-6.1-terra", limit: 10 });
+      assert.equal(terra.structuredContent?.total, 1);
+      assert.equal((terra.structuredContent?.models as Array<Record<string, unknown>>)[0]?.id, "gpt-6.1-terra");
 
       const detail = await call(client, "syntx_get_model", { model_id: "gemini-3.8-flash" });
       assert.deepEqual(detail.structuredContent?.catalog_metadata, metadata);
@@ -79,6 +138,31 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
       assert.deepEqual(settings.accepted_file_types instanceof Array, true);
       assert.equal(settings.max_file_size, 5_242_880);
       assert.equal(detail.structuredContent?.runtime_usable, false);
+
+      const retired = await call(client, "syntx_get_model", { model_id: "gpt-image-1" });
+      const retiredModel = retired.structuredContent?.model as Record<string, unknown>;
+      assert.equal(retired.structuredContent?.catalog_version, "2026-10-28T15:13:44.167Z.b8b18eb66638");
+      assert.equal(retiredModel.active, false);
+      assert.equal(retiredModel.default, false);
+      assert.equal((retiredModel.settings as Record<string, unknown>).uploadable, true);
+      assert.equal(retiredModel.runtime_usable, false);
+      assert.equal("runtime_capability" in retiredModel, false);
+
+      const schema = await call(client, "syntx_get_generation_schema", {
+        model_id: "gpt-image-1", operation_id: "generate-image"
+      });
+      assert.equal(schema.structuredContent?.catalog_version, "2026-10-28T15:13:44.167Z.b8b18eb66638");
+      assert.equal(schema.structuredContent?.schema_status, "BLOCKED");
+      assert.deepEqual(schema.structuredContent?.blocked_reasons, ["MODEL_INACTIVE"]);
+      assert.equal(schema.structuredContent?.runtime_usable, false);
+      assert.equal(schema.structuredContent?.contract_evidence, null);
+
+      const coverage = await call(client, "syntx_get_runtime_coverage", {});
+      const profiles = coverage.structuredContent?.profiles as Array<Record<string, unknown>>;
+      const historicalGptImage = profiles.find((profile) => profile.model_id === "gpt-image-1");
+      assert.equal(historicalGptImage?.current_catalog_status, "INACTIVE");
+      assert.equal(historicalGptImage?.runtime_verified, true);
+      assert.equal(historicalGptImage?.verification_scope, "HISTORICAL_OWNER_GENERATION_AND_TERMINAL_RESULT");
     });
   } finally {
     restoreVersionEnvironment(previous);

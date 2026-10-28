@@ -143,9 +143,13 @@ test("runtime coverage separates historical terminal proofs from current catalog
     const byId = new Map(profiles.map((profile) => [profile.model_id, profile]));
     assert.equal(byId.get("sora_1")?.runtime_verified, true);
     assert.equal(byId.get("sora_1")?.current_catalog_status, "INACTIVE");
+    assert.equal(byId.get("gpt-image-1")?.runtime_verified, true);
+    assert.equal(byId.get("gpt-image-1")?.current_catalog_status, "INACTIVE");
     assert.equal(byId.get("text2video")?.runtime_verified, true);
     assert.equal(byId.get("text2video")?.current_catalog_status, "NOT_IN_CATALOG");
-    assert.equal([...byId.values()].filter((profile) => profile.current_catalog_status === "AVAILABLE_IN_SNAPSHOT").length, 30);
+    assert.equal([...byId.values()].filter((profile) => profile.current_catalog_status === "AVAILABLE_IN_SNAPSHOT").length, 29);
+    assert.equal([...byId.values()].filter((profile) => profile.current_catalog_status === "INACTIVE").length, 2);
+    assert.equal([...byId.values()].filter((profile) => profile.current_catalog_status === "NOT_IN_CATALOG").length, 1);
     assert.equal(byId.get("banana-2.1")?.current_catalog_status, "AVAILABLE_IN_SNAPSHOT");
     for (const profile of profiles) {
       assert.equal(profile.verification_scope, "HISTORICAL_OWNER_GENERATION_AND_TERMINAL_RESULT");

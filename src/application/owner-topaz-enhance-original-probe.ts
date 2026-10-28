@@ -5,6 +5,12 @@ import { chmod, lstat, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join, resolve } from "node:path";
 import { types } from "node:util";
+import {
+  assertReviewedTopazVideoCodecAllowed,
+  getReviewedTopazCodecPolicy,
+  ReviewedTopazCodecPolicyError,
+  type ReviewedTopazCodecPolicy
+} from "./reviewed-topaz-codec-policy-20261028.js";
 
 const MODEL_ID = "topaz_enhance" as const;
 const AI_NAME = "topaz_ai" as const;
@@ -69,7 +75,8 @@ export interface OwnerTopazEnhanceOriginalProbeResult {
 }
 
 export class OwnerTopazEnhanceOriginalProbeError extends Error {
-  constructor(readonly code: "INVALID_ORIGINAL" | "ORIGINAL_LOCAL_LIMIT_EXCEEDED" | "LOCAL_RESOURCE_BUSY" | "PROBE_FAILED" | "PROBE_ABORTED") {
+  constructor(readonly code: "INVALID_ORIGINAL" | "ORIGINAL_LOCAL_LIMIT_EXCEEDED" | "LOCAL_RESOURCE_BUSY" | "PROBE_FAILED" | "PROBE_ABORTED" |
+    "CODEC_POLICY_UNAVAILABLE" | "VIDEO_CODEC_METADATA_UNAVAILABLE" | "PROHIBITED_VIDEO_CODEC") {
     super("Topaz Enhance original media could not be safely probed.");
     this.name = "OwnerTopazEnhanceOriginalProbeError";
   }
@@ -132,6 +139,12 @@ export function releaseTrustedOwnerTopazEnhanceOriginalProbeResult(value: unknow
 async function probeOriginal(ffprobePath: string, input: unknown, options?: Readonly<{ signal?: AbortSignal }>): Promise<Readonly<OwnerTopazEnhanceOriginalProbeResult>> {
   const request = exactInput(input);
   const signal = exactOptions(options);
+  let codecPolicy: Readonly<ReviewedTopazCodecPolicy> | null;
+  try { codecPolicy = getReviewedTopazCodecPolicy(MODEL_ID); }
+  catch (error) {
+    if (error instanceof ReviewedTopazCodecPolicyError) throw new OwnerTopazEnhanceOriginalProbeError(error.code);
+    throw new OwnerTopazEnhanceOriginalProbeError("CODEC_POLICY_UNAVAILABLE");
+  }
   if (signalAborted(signal)) throw new OwnerTopazEnhanceOriginalProbeError("PROBE_ABORTED");
   if (!safeFilename(request.filename) || extname(request.filename).toLowerCase() !== ".mp4" ||
       request.mime_type !== "video/mp4" || request.model_id !== MODEL_ID || request.ai_name !== AI_NAME ||
@@ -178,6 +191,11 @@ async function probeOriginal(ffprobePath: string, input: unknown, options?: Read
     const stdout = await runFfprobe(ffprobePath, inputPath, signal);
     if (signalAborted(signal)) throw new OwnerTopazEnhanceOriginalProbeError("PROBE_ABORTED");
     const measured = parseFfprobe(stdout);
+    try { assertReviewedTopazVideoCodecAllowed(codecPolicy, measured.videoCodec, measured.videoCodecTagString); }
+    catch (error) {
+      if (error instanceof ReviewedTopazCodecPolicyError) throw new OwnerTopazEnhanceOriginalProbeError(error.code);
+      throw new OwnerTopazEnhanceOriginalProbeError("CODEC_POLICY_UNAVAILABLE");
+    }
     if (measured.durationSeconds < PUBLIC_MIN_DURATION_SECONDS || measured.durationSeconds > PUBLIC_MAX_DURATION_SECONDS ||
         measured.frameCount > LOCAL_MAX_FRAME_COUNT) limit();
     const after = await lstat(inputPath);
@@ -242,7 +260,7 @@ async function probeOriginal(ffprobePath: string, input: unknown, options?: Read
 
 function runFfprobe(ffprobePath: string, inputPath: string, signal?: AbortSignal): Promise<string> {
   const args = ["-v", "error", "-protocol_whitelist", "file", "-count_frames", "-show_entries",
-    "stream=codec_type,codec_name,width,height,nb_read_frames,duration:stream_disposition=attached_pic:format=duration,format_name", "-of", "json", inputPath];
+    "stream=codec_type,codec_name,codec_tag_string,width,height,nb_read_frames,duration:stream_disposition=attached_pic:format=duration,format_name", "-of", "json", inputPath];
   const options: ExecFileOptionsWithStringEncoding = { encoding: "utf8", timeout: PROBE_TIMEOUT_MS, killSignal: "SIGKILL",
     maxBuffer: MAX_STDOUT_BYTES, windowsHide: true, signal, env: { PATH: "", LANG: "C", LC_ALL: "C" } };
   return new Promise((resolveOutput, rejectOutput) => {
@@ -273,7 +291,7 @@ function runFfprobe(ffprobePath: string, inputPath: string, signal?: AbortSignal
   });
 }
 
-function parseFfprobe(stdout: string): { videoCodec: string; width: number; height: number; durationSeconds: number; frameCount: number; audioCodecs: string[] } {
+function parseFfprobe(stdout: string): { videoCodec: string; videoCodecTagString: unknown; width: number; height: number; durationSeconds: number; frameCount: number; audioCodecs: string[] } {
   let root: unknown;
   try { root = JSON.parse(stdout); } catch { return invalid(); }
   if (!isRecord(root) || !Array.isArray(root.streams) || root.streams.length < 1 || root.streams.length > 32 || !isRecord(root.format) ||
@@ -302,7 +320,7 @@ function parseFfprobe(stdout: string): { videoCodec: string; width: number; heig
   if (measuredDurations.some((duration) => duration < PUBLIC_MIN_DURATION_SECONDS || duration > PUBLIC_MAX_DURATION_SECONDS)) limit();
   const durationSeconds = Math.max(...measuredDurations);
   if (width === undefined || height === undefined || frameCount === undefined) return invalid();
-  return { videoCodec: video.codec_name as string, width, height, durationSeconds, frameCount, audioCodecs };
+  return { videoCodec: video.codec_name as string, videoCodecTagString: video.codec_tag_string, width, height, durationSeconds, frameCount, audioCodecs };
 }
 
 async function wipeAndUnlink(path: string): Promise<void> {

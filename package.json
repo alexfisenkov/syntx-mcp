@@ -65,6 +65,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test:catalog:update": "node --test --test-concurrency=1 dist/tests/syntx-public-catalog-schema-20261028.test.js dist/tests/public-catalog-selection.test.js dist/tests/public-catalog-sync.test.js dist/tests/mcp-generation-contract-tools.test.js dist/tests/runtime-coverage-tool.test.js dist/tests/owner-runtime.test.js dist/tests/topaz-codec-policy-20261028.test.js dist/tests/owner-topaz-astra-original-probe-1413.test.js dist/tests/owner-topaz-enhance-original-probe-1974.test.js && node --test --test-name-pattern='allowlisted media guides|exports only the exact committed' tests/export-public-snapshot.test.mjs",
     "catalog:check": "npm run build && node scripts/sync-public-catalog.mjs --check",
     "catalog:sync": "npm run build && node scripts/sync-public-catalog.mjs",
     "runtime:sources:check": "npm run build && node scripts/check-runtime-sources.mjs",

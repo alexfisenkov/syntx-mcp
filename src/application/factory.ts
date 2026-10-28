@@ -2,7 +2,10 @@ import { ComplianceBlockedAdapter } from "../adapter/compliance-blocked-adapter.
 import { CatalogRepository, loadCatalog } from "../catalog/catalog.js";
 import { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 import { RuntimeCapabilityCatalog } from "../catalog/runtime-capability-catalog.js";
-import { loadSelectedDiscoveryCatalog } from "../catalog/selected-discovery-catalog.js";
+import {
+  loadCurrentDiscoveryReadCatalog,
+  loadSelectedDiscoveryCatalog
+} from "../catalog/selected-discovery-catalog.js";
 import { DenyAllConfirmationStore } from "../policy/confirmation-store.js";
 import { ApplicationCore } from "./core.js";
 
@@ -16,7 +19,9 @@ export function createDefaultApplication(options: {
   runtimeCapabilities?: RuntimeCapabilityCatalog | null;
 } = {}): ApplicationCore {
   const selected = options.discoveryCatalog === undefined
-    ? loadSelectedDiscoveryCatalog()
+    ? process.env.SYNTX_PUBLIC_CATALOG_VERSION === undefined
+      ? loadCurrentDiscoveryReadCatalog()
+      : loadSelectedDiscoveryCatalog()
     : {
         discoveryCatalog: options.discoveryCatalog,
         runtimeCapabilities: options.runtimeCapabilities === undefined

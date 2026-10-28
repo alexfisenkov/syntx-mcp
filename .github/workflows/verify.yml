@@ -12,6 +12,7 @@ on:
           - changed-media
           - docs-only
           - media-cli-fix
+          - catalog-update
           - full
 
 permissions:
@@ -20,7 +21,7 @@ permissions:
 jobs:
   changed-media:
     name: Scoped checks / Linux / Node 24.21.0
-    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix'
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'catalog-update'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -39,7 +40,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        if: inputs.scope == 'changed-media'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'catalog-update'
         run: npm run build
 
       - name: Install media probe tools for changed video checks
@@ -90,7 +91,12 @@ jobs:
           node --test --test-name-pattern="allowlisted media guides|exports only the exact committed" tests/export-public-snapshot.test.mjs
 
       - name: Verify public manifest hashes, read safety, and secrets
+        # catalog-update has only offline/mock requests; it never starts provider jobs.
         run: node --test tests/public-secret-scan.test.mjs
+
+      - name: Verify catalog update and affected media constraints
+        if: inputs.scope == 'catalog-update'
+        run: npm run test:catalog:update
 
   portability:
     name: ${{ matrix.os }} / Node ${{ matrix.node }}

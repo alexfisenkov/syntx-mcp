@@ -12,12 +12,16 @@ import {
   SYNTX_PUBLIC_CATALOG_ENDPOINTS
 } from "../src/catalog/syntx-public-catalog.js";
 import { loadPublicCatalogVersion } from "../src/catalog/public-catalog-history.js";
-import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION } from "../src/catalog/selected-discovery-catalog.js";
+import {
+  CURRENT_DISCOVERY_READ_VERSION,
+  DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION
+} from "../src/catalog/selected-discovery-catalog.js";
 
 const scriptUrl = pathToFileURL(join(process.cwd(), "scripts/sync-public-catalog.mjs"));
 const { main, fetchPublicJson, assertSourceCheckout } = await import(scriptUrl.href);
 const baseline = loadSyntxPublicCatalogSnapshot();
 const currentDefault = loadPublicCatalogVersion(DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION);
+const currentReadDefault = loadPublicCatalogVersion(CURRENT_DISCOVERY_READ_VERSION);
 const endpoints = [SYNTX_PUBLIC_CATALOG_ENDPOINTS.ai, SYNTX_PUBLIC_CATALOG_ENDPOINTS.models, SYNTX_PUBLIC_CATALOG_ENDPOINTS.llm_models];
 
 test("archive source-checkout guard rejects an installed-layout directory", async (t) => {
@@ -89,7 +93,7 @@ test("check defaults to historical v1 and drift never writes or suggests overwri
   assert.equal(await readFile(join(root, "v1/official-public-api.json"), "utf8"), serializeSyntxPublicCatalogSnapshot(baseline));
 });
 
-test("standard check uses app default/env selection; explicit version wins and custom roots retain legacy v1 behavior", async (t) => {
+test("standard check uses current read default while explicit env/version and custom roots keep their selection", async (t) => {
   const previous = process.env.SYNTX_PUBLIC_CATALOG_VERSION;
   t.after(() => {
     if (previous === undefined) delete process.env.SYNTX_PUBLIC_CATALOG_VERSION;
@@ -97,9 +101,9 @@ test("standard check uses app default/env selection; explicit version wins and c
   });
   delete process.env.SYNTX_PUBLIC_CATALOG_VERSION;
   const defaultUrls: string[] = [];
-  const defaultResult = await main(["--check"], { fetchImpl: mockCatalog(defaultUrls, currentDefault) });
+  const defaultResult = await main(["--check"], { fetchImpl: mockCatalog(defaultUrls, currentReadDefault) });
   assert.equal(defaultResult.status, "unchanged");
-  assert.equal(defaultResult.version, DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION);
+  assert.equal(defaultResult.version, CURRENT_DISCOVERY_READ_VERSION);
   assert.deepEqual(defaultUrls, endpoints);
 
   const timestampOnlyVersion = "sha256-549e361e880a02ff5e61ad42c26049deeeeeb4bcede389b334b0c7a883d4cc9b.json";

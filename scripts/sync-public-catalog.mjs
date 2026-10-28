@@ -12,7 +12,7 @@ import {
   archivePublicCatalogSnapshot,
   loadSelectedPublicCatalog
 } from "../dist/src/catalog/public-catalog-history.js";
-import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION } from "../dist/src/catalog/selected-discovery-catalog.js";
+import { CURRENT_DISCOVERY_READ_VERSION } from "../dist/src/catalog/selected-discovery-catalog.js";
 import { isMainModule } from "../dist/src/transports/is-main.js";
 
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
@@ -26,7 +26,7 @@ export async function main(argumentsList = process.argv.slice(2), options = {}) 
   const mode = parseArguments(argumentsList);
   if (mode.kind === "archive") assertSourceCheckout();
   const selectedVersion = mode.version ?? (options.catalogDirectory === undefined
-    ? process.env.SYNTX_PUBLIC_CATALOG_VERSION ?? DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION
+    ? process.env.SYNTX_PUBLIC_CATALOG_VERSION ?? CURRENT_DISCOVERY_READ_VERSION
     : undefined);
   // Resolve/check the selected local input before any network request.
   const existing = mode.kind !== "archive"

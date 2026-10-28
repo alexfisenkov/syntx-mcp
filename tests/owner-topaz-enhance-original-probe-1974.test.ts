@@ -14,7 +14,7 @@ import {
 const SOURCE_CATALOG = "sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json";
 const BASE_PROBE = JSON.stringify({
   streams: [
-    { codec_type: "video", codec_name: "h264", width: 640, height: 360, nb_read_frames: "60", duration: "2.000000", disposition: { attached_pic: 0 } },
+    { codec_type: "video", codec_name: "h264", codec_tag_string: "avc1", width: 640, height: 360, nb_read_frames: "60", duration: "2.000000", disposition: { attached_pic: 0 } },
     { codec_type: "audio", codec_name: "aac", duration: "2.000000" }
   ],
   format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "2.000000" }
@@ -109,7 +109,7 @@ test("requests attached-picture disposition as a distinct ffprobe show_entries s
 test("rejects a container duration whose rounded quote second exceeds the video-stream duration", async (t) => {
   if (process.platform === "win32") { t.skip("POSIX fixture executable is unavailable on Windows"); return; }
   const mismatch = JSON.stringify({
-    streams: [{ codec_type: "video", codec_name: "h264", width: 640, height: 360, nb_read_frames: "60", duration: "2.000000", disposition: { attached_pic: 0 } }],
+    streams: [{ codec_type: "video", codec_name: "h264", codec_tag_string: "avc1", width: 640, height: 360, nb_read_frames: "60", duration: "2.000000", disposition: { attached_pic: 0 } }],
     format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "3.000000" }
   });
   const fixture = await fakeFfprobe(mismatch);
@@ -122,7 +122,7 @@ test("rejects a container duration whose rounded quote second exceeds the video-
     ["stream-only", "2.000000", undefined],
     ["container-only", undefined, "2.000000"]
   ] as const) {
-    const onlyOneDuration = JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", width: 640, height: 360,
+    const onlyOneDuration = JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", codec_tag_string: "avc1", width: 640, height: 360,
       nb_read_frames: "60", ...(stream === undefined ? {} : { duration: stream }), disposition: { attached_pic: 0 } }],
       format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", ...(format === undefined ? {} : { duration: format }) } });
     const singleFixture = await fakeFfprobe(onlyOneDuration);
@@ -162,10 +162,10 @@ test("rejects forged DTOs, unsupported broader public MIME contours, and unsafe 
 test("enforces only explicit duration and local frame resource guards and rejects attached pictures", async (t) => {
   if (process.platform === "win32") { t.skip("POSIX fixture executable is unavailable on Windows"); return; }
   for (const [label, metadata, expectedCode] of [
-    ["below public minimum", JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", width: 640, height: 360, nb_read_frames: "30", duration: "1.99", disposition: { attached_pic: 0 } }], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "1.99" } }), "ORIGINAL_LOCAL_LIMIT_EXCEEDED"],
-    ["above public maximum", JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", width: 640, height: 360, nb_read_frames: "788", duration: "26.26", disposition: { attached_pic: 0 } }], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "26.26" } }), "ORIGINAL_LOCAL_LIMIT_EXCEEDED"],
-    ["local frame resource cap", JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", width: 640, height: 360, nb_read_frames: "10001", duration: "26.25", disposition: { attached_pic: 0 } }], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "26.25" } }), "ORIGINAL_LOCAL_LIMIT_EXCEEDED"],
-    ["attached picture", JSON.stringify({ streams: [{ codec_type: "video", codec_name: "mjpeg", width: 640, height: 360, nb_read_frames: "1", duration: "2", disposition: { attached_pic: 1 } }], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "2" } }), "INVALID_ORIGINAL"]
+    ["below public minimum", JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", codec_tag_string: "avc1", width: 640, height: 360, nb_read_frames: "30", duration: "1.99", disposition: { attached_pic: 0 } }], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "1.99" } }), "ORIGINAL_LOCAL_LIMIT_EXCEEDED"],
+    ["above public maximum", JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", codec_tag_string: "avc1", width: 640, height: 360, nb_read_frames: "788", duration: "26.26", disposition: { attached_pic: 0 } }], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "26.26" } }), "ORIGINAL_LOCAL_LIMIT_EXCEEDED"],
+    ["local frame resource cap", JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", codec_tag_string: "avc1", width: 640, height: 360, nb_read_frames: "10001", duration: "26.25", disposition: { attached_pic: 0 } }], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "26.25" } }), "ORIGINAL_LOCAL_LIMIT_EXCEEDED"],
+    ["attached picture", JSON.stringify({ streams: [{ codec_type: "video", codec_name: "mjpeg", codec_tag_string: "avc1", width: 640, height: 360, nb_read_frames: "1", duration: "2", disposition: { attached_pic: 1 } }], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "2" } }), "INVALID_ORIGINAL"]
   ] as const) {
     const fixture = await fakeFfprobe(metadata);
     try {

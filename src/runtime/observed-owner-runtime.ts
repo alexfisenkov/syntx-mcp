@@ -92,6 +92,7 @@ import { PerUserLinkService } from "../auth/link-service.js";
 import { ObservedSyntxAuthProvider } from "../auth/observed-syntx-provider.js";
 import type { AuthBinding } from "../auth/types.js";
 import {
+  loadCurrentDiscoveryReadCatalog,
   DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION,
   loadSelectedDiscoveryCatalog
 } from "../catalog/selected-discovery-catalog.js";
@@ -444,6 +445,11 @@ export function createObservedOwnerRuntime(
     options.catalogDirectory
   );
   const catalog = selected.discoveryCatalog;
+  const usesExplicitCatalogSelection = options.publicCatalogVersion !== undefined ||
+    options.catalogDirectory !== undefined || process.env.SYNTX_PUBLIC_CATALOG_VERSION !== undefined;
+  const readCatalogSelection = usesExplicitCatalogSelection
+    ? selected
+    : loadCurrentDiscoveryReadCatalog();
   const configuredCatalogVersion = options.publicCatalogVersion ?? process.env.SYNTX_PUBLIC_CATALOG_VERSION;
   const selectedCatalogVersion = configuredCatalogVersion === undefined && options.catalogDirectory === undefined
     ? DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION
@@ -462,7 +468,7 @@ export function createObservedOwnerRuntime(
       : { requestTimeoutMs: options.requestTimeoutMs })
   });
   const linkService = new PerUserLinkService(provider, store, { now });
-  const application = createDefaultApplication(selected);
+  const application = createDefaultApplication(readCatalogSelection);
   const createCredentialBroker = (attemptId: string) =>
     new LinkedAttemptCredentialBroker(
       linkService,
@@ -3697,7 +3703,7 @@ export function createObservedOwnerRuntime(
       })
     },
     modelAccess: {
-      catalog,
+      catalog: readCatalogSelection.discoveryCatalog,
       resolveClient: createReadClient,
       now
     },

@@ -6,6 +6,12 @@ import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join } from "node:path";
 import { types } from "node:util";
 import { getOwnerTopazAstraSourceProfile, type OwnerTopazAstraModelId } from "./owner-topaz-astra-source-profile.js";
+import {
+  assertReviewedTopazVideoCodecAllowed,
+  getReviewedTopazCodecPolicy,
+  ReviewedTopazCodecPolicyError,
+  type ReviewedTopazCodecPolicy
+} from "./reviewed-topaz-codec-policy-20261028.js";
 
 const MAX_STDOUT_BYTES = 64 * 1024;
 const PROBE_TIMEOUT_MS = 15_000;
@@ -42,7 +48,8 @@ export interface OwnerTopazAstraOriginalProbeResult {
 }
 
 export class OwnerTopazAstraOriginalProbeError extends Error {
-  constructor(readonly code: "INVALID_ORIGINAL" | "ORIGINAL_LOCAL_LIMIT_EXCEEDED" | "PROBE_FAILED" | "PROBE_ABORTED") {
+  constructor(readonly code: "INVALID_ORIGINAL" | "ORIGINAL_LOCAL_LIMIT_EXCEEDED" | "PROBE_FAILED" | "PROBE_ABORTED" |
+    "CODEC_POLICY_UNAVAILABLE" | "VIDEO_CODEC_METADATA_UNAVAILABLE" | "PROHIBITED_VIDEO_CODEC") {
     super("Topaz Astra original media could not be safely probed.");
     this.name = "OwnerTopazAstraOriginalProbeError";
   }
@@ -114,6 +121,12 @@ async function probeOriginal(
       !matchesMimeExtension(request.filename, request.mime_type) ||
       types.isProxy(request.bytes) || !(request.bytes instanceof Uint8Array) ||
       (!Buffer.isBuffer(request.bytes) && Object.getPrototypeOf(request.bytes) !== Uint8Array.prototype)) invalid();
+  let codecPolicy: Readonly<ReviewedTopazCodecPolicy> | null;
+  try { codecPolicy = getReviewedTopazCodecPolicy(request.model_id); }
+  catch (error) {
+    if (error instanceof ReviewedTopazCodecPolicyError) throw new OwnerTopazAstraOriginalProbeError(error.code);
+    throw new OwnerTopazAstraOriginalProbeError("CODEC_POLICY_UNAVAILABLE");
+  }
 
   if (signal?.aborted) throw new OwnerTopazAstraOriginalProbeError("PROBE_ABORTED");
   let inputByteLength: number;
@@ -157,6 +170,11 @@ async function probeOriginal(
 
     const stdout = await runFfprobe(ffprobePath, inputPath, signal);
     const probed = parseProbe(stdout);
+    try { assertReviewedTopazVideoCodecAllowed(codecPolicy, probed.codecName, probed.codecTagString); }
+    catch (error) {
+      if (error instanceof ReviewedTopazCodecPolicyError) throw new OwnerTopazAstraOriginalProbeError(error.code);
+      throw new OwnerTopazAstraOriginalProbeError("CODEC_POLICY_UNAVAILABLE");
+    }
     if (source.byteLength > profile.input.max_file_size_bytes) limit();
     if (probed.durationSeconds > profile.input.max_video_duration_seconds ||
         probed.frameCount > profile.input.max_frame_count) limit();
@@ -211,7 +229,7 @@ async function probeOriginal(
 function runFfprobe(ffprobePath: string, inputPath: string, signal?: AbortSignal): Promise<string> {
   const args = [
     "-v", "error", "-count_frames", "-select_streams", "v:0", "-show_entries",
-    "stream=codec_type,codec_name,width,height,nb_read_frames,duration:format=duration,format_name",
+    "stream=codec_type,codec_name,codec_tag_string,width,height,nb_read_frames,duration:format=duration,format_name",
     "-of", "json", inputPath
   ];
   const childOptions: ExecFileOptionsWithStringEncoding = {
@@ -272,7 +290,7 @@ function runFfprobe(ffprobePath: string, inputPath: string, signal?: AbortSignal
 }
 
 function parseProbe(stdout: string): {
-  codecName: string; width: number; height: number; durationSeconds: number; frameCount: number;
+  codecName: string; codecTagString: unknown; width: number; height: number; durationSeconds: number; frameCount: number;
 } {
   let root: unknown;
   try { root = JSON.parse(stdout); } catch { return invalid(); }
@@ -287,7 +305,7 @@ function parseProbe(stdout: string): {
   const durationSeconds = finitePositive(durationValue);
   if (root.format.format_name !== ACCEPTED_FFPROBE_FORMAT || width === undefined || height === undefined ||
       frameCount === undefined || durationSeconds === undefined) return invalid();
-  return { codecName: stream.codec_name, width, height, durationSeconds, frameCount };
+  return { codecName: stream.codec_name, codecTagString: stream.codec_tag_string, width, height, durationSeconds, frameCount };
 }
 
 function exactConfig(config: unknown): string {

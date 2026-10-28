@@ -7,6 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createDefaultApplication } from "../src/application/factory.js";
 import { createGenerationContractRegistry } from "../src/domain/generation-contract.js";
+import { loadSelectedDiscoveryCatalog } from "../src/catalog/selected-discovery-catalog.js";
 import { createMcpServer } from "../src/mcp/server.js";
 import { loadPinnedStaticParameterProjection } from "../src/catalog/static-form-control-history.js";
 import { parseStaticGenerationParameterSchemaArtifact } from "../src/catalog/static-generation-parameter-schema.js";
@@ -16,8 +17,15 @@ import {
   parsePinnedBananaConditionalSettingsV19Bytes
 } from "../src/catalog/banana-conditional-settings-v19.js";
 
-test("default generation schema lookup reports unavailable without a reviewed contract", async () => {
-  const server = createMcpServer(createDefaultApplication());
+const HISTORICAL_E551_VERSION = "sha256-e5517ee56db2cf5939de51b2e1d835249ec201eefc80d8a805487b82063c1989.json";
+
+function createHistoricalE551Application() {
+  const selected = loadSelectedDiscoveryCatalog(HISTORICAL_E551_VERSION);
+  return createDefaultApplication({ discoveryCatalog: selected.discoveryCatalog, runtimeCapabilities: null });
+}
+
+test("E551 generation schema lookup reports unavailable without a reviewed contract", async () => {
+  const server = createMcpServer(createHistoricalE551Application());
   const client = new Client({ name: "generation-schema-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
@@ -201,9 +209,9 @@ test("generation schema from a foreign catalog is blocked", async () => {
   }
 });
 
-test("every current public model returns an explicit schema status and matched static evidence", async () => {
+test("every E551 public model returns an explicit schema status and matched static evidence", async () => {
   const loadedUiProjection = loadPinnedStaticParameterProjection();
-  const application = createDefaultApplication();
+  const application = createHistoricalE551Application();
   const first = application.searchModels({ include_inactive: true, limit: 100 });
   const second = application.searchModels({ include_inactive: true, limit: 100, cursor: first.next_cursor ?? undefined });
   const third = application.searchModels({ include_inactive: true, limit: 100, cursor: second.next_cursor ?? undefined });
@@ -291,7 +299,7 @@ test("every current public model returns an explicit schema status and matched s
 });
 
 test("stale injected UI model provenance is hidden and never becomes executable schema", async (t) => {
-  const application = createDefaultApplication();
+  const application = createHistoricalE551Application();
   const loaded = loadPinnedStaticParameterProjection();
   if (loaded.projection === null) { t.skip("hash-pinned legacy UI artifact is conservatively unavailable until schema migration completes"); return; }
   const projection = structuredClone(loaded.projection);
@@ -326,7 +334,7 @@ test("stale injected UI model provenance is hidden and never becomes executable 
 });
 
 test("MCP exposes Banana source candidates separately from accepted schemas and validation", async () => {
-  const application = createDefaultApplication();
+  const application = createHistoricalE551Application();
   const server = createMcpServer(application);
   const client = new Client({ name: "banana-source-candidate-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -446,7 +454,7 @@ test("pinned UI projection hash mismatch fails closed instead of degrading to un
 });
 
 test("immutable v1.1 UI projection is hash-checked and migrated conservatively for MCP", async () => {
-  const application = createDefaultApplication();
+  const application = createHistoricalE551Application();
   const legacyVersion = "static-generation-parameter-schema-v1.1-e5517ee5-87e96b78-6e9e23581252ac96.json";
   const legacySha256 = "sha256:6e9e23581252ac9645a88edf90cbf4262a3f4ee64b9a336e58478204fc819839";
   const serialized = readFileSync(resolve("catalog/runtime/v11", legacyVersion), "utf8");

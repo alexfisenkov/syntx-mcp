@@ -108,6 +108,10 @@ jobs:
           SYNTX_KLING_MEDIA_TEST_FFPROBE: /usr/bin/ffprobe
         run: npm run test:media:update
 
+      - name: Prepare npm registry cache for public package consumer
+        if: inputs.scope == 'media-update'
+        run: npm run package:cache:prime -- --confirm-registry-fetch
+
       - name: Verify clean public package consumer
         if: inputs.scope == 'media-update'
         run: npm run package:smoke:public

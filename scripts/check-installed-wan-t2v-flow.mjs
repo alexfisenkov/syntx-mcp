@@ -12,7 +12,8 @@ export class WanT2vFlowInstalledCheckError extends Error {
   constructor(code) { super(code); this.name = "WanT2vFlowInstalledCheckError"; this.code = code; }
 }
 
-const MODELS = Object.freeze(["wan_26_t2v", "wan_27_t2v"]);
+const LEGACY_MODELS = Object.freeze(["wan_26_t2v", "wan_27_t2v"]);
+const SCHEMA_MODELS = Object.freeze([...LEGACY_MODELS, "wan_30_t2v"]);
 const TOOL_NAMES = Object.freeze([
   "syntx_get_wan_t2v_parameters", "syntx_owner_generate_wan_t2v_video", "syntx_owner_reconcile_wan_t2v_video",
   "syntx_owner_list_wan_t2v_recoveries", "syntx_owner_get_wan_t2v_result_page"
@@ -25,7 +26,7 @@ const CATALOG_VERSION = "sha256-b06698c84a002f5cc7d379e5d3ead94974b0e279fae45c8b
 const SETTINGS_VERSION = "sha256-1b48c058362e847886f90dd733b8e4b28e598e16a0360f2b466916ef9a3e33c5.json";
 const ATTEMPT_PREFIX = "link_wan_t2v_installed_checker_";
 const SOURCE_MODULES = Object.freeze([
-  "application/owner-wan-t2v-generation-parameters", "application/owner-wan-t2v-generation-service",
+  "application/owner-wan-t2v-generation-parameters", "application/owner-wan30-t2v-generation-parameters", "application/owner-wan-t2v-generation-service",
   "application/account-status", "application/model-access", "adapter/syntx/owner-wan-t2v-video-result",
   "adapter/syntx/chat-http-client", "mcp/owner-wan-t2v-video-tools", "mcp/server",
   "runtime/observed-owner-runtime", "transports/stdio-owner", "catalog/selected-discovery-catalog",
@@ -85,19 +86,29 @@ export function assertWanT2vToolSurface(tools, enabled, modules) {
   ];
   for (let index = 0; index < TOOL_NAMES.length; index += 1) {
     const tool = byName.get(TOOL_NAMES[index]);
-    assertExactClosedObject(tool?.inputSchema, inputKeys[index], index === 3 ? ["limit"] : index === 4 ? ["offset"] : [],
+    assertExactClosedObject(tool?.inputSchema, inputKeys[index], index === 0 ? ["model_id"] : index === 3 ? ["limit"] : index === 4 ? ["offset"] : [],
       `INSTALLED_WAN_T2V_INPUT_SCHEMA_${index}_INVALID`);
-    assertExactClosedObject(tool?.outputSchema, outputKeys[index], [], `INSTALLED_WAN_T2V_OUTPUT_SCHEMA_${index}_INVALID`);
+    if (index === 0) assertParameterSourceOutputSchema(tool?.outputSchema);
+    else assertExactClosedObject(tool?.outputSchema, outputKeys[index], [], `INSTALLED_WAN_T2V_OUTPUT_SCHEMA_${index}_INVALID`);
     assertEveryObjectClosed(tool.inputSchema, `INSTALLED_WAN_T2V_INPUT_SCHEMA_${index}_INVALID`);
-    assertEveryObjectClosed(tool.outputSchema, `INSTALLED_WAN_T2V_OUTPUT_SCHEMA_${index}_INVALID`);
+    if (index !== 0) assertEveryObjectClosed(tool.outputSchema, `INSTALLED_WAN_T2V_OUTPUT_SCHEMA_${index}_INVALID`);
   }
   const branches = generate.inputSchema.oneOf;
-  if (!Array.isArray(branches) || branches.length !== MODELS.length) fail("INSTALLED_WAN_T2V_MODEL_BRANCHES_INVALID");
+  if (!Array.isArray(branches) || branches.length !== SCHEMA_MODELS.length) fail("INSTALLED_WAN_T2V_MODEL_BRANCHES_INVALID");
   for (const [index, branch] of branches.entries()) {
     assertExactClosedObject(branch, ["link_attempt_id", "model_id", "parameters", "prompt"], [], "INSTALLED_WAN_T2V_MODEL_BRANCHES_INVALID");
-    if (branch.properties?.model_id?.const !== MODELS[index]) fail("INSTALLED_WAN_T2V_MODEL_BRANCHES_INVALID");
+    if (branch.properties?.model_id?.const !== SCHEMA_MODELS[index]) fail("INSTALLED_WAN_T2V_MODEL_BRANCHES_INVALID");
     const parameter = branch.properties.parameters;
-    const branchKey = index === 0 ? "shot_type" : "native_audio";
+    const branchKey = index === 0 ? "shot_type" : index === 1 ? "native_audio" : null;
+    if (index === 2) {
+      assertExactClosedObject(parameter, ["aspect_ratio", "native_audio", "prompt_extend", "rendering_speed", "resolution", "seed", "video_duration"], [], "INSTALLED_WAN_T2V_MODEL_PARAMETER_BRANCH_INVALID");
+      if (!sameArray(parameter.properties.aspect_ratio?.enum, RATIOS) || !sameArray(parameter.properties.resolution?.enum, ["480P", "720P", "1080P"]) ||
+          parameter.properties.video_duration?.minimum !== 2 || parameter.properties.video_duration?.maximum !== 30 ||
+          !sameArray(parameter.properties.rendering_speed?.enum, ["basic", "prime"]) || parameter.properties.prompt_extend?.type !== "boolean" ||
+          parameter.properties.native_audio?.type !== "boolean" || parameter.properties.seed?.anyOf?.[0]?.minimum !== 0 ||
+          parameter.properties.seed?.anyOf?.[0]?.maximum !== 2_147_483_647) fail("INSTALLED_WAN_T2V_WAN30_SCHEMA_INVALID");
+      continue;
+    }
     const expected = ["aspect_ratio", "prompt_extend", "resolution", "seed", "video_duration", branchKey].sort();
     assertExactClosedObject(parameter, expected, [], "INSTALLED_WAN_T2V_MODEL_PARAMETER_BRANCH_INVALID");
     if (!sameArray(parameter.properties.aspect_ratio?.enum, RATIOS) || !sameArray(parameter.properties.resolution?.enum, RESOLUTIONS) ||
@@ -116,18 +127,21 @@ export function assertWanT2vToolSurface(tools, enabled, modules) {
   const parameterCases = assertWanT2vParameterMatrix(modules.tools.OWNER_WAN_T2V_TOOL_INPUT_SCHEMAS.generate);
   assertWanT2vSourceOutput(modules.tools.OWNER_WAN_T2V_TOOL_OUTPUT_SCHEMAS.parameters.safeParse(
     modules.parameters.getOwnerWanT2vGenerationParametersSource()));
-  return Object.freeze({ ...names, closed_schemas: true, model_branches: 2, parameter_schema_cases: parameterCases });
+  return Object.freeze({ ...names, closed_schemas: true, model_branches: 3, parameter_schema_cases: parameterCases });
 }
 
 export function assertWanT2vParameterMatrix(schema) {
   let cases = 0;
-  for (const model_id of MODELS) for (const aspect_ratio of RATIOS) for (const resolution of RESOLUTIONS) {
-    for (const video_duration of DURATIONS) for (const prompt_extend of [false, true]) for (const seed of SEEDS) {
+  for (const model_id of LEGACY_MODELS) for (const aspect_ratio of RATIOS) for (const resolution of RESOLUTIONS) {
+    const durations = DURATIONS;
+    for (const video_duration of durations) for (const prompt_extend of [false, true]) for (const seed of SEEDS) {
       const branches = model_id === "wan_26_t2v" ? ["single", "multi"] : [false, true];
       for (const branch of branches) {
         const parameters = { aspect_ratio, resolution, video_duration, prompt_extend, seed,
           ...(model_id === "wan_26_t2v" ? { shot_type: branch } : { native_audio: branch }) };
-        if (!schema.safeParse({ link_attempt_id: `${ATTEMPT_PREFIX}000000000001`, model_id, prompt: "explicit installed schema test", parameters }).success) {
+        const accepted = schema.safeParse({ link_attempt_id: `${ATTEMPT_PREFIX}000000000001`, model_id, prompt: "explicit installed schema test", parameters }).success;
+        const expected = model_id === "wan_27_t2v" ? branch === false : true;
+        if (accepted !== expected) {
           fail("INSTALLED_WAN_T2V_PARAMETER_MATRIX_INVALID");
         }
         cases += 1;
@@ -135,7 +149,17 @@ export function assertWanT2vParameterMatrix(schema) {
     }
   }
   if (cases !== 480) fail("INSTALLED_WAN_T2V_PARAMETER_MATRIX_INVALID");
-  const base = { link_attempt_id: `${ATTEMPT_PREFIX}000000000001`, model_id: MODELS[0], prompt: "valid", parameters: {
+  const wan30 = { link_attempt_id: `${ATTEMPT_PREFIX}000000000001`, model_id: "wan_30_t2v", prompt: "explicit WAN 3.0 schema control",
+    parameters: { aspect_ratio: "16:9", resolution: "480P", video_duration: 2, prompt_extend: false, seed: null,
+      native_audio: false, rendering_speed: "basic" } };
+  if (!schema.safeParse(wan30).success || schema.safeParse({ ...wan30, parameters: { ...wan30.parameters, resolution: "1440P" } }).success ||
+      schema.safeParse({ ...wan30, parameters: { ...wan30.parameters, video_duration: 31 } }).success ||
+      schema.safeParse({ ...wan30, parameters: { ...wan30.parameters, rendering_speed: "turbo" } }).success ||
+      schema.safeParse({ ...wan30, parameters: { ...wan30.parameters, aspect_ratio: "Adaptive" } }).success ||
+      schema.safeParse({ ...wan30, parameters: { ...wan30.parameters, shot_type: "single" } }).success) {
+    fail("INSTALLED_WAN_T2V_WAN30_CONTROL_SCHEMA_INVALID");
+  }
+  const base = { link_attempt_id: `${ATTEMPT_PREFIX}000000000001`, model_id: LEGACY_MODELS[0], prompt: "valid", parameters: {
     aspect_ratio: RATIOS[0], resolution: RESOLUTIONS[0], video_duration: 5, prompt_extend: false, seed: null, shot_type: "single"
   } };
   for (const [field, value] of [["n", 1], ["model_type", "wan_26_t2v"], ["size", "720P"], ["version", "v1"], ["file_urls", []], ["reference_handles", []]]) {
@@ -151,7 +175,8 @@ export function assertWanT2vParameterMatrix(schema) {
 
 export function assertWanT2vSourceContract(parametersModule, toolsModule) {
   const source = parametersModule?.getOwnerWanT2vGenerationParametersSource?.();
-  if (!isRecord(source) || !sameArray(source.models?.map((row) => row.model_id), MODELS) ||
+  const wan30 = parametersModule?.getOwnerWan30T2vGenerationSourceContract?.();
+  if (!isRecord(source) || !sameArray(source.models?.map((row) => row.model_id), LEGACY_MODELS) ||
       source.source_pins?.public_catalog_version !== CATALOG_VERSION || source.source_pins?.settings_inventory_version !== SETTINGS_VERSION ||
       source.runtime_usable !== false || source.dispatch_allowed !== false || source.backend_acceptance !== "UNPROVEN" ||
       source.effective_defaults !== "UNKNOWN" || source.cost_projection?.amount_or_quote !== "UNPROVEN" ||
@@ -162,9 +187,19 @@ export function assertWanT2vSourceContract(parametersModule, toolsModule) {
       source.models.some((model) => model.static_status !== "CURRENT_STATIC_SOURCE_METADATA_ONLY" || model.ai_name !== "wan_video")) {
     fail("INSTALLED_WAN_T2V_SOURCE_CONTRACT_INVALID");
   }
-  const parsed = toolsModule?.OWNER_WAN_T2V_TOOL_OUTPUT_SCHEMAS?.parameters?.safeParse(source);
-  assertWanT2vSourceOutput(parsed);
-  return Object.freeze({ models: source.models.length, source_flags_false: true, public_catalog_version: CATALOG_VERSION, settings_inventory_version: SETTINGS_VERSION });
+  const legacyParsed = toolsModule?.OWNER_WAN_T2V_TOOL_OUTPUT_SCHEMAS?.parameters?.safeParse(source);
+  assertWanT2vSourceOutput(legacyParsed, false);
+  if (!isRecord(wan30) || wan30.model_id !== "wan_30_t2v" || wan30.status !== "WEB_REQUEST_OBSERVED" ||
+      wan30.dispatch_allowed !== false || wan30.backend_acceptance !== "UNPROVEN" || wan30.effective_defaults !== "UNKNOWN" ||
+      wan30.source_pins?.public_catalog_version !== "sha256-19c882601bb8ecdba994adf819544ebf06fd2db30374335631bb6078a66e5a76.json" ||
+      !sameArray(wan30.wire_observation?.settings_keys, ["model_type", "file_urls", "aspect_ratio", "resolution", "video_duration", "prompt_extend", "shot_type", "audio_setting", "seed", "native_audio", "duration", "rendering_speed"]) ||
+      wan30.wire_observation?.evidence !== "SYNTHETIC_PROMPT_HTTP_200_NO_INPUT_UPLOAD" ||
+      !sameArray(wan30.controls?.resolution?.values, ["480P", "720P", "1080P"]) || wan30.controls?.video_duration?.minimum !== 2 ||
+      wan30.controls?.video_duration?.maximum !== 30 || !sameArray(wan30.controls?.rendering_speed?.values, ["basic", "prime"])) {
+    fail("INSTALLED_WAN_T2V_WAN30_SOURCE_CONTRACT_INVALID");
+  }
+  assertWanT2vSourceOutput(toolsModule?.OWNER_WAN_T2V_TOOL_OUTPUT_SCHEMAS?.parameters?.safeParse(wan30), true);
+  return Object.freeze({ models: source.models.length + 1, source_flags_false: true, public_catalog_version: CATALOG_VERSION, settings_inventory_version: SETTINGS_VERSION });
 }
 
 export function assertWanT2vPublicExports(api, modules) {
@@ -262,17 +297,18 @@ export async function assertInstalledWanT2vFlow(installedPackagePath, consumerPa
     if (manifest.name !== "syntx-mcp") fail("INSTALLED_WAN_T2V_NOT_CLEAN_PACKAGE");
     phase = "module-import";
     const importPacked = (name) => import(pathToFileURL(join(installedRoot, `dist/src/${name}.js`)).href);
-    const [api, parameters, tools, service, result, server, runtime, stdio] = await Promise.all([
-      importPacked("index"), importPacked("application/owner-wan-t2v-generation-parameters"), importPacked("mcp/owner-wan-t2v-video-tools"),
+    const [api, parameters, wan30Parameters, tools, service, result, server, runtime, stdio] = await Promise.all([
+      importPacked("index"), importPacked("application/owner-wan-t2v-generation-parameters"),
+      importPacked("application/owner-wan30-t2v-generation-parameters"), importPacked("mcp/owner-wan-t2v-video-tools"),
       importPacked("application/owner-wan-t2v-generation-service"), importPacked("adapter/syntx/owner-wan-t2v-video-result"),
       importPacked("mcp/server"), importPacked("runtime/observed-owner-runtime"), importPacked("transports/stdio-owner")
     ]);
-    const modules = { parameters, tools, service, result, server, runtime, stdio };
+    const modules = { parameters, wan30Parameters, tools, service, result, server, runtime, stdio };
     phase = "public-exports";
     assertWanT2vPublicExports(api, modules);
     assertWanT2vDeclarations(await readFile(join(installedRoot, "dist/src/index.d.ts"), "utf8"));
     phase = "source-contract";
-    const source = assertWanT2vSourceContract(parameters, tools);
+    const source = assertWanT2vSourceContract({ ...parameters, ...wan30Parameters }, tools);
     assertWanT2vFlagReader(stdio);
     phase = "consumer-sdk";
     const sdk = await loadWanT2vConsumerSdk(consumerPath);
@@ -460,6 +496,12 @@ async function runWanT2vCallToolRegression(modules, sdk) {
     const sourceRead = await call(TOOL_NAMES[0], {});
     if (sourceRead.isError || sourceRead.structuredContent?.runtime_usable !== false || sourceRead.structuredContent?.dispatch_allowed !== false ||
         sourceRead.structuredContent?.backend_acceptance !== "UNPROVEN") fail("INSTALLED_WAN_T2V_SOURCE_TOOL_INVALID");
+    const wan30SourceRead = await call(TOOL_NAMES[0], { model_id: "wan_30_t2v" });
+    assertWanT2vSourceOutput({ success: !wan30SourceRead.isError, data: wan30SourceRead.structuredContent }, true);
+    if (wan30SourceRead.structuredContent?.model_id !== "wan_30_t2v" ||
+        wan30SourceRead.structuredContent?.wire_observation?.evidence !== "SYNTHETIC_PROMPT_HTTP_200_NO_INPUT_UPLOAD") {
+      fail("INSTALLED_WAN_T2V_WAN30_SOURCE_TOOL_INVALID");
+    }
 
     step = "parameter_matrix";
     parameterSchemaCases = assertWanT2vParameterMatrix(modules.tools.OWNER_WAN_T2V_TOOL_INPUT_SCHEMAS.generate);
@@ -491,7 +533,7 @@ async function runWanT2vCallToolRegression(modules, sdk) {
     await linkAttempt(attempt("model27"));
     const prompt27 = "Explicit installed WAN 2.7 model-branch intent.";
     const result27 = await call(TOOL_NAMES[1], { link_attempt_id: attempt("model27"), model_id: "wan_27_t2v", prompt: prompt27,
-      parameters: { resolution: "720P", aspect_ratio: "4:3", video_duration: 15, prompt_extend: false, seed: null, native_audio: true } });
+      parameters: { resolution: "720P", aspect_ratio: "4:3", video_duration: 15, prompt_extend: false, seed: null, native_audio: false } });
     if (result27.isError || result27.structuredContent?.model_id !== "wan_27_t2v" || result27.structuredContent?.artifacts?.length !== 1) {
       fail("INSTALLED_WAN_T2V_MODEL27_CALLTOOL_INVALID");
     }
@@ -503,7 +545,7 @@ async function runWanT2vCallToolRegression(modules, sdk) {
       { model_type: "wan_26_t2v", resolution: "1080P", aspect_ratio: "16:9", video_duration: 2, prompt_extend: true,
         seed: 2_147_483_647, shot_type: "multi", file_urls: [] },
       { model_type: "wan_27_t2v", resolution: "720P", aspect_ratio: "4:3", video_duration: 15, prompt_extend: false,
-        seed: null, native_audio: true, file_urls: [] }
+        seed: null, native_audio: false, file_urls: [] }
     ];
     if (posts.length < 2 || !sameKeys(posts[0].settings, Object.keys(expectedPostSettings[0])) ||
         !sameJson(posts[0].settings, expectedPostSettings[0]) || !sameJson(posts[1].settings, expectedPostSettings[1]) ||
@@ -609,10 +651,30 @@ async function runWanT2vCallToolRegression(modules, sdk) {
   }
 }
 
-function assertWanT2vSourceOutput(parsed) {
-  if (!parsed?.success || parsed.data?.runtime_usable !== false || parsed.data?.dispatch_allowed !== false ||
-      parsed.data?.backend_acceptance !== "UNPROVEN" || parsed.data?.source_pins?.public_catalog_version !== CATALOG_VERSION ||
-      parsed.data?.source_pins?.settings_inventory_version !== SETTINGS_VERSION) fail("INSTALLED_WAN_T2V_SOURCE_OUTPUT_INVALID");
+function assertWanT2vSourceOutput(parsed, wan30 = false) {
+  if (!parsed?.success || (!wan30 && parsed.data?.runtime_usable !== false) || parsed.data?.dispatch_allowed !== false ||
+      parsed.data?.backend_acceptance !== "UNPROVEN" || parsed.data?.source_pins?.public_catalog_version !==
+      (wan30 ? "sha256-19c882601bb8ecdba994adf819544ebf06fd2db30374335631bb6078a66e5a76.json" : CATALOG_VERSION) ||
+      (!wan30 && parsed.data?.source_pins?.settings_inventory_version !== SETTINGS_VERSION)) fail("INSTALLED_WAN_T2V_SOURCE_OUTPUT_INVALID");
+}
+function assertParameterSourceOutputSchema(schema) {
+  const rootKeys = ["status", "source_pins", "current_audio_policy", "models", "controls", "cost_projection", "caller_gaps",
+    "effective_defaults", "runtime_usable", "dispatch_allowed", "backend_acceptance", "profile_id", "model_id", "ai_name",
+    "wire_observation", "fixed_settings", "prompt_limit", "cost_query_candidate"];
+  const legacyKeys = ["status", "source_pins", "current_audio_policy", "models", "controls", "cost_projection", "caller_gaps",
+    "effective_defaults", "runtime_usable", "dispatch_allowed", "backend_acceptance"];
+  const wan30Keys = ["profile_id", "status", "model_id", "ai_name", "source_pins", "wire_observation", "controls", "fixed_settings",
+    "prompt_limit", "cost_query_candidate", "effective_defaults", "dispatch_allowed", "backend_acceptance"];
+  if (!isRecord(schema) || schema.type !== "object" || schema.additionalProperties !== false ||
+      !sameArray(Object.keys(schema.properties ?? {}).sort(), rootKeys.sort()) || !Array.isArray(schema.oneOf) || schema.oneOf.length !== 2) {
+    fail("INSTALLED_WAN_T2V_OUTPUT_SCHEMA_0_INVALID");
+  }
+  const branches = schema.oneOf;
+  const expectedBranches = [legacyKeys, wan30Keys];
+  for (const [index, branch] of branches.entries()) {
+    if (!isRecord(branch) || !sameArray(Object.keys(branch.properties ?? {}).sort(), expectedBranches[index].sort()) ||
+        !sameArray([...(branch.required ?? [])].sort(), expectedBranches[index].sort())) fail("INSTALLED_WAN_T2V_OUTPUT_SCHEMA_0_INVALID");
+  }
 }
 function assertExactClosedObject(schema, required, optional, code) {
   if (!isRecord(schema) || schema.type !== "object" || schema.additionalProperties !== false ||

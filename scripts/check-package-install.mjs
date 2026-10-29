@@ -875,7 +875,7 @@ async function assertOwnerAuthPersistenceProof(installedPackagePath, staticRunti
   }
 }
 
-async function assertInstalledOwnerContractMediaStdio(installedPackagePath, consumerPath) {
+async function assertInstalledOwnerContractMediaStdio(installedPackagePath, consumerPath, publicSource) {
   const [{ Client }, { StdioClientTransport }] = await Promise.all([
     import("@modelcontextprotocol/sdk/client/index.js"),
     import("@modelcontextprotocol/sdk/client/stdio.js")
@@ -906,10 +906,17 @@ async function assertInstalledOwnerContractMediaStdio(installedPackagePath, cons
       name: "syntx_get_generation_schema",
       arguments: { model_id: "banana-2.1", operation_id: "generate-image" }
     }, undefined, requestOptions);
-    if (schema.isError === true || schema.structuredContent?.schema_status !== "live_verified" ||
-        schema.structuredContent?.model_id !== "banana-2.1" ||
-        schema.structuredContent?.contract_schema_version !== undefined ||
-        schema.structuredContent?.variant_id !== undefined) {
+    const schemaData = schema.structuredContent;
+    if (publicSource) {
+      if (schema.isError === true || schemaData?.schema_status !== "BLOCKED" || schemaData?.coverage_status !== "BLOCKED" ||
+          schemaData.model_id !== "banana-2.1" || schemaData.operation_id !== "generate-image" ||
+          JSON.stringify(schemaData.blocked_reasons) !== JSON.stringify(["REGISTRY_CATALOG_MISMATCH"]) ||
+          schemaData.schema_hash !== null || schemaData.parameter_schema !== null || schemaData.contract_evidence !== null ||
+          schemaData.contract_schema_version !== undefined || schemaData.variant_id !== undefined) {
+        throw new PackageSmokeError("INSTALLED_PUBLIC_OWNER_CONTRACT_MEDIA_REFUSAL_INVALID");
+      }
+    } else if (schema.isError === true || schemaData?.schema_status !== "live_verified" ||
+        schemaData?.model_id !== "banana-2.1" || schemaData?.contract_schema_version !== undefined || schemaData?.variant_id !== undefined) {
       throw new PackageSmokeError("INSTALLED_OWNER_CONTRACT_MEDIA_REGISTRY_UNAVAILABLE");
     }
     const validation = await client.callTool({
@@ -920,8 +927,15 @@ async function assertInstalledOwnerContractMediaStdio(installedPackagePath, cons
         parameters: { prompt: promptMarker, file_urls: [] }
       }
     }, undefined, requestOptions);
-    if (validation.isError === true || validation.structuredContent?.validation_status !== "VALID" ||
-        validation.structuredContent?.parameters_redacted !== true || JSON.stringify(validation).includes(promptMarker)) {
+    const validationData = validation.structuredContent;
+    if (publicSource) {
+      if (validation.isError === true || validationData?.validation_status !== "BLOCKED" ||
+          validationData?.reason_code !== "REGISTRY_CATALOG_MISMATCH" || validationData?.parameters_redacted !== true ||
+          validationData?.schema_hash !== null || JSON.stringify(validation).includes(promptMarker)) {
+        throw new PackageSmokeError("INSTALLED_PUBLIC_OWNER_CONTRACT_MEDIA_VALIDATION_REFUSAL_INVALID");
+      }
+    } else if (validation.isError === true || validationData?.validation_status !== "VALID" ||
+        validationData?.parameters_redacted !== true || JSON.stringify(validation).includes(promptMarker)) {
       throw new PackageSmokeError("INSTALLED_OWNER_CONTRACT_MEDIA_VALIDATION_FAILED");
     }
     const noAuthGeneration = await client.callTool({
@@ -966,12 +980,19 @@ async function assertInstalledOwnerContractMediaStdio(installedPackagePath, cons
       name: "syntx_get_generation_schema",
       arguments: { model_id: "seedance_pro-fast", operation_id: "generate-video", variant_id: videoVariantId }
     }, undefined, requestOptions);
-    if (schema.isError === true || schema.structuredContent?.schema_status !== "live_verified" ||
-        schema.structuredContent?.contract_schema_version !== "2.0.0" ||
-        schema.structuredContent?.variant_id !== videoVariantId ||
-        schema.structuredContent?.model_id !== "seedance_pro-fast" ||
-        schema.structuredContent?.parameter_schema_v2 === null ||
-        typeof schema.structuredContent?.parameter_schema_v2 !== "object") {
+    const schemaData = schema.structuredContent;
+    if (publicSource) {
+      if (schema.isError === true || schemaData?.schema_status !== "BLOCKED" || schemaData?.coverage_status !== "BLOCKED" ||
+          schemaData.model_id !== "seedance_pro-fast" || schemaData.operation_id !== "generate-video" ||
+          schemaData.variant_id !== videoVariantId || JSON.stringify(schemaData.blocked_reasons) !== JSON.stringify(["REGISTRY_CATALOG_MISMATCH"]) ||
+          schemaData.schema_hash !== null || schemaData.parameter_schema_v2 !== null || schemaData.contract_evidence !== null ||
+          schemaData.contract_schema_version !== "2.0.0") {
+        throw new PackageSmokeError("INSTALLED_PUBLIC_OWNER_CONTRACT_MEDIA_V2_REFUSAL_INVALID");
+      }
+    } else if (schema.isError === true || schemaData?.schema_status !== "live_verified" ||
+        schemaData?.contract_schema_version !== "2.0.0" || schemaData?.variant_id !== videoVariantId ||
+        schemaData?.model_id !== "seedance_pro-fast" || schemaData?.parameter_schema_v2 === null ||
+        typeof schemaData?.parameter_schema_v2 !== "object") {
       throw new PackageSmokeError("INSTALLED_OWNER_CONTRACT_MEDIA_V2_REGISTRY_UNAVAILABLE");
     }
     const validation = await v2Client.callTool({
@@ -983,10 +1004,17 @@ async function assertInstalledOwnerContractMediaStdio(installedPackagePath, cons
         parameters: { prompt: promptMarker }
       }
     }, undefined, requestOptions);
-    if (validation.isError === true || validation.structuredContent?.validation_status !== "VALID" ||
-        validation.structuredContent?.contract_schema_version !== "2.0.0" ||
-        validation.structuredContent?.variant_id !== videoVariantId ||
-        validation.structuredContent?.parameters_redacted !== true || JSON.stringify(validation).includes(promptMarker)) {
+    const validationData = validation.structuredContent;
+    if (publicSource) {
+      if (validation.isError === true || validationData?.validation_status !== "BLOCKED" ||
+          validationData?.reason_code !== "REGISTRY_CATALOG_MISMATCH" || validationData?.contract_schema_version !== "2.0.0" ||
+          validationData?.variant_id !== videoVariantId || validationData?.parameters_redacted !== true ||
+          validationData?.schema_hash !== null || JSON.stringify(validation).includes(promptMarker)) {
+        throw new PackageSmokeError("INSTALLED_PUBLIC_OWNER_CONTRACT_MEDIA_V2_VALIDATION_REFUSAL_INVALID");
+      }
+    } else if (validation.isError === true || validationData?.validation_status !== "VALID" ||
+        validationData?.contract_schema_version !== "2.0.0" || validationData?.variant_id !== videoVariantId ||
+        validationData?.parameters_redacted !== true || JSON.stringify(validation).includes(promptMarker)) {
       throw new PackageSmokeError("INSTALLED_OWNER_CONTRACT_MEDIA_V2_VALIDATION_FAILED");
     }
     const noAuthGeneration = await v2Client.callTool({
@@ -1259,7 +1287,7 @@ export function assertSoulImageToolSurface(tools, enabled) {
   assertSoulStrictSchema(character.outputSchema, "INSTALLED_SOUL_CHARACTER_SCHEMA_INVALID");
   assertSoulStrictSchema(style.inputSchema, "INSTALLED_SOUL_STYLE_SCHEMA_INVALID");
   assertSoulStrictSchema(style.outputSchema, "INSTALLED_SOUL_STYLE_SCHEMA_INVALID");
-  assertSoulExactSchemaKeys(generate.inputSchema, ["link_attempt_id", "prompt", "quality", "resolution", "batch_size", "enhance_prompt", "seed", "style", "character"], "INSTALLED_SOUL_IMAGE_GENERATE_SCHEMA_INVALID");
+  assertSoulExactSchemaKeys(generate.inputSchema, ["link_attempt_id", "prompt", "quality", "resolution", "batch_size", "enhance_prompt", "seed", "reference_strength", "style", "character"], "INSTALLED_SOUL_IMAGE_GENERATE_SCHEMA_INVALID");
   assertSoulExactSchemaKeys(reconcile.inputSchema, ["link_attempt_id", "recovery_id"], "INSTALLED_SOUL_IMAGE_RECONCILE_SCHEMA_INVALID");
   assertSoulExactSchemaKeys(recoveries.inputSchema, ["link_attempt_id", "limit"], "INSTALLED_SOUL_IMAGE_RECOVERIES_SCHEMA_INVALID");
   assertSoulExactSchemaKeys(character.inputSchema, ["link_attempt_id"], "INSTALLED_SOUL_CHARACTER_SCHEMA_INVALID");
@@ -1274,9 +1302,11 @@ export function assertSoulImageToolSurface(tools, enabled) {
     "source_mapping_sha256", "generation_allowed", "expires_in_seconds", "options", "summary"], "INSTALLED_SOUL_STYLE_SCHEMA_INVALID");
   const generateProperties = generate.inputSchema.properties ?? {};
   if (generateProperties.quality?.enum?.join(",") !== "720p,1080p" ||
+      generate.inputSchema.required?.includes("reference_strength") === true ||
       JSON.stringify(generateProperties.resolution?.enum) !== JSON.stringify(Object.values(SOUL_QUALITY_RESOLUTION_PAIRS).flat().filter((value, index, all) => all.indexOf(value) === index)) ||
       JSON.stringify(generateProperties.batch_size?.anyOf?.map((schema) => schema.const).sort()) !== JSON.stringify([1, 4]) ||
       generateProperties.prompt?.maxLength !== 131_072 || generateProperties.enhance_prompt?.type !== "boolean" ||
+      generateProperties.reference_strength?.type !== "number" || generateProperties.reference_strength?.const !== 0.7 ||
       !soulNullableIntegerRange(generateProperties.seed, 0, 2_147_483_647) ||
       hasSoulForbiddenProperty(generate.inputSchema) || hasSoulForbiddenProperty(generate.outputSchema)) {
     throw new SoulImageInstalledCheckError("INSTALLED_SOUL_IMAGE_GENERATE_SCHEMA_INVALID");
@@ -1287,7 +1317,7 @@ export function assertSoulImageToolSurface(tools, enabled) {
       output.profile_id?.const !== "owner-soul-image-source-profile-v1" ||
       output.catalog_version?.const !== SOUL_CATALOG_VERSION || output.profile_schema_hash?.pattern !== "^sha256:[a-f0-9]{64}$" ||
       output.source_projection_confidence?.const !== "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY" ||
-      output.reference_strength?.const !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" ||
+      JSON.stringify(output.reference_strength?.enum) !== JSON.stringify(["UNRESOLVED_UNCONTROLLED_WIRE_FIELD", "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN"]) ||
       output.requested_batch_size?.anyOf?.map((schema) => schema.const).sort().join(",") !== "1,4" ||
       !["CURRENT_VERIFIED_MESSAGE_MATCHES_EXPLICIT_BATCH_SIZE", "OBSERVED_CURRENT_MESSAGE_NOT_REQUESTED_TOTAL"].every((value) =>
         output.count_confidence?.enum?.includes(value)) ||
@@ -1323,7 +1353,13 @@ export function assertSoulImageSourceContract(parameters, sourceProfile, catalog
   const profile = sourceProfile.getOwnerSoulImageSourceProfile(SOUL_MODEL_ID, catalog, catalogVersion);
   if (source.model?.model_id !== SOUL_MODEL_ID || source.model?.pinned_default_model_type !== SOUL_MODEL_ID ||
       source.model?.catalog_version !== SOUL_CATALOG_VERSION || source.fixed_settings?.n !== 1 ||
-      source.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" || source.dispatch_allowed !== false ||
+      JSON.stringify(Object.keys(source.reference_strength ?? {}).sort()) !== JSON.stringify([
+        "accepted_input_values", "mode", "omitted_behavior", "provider_acceptance", "source_initializer_value"
+      ]) || source.reference_strength?.mode !== "OPTIONAL_EXPLICIT_FIXED_INITIALIZER_ONLY" ||
+      source.reference_strength?.source_initializer_value !== 0.7 ||
+      JSON.stringify(source.reference_strength?.accepted_input_values) !== JSON.stringify([0.7]) ||
+      source.reference_strength?.omitted_behavior !== "KEEP_EXISTING_SETTINGS_PAYLOAD_UNCHANGED" ||
+      source.reference_strength?.provider_acceptance !== "UNPROVEN" || source.dispatch_allowed !== false ||
       source.generation_readiness !== "BLOCKED_SOURCE_OR_BACKEND_GATES" ||
       source.source_pins?.build_id !== "1791467421" || source.source_pins?.form_sha256 !== SOUL_SOURCE_MAPPING_SHA256 ||
       source.source_pins?.random_seed_helper_sha256 !== "sha256:c95fc355e29e33f6c3998cb62cc2da4d0879cc1ff4fb524e826e74bb24cd792b" ||
@@ -1896,7 +1932,7 @@ async function main() {
       await assertOwnerAuthPersistenceProof(installedPackagePath, staticRuntimePaths);
     });
     process.stdout.write(`historical_owner_proofs=${ownerAuthProofDisposition} `);
-    await assertInstalledOwnerContractMediaStdio(installedPackagePath, consumerPath);
+    await assertInstalledOwnerContractMediaStdio(installedPackagePath, consumerPath, publicSource);
     try {
       await assertInstalledWanAdmission(installedPackagePath, consumerPath, packagedPaths);
     } catch (error) {
@@ -2759,6 +2795,7 @@ async function assertInstalledMaplessSettingsInventoryVersions(installedPackageP
   const installedVersions = await expectedMaplessSettingsInventoryVersionPaths(installedPackagePath);
   if (JSON.stringify(installedVersions) !== JSON.stringify(versions)) throw new PackageSmokeError("PACKAGE_CONTENT_MISMATCH");
   const loaderPath = join(installedPackagePath, "dist/src/catalog/mapless-settings-inventory.js");
+  const publicHistoryPath = join(installedPackagePath, "dist/src/catalog/public-catalog-history.js");
   for (const relative of versions) {
     if (!(await readFile(join(PROJECT_ROOT, relative))).equals(await readFile(join(installedPackagePath, relative)))) {
       throw new PackageSmokeError("PACKAGE_CONTENT_MISMATCH");
@@ -2771,12 +2808,18 @@ async function assertInstalledMaplessSettingsInventoryVersions(installedPackageP
     "import { tmpdir } from 'node:os';",
     "import { join } from 'node:path';",
     `const { loadMaplessSettingsInventoryVersion } = await import(${JSON.stringify(pathToFileURL(loaderPath).href)});`,
+    `const { loadPublicCatalogVersion } = await import(${JSON.stringify(pathToFileURL(publicHistoryPath).href)});`,
     `const catalogDirectory = ${JSON.stringify(join(installedPackagePath, "catalog"))};`,
     `const versions = ${JSON.stringify(versions.map((relative) => basename(relative)))};`,
     "for (const version of versions) {",
     "const inventory = loadMaplessSettingsInventoryVersion(version, catalogDirectory);",
-    "assert.equal(inventory.runtime_usable, false); assert.equal(inventory.summary.total_models, 200);",
-    "assert.equal(inventory.summary.structurally_mapped_models + inventory.summary.unknown_form_models, 200);",
+    "const publicCatalog = loadPublicCatalogVersion(inventory.public_catalog.version, catalogDirectory);",
+    "assert.equal(inventory.runtime_usable, false);",
+    "assert.equal(inventory.public_catalog.fetched_at, publicCatalog.fetched_at);",
+    "assert.equal(inventory.public_catalog.models_sha256, publicCatalog.sources.models.canonical_sha256);",
+    "assert.equal(inventory.summary.total_models, publicCatalog.models.length);",
+    "assert.equal(inventory.models.length, publicCatalog.models.length);",
+    "assert.equal(inventory.summary.structurally_mapped_models + inventory.summary.unknown_form_models, publicCatalog.models.length);",
     "}",
     "let currentVersion; for (const version of versions) if (JSON.parse(await readFile(join(catalogDirectory, 'settings', 'v2', version), 'utf8')).schema_version === '2.1.0') currentVersion = version;",
     "assert.ok(currentVersion);",
@@ -3118,10 +3161,10 @@ async function assertInstalledMediaMcpConfig(installedPackagePath, consumerPath)
     "assert.ok(cp.startsWith(await realpath(consumer)+'/')); assert.ok(tp.startsWith(await realpath(consumer)+'/'));",
     "const {Client}=await import(pathToFileURL(cp).href); const {StdioClientTransport}=await import(pathToFileURL(tp).href);",
     `const k4cfg=${JSON.stringify(kling4Config)};`,
-    "const temp=await mkdtemp(join(tmpdir(),'syntx-installed-media-config-'));process.on('exit',()=>{try{rmSync(temp,{recursive:true,force:true});}catch{}});const auditOn=join(temp,'audit-on.json'), auditOff=join(temp,'audit-off.json'), auditSunoOff=join(temp,'audit-suno-off.json'), auditHailuoOff=join(temp,'audit-hailuo-off.json'), auditHailuoDirectorOff=join(temp,'audit-hailuo-director-off.json'), auditHailuo23Off=join(temp,'audit-hailuo23-off.json'), auditVideo2AudioOff=join(temp,'audit-video2audio-off.json'), auditKlingOff=join(temp,'audit-kling-off.json'), auditKling4On=join(temp,'audit-kling4-on.json'), auditVeoOff=join(temp,'audit-veo-off.json'), auditVeoOmniOff=join(temp,'audit-veo-omni-off.json'), auditVeoOmniReferencesOff=join(temp,'audit-veo-omni-references-off.json'), auditGrokOff=join(temp,'audit-grok-off.json'), auditHailuoLiveOff=join(temp,'audit-hailuo-live-off.json'), auditReviewedVideoDiagnosticsOff=join(temp,'audit-reviewed-video-diagnostics-off.json'), preload=join(temp,'preload.mjs'), probeMarker=join(temp,'probe-was-called'), probeFixture=process.platform==='win32'?process.execPath:join(temp,'trusted-local-ffprobe-fixture.mjs');const installedCfg={...cfg,env:{...cfg.env,SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH:probeFixture}};",
-    "if(process.platform!=='win32'){const probeSource=`#!${process.execPath}\\nimport{writeFileSync}from'node:fs';writeFileSync(${JSON.stringify(probeMarker)},'called');\\n`;await writeFile(probeFixture,probeSource,{mode:0o700});}",
+    "const temp=await mkdtemp(join(tmpdir(),'syntx-installed-media-config-'));process.on('exit',()=>{try{rmSync(temp,{recursive:true,force:true});}catch{}});const auditOn=join(temp,'audit-on.json'), auditOff=join(temp,'audit-off.json'), auditSunoOff=join(temp,'audit-suno-off.json'), auditHailuoOff=join(temp,'audit-hailuo-off.json'), auditHailuoDirectorOff=join(temp,'audit-hailuo-director-off.json'), auditHailuo23Off=join(temp,'audit-hailuo23-off.json'), auditVideo2AudioOff=join(temp,'audit-video2audio-off.json'), auditKlingOff=join(temp,'audit-kling-off.json'), auditKling4On=join(temp,'audit-kling4-on.json'), auditVeoOff=join(temp,'audit-veo-off.json'), auditVeoOmniOff=join(temp,'audit-veo-omni-off.json'), auditVeoOmniReferencesOff=join(temp,'audit-veo-omni-references-off.json'), auditGrokOff=join(temp,'audit-grok-off.json'), auditHailuoLiveOff=join(temp,'audit-hailuo-live-off.json'), auditReviewedVideoDiagnosticsOff=join(temp,'audit-reviewed-video-diagnostics-off.json'), preload=join(temp,'preload.mjs'), probeMarker=join(temp,'probe-was-called'), probeFixture=process.platform==='win32'?process.execPath:join(temp,'trusted-local-ffprobe-fixture.mjs'),resolvedProbeFixture=process.platform==='win32'?probeFixture:join(await realpath(temp),'trusted-local-ffprobe-fixture.mjs');const effectiveEnv=Object.fromEntries(Object.entries(cfg.env).map(([key,value])=>[key,value==='<uploaded|hidden>'?'uploaded':typeof value==='string'&&/(?:FFPROBE|FFMPEG)_PATH$/u.test(key)&&value.startsWith('<')?resolvedProbeFixture:value]));const installedCfg={...cfg,env:{...effectiveEnv,PATH:process.env.PATH,SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH:resolvedProbeFixture}};",
+    "if(process.platform!=='win32'){const probeSource=`#!/usr/bin/env node\\nimport{writeFileSync}from'node:fs';writeFileSync(${JSON.stringify(probeMarker)},'called');\\n`;await writeFile(probeFixture,probeSource,{mode:0o700});}",
     "await writeFile(preload,'import {writeFileSync} from \"node:fs\";let n=0;globalThis.fetch=()=>{n++;return Promise.reject(Error(\"NETWORK_DISABLED\"));};process.on(\"exit\",()=>writeFileSync(process.env.SYNTX_CONFIG_TEST_AUDIT,JSON.stringify({network_calls:n})));\\n',{mode:0o600});",
-    "const runList=async(env,audit)=>{const t=new StdioClientTransport({command:cfg.command,args:cfg.args,cwd:consumer,env:{...env,NODE_OPTIONS:'--import '+pathToFileURL(preload).href,SYNTX_CONFIG_TEST_AUDIT:audit},stderr:'pipe'});const c=new Client({name:'syntx-installed-media-config',version:'1'},{capabilities:{}});let bytes=0,names=[],closed=false,signalClose;const closePromise=new Promise(resolve=>{signalClose=resolve;});t.onclose=()=>{closed=true;signalClose();};t.stderr?.on('data',x=>{bytes+=x.length;});try{await c.connect(t,{timeout:10000,maxTotalTimeout:10000});const listed=await c.listTools({}, {timeout:10000,maxTotalTimeout:10000});names=listed.tools.map(x=>x.name);}finally{await c.close();await t.close();}await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('CLOSE_TIMEOUT')),3000);closePromise.then(()=>{clearTimeout(timer);resolve();});});assert.equal(closed,true);assert.equal(t.pid,null);assert.equal(bytes,0);assert.equal(JSON.parse(await readFile(audit,'utf8')).network_calls,0);return {names,count:names.length};};",
+    `const hailuoLiveToolNames=${JSON.stringify(hailuoLiveToolNames)},veoOmniReferenceToolNames=${JSON.stringify(veoOmniReferenceToolNames)};const runList=async(env,audit)=>{const t=new StdioClientTransport({command:cfg.command,args:cfg.args,cwd:consumer,env:{...env,NODE_OPTIONS:'--import '+pathToFileURL(preload).href,SYNTX_CONFIG_TEST_AUDIT:audit},stderr:'pipe'});const c=new Client({name:'syntx-installed-media-config',version:'1'},{capabilities:{}});let bytes=0,names=[],closed=false,signalClose;const closePromise=new Promise(resolve=>{signalClose=resolve;});t.onclose=()=>{closed=true;signalClose();};t.stderr?.on('data',x=>{bytes+=x.length;});try{await c.connect(t,{timeout:10000,maxTotalTimeout:10000});const listed=await c.listTools({}, {timeout:10000,maxTotalTimeout:10000});names=listed.tools.map(x=>x.name);}finally{await c.close();await t.close();}await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('CLOSE_TIMEOUT')),3000);closePromise.then(()=>{clearTimeout(timer);resolve();});});assert.equal(closed,true);assert.equal(t.pid,null);assert.equal(bytes,0);assert.equal(JSON.parse(await readFile(audit,'utf8')).network_calls,0);return {names,count:names.length};};`,
     "const optIn=await runList(installedCfg.env,auditOn);const defaultOff=await runList({...installedCfg.env,SYNTX_OWNER_LUMA_T2V:'0'},auditOff);const sunoOff=await runList({...installedCfg.env,SYNTX_OWNER_SUNO_GENERATION:'0'},auditSunoOff);const hailuoOff=await runList({...installedCfg.env,SYNTX_OWNER_HAILUO01_T2V:'0'},auditHailuoOff);const hailuoDirectorOff=await runList({...installedCfg.env,SYNTX_OWNER_HAILUO01_DIRECTOR_T2V:'0'},auditHailuoDirectorOff);const hailuo23Off=await runList({...installedCfg.env,SYNTX_OWNER_HAILUO23_T2V:'0'},auditHailuo23Off);const video2AudioOff=await runList({...installedCfg.env,SYNTX_OWNER_VIDEO2AUDIO:'0'},auditVideo2AudioOff);const klingOff=await runList({...installedCfg.env,SYNTX_OWNER_KLING_T2V:'0'},auditKlingOff);const kling4On=await runList({...installedCfg.env,SYNTX_OWNER_KLING4:k4cfg.env.SYNTX_OWNER_KLING4,SYNTX_OWNER_KLING4_FFPROBE_PATH:process.execPath,SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES:k4cfg.env.SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES},auditKling4On);const veoOff=await runList({...installedCfg.env,SYNTX_OWNER_VEO_T2V:'0'},auditVeoOff);const veoOmniOff=await runList({...installedCfg.env,SYNTX_OWNER_VEO_OMNI_T2V:'0'},auditVeoOmniOff);const veoOmniReferencesOff=await runList({...installedCfg.env,SYNTX_OWNER_VEO_OMNI_REFERENCES:'0'},auditVeoOmniReferencesOff);const grokOff=await runList({...installedCfg.env,SYNTX_OWNER_GROK_T2V:'0'},auditGrokOff);const hailuoLiveOff=await runList({...installedCfg.env,SYNTX_OWNER_HAILUO_LIVE_T2V:'0'},auditHailuoLiveOff);const reviewedVideoDiagnosticsOff=await runList({...installedCfg.env,SYNTX_OWNER_HAILUO01_T2V:'0',SYNTX_OWNER_HAILUO01_DIRECTOR_T2V:'0',SYNTX_OWNER_HAILUO02_T2V:'0',SYNTX_OWNER_HAILUO23_T2V:'0',SYNTX_OWNER_HAILUO_LIVE_T2V:'0',SYNTX_OWNER_SEEDANCE20_T2V:'0',SYNTX_OWNER_KLING_T2V:'0',SYNTX_OWNER_VEO_T2V:'0',SYNTX_OWNER_VEO_OMNI_T2V:'0',SYNTX_OWNER_GROK_T2V:'0'},auditReviewedVideoDiagnosticsOff);",
     "for(const n of ['syntx_owner_generate_seedream_editor_image','syntx_owner_generate_suno_audio','syntx_owner_generate_elevenlabs_tts','syntx_owner_generate_wan_t2v_video'])assert.ok(optIn.names.includes(n));",
     "const sunoTrackOperationNames=['syntx_get_suno_track_operation_parameters','syntx_owner_cover_suno_audio','syntx_owner_extend_suno_audio','syntx_owner_reconcile_suno_track_operation','syntx_owner_list_suno_track_operation_recoveries','syntx_owner_get_suno_track_operation_result_page'];for(const n of sunoTrackOperationNames){assert.equal(optIn.names.filter(x=>x===n).length,1);assert.equal(sunoOff.names.includes(n),false);}assert.equal(optIn.names.filter(n=>n==='syntx_owner_list_suno_track_inputs').length,1);assert.equal(sunoOff.names.includes('syntx_owner_list_suno_track_inputs'),false);assert.equal(optIn.names.filter(n=>n==='syntx_owner_list_existing_suno_tracks').length,1);assert.equal(sunoOff.names.includes('syntx_owner_list_existing_suno_tracks'),false);",
@@ -3137,6 +3180,8 @@ async function assertInstalledMediaMcpConfig(installedPackagePath, consumerPath)
     `for(const n of ${JSON.stringify(kling4ToolNames)})assert.ok(kling4On.names.includes(n));`,
     `assert.deepEqual([...kling4On.names].sort(),[...optIn.names,...${JSON.stringify(kling4ToolNames)}].sort());`,
     `for(const n of ${JSON.stringify(veoToolNames)})assert.ok(optIn.names.includes(n));`,
+    "assert.ok(optIn.names.includes('syntx_get_veo_omni_parameters'));assert.equal(veoOff.names.includes('syntx_get_veo_omni_parameters'),false);",
+    `assert.deepEqual([...optIn.names.filter(n=>!veoOff.names.includes(n))].sort(),[...${JSON.stringify(veoToolNames)},'syntx_get_veo_omni_parameters'].sort());`,
     `for(const n of ${JSON.stringify(veoOmniToolNames)})assert.ok(optIn.names.includes(n));`,
     `for(const n of ${JSON.stringify(veoOmniReferenceToolNames)})assert.ok(optIn.names.includes(n));`,
     `for(const n of ${JSON.stringify(grokToolNames)})assert.ok(optIn.names.includes(n));`,
@@ -3183,7 +3228,7 @@ async function assertInstalledMediaMcpConfig(installedPackagePath, consumerPath)
     `for(const n of ${JSON.stringify(lumaToolNames)})assert.ok(!defaultOff.names.includes(n));`,
     `for(const n of ${JSON.stringify(hailuoToolNames)})assert.ok(!hailuoOff.names.includes(n));`,
     `for(const n of ${JSON.stringify(hailuoDirectorToolNames)})assert.ok(!hailuoDirectorOff.names.includes(n));`,
-    `const jointToolCount=optIn.count;assert.equal(jointToolCount-defaultOff.count,${lumaToolNames.length});assert.equal(jointToolCount-hailuoOff.count,${hailuoToolNames.length});assert.equal(jointToolCount-hailuoDirectorOff.count,${hailuoDirectorToolNames.length});assert.equal(jointToolCount-hailuo23Off.count,${hailuo23ToolNames.length});assert.equal(jointToolCount-video2AudioOff.count,${video2AudioToolNames.length});assert.equal(jointToolCount-klingOff.count,${klingToolNames.length});assert.equal(jointToolCount-veoOff.count,${veoToolNames.length});assert.equal(jointToolCount-veoOmniOff.count,${veoOmniToolNames.length});assert.equal(jointToolCount-veoOmniReferencesOff.count,${veoOmniReferenceToolNames.length});assert.deepEqual([...veoOmniReferencesOff.names].sort(),optIn.names.filter(n=>!veoOmniReferenceToolNames.includes(n)).sort());assert.equal(jointToolCount-grokOff.count,${grokToolNames.length});assert.equal(jointToolCount-hailuoLiveOff.count,${hailuoLiveToolNames.length});`,
+    `const jointToolCount=optIn.count;assert.equal(jointToolCount-defaultOff.count,${lumaToolNames.length});assert.equal(jointToolCount-hailuoOff.count,${hailuoToolNames.length});assert.equal(jointToolCount-hailuoDirectorOff.count,${hailuoDirectorToolNames.length});assert.equal(jointToolCount-hailuo23Off.count,${hailuo23ToolNames.length});assert.equal(jointToolCount-video2AudioOff.count,${video2AudioToolNames.length});assert.equal(jointToolCount-klingOff.count,${klingToolNames.length});assert.equal(jointToolCount-veoOff.count,${veoToolNames.length + 1});assert.equal(jointToolCount-veoOmniOff.count,${veoOmniToolNames.length});assert.equal(jointToolCount-veoOmniReferencesOff.count,${veoOmniReferenceToolNames.length});assert.deepEqual([...veoOmniReferencesOff.names].sort(),optIn.names.filter(n=>!veoOmniReferenceToolNames.includes(n)).sort());assert.equal(jointToolCount-grokOff.count,${grokToolNames.length});assert.equal(jointToolCount-hailuoLiveOff.count,${hailuoLiveToolNames.length});`,
     "if(process.platform!=='win32')assert.equal(await readFile(probeMarker,'utf8').catch(()=>''),'');const probeCalls=process.platform==='win32'?'NOT_INSTRUMENTED':'0';process.stdout.write('media_config_cli=PASS enabled_flags=50 joint_tools='+jointToolCount+' veo_omni_off_joint_tools='+veoOmniOff.count+' veo_omni_references_off_joint_tools='+veoOmniReferencesOff.count+' hailuo23_off_joint_tools='+hailuo23Off.count+' video2audio_off_joint_tools='+video2AudioOff.count+' hailuo_live_off_joint_tools='+hailuoLiveOff.count+' default_off_luma_tools=0 default_off_hailuo01_tools=0 default_off_hailuo01_director_tools=0 default_off_hailuo23_tools=0 default_off_video2audio_tools=0 default_off_kling_tools=0 default_off_veo_tools=0 default_off_veo_omni_t2v_tools=0 default_off_veo_omni_reference_tools=0 default_off_grok_t2v_tools=0 network=0 auth_calls=0 probe_calls='+probeCalls+' tool_calls=0 generation_posts=0 close=CLOSED pid_null=true stderr=0\\n');"
   ].join("\n")], consumerPath);
   if (!result.stdout.startsWith("media_config_cli=PASS enabled_flags=50 joint_tools=") ||

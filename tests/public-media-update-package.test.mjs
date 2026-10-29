@@ -78,4 +78,6 @@ test("public package checker compares the packed media map and verifies the upda
   assert.ok(installChecker.includes("assertInstalledMediaUpdateArtifacts(installedPackagePath, consumerPath)"));
   assert.ok(installChecker.includes('"UPDATER_PACKAGE_BIN_MISSING"'));
   assert.ok(installChecker.includes('"MEDIA_COVERAGE_PACKAGE_INVALID"'));
+  assert.ok(installChecker.includes("loadPublicCatalogVersion(inventory.public_catalog.version, catalogDirectory)"));
+  assert.equal(installChecker.includes("inventory.summary.total_models, 200"), false);
 });

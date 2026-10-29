@@ -274,7 +274,7 @@ export function createOwnerWan27R2vRequestPreparer(optionsInput: OwnerWan27R2vRe
       return await referenceService.withCapturedNativeReferences(manifest, (client, contexts) => {
         assertOperation(operation);
         if (!(client instanceof SyntxChatHttpClient) || !Array.isArray(contexts) || contexts.length !== manifest.total_reference_count ||
-            contexts.length < 1 || contexts.length > 5 || !Array.isArray(manifest.references) || manifest.references.length !== contexts.length) {
+            contexts.length < 1 || contexts.length > 6 || !Array.isArray(manifest.references) || manifest.references.length !== contexts.length) {
           fail("REFERENCE_UNAVAILABLE");
         }
         const inputReferences: OwnerWan27R2vPreparedInputReference[] = [];
@@ -316,7 +316,8 @@ export function createOwnerWan27R2vRequestPreparer(optionsInput: OwnerWan27R2vRe
           const urlKey = JSON.stringify([fileType, ownedUrl.url]);
           if (!seenUrls.has(urlKey)) { seenUrls.add(urlKey); fileUrls.push(Object.freeze({ type: fileType, url: ownedUrl.url })); }
         }
-        if (imageCount + videoCount !== contexts.length || videoCount !== manifest.video_reference_count ||
+        if (imageCount + videoCount !== contexts.length || videoCount !== manifest.video_reference_count || imageCount > 6 ||
+            (videoCount > 0 && contexts.length > 5) ||
             (videoCount === 0 && selectedSum !== 0) || selectedSum > 5.000001) fail("REFERENCE_UNAVAILABLE");
         return Object.freeze({ client, contexts: Object.freeze([...contexts]), inputReferences: Object.freeze(inputReferences),
           fileUrls: Object.freeze(fileUrls), roundedSelectedDurations: Object.freeze(durations), promptTokens: Object.freeze(promptTokens) });

@@ -44,6 +44,7 @@
     "docs/интеграция/WAN-2.5-Preview-MCP.md"
   ],
   "excluded_roots": [
+    ".aispa-work",
     ".autopilot",
     ".журналы",
     "docs/контроль",

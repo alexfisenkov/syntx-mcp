@@ -100,7 +100,7 @@ const SOURCE = Object.freeze({
     reference_image: Object.freeze({
       required_count: 1 as const,
       allowed_media_types: Object.freeze(["images"] as const),
-      accepted_file_types: Object.freeze(["image/jpeg", "image/jpg", "image/png", "image/avif", "image/webp"] as const),
+      accepted_file_types: Object.freeze(["image/jpeg", "image/jpg", "image/png", "image/avif"] as const),
       max_file_size_bytes: 31_457_280,
       min_side: 300,
       role_type: "image" as const,

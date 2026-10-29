@@ -1,0 +1,73 @@
+{
+  "schema_version": "2.0.0",
+  "captured_date": "2026-10-29",
+  "coverage_kind": "OWNER_EXPANDED_T2V_SOURCE_CONTROLS",
+  "public_catalog_version": "sha256-d1f43b4274fceb50c229711f093edb36c88e60e123da448a71ed256574f02009.json",
+  "settings_inventory_version": "sha256-a29a66acb812c92e00d9a125132de2be4dbb0728e4174d78d236936164abd880.json",
+  "build_id": "1793202992",
+  "contract_registry_version": "sha256-3e56eaa1f8834896ce201689d5eb159194fe3edb8a16d4e97adae0938f912e07.json",
+  "runtime_opt_in": "SYNTX_OWNER_EXPANDED_T2V=1",
+  "tools": [
+    "syntx_owner_get_expanded_t2v_parameters",
+    "syntx_owner_generate_expanded_t2v",
+    "syntx_owner_reconcile_expanded_t2v",
+    "syntx_owner_list_expanded_t2v_recoveries"
+  ],
+  "models": [
+    {
+      "model_id": "flux3_t2v",
+      "form_module": "flux-3-video.js",
+      "form_sha256": "sha256:aebde28281eed8cc7ba5a0e9f623106efa7b64f1e00839e161517106873f397b",
+      "source_supported_controls": {
+        "video_duration": {"minimum": 5, "maximum": 20, "step": 1},
+        "resolution": ["hd", "fhd"],
+        "aspect_ratio": ["auto", "21:9", "2:1", "16:9", "4:3", "1:1", "3:4", "9:16"],
+        "generate_audio": [true, false]
+      },
+      "unresolved": ["public cost key draft is not a form control and is excluded from cost bindings", "quote amount", "output MIME/provider acceptance"]
+    },
+    {
+      "model_id": "happy_horse_t2v",
+      "form_module": "happy-horse.js",
+      "form_sha256": "sha256:92d4ced5638fd01c8c2bd3855b9bfda437c08d26607d380218474136879fdbd4",
+      "source_supported_controls": {
+        "video_duration": {"minimum": 3, "maximum": 15, "step": 1},
+        "resolution": ["720P", "1080P"],
+        "aspect_ratio": ["16:9", "9:16", "1:1", "4:3", "3:4"]
+      },
+      "unresolved": ["target model ID is family-bound but not literal in form", "seed bounds", "quote amount", "output MIME/provider acceptance"]
+    },
+    {
+      "model_id": "seedance-1.5-pro",
+      "form_module": "seedance2.js",
+      "form_sha256": "sha256:e61b39e1e98f365d59aedd4e894dddc6f77ff636d12293aa83becd971dd1df7a",
+      "source_supported_controls": {"video_duration": {"minimum": 5, "maximum": 12, "step": 1}, "resolution": ["720p"], "aspect_ratio": ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], "generate_audio": [false, true], "camera_fixed": [false, true]},
+      "unresolved": ["effective defaults and carry-over", "quote amount", "output MIME/provider acceptance"]
+    },
+    {
+      "model_id": "seedance_pro",
+      "form_module": "seedance2.js",
+      "form_sha256": "sha256:e61b39e1e98f365d59aedd4e894dddc6f77ff636d12293aa83becd971dd1df7a",
+      "source_supported_controls": {"video_duration": [5, 10], "resolution": ["480p", "720p", "1080p"], "aspect_ratio": ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]},
+      "unresolved": ["effective defaults and resolution carry-over", "quote amount", "output MIME/provider acceptance"]
+    },
+    {
+      "model_id": "seedance_pro-fast",
+      "form_module": "seedance2.js",
+      "form_sha256": "sha256:e61b39e1e98f365d59aedd4e894dddc6f77ff636d12293aa83becd971dd1df7a",
+      "source_supported_controls": {"video_duration": {"minimum": 5, "maximum": 12, "step": 1}, "resolution": ["480p", "720p", "1080p"], "aspect_ratio": ["16:9", "4:3", "1:1", "3:4", "9:16"]},
+      "unresolved": ["effective defaults and resolution carry-over", "quote amount", "output MIME/provider acceptance"]
+    },
+    {
+      "model_id": "text2video-4.5",
+      "form_module": "runway.js",
+      "form_sha256": "sha256:c63f6f9a9b97f1d3641d29ca5a7b0bfe82f3821a365055c0d63e07b6d278b7d6",
+      "source_supported_controls": {"video_duration": ["5.0", "8.0", "10.0"], "aspect_ratio": {"16:9": "169", "9:16": "916"}},
+      "unresolved": ["wire duration encoding against backend", "quote amount", "output MIME/provider acceptance"]
+    }
+  ],
+  "coverage_status": "PARTIAL_SOURCE_REVIEWED_CONTROLS",
+  "all_controls_complete": false,
+  "dispatch_scope": "OWNER_OPT_IN_ONLY; NO_REFERENCES; NO_BACKEND_ACCEPTANCE_CLAIM",
+  "limitations": ["Map records source-reviewed no-reference controls and explicit gaps; it is not a full settings inventory.", "Public cost keys are not a quote amount or proof of billing behavior."]
+}

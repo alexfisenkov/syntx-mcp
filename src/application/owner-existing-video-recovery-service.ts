@@ -21,6 +21,7 @@ const MODEL_PREFIX = Object.freeze({
   "dop-lite": "owner-higgsfield-dop-", "dop-turbo": "owner-higgsfield-dop-",
   "hailuo-2.3-fast": "owner-hailuo-initial-", "hailuo-01-live-character": "owner-hailuo-initial-", "hailuo-3.0": "owner-hailuo-initial-",
   "kling_elements": "owner-kling-media-", "kling_o1_image2video": "owner-kling-media-",
+  "kling_4_keyframes": "owner-kling4-native-", "kling_4_omni": "owner-kling4-native-",
   acttwo: "owner-acttwo-",
   "wan_27_i2v": "owner-wan27-i2v-", "gen4.5i2v": "owner-runway-i2v-",
   "seedance-2.5": "owner-contract-video-", switchx: "owner-switchx-video-"
@@ -188,7 +189,16 @@ function validateTargetHistory(value: unknown, target: Target, providerChatId: s
   const bot = messages.filter(row => row.id === target.provider_message_id && row.author_id === -1);
   if (owner.length !== 1 || bot.length !== 1 || messages.some(row => row.chat_id !== providerChatId)) return "MESSAGE_ID_OR_AUTHOR_MISMATCH";
   const ownerObjects = owner[0]!.message_object;
-  if (target.model_id === "acttwo") {
+  if (target.model_id === "kling_4_keyframes" || target.model_id === "kling_4_omni") {
+    if (ownerObjects.length !== 1 || ownerObjects[0]!.message_id !== target.owner_message_id || ownerObjects[0]!.object_type !== "text" ||
+        ownerObjects[0]!.model_type !== target.model_id || ownerObjects[0]!.completed !== true ||
+        ownerObjects[0]!.object_url !== undefined && ownerObjects[0]!.object_url !== null && ownerObjects[0]!.object_url !== "") {
+      return "OWNER_MODEL_OR_REFERENCE_MISMATCH";
+    }
+    if (typeof ownerObjects[0]!.object_text !== "string" || promptDigest(ownerObjects[0]!.object_text) !== promptDigest(target.expected_prompt)) {
+      return "OWNER_PROMPT_MISMATCH";
+    }
+  } else if (target.model_id === "acttwo") {
     if (ownerObjects.length < 2 || ownerObjects.length > 3 || ownerObjects.some(row => row.message_id !== target.owner_message_id ||
         row.model_type != null && row.model_type !== "acttwo")) return "OWNER_MODEL_OR_REFERENCE_MISMATCH";
     const videos = ownerObjects.filter(row => row.object_type === "video"), images = ownerObjects.filter(row => row.object_type === "image");
@@ -230,6 +240,17 @@ function validateTargetHistory(value: unknown, target: Target, providerChatId: s
     if (new Set(ids).size !== 2 || new Set(urls).size !== 2) return "BOT_MODEL_OR_TYPE_MISMATCH";
     return Object.freeze(botObjects.map(row => Object.freeze({ id: row.id, object_type: "video" as const, object_url: row.object_url! })));
   }
+  if (target.model_id === "kling_4_keyframes" || target.model_id === "kling_4_omni") {
+    if (botObjects.length !== 1 || botObjects[0]!.message_id !== target.provider_message_id || botObjects[0]!.model_type !== target.model_id ||
+        (botObjects[0]!.object_type !== "video" && botObjects[0]!.object_type !== "error") || botObjects[0]!.completed !== true) {
+      return "BOT_MODEL_OR_TYPE_MISMATCH";
+    }
+    const object = botObjects[0]!;
+    if (object.object_type === "video" && (typeof object.object_url !== "string" || !isSafeUploadReferenceUrl(object.object_url)) ||
+        object.object_type === "error" && object.object_url != null && object.object_url !== "") return "BOT_MODEL_OR_TYPE_MISMATCH";
+    return Object.freeze([Object.freeze({ id: object.id, object_type: object.object_type as "video" | "error",
+      ...(object.object_url === undefined ? {} : { object_url: object.object_url }) })]);
+  }
   if (botObjects.length !== 1 || botObjects[0]!.message_id !== target.provider_message_id || botObjects[0]!.model_type !== target.model_id ||
       (botObjects[0]!.object_type !== "video" && botObjects[0]!.object_type !== "error") || botObjects[0]!.completed !== true) return "BOT_MODEL_OR_TYPE_MISMATCH";
   return Object.freeze([Object.freeze({ id: botObjects[0]!.id, object_type: botObjects[0]!.object_type,
@@ -254,6 +275,25 @@ function validateTargetDetail(value: unknown, target: Target, providerChatId: st
     return Object.freeze({ model_id: target.model_id, status: "video_available", provider_error_code: null,
       object_url: artifacts[0]!.object_url, mime_type: null, artifacts,
       proof: "CURRENT_LINK_INDEX_HISTORY_DETAIL_BOUND", gaps: Object.freeze([]) });
+  }
+  if (target.model_id === "kling_4_keyframes" || target.model_id === "kling_4_omni") {
+    if (history.length !== 1) return unverified(target.model_id, "DETAIL_BINDING_MISMATCH");
+    const expected = history[0]!, object = detail.message_object[0]!;
+    if (object.id !== expected.id || object.message_id !== target.provider_message_id || object.model_type !== target.model_id ||
+        object.object_type !== expected.object_type || object.completed !== true) return unverified(target.model_id, "DETAIL_OBJECT_MISMATCH");
+    if (expected.object_type === "error") {
+      if (expected.object_url != null && expected.object_url !== "" || object.object_url != null && object.object_url !== "") {
+        return unverified(target.model_id, "DETAIL_OBJECT_MISMATCH");
+      }
+      return Object.freeze({ model_id: target.model_id, status: "provider_error", provider_error_code: "PROVIDER_ERROR_OBJECT_OBSERVED",
+        object_url: null, mime_type: null, proof: "CURRENT_LINK_INDEX_HISTORY_DETAIL_BOUND", gaps: Object.freeze([]) });
+    }
+    if (typeof expected.object_url !== "string" || typeof object.object_url !== "string" || !isSafeUploadReferenceUrl(expected.object_url) ||
+        !isSafeUploadReferenceUrl(object.object_url) || object.object_url !== expected.object_url) {
+      return unverified(target.model_id, "DETAIL_OBJECT_MISMATCH");
+    }
+    return Object.freeze({ model_id: target.model_id, status: "video_available", provider_error_code: null, object_url: object.object_url,
+      mime_type: null, proof: "CURRENT_LINK_INDEX_HISTORY_DETAIL_BOUND", gaps: Object.freeze([]) });
   }
   if (history.length !== 1) return unverified(target.model_id, "DETAIL_BINDING_MISMATCH");
   const expected = history[0]!, kind = expected.object_type, object = detail.message_object[0]!;

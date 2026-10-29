@@ -78,7 +78,11 @@ const DISABLED_FLAGS = [
   "SYNTX_OWNER_GENERATE_CONTRACT_MEDIA",
   "SYNTX_OWNER_DURABLE_GENERATION",
   "SYNTX_OWNER_SOUL_CATALOG_SHAPE",
-  "SYNTX_OWNER_SOUL_STYLE_OPTIONS"
+  "SYNTX_OWNER_SOUL_STYLE_OPTIONS",
+  "SYNTX_OWNER_KLING_MEDIA", "SYNTX_OWNER_KLING_MEDIA_UPLOAD_DESTINATION", "SYNTX_OWNER_KLING_MEDIA_FFPROBE_PATH",
+  "SYNTX_OWNER_SWITCHX_VIDEO", "SYNTX_OWNER_SWITCHX_VIDEO_UPLOAD_DESTINATION", "SYNTX_OWNER_SWITCHX_VIDEO_FFPROBE_PATH",
+  "SYNTX_OWNER_ACTTWO", "SYNTX_OWNER_ACTTWO_UPLOAD_DESTINATION", "SYNTX_OWNER_ACTTWO_FFPROBE_PATH",
+  "SYNTX_OWNER_HEYGEN4", "SYNTX_OWNER_HEYGEN4_FFPROBE_PATH", "SYNTX_OWNER_EXISTING_VIDEO_RECOVERY"
 ];
 
 test("CLI defaults to help and emits no configuration without exact paid-tools confirmation", async () => {
@@ -155,7 +159,9 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
     "SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH",
     "SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH",
     "SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH",
-    "SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES"
+    "SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES",
+    "SYNTX_MEDIA_FFPROBE_PATH",
+    "SYNTX_MEDIA_FFMPEG_PATH"
   ].sort());
   assert.equal(JSON.stringify(config).includes("token"), false);
   assert.equal(JSON.stringify(config).includes(".env"), false);
@@ -166,6 +172,30 @@ test("Hailuo 2.3 opt-in is included only in the explicitly confirmed owner confi
   assert.equal(config.mcpServers.syntx.env.SYNTX_OWNER_HAILUO23_T2V, "1");
   assert.equal(ENABLED_FLAGS.includes("SYNTX_OWNER_HAILUO23_T2V"), true);
   assert.equal(DISABLED_FLAGS.includes("SYNTX_OWNER_HAILUO23_T2V"), false);
+});
+
+test("all-supported config pins the updateable reviewed media profile", async () => {
+  const stdout = [], stderr = [];
+  assert.equal(await main([ENABLE_FLAG, "--include-all-supported-media"], {
+    entryUrl: pathToFileURL(SCRIPT_PATH).href,
+    writeStdout: (text) => stdout.push(text),
+    writeStderr: (text) => stderr.push(text)
+  }), 0);
+  const env = JSON.parse(stdout.join("")).mcpServers.syntx.env;
+  assert.equal(stderr.join(""), "");
+  assert.equal(env.SYNTX_OWNER_MEDIA_PROFILE, "all-supported");
+  assert.equal(env.SYNTX_OWNER_GENERATE_VIDEO, "1");
+  assert.equal(env.SYNTX_OWNER_GROK_REFERENCE_PROFILE_VERSION, "sha256-87f53d7f198a6550038a59279948e10b251a4138509bf76c25c791c990d66299.json");
+  assert.deepEqual(Object.keys(env).filter((name) => name.startsWith("SYNTX_OWNER_") && /_(?:FFPROBE|FFMPEG)_PATH$/u.test(name)), []);
+  assert.equal(env.SYNTX_MEDIA_FFPROBE_PATH, "<absolute path to trusted ffprobe executable>");
+  assert.equal(env.SYNTX_MEDIA_FFMPEG_PATH, "<absolute path to trusted ffmpeg executable>");
+  for (const name of ["SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION", "SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION",
+    "SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION", "SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION", "SYNTX_OWNER_GROK_V2V_UPLOAD_DESTINATION",
+    "SYNTX_OWNER_KLING_MEDIA_UPLOAD_DESTINATION", "SYNTX_OWNER_SWITCHX_VIDEO_UPLOAD_DESTINATION", "SYNTX_OWNER_ACTTWO_UPLOAD_DESTINATION"]) {
+    assert.equal(env[name], "<uploaded|hidden>", `missing unchanged upload destination template: ${name}`);
+  }
+  assert.equal(env.SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES, "67108864");
+  assert.equal(env.SYNTX_SELF_UPDATE, undefined);
 });
 
 test("Flux3 media placeholders are emitted only behind the existing exact paid-tools confirmation", async () => {
@@ -348,7 +378,7 @@ test("npm package exposes the CLI and ships its documentation and test", () => {
   assert.equal(packageLock.packages[""].bin["syntx-mcp-media-config"], packageJson.bin["syntx-mcp-media-config"]);
   assert.equal(packageJson.files.includes("scripts/print-media-mcp-config.mjs"), true);
   assert.equal(packageJson.files.includes("docs"), true);
-  assert.match(packageJson.scripts.test, /tests\/print-media-mcp-config\.test\.mjs/u);
+  assert.match(packageJson.scripts["test:media:update"], /tests\/print-media-all-supported-media\.test\.mjs/u);
 });
 
 test("every emitted flag is an existing owner-stdio flag", () => {
@@ -451,13 +481,14 @@ test("changed-media selector is bounded and uses explicit source-backed Node tes
   const commands = packageJson.scripts["test:media:changed"].split(/\s+&&\s+/u);
   assert.ok(commands.length > 0 && commands.length <= 4, "changed-media selector must remain a bounded command list");
   for (const command of commands) {
-    const parts = command.trim().split(/\s+/u);
+    const namePattern = command.match(/(?:^|\s)(--test-name-pattern="[^"]+")(?=\s|$)/u)?.[1];
+    const parts = (namePattern ? command.replace(namePattern, "") : command).trim().split(/\s+/u);
     assert.equal(parts[0], "node");
     assert.equal(parts[1], "--test");
     assert.ok(parts.length > 2, "each test command must explicitly name files");
     const inputs = parts.slice(2);
-    if (inputs[0]?.startsWith("--test-name-pattern=")) {
-      assert.match(inputs.shift(), /^--test-name-pattern="[A-Za-z0-9._|^-]+"$/u,
+    if (namePattern) {
+      assert.match(namePattern, /^--test-name-pattern="[A-Za-z0-9._ |^-]+"$/u,
         "test filtering must remain an explicit bounded pattern without shell syntax");
     }
     assert.ok(inputs.length > 0, "a filter cannot replace explicit test files");
@@ -471,7 +502,7 @@ test("changed-media selector is bounded and uses explicit source-backed Node tes
       assert.equal(existsSync(new URL(`../${sourcePath}`, import.meta.url)), true, `missing selector source: ${sourcePath}`);
     }
   }
-  assert.ok(selectedPaths.length > 0 && selectedPaths.length <= 40, "changed-media selector must remain bounded");
+  assert.ok(selectedPaths.length > 0 && selectedPaths.length <= 60, "changed-media selector must remain bounded");
   assert.equal(new Set(selectedPaths).size, selectedPaths.length, "selector paths must be unique");
 });
 

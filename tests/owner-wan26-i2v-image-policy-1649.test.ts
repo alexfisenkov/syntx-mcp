@@ -47,6 +47,7 @@ test("pins both WAN 2.6 I2V IDs and historical B066 bounds as local guards", () 
   assert.deepEqual(OWNER_WAN26_I2V_IMAGE_POLICY.source_mime_types, ["image/jpg", "image/jpeg", "image/png", "image/bmp", "image/webp"]);
   assert.equal(OWNER_WAN26_I2V_IMAGE_POLICY.max_file_size_bytes, 10 * 1024 * 1024);
   assert.equal(OWNER_WAN26_I2V_IMAGE_POLICY.min_side, 384); assert.equal(OWNER_WAN26_I2V_IMAGE_POLICY.max_side, 5_000);
+  assert.equal(OWNER_WAN26_I2V_IMAGE_POLICY.current_public_max_side, 8_000);
   assert.equal(OWNER_WAN26_I2V_IMAGE_POLICY.max_prompt_length, 1_500);
   assert.equal(OWNER_WAN26_I2V_IMAGE_POLICY.limits_policy,
     "PINNED_B066_CATALOG_LOCAL_GUARD_NOT_CURRENT_METADATA_OR_PROVIDER_ACCEPTANCE");
@@ -76,11 +77,11 @@ test("structurally inspects all pinned formats and enforces inclusive side bound
     assert.equal(receipt.filename, `scene.${mime === "image/jpeg" ? "jpg" : mime.slice("image/".length)}`);
     assert.equal(releaseValidatedOwnerWan26I2vImage(receipt), true);
   }
-  for (const [width, height] of [[384, 384], [5_000, 384], [384, 5_000]] as const) {
+  for (const [width, height] of [[384, 384], [8_000, 384], [384, 8_000]] as const) {
     const receipt = validateOwnerWan26I2vImage(input("wan_26_i2v_flash", png(width, height), "image/png", "edge.png"));
     assert.equal(receipt.width, width); assert.equal(receipt.height, height); releaseValidatedOwnerWan26I2vImage(receipt);
   }
-  for (const [width, height] of [[383, 384], [5_001, 384], [384, 5_001]] as const) {
+  for (const [width, height] of [[383, 384], [8_001, 384], [384, 8_001]] as const) {
     assert.throws(() => validateOwnerWan26I2vImage(input("wan_26_i2v", png(width, height), "image/png")), invalid);
   }
 });

@@ -64,7 +64,7 @@ function readPolicy(bytes) {
   if (!sameStringArray(value.bootstrap_paths, [".github/workflows/verify.yml", ".gitignore", "AGENTS.md", "README.md",
     "SECURITY.md", "docs/интеграция/Inpaint-источники-и-границы.md", "docs/интеграция/Обновление-MCP.md",
     "docs/модели/WAN-image-источники-и-параметры.md", "docs/интеграция/WAN-2.5-Preview-MCP.md"]) ||
-      !sameStringArray(value.excluded_roots, [".autopilot", ".журналы", "docs/контроль", "docs/проект"])) {
+      !sameStringArray(value.excluded_roots, [".aispa-work", ".autopilot", ".журналы", "docs/контроль", "docs/проект"])) {
     fail("POLICY_INVALID");
   }
   return Object.freeze(value);

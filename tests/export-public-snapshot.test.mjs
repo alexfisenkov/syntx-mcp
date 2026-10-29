@@ -185,7 +185,7 @@ test("exports only the exact committed source tree, preserves bootstrap, hashes 
     assert.equal(manifest.source_commit, sourceCommit);
     assert.deepEqual(manifest.included_paths, [...manifest.included_paths].sort());
     assert.deepEqual(manifest.excluded_paths, [...manifest.excluded_paths].sort());
-    assert.deepEqual(manifest.excluded_roots, [".autopilot", ".журналы", "docs/контроль", "docs/проект"]);
+    assert.deepEqual(manifest.excluded_roots, [".aispa-work", ".autopilot", ".журналы", "docs/контроль", "docs/проект"]);
     assert.equal(manifest.excluded_paths.some((path) => path.startsWith("docs/")), false,
       "excluded docs filenames are represented by a root, not leaked into the manifest");
     assert.deepEqual(Object.keys(manifest.file_sha256), manifest.included_paths);
@@ -249,6 +249,7 @@ test("exports only the allowlisted media guides through broad docs exclusion whi
   const grokGuide = "docs/интеграция/Grok-I2V-MCP.md";
   const privateDoc = "docs/интеграция/private-runway-note.md";
   const protectedRootFile = "docs/контроль/private.md";
+  const aispaRecord = ".aispa-work/private-run.md";
   const privateReceipt = ".публикация/receipt.json";
   const bookkeeping = ".публикация/editor2238-ci.json";
   const envFile = ".env.secret";
@@ -258,13 +259,14 @@ test("exports only the allowlisted media guides through broad docs exclusion whi
     initializeRepo(source);
     seedCommit(source);
     const policy = JSON.parse(readFileSync(join(source, "tools/publication/public-source-policy.json"), "utf8"));
-    policy.included_files = [...new Set([...policy.included_files, guide, grokGuide, protectedRootFile, envFile])];
+    policy.included_files = [...new Set([...policy.included_files, guide, grokGuide, protectedRootFile, envFile, aispaRecord])];
     policy.excluded_prefixes = [...new Set([...policy.excluded_prefixes, ".публикация"])];
     writePath(source, "tools/publication/public-source-policy.json", `${JSON.stringify(policy, null, 2)}\n`);
     writePath(source, guide, guideBytes);
     writePath(source, grokGuide, grokGuideBytes);
     writePath(source, privateDoc, `${PRIVATE_SENTINEL}\n`);
     writePath(source, protectedRootFile, `${PRIVATE_SENTINEL}\n`);
+    writePath(source, aispaRecord, `${PRIVATE_SENTINEL}\n`);
     writePath(source, privateReceipt, `${PRIVATE_SENTINEL}\n`);
     writePath(source, bookkeeping, `${PRIVATE_SENTINEL}\n`);
     writePath(source, envFile, `${PRIVATE_SENTINEL}\n`);
@@ -284,12 +286,15 @@ test("exports only the allowlisted media guides through broad docs exclusion whi
     assert.equal(manifest.file_sha256[grokGuide], sha256(grokGuideBytes));
     assert.deepEqual(readFileSync(join(destination, ...grokGuide.split("/"))), grokGuideBytes);
 
-    for (const path of [privateDoc, protectedRootFile, privateReceipt, bookkeeping, envFile]) {
+    for (const path of [privateDoc, protectedRootFile, privateReceipt, bookkeeping, envFile, aispaRecord]) {
       assert.equal(manifest.included_paths.includes(path), false, `private path exported: ${path}`);
       assert.equal(walkFiles(destination).includes(path), false, `private filename leaked: ${path}`);
     }
     assert.equal(manifest.excluded_paths.includes(protectedRootFile), false,
       "a private-root exclusion remains opaque even when included_files maliciously names it");
+    assert.deepEqual(manifest.excluded_roots, [".aispa-work", ".autopilot", ".журналы", "docs/контроль", "docs/проект"]);
+    assert.equal(manifest.excluded_paths.includes(aispaRecord), false,
+      "AISpa work-root contents stay opaque and filenames are not recorded");
     assert.equal(manifest.excluded_paths.includes(envFile), true,
       "environment-file protections remain active before exact-file allowlisting");
     for (const path of walkFiles(destination)) {

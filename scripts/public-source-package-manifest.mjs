@@ -22,6 +22,7 @@ export const PUBLIC_SOURCE_PRIVATE_RECEIPT_PATHS = Object.freeze([
 ].sort());
 
 export const PUBLIC_SOURCE_EXCLUDED_ROOTS = Object.freeze([
+  ".aispa-work",
   ".autopilot",
   ".журналы",
   "docs/контроль",

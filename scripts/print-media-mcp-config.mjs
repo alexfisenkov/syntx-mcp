@@ -23,6 +23,8 @@ export const INCLUDE_SWITCHX_VIDEO_FLAG = "--include-switchx-video";
 export const INCLUDE_ACTTWO_FLAG = "--include-acttwo";
 export const INCLUDE_HEYGEN4_FLAG = "--include-heygen4";
 export const INCLUDE_EXISTING_VIDEO_RECOVERY_FLAG = "--include-existing-video-recovery";
+export const INCLUDE_ALL_SUPPORTED_MEDIA_FLAG = "--include-all-supported-media";
+export const INCLUDE_SELF_UPDATE_FLAG = "--include-self-update";
 
 const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_ACCOUNT_STATUS",
@@ -116,6 +118,8 @@ const HELP_TEXT = [
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_ACTTWO_FLAG}`,
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_HEYGEN4_FLAG}`,
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_EXISTING_VIDEO_RECOVERY_FLAG}`,
+  `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_ALL_SUPPORTED_MEDIA_FLAG}`,
+  `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_ALL_SUPPORTED_MEDIA_FLAG} ${INCLUDE_SELF_UPDATE_FLAG}`,
   `  ${SYNTX_MEDIA_MCP_BIN} ${PAID_TOOLS_CONFIRMATION_FLAG} ${INCLUDE_KLING4_FLAG} ${INCLUDE_WAN27_VIDEOEDIT_FLAG}`,
   "  node scripts/print-media-mcp-config.mjs --help",
   "",
@@ -188,6 +192,8 @@ export function parseArguments(argv) {
   let includeActTwo = false;
   let includeHeygen4 = false;
   let includeExistingVideoRecovery = false;
+  let includeAllSupportedMedia = false;
+  let includeSelfUpdate = false;
   for (const argument of argv) {
     if (seen.has(argument)) throw new MediaMcpConfigCliError();
     seen.add(argument);
@@ -208,10 +214,18 @@ export function parseArguments(argv) {
     else if (argument === INCLUDE_ACTTWO_FLAG) includeActTwo = true;
     else if (argument === INCLUDE_HEYGEN4_FLAG) includeHeygen4 = true;
     else if (argument === INCLUDE_EXISTING_VIDEO_RECOVERY_FLAG) includeExistingVideoRecovery = true;
+    else if (argument === INCLUDE_ALL_SUPPORTED_MEDIA_FLAG) includeAllSupportedMedia = true;
+    else if (argument === INCLUDE_SELF_UPDATE_FLAG) includeSelfUpdate = true;
     else throw new MediaMcpConfigCliError();
   }
   if (!confirmed) throw new MediaMcpConfigCliError();
-  return Object.freeze({ kind: "emit", ...(includeKling4 ? { includeKling4: true } : {}),
+  if (includeAllSupportedMedia) {
+    includeKling4 = includeWan27VideoEdit = includeSeedanceEditor = includeRunwayI2v = includeGrokI2v = true;
+    includeWan25T2vPreview = includeHiggsfieldDop = includeHailuoInitial = includeHappyHorse = true;
+    includeWan27I2v = includeSeedance25T2v = includeKlingMedia = includeSwitchxVideo = true;
+    includeActTwo = includeHeygen4 = includeExistingVideoRecovery = true;
+  }
+  return Object.freeze({ kind: "emit", ...(includeAllSupportedMedia ? { includeAllSupportedMedia: true } : {}), ...(includeSelfUpdate ? { includeSelfUpdate: true } : {}), ...(includeKling4 ? { includeKling4: true } : {}),
     ...(includeWan27VideoEdit ? { includeWan27VideoEdit: true } : {}),
     ...(includeSeedanceEditor ? { includeSeedanceEditor: true } : {}),
     ...(includeRunwayI2v ? { includeRunwayI2v: true } : {}),
@@ -246,9 +260,9 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefine
 
   const packageRoot = resolve(dirname(scriptPath), "..");
   const ownerStdioEntrypoint = resolve(packageRoot, "dist", "src", "transports", "stdio-owner.js");
-  const env = Object.fromEntries([
-    ...ENABLED_FLAGS.map((flag) => [flag, "1"]),
-    ...DISABLED_FLAGS.map((flag) => [flag, "0"]),
+  const useFamilyBinaryPaths = selection.includeAllSupportedMedia !== true;
+  const disabledFlags = useFamilyBinaryPaths ? DISABLED_FLAGS : DISABLED_FLAGS.filter((flag) => !/_(?:FFPROBE|FFMPEG)_PATH$/u.test(flag));
+  const mediaPathDefaults = [
     ["SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH", "<absolute path to ffprobe>"],
     ["SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION", "<uploaded|hidden>"],
     ["SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH", "<absolute path to ffprobe>"],
@@ -268,20 +282,35 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefine
     ["SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
     ["SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES", "67108864"]
+  ];
+  const env = Object.fromEntries([
+    ...ENABLED_FLAGS.map((flag) => [flag, "1"]),
+    ...disabledFlags.map((flag) => [flag, "0"]),
+    ...mediaPathDefaults.filter(([name]) => useFamilyBinaryPaths || !/_(?:FFPROBE|FFMPEG)_PATH$/u.test(name)),
+    ["SYNTX_MEDIA_FFPROBE_PATH", "<absolute path to trusted ffprobe executable>"],
+    ["SYNTX_MEDIA_FFMPEG_PATH", "<absolute path to trusted ffmpeg executable>"]
   ]);
+  if (selection.includeSelfUpdate) env.SYNTX_SELF_UPDATE = "1";
+  if (selection.includeAllSupportedMedia) {
+    env.SYNTX_OWNER_MEDIA_PROFILE = "all-supported";
+    env.SYNTX_OWNER_GENERATE_IMAGE = "1";
+    env.SYNTX_OWNER_GENERATE_VIDEO = "1";
+    env.SYNTX_OWNER_GROK_IMAGE_REFERENCES = "1";
+    env.SYNTX_OWNER_GROK_REFERENCE_PROFILE_VERSION = "sha256-87f53d7f198a6550038a59279948e10b251a4138509bf76c25c791c990d66299.json";
+  }
   if (selection.includeKling4) {
     env.SYNTX_OWNER_KLING4 = "1";
-    env.SYNTX_OWNER_KLING4_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
+    if (useFamilyBinaryPaths) env.SYNTX_OWNER_KLING4_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
     env.SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES = "67108864";
   }
   if (selection.includeWan27VideoEdit) {
     env.SYNTX_OWNER_WAN27_VIDEOEDIT = "1";
-    env.SYNTX_OWNER_WAN27_VIDEOEDIT_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
+    if (useFamilyBinaryPaths) env.SYNTX_OWNER_WAN27_VIDEOEDIT_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
     env.SYNTX_OWNER_WAN27_VIDEOEDIT_MAX_VIDEO_FILE_BYTES = "67108864";
   }
   if (selection.includeSeedanceEditor) {
     env.SYNTX_OWNER_SEEDANCE_EDITOR = "1";
-    env.SYNTX_OWNER_SEEDANCE_EDITOR_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
+    if (useFamilyBinaryPaths) env.SYNTX_OWNER_SEEDANCE_EDITOR_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
     env.SYNTX_OWNER_SEEDANCE_EDITOR_MAX_VIDEO_FILE_BYTES = "67108864";
   }
   if (selection.includeRunwayI2v) env.SYNTX_OWNER_RUNWAY_I2V = "1";
@@ -301,7 +330,7 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefine
   if (selection.includeHappyHorse) {
     env.SYNTX_OWNER_HAPPY_HORSE = "1";
     env.SYNTX_OWNER_HAPPY_HORSE_UPLOAD_DESTINATION = "<uploaded|hidden>";
-    env.SYNTX_OWNER_HAPPY_HORSE_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
+    if (useFamilyBinaryPaths) env.SYNTX_OWNER_HAPPY_HORSE_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
   }
   if (selection.includeWan27I2v) {
     env.SYNTX_OWNER_WAN27_I2V = "1";
@@ -312,17 +341,17 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefine
     if (selection[key]) {
       env[`SYNTX_OWNER_${group}`] = "1";
       env[`SYNTX_OWNER_${group}_UPLOAD_DESTINATION`] = "<uploaded|hidden>";
-      env[`SYNTX_OWNER_${group}_FFPROBE_PATH`] = "<absolute path to trusted ffprobe executable>";
+      if (useFamilyBinaryPaths) env[`SYNTX_OWNER_${group}_FFPROBE_PATH`] = "<absolute path to trusted ffprobe executable>";
     }
   }
   if (selection.includeActTwo) {
     env.SYNTX_OWNER_ACTTWO = "1";
     env.SYNTX_OWNER_ACTTWO_UPLOAD_DESTINATION = "<uploaded|hidden>";
-    env.SYNTX_OWNER_ACTTWO_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
+    if (useFamilyBinaryPaths) env.SYNTX_OWNER_ACTTWO_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
   }
   if (selection.includeHeygen4) {
     env.SYNTX_OWNER_HEYGEN4 = "1";
-    env.SYNTX_OWNER_HEYGEN4_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
+    if (useFamilyBinaryPaths) env.SYNTX_OWNER_HEYGEN4_FFPROBE_PATH = "<absolute path to trusted ffprobe executable>";
   }
   if (selection.includeExistingVideoRecovery) env.SYNTX_OWNER_EXISTING_VIDEO_RECOVERY = "1";
 
@@ -362,7 +391,9 @@ export async function main(argv, options = {}) {
       ...(parsed.includeSwitchxVideo === true ? { includeSwitchxVideo: true } : {}),
       ...(parsed.includeActTwo === true ? { includeActTwo: true } : {}),
       ...(parsed.includeHeygen4 === true ? { includeHeygen4: true } : {}),
-      ...(parsed.includeExistingVideoRecovery === true ? { includeExistingVideoRecovery: true } : {})
+      ...(parsed.includeExistingVideoRecovery === true ? { includeExistingVideoRecovery: true } : {}),
+      ...(parsed.includeAllSupportedMedia === true ? { includeAllSupportedMedia: true } : {}),
+      ...(parsed.includeSelfUpdate === true ? { includeSelfUpdate: true } : {})
     };
     const config = buildMediaMcpConfig(options.entryUrl ?? import.meta.url, options.nodeExecutable ?? process.execPath,
       Object.keys(selection).length === 0 ? undefined : selection);
@@ -377,7 +408,7 @@ export async function main(argv, options = {}) {
 function readOptionalSelections(value) {
   if (value === undefined) return Object.freeze({ includeKling4: false, includeWan27VideoEdit: false, includeSeedanceEditor: false,
     includeRunwayI2v: false, includeGrokI2v: false, includeWan25T2vPreview: false, includeHiggsfieldDop: false, includeHailuoInitial: false, includeHappyHorse: false, includeWan27I2v: false, includeSeedance25T2v: false,
-    includeKlingMedia: false, includeSwitchxVideo: false, includeActTwo: false, includeHeygen4: false, includeExistingVideoRecovery: false });
+    includeKlingMedia: false, includeSwitchxVideo: false, includeActTwo: false, includeHeygen4: false, includeExistingVideoRecovery: false, includeSelfUpdate: false, includeAllSupportedMedia: false });
   try {
     if (!value || typeof value !== "object" || types.isProxy(value) || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) throw new Error();
     const descriptors = Object.getOwnPropertyDescriptors(value);
@@ -385,25 +416,28 @@ function readOptionalSelections(value) {
     if (keys.length < 1 || keys.some((key) =>
       key !== "includeKling4" && key !== "includeWan27VideoEdit" && key !== "includeSeedanceEditor" &&
       key !== "includeRunwayI2v" && key !== "includeGrokI2v" && key !== "includeWan25T2vPreview" && key !== "includeHiggsfieldDop" && key !== "includeHailuoInitial" && key !== "includeHappyHorse" && key !== "includeWan27I2v" && key !== "includeSeedance25T2v" && key !== "includeKlingMedia" && key !== "includeSwitchxVideo" &&
-      key !== "includeActTwo" && key !== "includeHeygen4" && key !== "includeExistingVideoRecovery")) throw new Error();
+      key !== "includeActTwo" && key !== "includeHeygen4" && key !== "includeExistingVideoRecovery" && key !== "includeSelfUpdate" && key !== "includeAllSupportedMedia")) throw new Error();
     for (const key of keys) {
       const descriptor = descriptors[key];
       if (!descriptor || !Object.hasOwn(descriptor, "value") || descriptor.enumerable !== true || typeof descriptor.value !== "boolean") throw new Error();
     }
-    return Object.freeze({ includeKling4: descriptors.includeKling4?.value ?? false,
-      includeWan27VideoEdit: descriptors.includeWan27VideoEdit?.value ?? false,
-      includeSeedanceEditor: descriptors.includeSeedanceEditor?.value ?? false,
-      includeRunwayI2v: descriptors.includeRunwayI2v?.value ?? false,
-      includeGrokI2v: descriptors.includeGrokI2v?.value ?? false,
-      includeWan25T2vPreview: descriptors.includeWan25T2vPreview?.value ?? false,
-      includeHiggsfieldDop: descriptors.includeHiggsfieldDop?.value ?? false,
-      includeHailuoInitial: descriptors.includeHailuoInitial?.value ?? false,
-      includeHappyHorse: descriptors.includeHappyHorse?.value ?? false,
-      includeWan27I2v: descriptors.includeWan27I2v?.value ?? false,
-      includeSeedance25T2v: descriptors.includeSeedance25T2v?.value ?? false,
-      includeKlingMedia: descriptors.includeKlingMedia?.value ?? false, includeSwitchxVideo: descriptors.includeSwitchxVideo?.value ?? false,
-      includeActTwo: descriptors.includeActTwo?.value ?? false, includeHeygen4: descriptors.includeHeygen4?.value ?? false,
-      includeExistingVideoRecovery: descriptors.includeExistingVideoRecovery?.value ?? false });
+    const includeAllSupportedMedia = descriptors.includeAllSupportedMedia?.value ?? false;
+    return Object.freeze({ includeKling4: descriptors.includeKling4?.value ?? includeAllSupportedMedia,
+      includeWan27VideoEdit: descriptors.includeWan27VideoEdit?.value ?? includeAllSupportedMedia,
+      includeSeedanceEditor: descriptors.includeSeedanceEditor?.value ?? includeAllSupportedMedia,
+      includeRunwayI2v: descriptors.includeRunwayI2v?.value ?? includeAllSupportedMedia,
+      includeGrokI2v: descriptors.includeGrokI2v?.value ?? includeAllSupportedMedia,
+      includeWan25T2vPreview: descriptors.includeWan25T2vPreview?.value ?? includeAllSupportedMedia,
+      includeHiggsfieldDop: descriptors.includeHiggsfieldDop?.value ?? includeAllSupportedMedia,
+      includeHailuoInitial: descriptors.includeHailuoInitial?.value ?? includeAllSupportedMedia,
+      includeHappyHorse: descriptors.includeHappyHorse?.value ?? includeAllSupportedMedia,
+      includeWan27I2v: descriptors.includeWan27I2v?.value ?? includeAllSupportedMedia,
+      includeSeedance25T2v: descriptors.includeSeedance25T2v?.value ?? includeAllSupportedMedia,
+      includeKlingMedia: descriptors.includeKlingMedia?.value ?? includeAllSupportedMedia, includeSwitchxVideo: descriptors.includeSwitchxVideo?.value ?? includeAllSupportedMedia,
+      includeActTwo: descriptors.includeActTwo?.value ?? includeAllSupportedMedia, includeHeygen4: descriptors.includeHeygen4?.value ?? includeAllSupportedMedia,
+      includeExistingVideoRecovery: descriptors.includeExistingVideoRecovery?.value ?? false,
+      includeSelfUpdate: descriptors.includeSelfUpdate?.value ?? false,
+      includeAllSupportedMedia });
   } catch {
     throw new MediaMcpConfigCliError();
   }

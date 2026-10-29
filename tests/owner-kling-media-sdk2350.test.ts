@@ -23,6 +23,13 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 function crc32(bytes: Uint8Array): number { let crc = 0xffff_ffff; for (const byte of bytes) { crc ^= byte; for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb8_8320 : 0); } return (crc ^ 0xffff_ffff) >>> 0; }
 function png640(): Buffer { const b = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=", "base64");
   b.writeUInt32BE(640, 16); b.writeUInt32BE(640, 20); b.writeUInt32BE(crc32(b.subarray(12, 29)), 29); return b; }
+function pngOver10MiB(): Buffer { const base = png640(), end = base.length - 12, data = Buffer.alloc(10 * 1024 * 1024 + 1 - base.length - 12, 0x41);
+  data.write("Comment\0", 0, "latin1"); const chunk = Buffer.alloc(12 + data.length); chunk.writeUInt32BE(data.length, 0); chunk.write("tEXt", 4, "ascii");
+  data.copy(chunk, 8); chunk.writeUInt32BE(crc32(chunk.subarray(4, 8 + data.length)), 8 + data.length);
+  return Buffer.concat([base.subarray(0, end), chunk, base.subarray(end)]); }
+function webp640(): Buffer { const chunk = Buffer.alloc(18); chunk.write("VP8 ", 0, 4, "ascii"); chunk.writeUInt32LE(10, 4); chunk[11] = 0x9d; chunk[12] = 1; chunk[13] = 0x2a;
+  chunk.writeUInt16LE(640, 14); chunk.writeUInt16LE(640, 16); const out = Buffer.alloc(12 + chunk.length); out.write("RIFF", 0, 4, "ascii");
+  out.writeUInt32LE(out.length - 8, 4); out.write("WEBP", 8, 4, "ascii"); chunk.copy(out, 12); return out; }
 function resultCode(value: unknown): string { if (!value || typeof value !== "object") return "UNKNOWN"; const content = (value as { content?: Array<{ text?: string }> }).content ?? []; return content.map(x => x.text ?? "").join(" "); }
 
 test("2350 MCP SDK performs exactly one source-typed flow for each Kling media ID", async t => {
@@ -107,6 +114,14 @@ test("2350 MCP SDK performs exactly one source-typed flow for each Kling media I
   try {
     await mcp.connect(host); await client.connect(caller);
     assert.deepEqual((await client.listTools()).tools.map(tool => tool.name), OWNER_KLING_MEDIA_TOOL_NAMES);
+    for (const model of ["kling_elements", "kling_o1_image2video"] as const) {
+      const rejected = await client.callTool({ name: OWNER_KLING_MEDIA_TOOL_NAMES[0], arguments: { link_attempt_id: ATTEMPT,
+        model_id: model, filename: "reference.webp", mime_type: "image/webp", content_base64: webp640().toString("base64") } });
+      assert.notEqual(rejected.isError, undefined); assert.equal(counts.uploads, 0);
+    }
+    const oversized = await client.callTool({ name: OWNER_KLING_MEDIA_TOOL_NAMES[0], arguments: { link_attempt_id: ATTEMPT,
+      model_id: "kling_elements", filename: "large.png", mime_type: "image/png", content_base64: pngOver10MiB().toString("base64") } });
+    assert.notEqual(oversized.isError, undefined); assert.equal(counts.uploads, 0);
     const models = ["kling_elements", "kling_o1_image2video", "kling_o1_video2video"] as const;
     for (const model of models) {
       const video = model === "kling_o1_video2video", bytes = video ? videoBytes : png640();

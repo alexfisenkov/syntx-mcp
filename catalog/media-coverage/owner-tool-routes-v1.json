@@ -1,0 +1,931 @@
+{
+  "schema_version": "1.0.0",
+  "captured_date": "2026-10-29",
+  "public_catalog_version": "sha256-d1f43b4274fceb50c229711f093edb36c88e60e123da448a71ed256574f02009.json",
+  "public_source_hashes": {
+    "ai": "sha256:2ff23e4547981411328027f48d5ff6fb5feef1e1fd7defea0af5ccfb379cf18f",
+    "llm_models": "sha256:c494ccb8e7bf21080c4e356f26241203ad5e0d50e002a270f94377ac2e407e75",
+    "models": "sha256:9ad757694b6506005641d8cdb9e844107948236710d7c0b44173e6f9a2f9898b"
+  },
+  "owner_tool_schema_profile_catalog_version": "sha256-e5517ee56db2cf5939de51b2e1d835249ec201eefc80d8a805487b82063c1989.json",
+  "owner_tool_count": 376,
+  "route_method": "OWNER_STDIO_TOOLS_LIST_MODEL_ID_ENUMS_AND_CONSTS_PLUS_EXACT_NATIVE_ALIAS_BINDINGS",
+  "routes": {
+    "4genfirstframeimage": [
+      "syntx_owner_generate_runway_i2v_video",
+      "syntx_owner_get_runway_i2v_result",
+      "syntx_owner_list_runway_i2v_recoveries",
+      "syntx_owner_upload_runway_i2v_image"
+    ],
+    "V6": [
+      "syntx_get_suno_generate_parameters",
+      "syntx_get_suno_track_operation_parameters",
+      "syntx_owner_cover_suno_audio",
+      "syntx_owner_extend_suno_audio",
+      "syntx_owner_generate_suno_audio",
+      "syntx_owner_get_suno_result_page",
+      "syntx_owner_get_suno_track_operation_result_page",
+      "syntx_owner_list_existing_suno_tracks",
+      "syntx_owner_list_suno_recoveries",
+      "syntx_owner_list_suno_track_inputs",
+      "syntx_owner_list_suno_track_operation_recoveries",
+      "syntx_owner_reconcile_suno_audio",
+      "syntx_owner_reconcile_suno_track_operation"
+    ],
+    "V6_wild": [
+      "syntx_get_suno_generate_parameters",
+      "syntx_get_suno_track_operation_parameters",
+      "syntx_owner_cover_suno_audio",
+      "syntx_owner_extend_suno_audio",
+      "syntx_owner_generate_suno_audio",
+      "syntx_owner_get_suno_result_page",
+      "syntx_owner_get_suno_track_operation_result_page",
+      "syntx_owner_list_existing_suno_tracks",
+      "syntx_owner_list_suno_recoveries",
+      "syntx_owner_list_suno_track_inputs",
+      "syntx_owner_list_suno_track_operation_recoveries",
+      "syntx_owner_reconcile_suno_audio",
+      "syntx_owner_reconcile_suno_track_operation"
+    ],
+    "acttwo": [
+      "syntx_owner_generate_acttwo_video",
+      "syntx_owner_get_acttwo_result",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_list_acttwo_recoveries",
+      "syntx_owner_upload_acttwo_character_image",
+      "syntx_owner_upload_acttwo_performance_video"
+    ],
+    "banana": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "banana-2.1": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "banana2": [
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "banana3": [
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "banana3_light": [
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "clarity": [
+      "syntx_owner_generate_clarity_upscale_image",
+      "syntx_owner_list_clarity_upscale_recoveries",
+      "syntx_owner_reconcile_clarity_upscale_image"
+    ],
+    "creative": [
+      "syntx_owner_generate_magnific_upscale_image",
+      "syntx_owner_list_magnific_upscale_recoveries",
+      "syntx_owner_reconcile_magnific_upscale_image"
+    ],
+    "dop-lite": [
+      "syntx_owner_generate_higgsfield_dop_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_higgsfield_dop_result",
+      "syntx_owner_import_higgsfield_dop_image",
+      "syntx_owner_list_higgsfield_dop_recoveries",
+      "syntx_owner_upload_higgsfield_dop_image"
+    ],
+    "dop-turbo": [
+      "syntx_owner_generate_higgsfield_dop_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_higgsfield_dop_result",
+      "syntx_owner_import_higgsfield_dop_image",
+      "syntx_owner_list_higgsfield_dop_recoveries",
+      "syntx_owner_upload_higgsfield_dop_image"
+    ],
+    "eleven_multilingual_sts_v2": [
+      "syntx_get_elevenlabs_sts_parameters",
+      "syntx_owner_generate_elevenlabs_sts",
+      "syntx_owner_get_elevenlabs_sts_result_page",
+      "syntx_owner_get_existing_elevenlabs_sts_result",
+      "syntx_owner_list_elevenlabs_sts_recoveries",
+      "syntx_owner_list_existing_elevenlabs_sts_results",
+      "syntx_owner_reconcile_elevenlabs_sts"
+    ],
+    "eleven_multilingual_v2": [
+      "syntx_get_elevenlabs_tts_parameters",
+      "syntx_owner_generate_elevenlabs_tts",
+      "syntx_owner_get_elevenlabs_tts_result_page",
+      "syntx_owner_list_elevenlabs_tts_recoveries",
+      "syntx_owner_reconcile_elevenlabs_tts"
+    ],
+    "eleven_v3": [
+      "syntx_get_elevenlabs_dialogue_parameters",
+      "syntx_get_elevenlabs_tts_parameters",
+      "syntx_owner_generate_elevenlabs_dialogue",
+      "syntx_owner_generate_elevenlabs_tts",
+      "syntx_owner_get_elevenlabs_dialogue_result_page",
+      "syntx_owner_get_elevenlabs_tts_result_page",
+      "syntx_owner_list_elevenlabs_dialogue_recoveries",
+      "syntx_owner_list_elevenlabs_tts_recoveries",
+      "syntx_owner_reconcile_elevenlabs_dialogue",
+      "syntx_owner_reconcile_elevenlabs_tts"
+    ],
+    "eleven_v4": [
+      "syntx_get_elevenlabs_dialogue_parameters",
+      "syntx_get_elevenlabs_tts_parameters",
+      "syntx_owner_generate_elevenlabs_dialogue",
+      "syntx_owner_generate_elevenlabs_tts",
+      "syntx_owner_get_elevenlabs_dialogue_result_page",
+      "syntx_owner_get_elevenlabs_tts_result_page",
+      "syntx_owner_list_elevenlabs_dialogue_recoveries",
+      "syntx_owner_list_elevenlabs_tts_recoveries",
+      "syntx_owner_reconcile_elevenlabs_dialogue",
+      "syntx_owner_reconcile_elevenlabs_tts"
+    ],
+    "eleven_v4_turbo": [
+      "syntx_get_elevenlabs_dialogue_parameters",
+      "syntx_get_elevenlabs_tts_parameters",
+      "syntx_owner_generate_elevenlabs_dialogue",
+      "syntx_owner_generate_elevenlabs_tts",
+      "syntx_owner_get_elevenlabs_dialogue_result_page",
+      "syntx_owner_get_elevenlabs_tts_result_page",
+      "syntx_owner_list_elevenlabs_dialogue_recoveries",
+      "syntx_owner_list_elevenlabs_tts_recoveries",
+      "syntx_owner_reconcile_elevenlabs_dialogue",
+      "syntx_owner_reconcile_elevenlabs_tts"
+    ],
+    "flux-1": [
+      "syntx_owner_generate_flux_image",
+      "syntx_owner_generate_image",
+      "syntx_owner_list_flux_image_recoveries",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_reconcile_flux_image",
+      "syntx_owner_reconcile_image",
+      "syntx_upload_flux_image_reference"
+    ],
+    "flux-kontext-max": [
+      "syntx_owner_generate_kontext_image",
+      "syntx_owner_list_kontext_recoveries",
+      "syntx_owner_reconcile_kontext_image"
+    ],
+    "flux-kontext-multi": [
+      "syntx_owner_generate_kontext_image",
+      "syntx_owner_list_kontext_recoveries",
+      "syntx_owner_reconcile_kontext_image"
+    ],
+    "flux-kontext-pro": [
+      "syntx_owner_generate_kontext_image",
+      "syntx_owner_list_kontext_recoveries",
+      "syntx_owner_reconcile_kontext_image"
+    ],
+    "flux-pro-1.1": [
+      "syntx_owner_generate_flux_image",
+      "syntx_owner_list_flux_image_recoveries",
+      "syntx_owner_reconcile_flux_image"
+    ],
+    "flux-pro-1.1-ultra": [
+      "syntx_owner_generate_flux_image",
+      "syntx_owner_list_flux_image_recoveries",
+      "syntx_owner_reconcile_flux_image"
+    ],
+    "flux3_i2v": [
+      "syntx_get_flux3_video_parameters",
+      "syntx_owner_generate_flux3_video",
+      "syntx_owner_get_flux3_video_result_page",
+      "syntx_owner_list_flux3_video_recoveries",
+      "syntx_owner_reconcile_flux3_video",
+      "syntx_owner_upload_flux3_video_reference"
+    ],
+    "flux3_t2v": [
+      "syntx_owner_generate_video"
+    ],
+    "flux3_v2v": [
+      "syntx_get_flux3_video_parameters",
+      "syntx_owner_generate_flux3_video",
+      "syntx_owner_get_flux3_video_result_page",
+      "syntx_owner_list_flux3_video_recoveries",
+      "syntx_owner_reconcile_flux3_video",
+      "syntx_owner_upload_flux3_video_reference"
+    ],
+    "gen4.5i2v": [
+      "syntx_owner_generate_runway_i2v_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_runway_i2v_result",
+      "syntx_owner_list_runway_i2v_recoveries",
+      "syntx_owner_upload_runway_i2v_image"
+    ],
+    "gpt-image-1": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "gpt-image-1.5": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "gpt-image-2": [
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "gpt-image-2.5-flare": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "gpt-image-2.5-sunburst": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_standard_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_standard_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_standard_image"
+    ],
+    "grok_15_i2v": [
+      "syntx_owner_generate_grok_i2v_video",
+      "syntx_owner_get_grok_i2v_result",
+      "syntx_owner_list_grok_i2v_recoveries",
+      "syntx_owner_upload_grok_i2v_image"
+    ],
+    "grok_i2i": [
+      "syntx_get_grok_reference_schema",
+      "syntx_owner_generate_grok_reference",
+      "syntx_owner_list_grok_reference_recovery",
+      "syntx_owner_reconcile_grok_reference",
+      "syntx_upload_grok_image_reference"
+    ],
+    "grok_i2i_pro": [
+      "syntx_get_grok_reference_schema",
+      "syntx_owner_generate_grok_reference",
+      "syntx_owner_list_grok_reference_recovery",
+      "syntx_owner_reconcile_grok_reference",
+      "syntx_upload_grok_image_reference"
+    ],
+    "grok_i2v": [
+      "syntx_owner_generate_grok_i2v_video",
+      "syntx_owner_get_grok_i2v_result",
+      "syntx_owner_list_grok_i2v_recoveries",
+      "syntx_owner_upload_grok_i2v_image"
+    ],
+    "grok_imagine_2": [
+      "syntx_owner_generate_grok_t2i_image",
+      "syntx_owner_generate_image",
+      "syntx_owner_list_grok_t2i_image_recoveries",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_reconcile_grok_t2i_image",
+      "syntx_owner_reconcile_image",
+      "syntx_upload_grok_t2i_image_reference"
+    ],
+    "grok_imagine_quality": [
+      "syntx_owner_generate_grok_t2i_image",
+      "syntx_owner_generate_image",
+      "syntx_owner_list_grok_t2i_image_recoveries",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_reconcile_grok_t2i_image",
+      "syntx_owner_reconcile_image",
+      "syntx_upload_grok_t2i_image_reference"
+    ],
+    "grok_t2i": [
+      "syntx_owner_generate_grok_t2i_image",
+      "syntx_owner_generate_image",
+      "syntx_owner_list_grok_t2i_image_recoveries",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_reconcile_grok_t2i_image",
+      "syntx_owner_reconcile_image"
+    ],
+    "grok_t2i_pro": [
+      "syntx_owner_generate_grok_t2i_image",
+      "syntx_owner_generate_image",
+      "syntx_owner_list_grok_t2i_image_recoveries",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_reconcile_grok_t2i_image",
+      "syntx_owner_reconcile_image"
+    ],
+    "grok_t2v": [
+      "syntx_owner_generate_grok_t2v",
+      "syntx_owner_get_grok_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_grok_t2v_recoveries",
+      "syntx_owner_reconcile_grok_t2v"
+    ],
+    "grok_v2v": [
+      "syntx_get_grok_v2v_parameters",
+      "syntx_owner_generate_grok_v2v",
+      "syntx_owner_get_grok_v2v_result_page",
+      "syntx_owner_list_grok_v2v_recoveries",
+      "syntx_owner_reconcile_grok_v2v",
+      "syntx_owner_upload_grok_v2v_reference"
+    ],
+    "hailuo-01": [
+      "syntx_owner_generate_hailuo01_t2v",
+      "syntx_owner_get_hailuo01_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_hailuo01_t2v_recoveries",
+      "syntx_owner_reconcile_hailuo01_t2v"
+    ],
+    "hailuo-01-director": [
+      "syntx_owner_generate_hailuo01_director_t2v",
+      "syntx_owner_get_hailuo01_director_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_hailuo01_director_t2v_recoveries",
+      "syntx_owner_reconcile_hailuo01_director_t2v"
+    ],
+    "hailuo-01-live": [
+      "syntx_owner_generate_hailuo_live_t2v",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_hailuo_live_t2v_recoveries",
+      "syntx_owner_reconcile_hailuo_live_t2v"
+    ],
+    "hailuo-01-live-character": [
+      "syntx_owner_generate_hailuo_initial_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_hailuo_initial_result",
+      "syntx_owner_list_hailuo_initial_recoveries",
+      "syntx_owner_upload_hailuo_initial_image"
+    ],
+    "hailuo-02": [
+      "syntx_owner_generate_hailuo02_i2v",
+      "syntx_owner_generate_hailuo02_t2v",
+      "syntx_owner_get_hailuo02_i2v_result_page",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_hailuo02_i2v_recoveries",
+      "syntx_owner_list_hailuo02_t2v_recoveries",
+      "syntx_owner_reconcile_hailuo02_i2v",
+      "syntx_owner_reconcile_hailuo02_t2v",
+      "syntx_owner_upload_hailuo02_i2v_image"
+    ],
+    "hailuo-2.3": [
+      "syntx_owner_generate_hailuo23_t2v",
+      "syntx_owner_get_hailuo23_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_hailuo23_t2v_recoveries",
+      "syntx_owner_reconcile_hailuo23_t2v"
+    ],
+    "hailuo-2.3-fast": [
+      "syntx_owner_generate_hailuo_initial_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_hailuo_initial_result",
+      "syntx_owner_list_hailuo_initial_recoveries",
+      "syntx_owner_upload_hailuo_initial_image"
+    ],
+    "hailuo-3.0": [
+      "syntx_owner_generate_hailuo_initial_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_hailuo_initial_result",
+      "syntx_owner_list_hailuo_initial_recoveries",
+      "syntx_owner_upload_hailuo_initial_image"
+    ],
+    "happy_horse_edit": [
+      "syntx_owner_generate_happy_horse_video",
+      "syntx_owner_get_happy_horse_result",
+      "syntx_owner_list_happy_horse_recoveries",
+      "syntx_owner_upload_happy_horse_edit_video"
+    ],
+    "happy_horse_first_frame": [
+      "syntx_owner_generate_happy_horse_video",
+      "syntx_owner_get_happy_horse_result",
+      "syntx_owner_list_happy_horse_recoveries",
+      "syntx_owner_upload_happy_horse_image"
+    ],
+    "happy_horse_references": [
+      "syntx_owner_generate_happy_horse_video",
+      "syntx_owner_get_happy_horse_result",
+      "syntx_owner_list_happy_horse_recoveries",
+      "syntx_owner_upload_happy_horse_image"
+    ],
+    "happy_horse_t2v": [
+      "syntx_owner_generate_video"
+    ],
+    "heygen4": [
+      "syntx_owner_generate_heygen4_video",
+      "syntx_owner_get_heygen4_parameters",
+      "syntx_owner_get_heygen4_source",
+      "syntx_owner_import_heygen4_asset",
+      "syntx_owner_list_heygen4_recoveries",
+      "syntx_owner_reconcile_heygen4_video"
+    ],
+    "higgsfield-soul": [
+      "syntx_owner_generate_soul_image",
+      "syntx_owner_list_soul_image_recoveries",
+      "syntx_owner_reconcile_soul_image"
+    ],
+    "ideogram": [
+      "syntx_owner_generate_ideogram_image",
+      "syntx_owner_generate_image",
+      "syntx_owner_list_ideogram_image_recoveries",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_reconcile_ideogram_image",
+      "syntx_owner_reconcile_image",
+      "syntx_upload_ideogram_image_reference"
+    ],
+    "ideogram_40": [
+      "syntx_owner_generate_ideogram_image",
+      "syntx_owner_list_ideogram_image_recoveries",
+      "syntx_owner_reconcile_ideogram_image",
+      "syntx_upload_ideogram_image_reference"
+    ],
+    "ideogram_45": [
+      "syntx_owner_generate_ideogram_image",
+      "syntx_owner_list_ideogram_image_recoveries",
+      "syntx_owner_reconcile_ideogram_image",
+      "syntx_upload_ideogram_image_reference"
+    ],
+    "kling_4_keyframes": [
+      "syntx_owner_generate_kling4_video",
+      "syntx_owner_get_kling4_result_page",
+      "syntx_owner_get_kling4_source",
+      "syntx_owner_list_kling4_recoveries",
+      "syntx_owner_reconcile_kling4_video",
+      "syntx_owner_upload_kling4_reference"
+    ],
+    "kling_4_omni": [
+      "syntx_owner_generate_kling4_video",
+      "syntx_owner_get_kling4_result_page",
+      "syntx_owner_get_kling4_source",
+      "syntx_owner_list_kling4_recoveries",
+      "syntx_owner_reconcile_kling4_video",
+      "syntx_owner_upload_kling4_reference"
+    ],
+    "kling_elements": [
+      "syntx_owner_generate_kling_media_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_kling_media_result",
+      "syntx_owner_list_kling_media_recoveries",
+      "syntx_owner_upload_kling_media_reference"
+    ],
+    "kling_image2video": [
+      "syntx_owner_generate_kling_i2v_video",
+      "syntx_owner_get_kling_i2v_parameters",
+      "syntx_owner_reconcile_kling_i2v_video",
+      "syntx_owner_upload_kling_i2v_image"
+    ],
+    "kling_keyframes": [
+      "syntx_owner_check_kling_keyframes_images",
+      "syntx_owner_generate_kling_keyframes",
+      "syntx_owner_get_kling_keyframes_input_policy",
+      "syntx_owner_get_kling_keyframes_result_page",
+      "syntx_owner_reconcile_kling_keyframes",
+      "syntx_owner_upload_kling_keyframes_image"
+    ],
+    "kling_motion_control": [
+      "syntx_owner_generate_kling_motion_control_video",
+      "syntx_owner_get_kling_motion_control_parameters",
+      "syntx_owner_get_kling_motion_control_result_page",
+      "syntx_owner_reconcile_kling_motion_control_video",
+      "syntx_owner_select_kling_motion_control_preset",
+      "syntx_owner_upload_kling_motion_control_image",
+      "syntx_owner_upload_kling_motion_control_video"
+    ],
+    "kling_o1_image2video": [
+      "syntx_owner_generate_kling_media_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_kling_media_result",
+      "syntx_owner_list_kling_media_recoveries",
+      "syntx_owner_upload_kling_media_reference"
+    ],
+    "kling_o1_text2video": [
+      "syntx_owner_generate_kling_t2v",
+      "syntx_owner_get_kling_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_kling_t2v_recoveries",
+      "syntx_owner_reconcile_kling_t2v"
+    ],
+    "kling_o1_video2video": [
+      "syntx_owner_generate_kling_media_video",
+      "syntx_owner_get_kling_media_result",
+      "syntx_owner_list_kling_media_recoveries",
+      "syntx_owner_upload_kling_media_reference"
+    ],
+    "kling_text2video": [
+      "syntx_owner_generate_kling_t2v",
+      "syntx_owner_generate_video",
+      "syntx_owner_get_kling_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_kling_t2v_recoveries",
+      "syntx_owner_reconcile_kling_t2v"
+    ],
+    "precision_v1": [
+      "syntx_owner_generate_magnific_upscale_image",
+      "syntx_owner_list_magnific_upscale_recoveries",
+      "syntx_owner_reconcile_magnific_upscale_image"
+    ],
+    "precision_v2": [
+      "syntx_owner_generate_magnific_upscale_image",
+      "syntx_owner_list_magnific_upscale_recoveries",
+      "syntx_owner_reconcile_magnific_upscale_image"
+    ],
+    "ray-3.14": [
+      "syntx_owner_generate_luma_t2v",
+      "syntx_owner_generate_video",
+      "syntx_owner_list_luma_t2v_recoveries",
+      "syntx_owner_reconcile_luma_t2v"
+    ],
+    "runway_frames": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_runway_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_runway_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_runway_image"
+    ],
+    "seedance-1.5-pro": [
+      "syntx_owner_generate_video"
+    ],
+    "seedance-2.0": [
+      "syntx_owner_generate_seedance20_t2v",
+      "syntx_owner_generate_video",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_seedance20_t2v_recoveries",
+      "syntx_owner_reconcile_seedance20_t2v"
+    ],
+    "seedance-2.5": [
+      "syntx_owner_generate_seedance25_t2v_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_seedance25_t2v_result",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_seedance25_t2v_recoveries"
+    ],
+    "seedance_pro": [
+      "syntx_owner_generate_video"
+    ],
+    "seedance_pro-fast": [
+      "syntx_owner_generate_video"
+    ],
+    "seedream-4": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_seedream_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_seedream_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_seedream_image"
+    ],
+    "seedream-4.5": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_seedream_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_seedream_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_seedream_image"
+    ],
+    "seedream-5": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_seedream_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_seedream_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_seedream_image"
+    ],
+    "seedream-5.0-flash": [
+      "syntx_owner_generate_seedream_image",
+      "syntx_owner_list_seedream_image_recoveries",
+      "syntx_owner_reconcile_seedream_image"
+    ],
+    "seedream-5.0-pro": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_seedream_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_seedream_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_seedream_image"
+    ],
+    "slc-1": [
+      "syntx_get_topaz_astra_parameters",
+      "syntx_owner_generate_topaz_astra",
+      "syntx_owner_get_existing_topaz_astra_result",
+      "syntx_owner_get_topaz_astra_result_page",
+      "syntx_owner_list_existing_topaz_astra_results",
+      "syntx_owner_list_topaz_astra_recoveries",
+      "syntx_owner_reconcile_topaz_astra",
+      "syntx_owner_upload_topaz_astra_original"
+    ],
+    "slp-2": [
+      "syntx_get_topaz_astra_parameters",
+      "syntx_owner_generate_topaz_astra",
+      "syntx_owner_get_existing_topaz_astra_result",
+      "syntx_owner_get_topaz_astra_result_page",
+      "syntx_owner_list_existing_topaz_astra_results",
+      "syntx_owner_list_topaz_astra_recoveries",
+      "syntx_owner_reconcile_topaz_astra",
+      "syntx_owner_upload_topaz_astra_original"
+    ],
+    "slp-2.5": [
+      "syntx_get_topaz_astra_parameters",
+      "syntx_owner_generate_topaz_astra",
+      "syntx_owner_get_existing_topaz_astra_result",
+      "syntx_owner_get_topaz_astra_result_page",
+      "syntx_owner_list_existing_topaz_astra_results",
+      "syntx_owner_list_topaz_astra_recoveries",
+      "syntx_owner_reconcile_topaz_astra",
+      "syntx_owner_upload_topaz_astra_original"
+    ],
+    "switchx": [
+      "syntx_owner_generate_switchx_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_switchx_video_source",
+      "syntx_owner_list_switchx_video_recoveries",
+      "syntx_owner_reconcile_switchx_video"
+    ],
+    "text2video-4.5": [
+      "syntx_owner_generate_video"
+    ],
+    "topaz_enhance": [
+      "syntx_get_topaz_enhance_parameters",
+      "syntx_owner_generate_topaz_enhance",
+      "syntx_owner_get_topaz_enhance_result_page",
+      "syntx_owner_list_topaz_enhance_recoveries",
+      "syntx_owner_reconcile_topaz_enhance",
+      "syntx_owner_upload_topaz_enhance_original"
+    ],
+    "turbo4genfirstframeimage": [
+      "syntx_owner_generate_runway_i2v_video",
+      "syntx_owner_get_runway_i2v_result",
+      "syntx_owner_list_runway_i2v_recoveries",
+      "syntx_owner_upload_runway_i2v_image"
+    ],
+    "uni-1": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_uni_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_uni_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_uni_image",
+      "syntx_upload_uni_image_reference"
+    ],
+    "uni-1.1-modify-image": [
+      "syntx_owner_generate_uni_image",
+      "syntx_owner_list_uni_image_recoveries",
+      "syntx_owner_reconcile_uni_image",
+      "syntx_upload_uni_image_reference"
+    ],
+    "uni-1.1-remove-background": [
+      "syntx_owner_generate_uni_image",
+      "syntx_owner_list_uni_image_recoveries",
+      "syntx_owner_reconcile_uni_image",
+      "syntx_upload_uni_image_reference"
+    ],
+    "veo3": [
+      "syntx_owner_generate_veo_t2v",
+      "syntx_owner_get_veo_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_veo_t2v_recoveries",
+      "syntx_owner_reconcile_veo_t2v"
+    ],
+    "veo3fast": [
+      "syntx_owner_generate_veo_t2v",
+      "syntx_owner_get_veo_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_veo_t2v_recoveries",
+      "syntx_owner_reconcile_veo_t2v"
+    ],
+    "veo3fast_r": [
+      "syntx_owner_generate_veo_t2v",
+      "syntx_owner_get_veo_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_veo_t2v_recoveries",
+      "syntx_owner_reconcile_veo_t2v"
+    ],
+    "veo_omni": [
+      "syntx_get_veo_omni_parameters",
+      "syntx_owner_generate_veo_omni_references",
+      "syntx_owner_generate_veo_omni_t2v",
+      "syntx_owner_get_veo_omni_reference_result_page",
+      "syntx_owner_get_veo_omni_t2v_source",
+      "syntx_owner_get_video_recovery_diagnostic",
+      "syntx_owner_list_veo_omni_reference_recoveries",
+      "syntx_owner_list_veo_omni_t2v_recoveries",
+      "syntx_owner_reconcile_veo_omni_references",
+      "syntx_owner_reconcile_veo_omni_t2v",
+      "syntx_owner_upload_veo_omni_reference"
+    ],
+    "video2audio": [
+      "syntx_owner_generate_video2audio",
+      "syntx_owner_get_video2audio_result_page",
+      "syntx_owner_get_video2audio_source",
+      "syntx_owner_list_video2audio_recoveries",
+      "syntx_owner_reconcile_video2audio"
+    ],
+    "wan_25_i2i_preview": [
+      "syntx_owner_generate_wan_image",
+      "syntx_owner_list_wan_recoveries",
+      "syntx_owner_reconcile_wan_image"
+    ],
+    "wan_25_i2v_preview": [
+      "syntx_owner_generate_wan25_i2v_preview_video",
+      "syntx_owner_get_wan25_i2v_preview_parameters",
+      "syntx_owner_get_wan25_i2v_preview_result_page",
+      "syntx_owner_list_wan25_i2v_preview_recoveries",
+      "syntx_owner_reconcile_wan25_i2v_preview_video",
+      "syntx_owner_upload_wan25_i2v_preview_image"
+    ],
+    "wan_25_t2i_preview": [
+      "syntx_owner_generate_wan_t2i_image",
+      "syntx_owner_list_wan_t2i_image_recoveries",
+      "syntx_owner_reconcile_wan_t2i_image"
+    ],
+    "wan_25_t2v_preview": [
+      "syntx_owner_generate_wan25_t2v_video",
+      "syntx_owner_get_wan25_t2v_result",
+      "syntx_owner_list_wan25_t2v_recoveries"
+    ],
+    "wan_26_i2v": [
+      "syntx_owner_generate_wan26_i2v_video",
+      "syntx_owner_get_wan26_i2v_result_page",
+      "syntx_owner_list_wan26_i2v_recoveries",
+      "syntx_owner_reconcile_wan26_i2v_video",
+      "syntx_owner_upload_wan26_i2v_audio",
+      "syntx_owner_upload_wan26_i2v_image"
+    ],
+    "wan_26_i2v_flash": [
+      "syntx_owner_generate_wan26_i2v_video",
+      "syntx_owner_get_wan26_i2v_result_page",
+      "syntx_owner_list_wan26_i2v_recoveries",
+      "syntx_owner_reconcile_wan26_i2v_video",
+      "syntx_owner_upload_wan26_i2v_audio",
+      "syntx_owner_upload_wan26_i2v_image"
+    ],
+    "wan_26_image": [
+      "syntx_owner_generate_wan_image",
+      "syntx_owner_list_wan_recoveries",
+      "syntx_owner_reconcile_wan_image"
+    ],
+    "wan_26_r2v": [
+      "syntx_owner_check_wan26_r2v_references",
+      "syntx_owner_generate_wan26_r2v_video",
+      "syntx_owner_get_wan26_r2v_result_page",
+      "syntx_owner_list_wan26_r2v_recoveries",
+      "syntx_owner_reconcile_wan26_r2v_video",
+      "syntx_owner_upload_wan26_r2v_image",
+      "syntx_owner_upload_wan26_r2v_selected_video"
+    ],
+    "wan_26_r2v_flash": [
+      "syntx_owner_check_wan26_r2v_references",
+      "syntx_owner_generate_wan26_r2v_video",
+      "syntx_owner_get_wan26_r2v_result_page",
+      "syntx_owner_list_wan26_r2v_recoveries",
+      "syntx_owner_reconcile_wan26_r2v_video",
+      "syntx_owner_upload_wan26_r2v_image",
+      "syntx_owner_upload_wan26_r2v_selected_video"
+    ],
+    "wan_26_t2i": [
+      "syntx_owner_generate_image",
+      "syntx_owner_generate_wan_t2i_image",
+      "syntx_owner_list_image_recovery",
+      "syntx_owner_list_wan_t2i_image_recoveries",
+      "syntx_owner_reconcile_image",
+      "syntx_owner_reconcile_wan_t2i_image"
+    ],
+    "wan_26_t2v": [
+      "syntx_get_wan_t2v_parameters",
+      "syntx_owner_generate_video",
+      "syntx_owner_generate_wan_t2v_video",
+      "syntx_owner_get_wan_t2v_result_page",
+      "syntx_owner_list_wan_t2v_recoveries",
+      "syntx_owner_reconcile_wan_t2v_video"
+    ],
+    "wan_27_i2v": [
+      "syntx_owner_generate_wan27_i2v_video",
+      "syntx_owner_get_existing_video_recovery",
+      "syntx_owner_get_wan27_i2v_parameters",
+      "syntx_owner_list_wan27_i2v_recoveries",
+      "syntx_owner_reconcile_wan27_i2v_video",
+      "syntx_owner_upload_wan27_i2v_image"
+    ],
+    "wan_27_image": [
+      "syntx_owner_generate_wan_image",
+      "syntx_owner_list_wan_recoveries",
+      "syntx_owner_reconcile_wan_image"
+    ],
+    "wan_27_image_pro": [
+      "syntx_owner_generate_wan_image",
+      "syntx_owner_list_wan_recoveries",
+      "syntx_owner_reconcile_wan_image"
+    ],
+    "wan_27_r2v": [
+      "syntx_get_wan27_r2v_parameters",
+      "syntx_owner_generate_wan27_r2v",
+      "syntx_owner_get_wan27_r2v_result_page",
+      "syntx_owner_list_wan27_r2v_recoveries",
+      "syntx_owner_reconcile_wan27_r2v"
+    ],
+    "wan_27_t2v": [
+      "syntx_get_wan_t2v_parameters",
+      "syntx_owner_generate_video",
+      "syntx_owner_generate_wan_t2v_video",
+      "syntx_owner_get_wan_t2v_result_page",
+      "syntx_owner_list_wan_t2v_recoveries",
+      "syntx_owner_reconcile_wan_t2v_video"
+    ],
+    "wan_27_videoedit": [
+      "syntx_owner_generate_wan27_videoedit_video",
+      "syntx_owner_get_wan27_videoedit_result_page",
+      "syntx_owner_get_wan27_videoedit_source",
+      "syntx_owner_list_wan27_videoedit_recoveries",
+      "syntx_owner_reconcile_wan27_videoedit_video",
+      "syntx_owner_upload_wan27_videoedit_reference"
+    ],
+    "wan_30_edit": [
+      "syntx_get_wan30_edit_parameters",
+      "syntx_owner_generate_wan30_edit_video",
+      "syntx_owner_get_wan30_edit_result_page",
+      "syntx_owner_list_wan30_edit_recoveries",
+      "syntx_owner_reconcile_wan30_edit_video",
+      "syntx_owner_upload_wan30_edit_video"
+    ],
+    "wan_30_first_last_frame": [
+      "syntx_get_wan30_first_last_parameters",
+      "syntx_owner_generate_wan30_first_last_video",
+      "syntx_owner_get_wan30_first_last_result_page",
+      "syntx_owner_list_wan30_first_last_recoveries",
+      "syntx_owner_reconcile_wan30_first_last_video",
+      "syntx_owner_upload_wan30_first_last_frame"
+    ],
+    "wan_30_omni": [
+      "syntx_get_wan30_omni_parameters",
+      "syntx_owner_generate_wan30_omni_video",
+      "syntx_owner_get_wan30_omni_result_page",
+      "syntx_owner_list_wan30_omni_recoveries",
+      "syntx_owner_reconcile_wan30_omni_video",
+      "syntx_owner_upload_wan30_omni_image"
+    ],
+    "wan_30_reference": [
+      "syntx_get_wan30_reference_parameters",
+      "syntx_owner_generate_wan30_reference_video",
+      "syntx_owner_get_wan30_reference_result_page",
+      "syntx_owner_list_wan30_reference_recoveries",
+      "syntx_owner_reconcile_wan30_reference_video",
+      "syntx_owner_upload_wan30_reference_image"
+    ],
+    "wan_30_t2v": [
+      "syntx_get_wan_t2v_parameters",
+      "syntx_owner_generate_wan_t2v_video",
+      "syntx_owner_get_wan_t2v_result_page",
+      "syntx_owner_list_wan_t2v_recoveries",
+      "syntx_owner_reconcile_wan_t2v_video"
+    ]
+  },
+  "native_alias_bindings": [
+    {
+      "public_model_ids": [
+        "seedream-4",
+        "seedream-4.5",
+        "seedream-5",
+        "seedream-5.0-flash",
+        "seedream-5.0-pro"
+      ],
+      "tool_names": [
+        "syntx_get_seedream_editor_image_parameters",
+        "syntx_upload_seedream_editor_original",
+        "syntx_upload_seedream_editor_drawing",
+        "syntx_owner_generate_seedream_editor_image",
+        "syntx_owner_reconcile_seedream_editor_image",
+        "syntx_owner_list_seedream_editor_image_recoveries",
+        "syntx_owner_get_seedream_editor_image_result_page"
+      ],
+      "operator_flag": "SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES",
+      "route_evidence_sources": [
+        "src/mcp/owner-seedream-editor-image-tools.ts",
+        "src/application/owner-seedream-editor-parameters.ts",
+        "src/application/owner-seedream-editor-image-generation-service.ts"
+      ],
+      "operation_note": "Editor variants are the same public model IDs; the tool uses the variant field for that public identity."
+    },
+    {
+      "public_model_ids": [
+        "seedance-2.5"
+      ],
+      "tool_names": [
+        "syntx_owner_upload_seedance_editor_video",
+        "syntx_owner_generate_seedance_editor_video",
+        "syntx_owner_reconcile_seedance_editor_video",
+        "syntx_owner_list_seedance_editor_recoveries"
+      ],
+      "operator_flag": "SYNTX_OWNER_SEEDANCE_EDITOR",
+      "route_evidence_sources": [
+        "src/mcp/owner-seedance-editor-tools.ts",
+        "src/application/owner-seedance-editor-cost.ts",
+        "src/application/owner-seedance-editor-generation-service.ts"
+      ],
+      "operation_note": "Editor generation is attached to public model seedance-2.5; the separate internal tool model ID is not added to the public census."
+    }
+  ]
+}

@@ -6,7 +6,8 @@ import { inspectBoundedOwnerWanBmp } from "./owner-wan-bmp-inspector.js";
 const MODEL_ID = "wan_25_i2v_preview" as const;
 const MAX_BYTES = 10 * 1024 * 1024;
 const MIN_SIDE = 384;
-const MAX_SIDE = 5_000;
+const PINNED_MAX_SIDE = 5_000;
+const MAX_SIDE = 8_000;
 const MAX_FILENAME_UTF8_BYTES = 255;
 const MIME_TYPES = Object.freeze(["image/jpg", "image/jpeg", "image/png", "image/bmp", "image/webp"] as const);
 const DELIMITERS = /[<>:"/\\|?*]/u;
@@ -31,7 +32,8 @@ export const OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY = Object.freeze({
   jpg_alias: "image/jpg -> image/jpeg" as const,
   max_file_size_bytes: MAX_BYTES,
   min_side: MIN_SIDE,
-  max_side: MAX_SIDE,
+  max_side: PINNED_MAX_SIDE,
+  current_public_max_side: MAX_SIDE,
   bounds_policy: "C396_CATALOG_LOCAL_GUARD_NOT_CURRENT_PROVIDER_LIMIT_OR_ACCEPTANCE" as const,
   metadata_confidence: "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED" as const,
   dispatch_allowed: false as const,

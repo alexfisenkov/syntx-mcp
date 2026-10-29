@@ -1,10 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpSelfUpdateService } from "../application/mcp-self-update-service.js";
+import { registerMcpSelfUpdateTools } from "./self-update-tools.js";
 import type {
   CallToolResult,
   ToolAnnotations
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
 import type { ApplicationCore } from "../application/core.js";
+import { MediaCoverageCatalog } from "../catalog/media-coverage.js";
+import { loadCurrentDiscoveryReadCatalog } from "../catalog/selected-discovery-catalog.js";
 import type { MaplessSettingsInventory } from "../catalog/mapless-settings-inventory.js";
 import { loadMaplessSettingsInventoryVersion } from "../catalog/mapless-settings-inventory.js";
 import type { StaticGenerationParameterSchemaCatalog } from "../catalog/static-generation-parameter-schema.js";
@@ -50,6 +54,7 @@ import {
 } from "./owner-generate-video-tool.js";
 import { OwnerVideoRecoveryStore } from "../application/owner-video-recovery.js";
 import { registerSyntxRuntimeCoverageTool } from "./runtime-coverage-tool.js";
+import { registerSyntxMediaCoverageTools } from "./media-coverage-tools.js";
 import { registerSyntxSettingsEvidenceTool } from "./settings-evidence-tool.js";
 import { registerSyntxSeedanceEditorSourceTool } from "./seedance-editor-source-tool.js";
 import { registerSyntxMaintenanceTools } from "./maintenance-tools.js";
@@ -202,7 +207,9 @@ import { registerSyntxOwnerSunoExistingTrackTools } from "./owner-suno-existing-
 import type { OwnerLumaT2vContractService } from "../application/owner-luma-t2v-contract-service.js";
 import { registerSyntxOwnerLumaT2vTools } from "./owner-luma-t2v-tool.js";
 import type { OwnerReviewedNoReferenceT2vService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import type { OwnerExpandedT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerHailuo01T2vTools } from "./owner-hailuo01-t2v-tool.js";
+import { registerSyntxOwnerExpandedT2vTools } from "./owner-expanded-t2v-tools.js";
 import type { OwnerHailuo01DirectorT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { registerSyntxOwnerHailuo01DirectorT2vTools } from "./owner-hailuo01-director-t2v-tool.js";
 import type { OwnerHailuo23T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -471,6 +478,12 @@ export interface OwnerHailuo01T2vServiceComposition {
     "getParametersSource" | "generate" | "reconcile" | "listRecoveries" | "getRecoveryDiagnostic">;
 }
 
+/** Optional owner-local six-model narrow expanded T2V group; omitted from default and HTTP servers. */
+export interface OwnerExpandedT2vServiceComposition {
+  readonly generationService: Pick<OwnerExpandedT2vGenerationService,
+    "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
+}
+
 /** Optional owner-local reviewed Hailuo-01 Director T2V tools; omitted from default and HTTP servers. */
 export interface OwnerHailuo01DirectorT2vServiceComposition {
   readonly generationService: Pick<OwnerHailuo01DirectorT2vGenerationService,
@@ -556,6 +569,8 @@ export interface OwnerVideo2AudioServiceComposition {
 }
 
 export interface CreateMcpServerOptions {
+  /** Update apply is enabled only by explicitly opted-in owner stdio. */
+  selfUpdateApply?: boolean | undefined;
   /** Optional and request-scoped; the default eight-tool server has no login surface. */
   auth?: RegisterSyntxAuthToolsOptions | undefined;
   /** Optional account-scoped read; requires a tenant-bound credential resolver. */
@@ -641,6 +656,7 @@ export interface CreateMcpServerOptions {
   ownerLumaT2v?: OwnerLumaT2vServiceComposition | undefined;
   /** Explicit owner-local sealed Hailuo-01 T2V tools; omitted from default and HTTP servers. */
   ownerHailuo01T2v?: OwnerHailuo01T2vServiceComposition | undefined;
+  ownerExpandedT2v?: OwnerExpandedT2vServiceComposition | undefined;
   /** Explicit owner-local sealed Hailuo-01 Director T2V tools; omitted from default and HTTP servers. */
   ownerHailuo01DirectorT2v?: OwnerHailuo01DirectorT2vServiceComposition | undefined;
   /** Explicit owner-local reviewed Hailuo 2.3 T2V tools; only injected by opted-in owner stdio. */
@@ -829,7 +845,7 @@ export function createMcpServer(
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
-        options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerFlux3Videos || options.ownerGrokV2v || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v ||
+        options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerFlux3Videos || options.ownerGrokV2v || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v || options.ownerExpandedT2v ||
         options.ownerHailuo01DirectorT2v || options.ownerHailuo23T2v || options.ownerHailuo02T2v || options.ownerHailuo02I2v || options.ownerSeedance20T2v || options.ownerSeedance25T2v ||
         options.ownerKlingT2v || options.ownerKlingI2v || options.ownerKlingKeyframes || options.ownerKlingMotionControl || options.ownerVeoT2v || options.ownerVeoOmniT2v || options.ownerGrokT2v || options.ownerHailuoLiveT2v || options.ownerVideo2Audio || options.ownerWan26I2v || options.ownerWan26R2v || options.ownerWan25I2vPreview)) {
     throw new Error("OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT");
@@ -848,6 +864,9 @@ export function createMcpServer(
   // Stable, read-only capability surface. This registry is static and does
   // not authenticate, contact SYNTX, mutate chats, or start paid work.
   registerSyntxRuntimeCoverageTool(server, { resolveCurrentModel: (modelId) => application.getModel(modelId) });
+  const currentMedia = loadCurrentDiscoveryReadCatalog();
+  registerSyntxMediaCoverageTools(server, new MediaCoverageCatalog(currentMedia.discoveryCatalog, currentMedia.runtimeCapabilities));
+  registerMcpSelfUpdateTools(server, new McpSelfUpdateService(), options.selfUpdateApply === true);
   registerSyntxSettingsEvidenceTool(server);
   registerSyntxSeedanceEditorSourceTool(server);
   registerSyntxMaintenanceTools(server);
@@ -1338,6 +1357,9 @@ export function createMcpServer(
   }
   if (options.ownerHailuo01T2v) {
     registerSyntxOwnerHailuo01T2vTools(server, { service: options.ownerHailuo01T2v.generationService });
+  }
+  if (options.ownerExpandedT2v) {
+    registerSyntxOwnerExpandedT2vTools(server, { service: options.ownerExpandedT2v.generationService });
   }
   if (options.ownerHailuo01DirectorT2v) {
     registerSyntxOwnerHailuo01DirectorT2vTools(server, { service: options.ownerHailuo01DirectorT2v.generationService });

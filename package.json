@@ -39,7 +39,8 @@
     "scripts/source-backed-result",
     "scripts/sync-normalized-settings-parser-generic-form-result.mjs",
     "scripts/lock-signal-cleanup.mjs",
-    "scripts/print-media-mcp-config.mjs"
+    "scripts/print-media-mcp-config.mjs",
+    "scripts/update-mcp.mjs"
   ],
   "exports": {
     ".": "./dist/src/index.js",
@@ -56,6 +57,7 @@
     "syntx-mcp-owner-evidence": "dist/src/transports/stdio-owner-evidence.js",
     "syntx-mcp-owner-http": "dist/src/transports/http-owner.js",
     "syntx-mcp-media-config": "scripts/print-media-mcp-config.mjs",
+    "syntx-mcp-update": "scripts/update-mcp.mjs",
     "syntx-settings-ir": "scripts/sync-normalized-settings-ir.mjs",
     "syntx-settings-parser": "scripts/sync-normalized-settings-parser-canary.mjs",
     "syntx-settings-census": "scripts/sync-normalized-settings-parser-census-manifest.mjs",
@@ -65,6 +67,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test:media:update": "node --test --test-concurrency=1 dist/tests/syntx-public-catalog-schema-20261028.test.js dist/tests/public-catalog-selection.test.js dist/tests/public-catalog-sync.test.js dist/tests/owner-kling-i2v-input-policy.test.js dist/tests/owner-kling-i2v-parameters.test.js dist/tests/owner-kling-media-sdk2350.test.js dist/tests/owner-kling-motion-control-image-policy-1607.test.js dist/tests/owner-kling-motion-control-reference-service-1616.test.js dist/tests/owner-wan25-i2v-image-policy-1677.test.js dist/tests/owner-wan26-i2v-image-policy-1649.test.js dist/tests/owner-wan26-r2v-image-policy-1725.test.js dist/tests/owner-wan26-r2v-original-probe-1726.test.js dist/tests/owner-wan27-r2v-generation-parameters-1546.test.js dist/tests/owner-wan27-r2v-request-preparer-1555.test.js dist/tests/owner-wan27-r2v-generation-mcp-runtime-1565.test.js dist/tests/media-coverage.test.js dist/tests/reviewed-media-profile.test.js dist/tests/expanded-t2v-profile.test.js dist/tests/owner-expanded-t2v-tools.test.js dist/tests/owner-existing-kling4-recovery.test.js dist/tests/owner-existing-video-recovery2361.test.js tests/mcp-self-update-service.test.mjs tests/print-media-all-supported-media.test.mjs tests/public-media-update-package.test.mjs && node --test --test-name-pattern=\"all-supported config pins the updateable reviewed media profile\" tests/print-media-mcp-config.test.mjs && node --test --test-name-pattern=\"exports only the exact committed|exports only the allowlisted media guides|manifest rejects owner receipts and private documentation|public package paths must contain manifest\" tests/export-public-snapshot.test.mjs tests/public-source-package-manifest.test.mjs",
     "test:catalog:update": "node --test --test-concurrency=1 dist/tests/syntx-public-catalog-schema-20261028.test.js dist/tests/public-catalog-selection.test.js dist/tests/public-catalog-sync.test.js dist/tests/mcp-generation-contract-tools.test.js dist/tests/runtime-coverage-tool.test.js dist/tests/owner-runtime.test.js dist/tests/topaz-codec-policy-20261028.test.js dist/tests/owner-topaz-astra-original-probe-1413.test.js dist/tests/owner-topaz-enhance-original-probe-1974.test.js && node --test --test-name-pattern='allowlisted media guides|exports only the exact committed' tests/export-public-snapshot.test.mjs",
     "catalog:check": "npm run build && node scripts/sync-public-catalog.mjs --check",
     "catalog:sync": "npm run build && node scripts/sync-public-catalog.mjs",

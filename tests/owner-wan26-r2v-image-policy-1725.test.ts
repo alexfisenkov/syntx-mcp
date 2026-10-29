@@ -54,6 +54,8 @@ test("pins C396 image metadata for the exact R2V models and distinguishes local 
     ["image/jpg", "image/jpeg", "image/png", "image/bmp", "image/webp"]);
   assert.equal(OWNER_WAN26_R2V_IMAGE_POLICY.min_side, 384);
   assert.equal(OWNER_WAN26_R2V_IMAGE_POLICY.max_side, 5_000);
+  assert.equal(OWNER_WAN26_R2V_IMAGE_POLICY.current_public_observation.max_image_file_size_bytes, 20 * 1024 * 1024);
+  assert.equal(OWNER_WAN26_R2V_IMAGE_POLICY.current_public_observation.max_side, 4_096);
   assert.equal(OWNER_WAN26_R2V_IMAGE_POLICY.generation_permit, false);
   assert.equal(OWNER_WAN26_R2V_IMAGE_POLICY.owner_upload_binding, "NOT_ESTABLISHED");
 });
@@ -82,13 +84,13 @@ test("validates genuine catalog image formats for both WAN26 R2V IDs", () => {
 });
 
 test("enforces inclusive catalog side bounds without pixel decoding", () => {
-  for (const [width, height] of [[384, 384], [5_000, 384], [384, 5_000]] as const) {
+  for (const [width, height] of [[384, 384], [4_096, 384], [384, 4_096]] as const) {
     const receipt = validateOwnerWan26R2vImage(input("wan_26_r2v_flash", png(width, height), "image/png"));
     assert.equal(receipt.width, width); assert.equal(receipt.height, height);
     assert.equal(receipt.metadata_confidence, "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED");
     releaseValidatedOwnerWan26R2vImage(receipt);
   }
-  for (const [width, height] of [[383, 384], [5_001, 384], [384, 5_001]] as const) {
+  for (const [width, height] of [[383, 384], [4_097, 384], [384, 4_097]] as const) {
     assert.throws(() => validateOwnerWan26R2vImage(input("wan_26_r2v", png(width, height), "image/png")), invalid);
   }
 });

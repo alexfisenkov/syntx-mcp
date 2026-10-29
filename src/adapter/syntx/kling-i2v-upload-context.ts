@@ -101,7 +101,7 @@ export function readOwnerKlingI2VUploadReferenceForClient(
       !Number.isSafeInteger(context.source_size) || context.source_size < 1 ||
       !/^[a-f0-9]{64}$/u.test(context.source_sha256) || !isSafeUploadReference(state.reference) ||
       context.source_mime_type !== "image/jpeg" && context.source_mime_type !== "image/png" &&
-      context.source_mime_type !== "image/avif" && context.source_mime_type !== "image/webp") return null;
+      context.source_mime_type !== "image/avif") return null;
   return Object.freeze({ url: state.url });
 }
 

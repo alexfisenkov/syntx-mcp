@@ -5,7 +5,7 @@ import { isOwnerExistingVideoRecoveryService, type OwnerExistingVideoRecoverySer
 
 const ATTEMPT = z.string().regex(/^link_[A-Za-z0-9_-]{20,120}$/u);
 const MODEL = z.enum(["dop-lite", "dop-turbo", "hailuo-2.3-fast", "hailuo-01-live-character", "hailuo-3.0", "kling_elements",
-  "kling_o1_image2video", "acttwo", "wan_27_i2v", "gen4.5i2v", "seedance-2.5", "switchx"]);
+  "kling_o1_image2video", "kling_4_keyframes", "kling_4_omni", "acttwo", "wan_27_i2v", "gen4.5i2v", "seedance-2.5", "switchx"]);
 export const OWNER_EXISTING_VIDEO_RESULT_TOOL_NAME = "syntx_owner_get_existing_video_recovery";
 const targetSchema = z.object({ model_id: MODEL, chat_uuid: z.string().uuid(), owner_message_id: z.string().min(1).max(160),
   provider_message_id: z.string().min(1).max(160), expected_prompt: z.string().max(10_000) }).strict().superRefine((target, context) => {

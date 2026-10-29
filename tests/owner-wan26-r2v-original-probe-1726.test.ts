@@ -70,6 +70,8 @@ test("C396 local policy is separate from the operator memory guard", () => {
     min_duration_seconds: 1, max_duration_seconds: 30,
     accepted_video_mime_types: ["video/mp4", "video/mov"], prohibited_codecs: []
   });
+  assert.equal(WAN26_R2V_ORIGINAL_VIDEO_POLICY.current_public_observation.max_file_size_bytes, 100 * 1024 * 1024);
+  assert.equal(WAN26_R2V_ORIGINAL_VIDEO_POLICY.current_public_observation.max_side, 4_096);
   assert.equal(WAN26_R2V_ORIGINAL_VIDEO_POLICY.default_operator_local_max_bytes, 104_857_600);
   assert.equal(WAN26_R2V_ORIGINAL_VIDEO_POLICY.operator_limit_kind, "LOCAL_MEMORY_COPY_GUARD_NOT_VENDOR_LIMIT");
 });
@@ -123,7 +125,7 @@ test("genuine MP4 and MOV sources are model-bound, copyable once, and revocable 
   assert.deepEqual(results.map(({ value }) => value.model_id), ["wan_26_r2v", "wan_26_r2v_flash"]);
 });
 
-test("input size guard is configurable only up to the C396 cap and is not represented as a vendor cap",
+test("input size guard is configurable only up to the current public cap and remains a local guard",
   { skip: !(FFMPEG && FFPROBE) }, async () => {
   assert.ok(FFMPEG && FFPROBE, "local ffmpeg and ffprobe are required for the generated media fixture");
   const fixture = await originalMp4Fixture();
@@ -131,35 +133,35 @@ test("input size guard is configurable only up to the C396 cap and is not repres
   const guard = Math.max(16, fixture.bytes.byteLength - 1);
   await assert.rejects(createOwnerWan26R2vOriginalProbe({ ffprobePath: FFPROBE, operatorLocalMaxBytes: guard }).probe(input),
     (error: unknown) => error instanceof OwnerWan26R2vOriginalProbeError && error.code === "ORIGINAL_LOCAL_LIMIT_EXCEEDED");
-  const catalogCap = await createOwnerWan26R2vOriginalProbe({ ffprobePath: FFPROBE, operatorLocalMaxBytes: 1_048_576_000 }).probe(input);
-  assert.equal(catalogCap.operator_local_max_bytes, 1_048_576_000);
+  const catalogCap = await createOwnerWan26R2vOriginalProbe({ ffprobePath: FFPROBE, operatorLocalMaxBytes: 100 * 1024 * 1024 }).probe(input);
+  assert.equal(catalogCap.operator_local_max_bytes, 100 * 1024 * 1024);
   assert.equal(catalogCap.local_guard_id, "LOCAL_MEMORY_COPY_GUARD_NOT_VENDOR_LIMIT");
   releaseTrustedOwnerWan26R2vOriginalProbeResult(catalogCap);
   await assert.rejects(Promise.resolve().then(() => createOwnerWan26R2vOriginalProbe({
-    ffprobePath: FFPROBE, operatorLocalMaxBytes: 1_048_576_001
+    ffprobePath: FFPROBE, operatorLocalMaxBytes: 100 * 1024 * 1024 + 1
   })), OwnerWan26R2vOriginalProbeError);
   await assert.rejects(createOwnerWan26R2vOriginalProbe({ ffprobePath: FFPROBE }).probe({
     ...input, model_id: "wan_27_r2v"
   }), (error: unknown) => error instanceof OwnerWan26R2vOriginalProbeError && error.code === "INVALID_ORIGINAL");
 });
 
-test("measured C396 side and duration limits accept exact edges and reject values just outside",
+test("measured current side and pinned duration limits accept exact edges and reject values just outside",
   { skip: !(FFMPEG && FFPROBE) }, async () => {
   const fixture = await originalMp4Fixture();
   const output = (width: number, height: number, duration: number) => JSON.stringify({
     streams: [{ codec_type: "video", codec_name: "h264", width, height, nb_read_frames: "60", duration: String(duration), avg_frame_rate: "2/1" }],
     format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: String(duration) }
   });
-  const upper = await fakeFfprobe(output(5_000, 5_000, 30));
+  const upper = await fakeFfprobe(output(4_096, 4_096, 30));
   const accepted = await createOwnerWan26R2vOriginalProbe({ ffprobePath: upper.binary }).probe({
     model_id: "wan_26_r2v", filename: "source.mp4", mime_type: "video/mp4", bytes: fixture.bytes
   });
-  assert.equal(accepted.metadata.width, 5_000);
-  assert.equal(accepted.metadata.height, 5_000);
+  assert.equal(accepted.metadata.width, 4_096);
+  assert.equal(accepted.metadata.height, 4_096);
   assert.equal(accepted.metadata.duration_seconds, 30);
   releaseTrustedOwnerWan26R2vOriginalProbeResult(accepted);
 
-  for (const [width, height, duration] of [[383, 384, 1], [5_001, 5_000, 1], [384, 384, 0.999], [384, 384, 30.001]]) {
+  for (const [width, height, duration] of [[383, 384, 1], [4_097, 4_096, 1], [384, 384, 0.999], [384, 384, 30.001]]) {
     const outside = await fakeFfprobe(output(width!, height!, duration!));
     await assert.rejects(createOwnerWan26R2vOriginalProbe({ ffprobePath: outside.binary }).probe({
       model_id: "wan_26_r2v", filename: "source.mp4", mime_type: "video/mp4", bytes: fixture.bytes

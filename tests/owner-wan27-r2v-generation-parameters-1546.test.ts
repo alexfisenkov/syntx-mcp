@@ -250,6 +250,23 @@ test("selected-video counts 1 through 5 come from genuine manifests and all use 
 
 test("only explicit controls are accepted; source metadata separates the pinned prompt limit from current UI", async () => {
   const source = getOwnerWan27R2vGenerationParametersSource();
+  assert.equal(source.current_media_limits.public_catalog_version,
+    "sha256-d1f43b4274fceb50c229711f093edb36c88e60e123da448a71ed256574f02009.json");
+  assert.equal(source.current_media_limits.settings_inventory_version,
+    "sha256-a29a66acb812c92e00d9a125132de2be4dbb0728e4174d78d236936164abd880.json");
+  assert.equal(source.current_media_limits.form_build_id, "1793202992");
+  assert.equal(source.current_media_limits.form_id, "wan-video");
+  assert.equal(source.current_media_limits.form_sha256,
+    "sha256:fe48ac9f778d5d795143fef75f679e0dff6b3f8659cf3c7971a73d49eb88eea6");
+  assert.deepEqual(source.current_media_limits, {
+    public_catalog_version: "sha256-d1f43b4274fceb50c229711f093edb36c88e60e123da448a71ed256574f02009.json",
+    settings_inventory_version: "sha256-a29a66acb812c92e00d9a125132de2be4dbb0728e4174d78d236936164abd880.json",
+    form_build_id: "1793202992", form_id: "wan-video",
+    form_sha256: "sha256:fe48ac9f778d5d795143fef75f679e0dff6b3f8659cf3c7971a73d49eb88eea6",
+    image_references: 6, selected_video_references: 5, total_references_image_only: 6,
+    total_references_with_selected_video: 5,
+    acceptance: "CURRENT_PUBLIC_SETTINGS_AND_FORM_MAPPING_NOT_PROVIDER_ACCEPTANCE"
+  });
   assert.equal(source.source_pins.form_build_id, "1791904852");
   assert.equal(source.source_pins.form_sha256, "sha256:f69db3d449d0051969def2229ed936d9835e0d65c8f257ec3ab289d6e9387737");
   assert.equal(source.source_pins.seed_helper_sha256, "sha256:c95fc355e29e33f6c3998cb62cc2da4d0879cc1ff4fb524e826e74bb24cd792b");
@@ -269,7 +286,7 @@ test("only explicit controls are accepted; source metadata separates the pinned 
   assert.equal(source.wire_facts.fixed_fields_source, "PINNED_R2V_CONDITIONAL_VISIBILITY_RESET");
   assert.equal(source.wire_facts.duration_source, "ROUNDED_SELECTED_DURATION_PER_CLIP_THEN_SUMMED_TO_2_DECIMALS_IMAGE_ONLY_ZERO");
   assert.deepEqual(source.coverage_gaps, ["EFFECTIVE_UI_DEFAULTS_NOT_ESTABLISHED", "PROVIDER_ACCEPTANCE_NOT_ESTABLISHED"]);
-  assert.ok(Object.isFrozen(source) && Object.isFrozen(source.source_pins) && Object.isFrozen(source.coverage_gaps));
+  assert.ok(Object.isFrozen(source) && Object.isFrozen(source.source_pins) && Object.isFrozen(source.current_media_limits) && Object.isFrozen(source.coverage_gaps));
 
   const base = { model_id: "wan_27_r2v", parameters: {
     resolution: "1080P", aspect_ratio: "1:1", video_duration: 2, prompt_extend: false, seed: null, native_audio: false

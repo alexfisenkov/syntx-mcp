@@ -53,6 +53,18 @@ export interface OwnerWan27R2vGenerationSourceContract {
     seed_helper_bytes: 1_656;
     seed_helper_sha256: "sha256:c95fc355e29e33f6c3998cb62cc2da4d0879cc1ff4fb524e826e74bb24cd792b";
   }>;
+  readonly current_media_limits: Readonly<{
+    public_catalog_version: "sha256-d1f43b4274fceb50c229711f093edb36c88e60e123da448a71ed256574f02009.json";
+    settings_inventory_version: "sha256-a29a66acb812c92e00d9a125132de2be4dbb0728e4174d78d236936164abd880.json";
+    form_build_id: "1793202992";
+    form_id: "wan-video";
+    form_sha256: "sha256:fe48ac9f778d5d795143fef75f679e0dff6b3f8659cf3c7971a73d49eb88eea6";
+    image_references: 6;
+    selected_video_references: 5;
+    total_references_image_only: 6;
+    total_references_with_selected_video: 5;
+    acceptance: "CURRENT_PUBLIC_SETTINGS_AND_FORM_MAPPING_NOT_PROVIDER_ACCEPTANCE";
+  }>;
   readonly controls: Readonly<{
     resolution: readonly OwnerWan27R2vGenerationResolution[];
     aspect_ratio: readonly OwnerWan27R2vGenerationAspectRatio[];
@@ -92,6 +104,18 @@ export interface OwnerWan27R2vGenerationParametersOptions {
 const RESOLUTIONS = Object.freeze(["720P", "1080P"] as const);
 const ASPECT_RATIOS = Object.freeze(["16:9", "9:16", "1:1", "4:3", "3:4"] as const);
 const MAX_SEED = 2_147_483_647;
+const CURRENT_MEDIA_LIMITS = Object.freeze({
+  public_catalog_version: "sha256-d1f43b4274fceb50c229711f093edb36c88e60e123da448a71ed256574f02009.json",
+  settings_inventory_version: "sha256-a29a66acb812c92e00d9a125132de2be4dbb0728e4174d78d236936164abd880.json",
+  form_build_id: "1793202992",
+  form_id: "wan-video",
+  form_sha256: "sha256:fe48ac9f778d5d795143fef75f679e0dff6b3f8659cf3c7971a73d49eb88eea6",
+  image_references: 6,
+  selected_video_references: 5,
+  total_references_image_only: 6,
+  total_references_with_selected_video: 5,
+  acceptance: "CURRENT_PUBLIC_SETTINGS_AND_FORM_MAPPING_NOT_PROVIDER_ACCEPTANCE"
+} as const);
 const SOURCE_PINS = Object.freeze({
   public_catalog_version: "sha256-b06698c84a002f5cc7d379e5d3ead94974b0e279fae45c8bb83fa803b0d895b9.json",
   public_models_sha256: "sha256:7ffbeff2ef1efa9d617d6e26e3e1c11e1d355cc45b34a2a427159f7e91fa4667",
@@ -113,6 +137,7 @@ const SOURCE_CONTRACT: OwnerWan27R2vGenerationSourceContract = Object.freeze({
   status: "PINNED_SOURCE_LOCAL_PARAMETER_CONTRACT",
   model_id: "wan_27_r2v",
   source_pins: SOURCE_PINS,
+  current_media_limits: CURRENT_MEDIA_LIMITS,
   controls: Object.freeze({
     resolution: RESOLUTIONS,
     aspect_ratio: ASPECT_RATIOS,
@@ -163,7 +188,8 @@ export async function normalizeOwnerWan27R2vGenerationParameters(
     counts = await optionFields.referenceService.withCapturedNativeReferences(optionFields.manifest,
       (_client, contexts) => summarizeReferences(contexts), signal);
   } catch { referenceUnavailable(); }
-  if (counts.total_reference_count < 1 || counts.total_reference_count > 5 || counts.selected_video_reference_count > 5 ||
+  if (counts.total_reference_count < 1 || counts.total_reference_count > 6 || counts.selected_video_reference_count > 5 ||
+      (counts.selected_video_reference_count > 0 && counts.total_reference_count > 5) || counts.image_reference_count > 6 ||
       counts.image_reference_count + counts.selected_video_reference_count !== counts.total_reference_count) referenceUnavailable();
   const maximum = counts.selected_video_reference_count > 0 ? 10 : 15;
   if (settings.video_duration > maximum) invalid();

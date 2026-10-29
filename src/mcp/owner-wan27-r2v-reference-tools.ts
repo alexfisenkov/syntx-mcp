@@ -58,8 +58,8 @@ const draftOutput = z.object({ status: z.literal("draft"), manifest_handle: mani
 const itemOutput = z.object({ status: z.literal("item"), manifest_handle: manifestSchema,
   item: referenceSchema }).strict();
 const readyOutput = z.object({ status: z.literal("ready"), manifest_handle: manifestSchema,
-  video_reference_count: z.number().int().min(0).max(5), total_reference_count: z.number().int().min(0).max(5),
-  references: z.array(referenceSchema).max(5), expires_at: z.number().int().nonnegative(), epoch: z.number().int().nonnegative(),
+  video_reference_count: z.number().int().min(0).max(5), total_reference_count: z.number().int().min(0).max(6),
+  references: z.array(referenceSchema).max(6), expires_at: z.number().int().nonnegative(), epoch: z.number().int().nonnegative(),
   generation_permit: z.literal(false) }).strict();
 const errorOutput = z.object({ error: z.enum(["INVALID_REQUEST", "REQUEST_ABORTED", "SERVICE_BUSY", "SERVICE_CLOSED",
   "MANIFEST_UNAVAILABLE", "MANIFEST_EXPIRED", "MANIFEST_INCOMPLETE", "MANIFEST_VIDEO_COUNT_INVALID",
@@ -82,14 +82,14 @@ export function registerSyntxOwnerWan27R2vReferenceTools(server: McpServer,
 
   server.registerTool(SYNTX_GET_WAN27_R2V_PARAMETERS_TOOL_NAME, {
     title: "Get WAN 2.7 R2V parameters",
-    description: "Returns pinned static WAN 2.7 R2V controls and source gaps. This input command does not start generation.",
+    description: "Returns pinned static WAN 2.7 R2V controls and current limits: up to six images when image-only; mixed image/video manifests remain capped at five total. These public settings are not provider acceptance. This command does not start generation.",
     inputSchema: emptyInput, outputSchema: sourceOutput,
     annotations: { title: "Get WAN 2.7 R2V parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async () => success(sourceOutput, source));
 
   server.registerTool(SYNTX_OWNER_CREATE_WAN27_R2V_MANIFEST_TOOL_NAME, {
     title: "Create WAN 2.7 R2V reference manifest",
-    description: "Creates an owner-bound draft for the exact linked attempt. It accepts 0–5 selected video references; uploads are separate. This input command does not start generation.",
+    description: "Creates an owner-bound draft for the exact linked attempt. Image-only manifests may contain up to six images; when selected videos are included, the combined image/video total remains capped at five, with at most five selected videos. Uploads are separate. This command does not start generation.",
     inputSchema: createInput, outputSchema: draftToolOutput,
     annotations: { title: "Create WAN 2.7 R2V reference manifest", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
   }, async (raw, { signal }) => {

@@ -153,6 +153,8 @@ import { OWNER_SUNO_GENERATION_PUBLIC_VERSION } from "../application/owner-suno-
 import { OwnerLumaT2vContractService, OWNER_LUMA_T2V_CONTRACT_REGISTRY_VERSION } from "../application/owner-luma-t2v-contract-service.js";
 import { OwnerReviewedNoReferenceT2vService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerHailuo01T2vProfile } from "../application/owner-hailuo01-t2v-profile.js";
+import { OwnerExpandedT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
+import { createOwnerExpandedT2vProfiles } from "../application/owner-expanded-t2v-profile.js";
 import { OwnerHailuo01DirectorT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerHailuo01DirectorT2vProfile } from "../application/owner-hailuo01-director-t2v-profile.js";
 import { OwnerHailuo23T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -310,6 +312,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerLumaT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the sealed, reviewed Hailuo-01 T2V profile. */
   ownerHailuo01T2vEnabled?: boolean;
+  /** Explicit owner-stdio opt-in for the six-model source-reviewed T2V controls group. */
+  ownerExpandedT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the sealed, reviewed Hailuo-01 Director T2V profile. */
   ownerHailuo01DirectorT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the sealed, reviewed Hailuo 2.3 T2V profile. */
@@ -2440,6 +2444,52 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ profile, generationService, lifecycle });
       })()
     : undefined;
+  const ownerExpandedT2v = options.ownerExpandedT2vEnabled === true
+    ? (() => {
+        const profiles = createOwnerExpandedT2vProfiles(options.catalogDirectory);
+        const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
+        const resolveExpandedT2vChatClient = (attemptId: string): SyntxChatHttpClient => {
+          const existing = clientsByAttempt.get(attemptId);
+          if (existing !== undefined) return existing;
+          if (clientsByAttempt.size >= 128) throw new Error("OWNER_EXPANDED_T2V_CLIENT_CAPACITY_EXCEEDED");
+          const client = createChatClient(attemptId);
+          clientsByAttempt.set(attemptId, client);
+          return client;
+        };
+        const profile = profiles.values().next().value;
+        if (profile === undefined) throw new Error("OWNER_EXPANDED_T2V_PROFILES_EMPTY");
+        let generationService: OwnerExpandedT2vGenerationService;
+        try {
+          generationService = new OwnerExpandedT2vGenerationService({
+            profiles,
+            binding: authBinding,
+            linkService,
+            resolveSubscription: (attemptId, signal) => createReadClient(attemptId).getSubscription(signal),
+            resolveModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId,
+                cost_parameters: costParameters
+              }, signal),
+            resolveChatClient: resolveExpandedT2vChatClient,
+            now
+          });
+        } catch (error) {
+          clientsByAttempt.clear();
+          throw error;
+        }
+        const lifecycle = Object.freeze({
+          async invalidateAttempt(attemptId: string): Promise<void> {
+            try { await generationService.invalidateAttempt(attemptId); }
+            finally { clientsByAttempt.delete(attemptId); }
+          },
+          async close(): Promise<void> {
+            try { await generationService.close(); }
+            finally { clientsByAttempt.clear(); }
+          }
+        });
+        return Object.freeze({ profiles, generationService, lifecycle });
+      })()
+    : undefined;
   const ownerHailuo01DirectorT2v = options.ownerHailuo01DirectorT2vEnabled === true
     ? (() => {
         const profile = createOwnerHailuo01DirectorT2vProfile(options.catalogDirectory);
@@ -3810,6 +3860,7 @@ export function createObservedOwnerRuntime(
     }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2v: { generationService: ownerLumaT2v.generationService } }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2v: { generationService: ownerHailuo01T2v.generationService } }),
+    ...(ownerExpandedT2v === undefined ? {} : { ownerExpandedT2v: { generationService: ownerExpandedT2v.generationService } }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2v: { generationService: ownerHailuo01DirectorT2v.generationService } }),
     ...(ownerHailuo23T2v === undefined ? {} : { ownerHailuo23T2v: { generationService: ownerHailuo23T2v.generationService } }),
     ...(ownerHailuo02T2v === undefined ? {} : { ownerHailuo02T2v: { generationService: ownerHailuo02T2v.generationService } }),
@@ -3928,6 +3979,7 @@ export function createObservedOwnerRuntime(
     ...(ownerGrokV2v === undefined ? {} : { ownerGrokV2vLifecycle: ownerGrokV2v.lifecycle }),
     ...(ownerLumaT2v === undefined ? {} : { ownerLumaT2vLifecycle: ownerLumaT2v.lifecycle }),
     ...(ownerHailuo01T2v === undefined ? {} : { ownerHailuo01T2vLifecycle: ownerHailuo01T2v.lifecycle }),
+    ...(ownerExpandedT2v === undefined ? {} : { ownerExpandedT2vLifecycle: ownerExpandedT2v.lifecycle }),
     ...(ownerHailuo01DirectorT2v === undefined ? {} : { ownerHailuo01DirectorT2vLifecycle: ownerHailuo01DirectorT2v.lifecycle }),
     ...(ownerHailuo23T2v === undefined ? {} : { ownerHailuo23T2vLifecycle: ownerHailuo23T2v.lifecycle }),
     ...(ownerHailuo02T2v === undefined ? {} : { ownerHailuo02T2vLifecycle: ownerHailuo02T2v.lifecycle }),

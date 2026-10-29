@@ -13,6 +13,7 @@ on:
           - docs-only
           - media-cli-fix
           - catalog-update
+          - media-update
           - full
 
 permissions:
@@ -21,7 +22,7 @@ permissions:
 jobs:
   changed-media:
     name: Scoped checks / Linux / Node 24.21.0
-    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'catalog-update'
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -40,11 +41,11 @@ jobs:
         run: npm ci
 
       - name: Build
-        if: inputs.scope == 'changed-media' || inputs.scope == 'catalog-update'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
         run: npm run build
 
       - name: Install media probe tools for changed video checks
-        if: inputs.scope == 'changed-media'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'media-update'
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends ffmpeg
@@ -97,6 +98,19 @@ jobs:
       - name: Verify catalog update and affected media constraints
         if: inputs.scope == 'catalog-update'
         run: npm run test:catalog:update
+
+      - name: Verify current media, updater, and package changes
+        if: inputs.scope == 'media-update'
+        env:
+          SYNTX_MCV_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_MCV_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_KLING_MEDIA_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_KLING_MEDIA_TEST_FFPROBE: /usr/bin/ffprobe
+        run: npm run test:media:update
+
+      - name: Verify clean public package consumer
+        if: inputs.scope == 'media-update'
+        run: npm run package:smoke:public
 
   portability:
     name: ${{ matrix.os }} / Node ${{ matrix.node }}

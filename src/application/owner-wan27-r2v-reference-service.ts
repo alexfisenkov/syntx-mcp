@@ -24,6 +24,8 @@ const MANIFEST_HANDLE = /^wan27ref_[A-Za-z0-9_-]{20,120}$/u;
 const TTL_MS = 15 * 60_000;
 const MAX_MANIFESTS = 128;
 const MAX_PENDING = 4;
+const MAX_IMAGE_REFERENCES = 6;
+const MAX_MIXED_REFERENCES = 5;
 const NATIVE_IMAGE_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vImage;
 const NATIVE_VIDEO_UPLOAD = SyntxChatHttpClient.prototype.uploadWan27R2vSelectedVideo;
 const NATIVE_LINK_STATUS = PerUserLinkService.prototype.getStatus;
@@ -200,8 +202,9 @@ export class OwnerWan27R2vReferenceService {
     catch (error) { record.busy = false; throw error; }
     try {
       await this.#assertCurrentAsync(record, op);
-      if (record.state !== "draft" || record.items.length < 1 || record.items.length > 5) fail("MANIFEST_INCOMPLETE");
       const videoCount = record.items.filter((item) => item.native.media_type === "selected_video").length;
+      const totalLimit = videoCount === 0 ? MAX_IMAGE_REFERENCES : MAX_MIXED_REFERENCES;
+      if (record.state !== "draft" || record.items.length < 1 || record.items.length > totalLimit) fail("MANIFEST_INCOMPLETE");
       if (videoCount !== record.videoReferenceCount || record.items.length < videoCount) fail("MANIFEST_INCOMPLETE");
       if (record.expiresAt - this.#readNow() < 1_000) fail("MANIFEST_EXPIRED");
       const receipt: OwnerWan27R2vReferenceManifest = Object.freeze({ status: "ready", manifest_handle: record.handle,
@@ -350,11 +353,12 @@ export class OwnerWan27R2vReferenceService {
       try {
         const meta = initialState();
         if (record.state !== "draft" || record.expiresAt <= this.#readNow()) fail("MANIFEST_EXPIRED");
-        if (record.items.length >= 5) fail("CAPACITY_EXCEEDED");
+        const totalLimit = record.videoReferenceCount === 0 ? MAX_IMAGE_REFERENCES : MAX_MIXED_REFERENCES;
+        if (record.items.length >= totalLimit) fail("CAPACITY_EXCEEDED");
         if (kind === "selected_video" && record.items.filter((item) => item.native.media_type === "selected_video").length >= record.videoReferenceCount) {
           fail("MANIFEST_VIDEO_COUNT_INVALID");
         }
-        if (kind === "image" && record.items.filter((item) => item.native.media_type === "image").length + record.videoReferenceCount >= 5) {
+        if (kind === "image" && record.items.filter((item) => item.native.media_type === "image").length + record.videoReferenceCount >= totalLimit) {
           fail("CAPACITY_EXCEEDED");
         }
         if (kind === "selected_video") {
@@ -421,12 +425,13 @@ export class OwnerWan27R2vReferenceService {
 
   #assertAppend(record: ManifestRecord, kind: "image" | "selected_video"): void {
     if (record.state !== "draft") fail("MANIFEST_UNAVAILABLE");
-    if (record.items.length >= 5) fail("CAPACITY_EXCEEDED");
+    const totalLimit = record.videoReferenceCount === 0 ? MAX_IMAGE_REFERENCES : MAX_MIXED_REFERENCES;
+    if (record.items.length >= totalLimit) fail("CAPACITY_EXCEEDED");
     const images = record.items.filter((item) => item.native.media_type === "image").length;
     const videos = record.items.length - images;
-    if (kind === "image" && images + videos >= 5) fail("CAPACITY_EXCEEDED");
+    if (kind === "image" && images + videos >= totalLimit) fail("CAPACITY_EXCEEDED");
     if (kind === "selected_video" && (record.videoReferenceCount < 1 || videos >= record.videoReferenceCount)) fail("MANIFEST_VIDEO_COUNT_INVALID");
-    if (kind === "image" && images + record.videoReferenceCount >= 5) fail("CAPACITY_EXCEEDED");
+    if (kind === "image" && images + record.videoReferenceCount >= totalLimit) fail("CAPACITY_EXCEEDED");
   }
 
   #draft(handleInput: unknown): ManifestRecord {

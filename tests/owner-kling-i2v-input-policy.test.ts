@@ -97,9 +97,9 @@ function broker(): SyntxCredentialBroker {
   return { async useCredential<T>(operation: (credential: string) => Promise<T>): Promise<T> { return operation("local-test-token"); } };
 }
 
-test("Kling source policy records five MIME spellings, a 30 MiB ceiling, and minimum side 300", () => {
+test("Kling source policy records current MIME spellings, a 30 MiB ceiling, and minimum side 300", () => {
   assert.deepEqual(OWNER_KLING_I2V_IMAGE_INPUT_POLICY.mime_types,
-    ["image/jpeg", "image/jpg", "image/png", "image/avif", "image/webp"]);
+    ["image/jpeg", "image/jpg", "image/png", "image/avif"]);
   assert.equal(OWNER_KLING_I2V_IMAGE_INPUT_POLICY.source_max_bytes, 31_457_280);
   assert.equal(OWNER_KLING_I2V_IMAGE_INPUT_POLICY.local_max_bytes, 31_457_280);
   assert.equal(OWNER_KLING_I2V_IMAGE_INPUT_POLICY.min_side, 300);
@@ -127,16 +127,15 @@ test("parses AVIF container dimensions under the full local 30 MiB ceiling", () 
   assert.equal(validated.height, 300);
 });
 
-test("validates JPEG and WebP dimensions from their bytes rather than trusting input claims", () => {
-  for (const [bytes, filename, mime] of [
-    [jpeg(300, 320), "frame.jpg", "image/jpeg"],
-    [webp(320, 300), "frame.webp", "image/webp"]
-  ] as const) {
+test("validates JPEG dimensions and rejects the no-longer-listed WebP format", () => {
+  for (const [bytes, filename, mime] of [[jpeg(300, 320), "frame.jpg", "image/jpeg"]] as const) {
     const validated = validateOwnerKlingI2VImageInput(input(bytes, filename, mime));
     assert.equal(validated.width >= 300, true);
     assert.equal(validated.height >= 300, true);
     assert.equal(validated.mime_type, mime);
   }
+  assert.throws(() => validateOwnerKlingI2VImageInput(input(webp(320, 300), "frame.webp", "image/webp")),
+    (error: unknown) => error instanceof OwnerKlingI2VImageInputError && error.code === "INVALID_IMAGE_INPUT");
 });
 
 test("rejects claimed MIME mismatch, sub-300 dimensions, unsafe names, and unlisted fields", () => {

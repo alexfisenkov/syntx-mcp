@@ -115,6 +115,21 @@ test("strict public settings validate only nonnegative supported media size limi
   );
 });
 
+test("strict public settings accept newly observed dimensions and duration fields", () => {
+  const accepted = syntxPublicModelsEndpointSchema.safeParse([
+    videoModel({ max_width: 65_535, max_height: 65_535, max_duration: 10_800,
+      file_count_limit: { character: { total: 1, images: 1, videos: 1 } } })
+  ]);
+  assert.equal(accepted.success, true);
+  for (const settings of [
+    { max_width: 65_536 }, { max_height: -1 }, { max_duration: 10_801 },
+    { max_duration: "30" }, { file_count_limit: { character: { total: "1" } } },
+    { file_count_limit: { character: { total: 1, unknown: 1 } } }
+  ]) {
+    assert.equal(syntxPublicModelsEndpointSchema.safeParse([videoModel(settings)]).success, false);
+  }
+});
+
 test("strict LLM entries accept optional boolean default while retaining unknown-key rejection", () => {
   assert.equal(syntxPublicLlmModelsEndpointSchema.safeParse(llmPayload([llmRow("legacy")])).success, true);
   assert.equal(syntxPublicLlmModelsEndpointSchema.safeParse(llmPayload([llmRow("off", false)])).success, true);

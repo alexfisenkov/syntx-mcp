@@ -54,7 +54,7 @@ test("default MCP read catalog is current while owner-native catalog remains pin
     };
     const runtime = createObservedOwnerRuntime({ fetchImpl });
     const app = runtime.application;
-    const currentVersion = "2026-10-28T15:13:44.167Z.b8b18eb66638";
+    const currentVersion = "2026-10-29T10:17:30.221Z.9ad757694b65";
 
     const kimi = app.searchModels({ query: "kimi-k3", include_inactive: true, limit: 10 });
     assert.equal(kimi.catalog_version, currentVersion);
@@ -101,7 +101,7 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
     await withClient(createMcpServer(createDefaultApplication()), async (client) => {
       const search = await call(client, "syntx_search_models", { include_inactive: true, limit: 100 });
       const metadata = search.structuredContent?.catalog_metadata as Record<string, unknown>;
-      assert.equal(metadata.fetched_at, "2026-10-28T15:13:44.167Z");
+      assert.equal(metadata.fetched_at, "2026-10-29T10:17:30.221Z");
       const summary = metadata.summary as Record<string, unknown>;
       assert.equal(summary.model_total, 211);
       assert.equal(summary.model_active, 173);
@@ -141,7 +141,7 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
 
       const retired = await call(client, "syntx_get_model", { model_id: "gpt-image-1" });
       const retiredModel = retired.structuredContent?.model as Record<string, unknown>;
-      assert.equal(retired.structuredContent?.catalog_version, "2026-10-28T15:13:44.167Z.b8b18eb66638");
+      assert.equal(retired.structuredContent?.catalog_version, "2026-10-29T10:17:30.221Z.9ad757694b65");
       assert.equal(retiredModel.active, false);
       assert.equal(retiredModel.default, false);
       assert.equal((retiredModel.settings as Record<string, unknown>).uploadable, true);
@@ -151,7 +151,7 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
       const schema = await call(client, "syntx_get_generation_schema", {
         model_id: "gpt-image-1", operation_id: "generate-image"
       });
-      assert.equal(schema.structuredContent?.catalog_version, "2026-10-28T15:13:44.167Z.b8b18eb66638");
+      assert.equal(schema.structuredContent?.catalog_version, "2026-10-29T10:17:30.221Z.9ad757694b65");
       assert.equal(schema.structuredContent?.schema_status, "BLOCKED");
       assert.deepEqual(schema.structuredContent?.blocked_reasons, ["MODEL_INACTIVE"]);
       assert.equal(schema.structuredContent?.runtime_usable, false);

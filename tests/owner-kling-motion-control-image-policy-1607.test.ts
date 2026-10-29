@@ -43,16 +43,18 @@ const invalid = (error: unknown) => error instanceof OwnerKlingMotionControlImag
 test("pins MCV source facts and the explicit local-only unknown-size cap", () => {
   assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.model_id, "kling_motion_control");
   assert.deepEqual(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.source_mime_types, ["image/jpeg","image/png","image/avif","image/webp"]);
+  assert.deepEqual(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.current_public_mime_types, ["image/jpeg","image/png","image/avif"]);
   assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.source_max_file_size_bytes, null);
-  assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.max_file_size_bytes, 64 * 1024 * 1024);
-  assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.size_limit_confidence, "LOCAL64MIB_CATALOG_SIZE_UNKNOWN");
+  assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.current_public_image_max_bytes, 10 * 1024 * 1024);
+  assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.max_file_size_bytes, 10 * 1024 * 1024);
+  assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.size_limit_confidence, "CURRENT_PUBLIC_10MIB_IMAGE_MAXIMUM_LOCAL_GUARD");
   assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.generation_permit, false);
   assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.owner_upload_binding, "NOT_ESTABLISHED");
   assert.equal(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.frame_role_binding, "NOT_ESTABLISHED");
 });
 
 test("accepts structurally inspected four source formats at 300px and snapshots bytes", () => {
-  const cases = [[jpeg(300,301),"image/jpeg"],[png(300,300),"image/png"],[avif(300,300),"image/avif"],[webp(300,300),"image/webp"]] as const;
+  const cases = [[jpeg(300,301),"image/jpeg"],[png(300,300),"image/png"],[avif(300,300),"image/avif"]] as const;
   for (const [bytes,mime] of cases) {
     const before=Buffer.from(bytes); let receipt;
     try { receipt=validateOwnerKlingMotionControlImage(input(bytes,mime)); } catch (error) { assert.fail(`${mime}: ${String(error)}`); }
@@ -61,6 +63,7 @@ test("accepts structurally inspected four source formats at 300px and snapshots 
     assert.equal(receipt.metadata_confidence,"STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED");
     assert.equal(isValidatedOwnerKlingMotionControlImage(receipt),true); releaseValidatedOwnerKlingMotionControlImage(receipt);
   }
+  assert.throws(()=>validateOwnerKlingMotionControlImage(input(webp(300,300),"image/webp")),invalid);
 });
 
 test("rejects 299px, mismatched MIME, and the unsupported JPG alias", () => {

@@ -10,7 +10,7 @@ const MAX_BYTES = 30 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(MAX_BYTES / 3) * 4;
 const MIN_SIDE = 300;
 const MAX_FILENAME_UTF8_BYTES = 255;
-const MIME_TYPES = Object.freeze(["image/jpeg", "image/jpg", "image/png", "image/avif", "image/webp"] as const);
+const MIME_TYPES = Object.freeze(["image/jpeg", "image/jpg", "image/png", "image/avif"] as const);
 const FILENAME_DELIMITERS = /[<>:"\/\\|?*]/u;
 const RESERVED_WINDOWS_BASENAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu;
 const VALIDATED_IMAGES = new WeakMap<object, Readonly<ValidatedState>>();
@@ -30,7 +30,7 @@ export const OWNER_KLING_I2V_IMAGE_INPUT_POLICY = Object.freeze({
 });
 
 export type OwnerKlingI2VMimeType = typeof MIME_TYPES[number];
-export type OwnerKlingI2VCanonicalMimeType = "image/jpeg" | "image/png" | "image/avif" | "image/webp";
+export type OwnerKlingI2VCanonicalMimeType = "image/jpeg" | "image/png" | "image/avif";
 
 export interface ValidatedOwnerKlingI2VImageInput {
   readonly filename: string;

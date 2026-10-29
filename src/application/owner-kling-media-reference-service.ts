@@ -14,7 +14,7 @@ import { isOwnerKlingMediaModelId, getOwnerKlingMediaSourceProfile, type OwnerKl
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const HANDLE = /^kling_media_reference_[0-9a-f-]{36}$/u;
-const MIME_IMAGE = ["image/jpeg", "image/jpg", "image/png", "image/avif", "image/webp"] as const;
+const MIME_IMAGE = ["image/jpeg", "image/jpg", "image/png", "image/avif"] as const;
 const MIME_VIDEO = ["video/mp4", "video/quicktime"] as const;
 const TTL_MS = 15 * 60_000;
 const MAX_VIDEO_BYTES_LOCAL = 100 * 1024 * 1024;
@@ -128,6 +128,7 @@ export class OwnerKlingMediaReferenceService {
       if (typeof req.mime !== "string" || !(MIME_IMAGE as readonly string[]).includes(req.mime)) fail("VALIDATION_REJECTED");
       const validated = validateOwnerKlingI2VImageBytes({ bytes: req.bytes, filename: req.filename, mime_type: req.mime });
       const image = readValidatedOwnerKlingI2VImageInput(validated); if (!image) fail("VALIDATION_REJECTED");
+      if (req.model === "kling_elements" && image.size > 10 * 1024 * 1024) { image.bytes.fill(0); fail("VALIDATION_REJECTED"); }
       const result = Object.freeze({ type: "image" as const, model_id: req.model, filename: image.filename, mime_type: image.mime_type, size: image.size,
         sha256: image.sha256, width: image.width, height: image.height, duration_seconds: null });
       image.bytes.fill(0); return result;

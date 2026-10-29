@@ -12,6 +12,7 @@ import {
   type PrivateOwnerAuthProfile
 } from "../auth/private-owner-auth-profile.js";
 import { isMainModule } from "./is-main.js";
+import { handoffPreparedUpdate, isSelfUpdateEnabled } from "../application/mcp-self-update-service.js";
 import { runStdioServer } from "./stdio.js";
 import { withOmittedAuthArguments } from "./omitted-auth-arguments.js";
 import { createOwnerDurableSessionManager } from "../runtime/owner-durable-session-manager.js";
@@ -44,6 +45,7 @@ import {readOwnerSwitchxVideoOperatorConfiguration} from "../runtime/owner-switc
 import { readOwnerActTwoFlag, readOwnerActTwoOperatorConfiguration } from "../runtime/owner-acttwo-stdio-config.js";
 import { readOwnerHeygen4OperatorConfiguration } from "../runtime/owner-heygen4-stdio-config.js";
 import { readOwnerHailuo02I2vFlag } from "../runtime/owner-hailuo02-i2v-stdio-config.js";
+import { isReviewedMediaFlagEnabled, resolveReviewedMediaBinaryPath } from "../runtime/reviewed-media-profile.js";
 
 const OWNER_IMAGE_REFERENCE_REGISTRY_VERSION =
   "sha256-0e5b7a6ab56a4fc5103c025690293297b49258c1c876d7a0a663ff7959099d39.json";
@@ -54,9 +56,15 @@ const CONTRACT_SCHEMA_VERSIONS = new Set(["1.0.0", "2.0.0"]);
 
 function readOwnerFlag(name: string): boolean {
   const value = process.env[name];
-  if (value === undefined || DISABLED_FLAG_VALUES.has(value)) return false;
+  if (value === undefined) return isReviewedMediaFlagEnabled(name, value, process.env);
+  if (DISABLED_FLAG_VALUES.has(value)) return false;
   if (value === "1") return true;
   throw new Error(`Invalid ${name} configuration.`);
+}
+
+function reviewedMediaFlagValue(name: string): string | undefined {
+  const value = process.env[name];
+  return value === undefined && isReviewedMediaFlagEnabled(name, value, process.env) ? "1" : value;
 }
 
 /** Strict default-off gate for the local Clarity paid generation composition. */
@@ -385,6 +393,10 @@ function readOwnerSoulCatalogShapeMaxItems(enabled: boolean): 20 | 128 {
 }
 
 export async function runObservedOwnerStdioServer(input: Readable = process.stdin): Promise<void> {
+  if (await handoffPreparedUpdate()) return;
+  if (process.env.SYNTX_SELF_UPDATE !== undefined && process.env.SYNTX_SELF_UPDATE !== "" && process.env.SYNTX_SELF_UPDATE !== "0" && process.env.SYNTX_SELF_UPDATE !== "1") {
+    throw new Error("Invalid SYNTX_SELF_UPDATE configuration.");
+  }
   // "" or "0" (a plausible way to write "disabled" in a client config) are
   // treated as not set, same as undefined; anything else invalid fails the
   // whole server loudly rather than silently misconfiguring one tool.
@@ -393,159 +405,160 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerImageReferencesEnabled = readOwnerFlag("SYNTX_OWNER_IMAGE_REFERENCES");
   const ownerGrokImageReferencesEnabled = readOwnerFlag("SYNTX_OWNER_GROK_IMAGE_REFERENCES");
   const ownerGrokT2iImageReferencesEnabled = readOwnerGrokT2iImageReferencesFlag(
-    process.env.SYNTX_OWNER_GROK_T2I_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_GROK_T2I_IMAGE_REFERENCES")
   );
-  const ownerUniImageReferencesEnabled = readOwnerUniImageReferencesFlag(process.env.SYNTX_OWNER_UNI_IMAGE_REFERENCES);
-  const ownerClarityUpscaleEnabled = readOwnerClarityUpscaleFlag(process.env.SYNTX_OWNER_CLARITY_UPSCALE);
-  const ownerMagnificUpscaleEnabled = readOwnerMagnificUpscaleFlag(process.env.SYNTX_OWNER_MAGNIFIC_UPSCALE);
+  const ownerUniImageReferencesEnabled = readOwnerUniImageReferencesFlag(reviewedMediaFlagValue("SYNTX_OWNER_UNI_IMAGE_REFERENCES"));
+  const ownerClarityUpscaleEnabled = readOwnerClarityUpscaleFlag(reviewedMediaFlagValue("SYNTX_OWNER_CLARITY_UPSCALE"));
+  const ownerMagnificUpscaleEnabled = readOwnerMagnificUpscaleFlag(reviewedMediaFlagValue("SYNTX_OWNER_MAGNIFIC_UPSCALE"));
   const ownerKontextImageReferencesEnabled = readOwnerKontextImageReferencesFlag(
-    process.env.SYNTX_OWNER_KONTEXT_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_KONTEXT_IMAGE_REFERENCES")
   );
   const ownerWanImageReferencesEnabled = readOwnerWanImageReferencesFlag(
-    process.env.SYNTX_OWNER_WAN_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_WAN_IMAGE_REFERENCES")
   );
   const ownerStandardImageReferencesEnabled = readOwnerStandardImageReferencesFlag(
-    process.env.SYNTX_OWNER_STANDARD_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_STANDARD_IMAGE_REFERENCES")
   );
   const ownerRunwayImageReferencesEnabled = readOwnerRunwayImageReferencesFlag(
-    process.env.SYNTX_OWNER_RUNWAY_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_RUNWAY_IMAGE_REFERENCES")
   );
   const ownerSeedreamImageReferencesEnabled = readOwnerSeedreamImageReferencesFlag(
-    process.env.SYNTX_OWNER_SEEDREAM_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_SEEDREAM_IMAGE_REFERENCES")
   );
   const ownerSeedreamEditorImageReferencesEnabled = readOwnerSeedreamEditorImageReferencesFlag(
-    process.env.SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES")
   );
-  const ownerWanT2vVideosEnabled = readOwnerWanT2vVideosFlag(process.env.SYNTX_OWNER_WAN_T2V_VIDEOS);
-  const ownerWan30FirstLastVideosEnabled = readOwnerWan30FirstLastVideosFlag(process.env.SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS);
-  const ownerWan30ReferenceVideosEnabled = readOwnerWan30ReferenceVideosFlag(process.env.SYNTX_OWNER_WAN30_REFERENCE_VIDEOS);
-  const ownerWan30OmniVideosEnabled = readOwnerWan30OmniVideosFlag(process.env.SYNTX_OWNER_WAN30_OMNI_VIDEOS);
-  const ownerWan30EditVideosEnabled = readOwnerWan30EditVideosFlag(process.env.SYNTX_OWNER_WAN30_EDIT_VIDEOS);
+  const ownerWanT2vVideosEnabled = readOwnerWanT2vVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN_T2V_VIDEOS"));
+  const ownerWan30FirstLastVideosEnabled = readOwnerWan30FirstLastVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS"));
+  const ownerWan30ReferenceVideosEnabled = readOwnerWan30ReferenceVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN30_REFERENCE_VIDEOS"));
+  const ownerWan30OmniVideosEnabled = readOwnerWan30OmniVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN30_OMNI_VIDEOS"));
+  const ownerWan30EditVideosEnabled = readOwnerWan30EditVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN30_EDIT_VIDEOS"));
   const ownerWan30EditOperatorConfiguration = readOwnerWan30EditOperatorConfiguration(
-    ownerWan30EditVideosEnabled, process.env.SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH
+    ownerWan30EditVideosEnabled, resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_WAN30_EDIT_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH)
   );
-  const ownerElevenLabsTtsEnabled = readOwnerElevenLabsTtsFlag(process.env.SYNTX_OWNER_ELEVENLABS_TTS);
+  const ownerElevenLabsTtsEnabled = readOwnerElevenLabsTtsFlag(reviewedMediaFlagValue("SYNTX_OWNER_ELEVENLABS_TTS"));
   const ownerElevenLabsDialogueEnabled = readOwnerFlag("SYNTX_OWNER_ELEVENLABS_DIALOGUE");
-  const ownerElevenLabsStsEnabled = readOwnerElevenLabsStsFlag(process.env.SYNTX_OWNER_ELEVENLABS_STS);
+  const ownerElevenLabsStsEnabled = readOwnerElevenLabsStsFlag(reviewedMediaFlagValue("SYNTX_OWNER_ELEVENLABS_STS"));
   const ownerElevenLabsStsOperatorConfiguration = readOwnerElevenLabsStsOperatorConfiguration(
     ownerElevenLabsStsEnabled,
-    process.env.SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH,
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
     process.env.SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION
   );
-  const ownerSunoGenerationEnabled = readOwnerSunoGenerationFlag(process.env.SYNTX_OWNER_SUNO_GENERATION);
-  const ownerTopazAstraEnabled = readOwnerTopazAstraFlag(process.env.SYNTX_OWNER_TOPAZ_ASTRA);
+  const ownerSunoGenerationEnabled = readOwnerSunoGenerationFlag(reviewedMediaFlagValue("SYNTX_OWNER_SUNO_GENERATION"));
+  const ownerTopazAstraEnabled = readOwnerTopazAstraFlag(reviewedMediaFlagValue("SYNTX_OWNER_TOPAZ_ASTRA"));
   const ownerTopazAstraOperatorConfiguration = readOwnerTopazAstraOperatorConfiguration(
     ownerTopazAstraEnabled,
-    process.env.SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH,
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_TOPAZ_ASTRA_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
     process.env.SYNTX_OWNER_TOPAZ_ASTRA_UPLOAD_DESTINATION
   );
-  const ownerTopazEnhanceEnabled = readOwnerTopazEnhanceFlag(process.env.SYNTX_OWNER_TOPAZ_ENHANCE);
+  const ownerTopazEnhanceEnabled = readOwnerTopazEnhanceFlag(reviewedMediaFlagValue("SYNTX_OWNER_TOPAZ_ENHANCE"));
   const ownerTopazEnhanceOperatorConfiguration = readOwnerTopazEnhanceOperatorConfiguration(
     ownerTopazEnhanceEnabled,
-    process.env.SYNTX_OWNER_TOPAZ_ENHANCE_FFPROBE_PATH,
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_TOPAZ_ENHANCE_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
     process.env.SYNTX_OWNER_TOPAZ_ENHANCE_UPLOAD_DESTINATION
   );
-  const ownerFlux3VideosEnabled = readOwnerFlux3VideoFlag(process.env.SYNTX_OWNER_FLUX3_VIDEOS);
+  const ownerFlux3VideosEnabled = readOwnerFlux3VideoFlag(reviewedMediaFlagValue("SYNTX_OWNER_FLUX3_VIDEOS"));
   const ownerFlux3VideoOperatorConfiguration = readOwnerFlux3VideoOperatorConfiguration(
     ownerFlux3VideosEnabled,
-    process.env.SYNTX_OWNER_FLUX3_FFPROBE_PATH,
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_FLUX3_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
     process.env.SYNTX_OWNER_FLUX3_UPLOAD_DESTINATION
   );
-  const ownerGrokV2vEnabled = readOwnerGrokV2vFlag(process.env.SYNTX_OWNER_GROK_V2V);
+  const ownerGrokV2vEnabled = readOwnerGrokV2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_GROK_V2V"));
   const ownerGrokV2vOperatorConfiguration = readOwnerGrokV2vOperatorConfiguration(
     ownerGrokV2vEnabled,
-    process.env.SYNTX_OWNER_GROK_V2V_FFPROBE_PATH,
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_GROK_V2V_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
     process.env.SYNTX_OWNER_GROK_V2V_UPLOAD_DESTINATION
   );
-  const ownerLumaT2vEnabled = readOwnerLumaT2vFlag(process.env.SYNTX_OWNER_LUMA_T2V);
-  const ownerHailuo01T2vEnabled = readOwnerHailuo01T2vFlag(process.env.SYNTX_OWNER_HAILUO01_T2V);
-  const ownerHailuo01DirectorT2vEnabled = readOwnerHailuo01DirectorT2vFlag(process.env.SYNTX_OWNER_HAILUO01_DIRECTOR_T2V);
-  const ownerHailuo23T2vEnabled = readOwnerHailuo23T2vFlag(process.env.SYNTX_OWNER_HAILUO23_T2V);
+  const ownerLumaT2vEnabled = readOwnerLumaT2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_LUMA_T2V"));
+  const ownerHailuo01T2vEnabled = readOwnerHailuo01T2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_HAILUO01_T2V"));
+  const ownerExpandedT2vEnabled = readOwnerFlag("SYNTX_OWNER_EXPANDED_T2V");
+  const ownerHailuo01DirectorT2vEnabled = readOwnerHailuo01DirectorT2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_HAILUO01_DIRECTOR_T2V"));
+  const ownerHailuo23T2vEnabled = readOwnerHailuo23T2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_HAILUO23_T2V"));
   const ownerHailuo02T2vEnabled = readOwnerFlag("SYNTX_OWNER_HAILUO02_T2V");
   const ownerSeedance20T2vEnabled = readOwnerFlag("SYNTX_OWNER_SEEDANCE20_T2V");
   const ownerSeedance25T2vEnabled = readOwnerFlag("SYNTX_OWNER_SEEDANCE25_T2V");
   const ownerKlingT2vEnabled = readOwnerFlag("SYNTX_OWNER_KLING_T2V");
   const ownerKlingI2vEnabled = readOwnerFlag("SYNTX_OWNER_KLING_I2V");
-  const ownerKlingKeyframesEnabled = readOwnerKlingKeyframesFlag(process.env.SYNTX_OWNER_KLING_KEYFRAMES);
-  const ownerKlingMotionControlEnabled = readOwnerKlingMotionControlFlag(process.env.SYNTX_OWNER_KLING_MOTION_CONTROL);
+  const ownerKlingKeyframesEnabled = readOwnerKlingKeyframesFlag(reviewedMediaFlagValue("SYNTX_OWNER_KLING_KEYFRAMES"));
+  const ownerKlingMotionControlEnabled = readOwnerKlingMotionControlFlag(reviewedMediaFlagValue("SYNTX_OWNER_KLING_MOTION_CONTROL"));
   const ownerKlingMotionControlFfprobePath = readOwnerKlingMotionControlFfprobePath(
-    ownerKlingMotionControlEnabled, process.env.SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH
+    ownerKlingMotionControlEnabled, resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_KLING_MOTION_CONTROL_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH)
   );
-  const ownerHailuo02I2vEnabled = readOwnerHailuo02I2vFlag(process.env.SYNTX_OWNER_HAILUO02_I2V);
+  const ownerHailuo02I2vEnabled = readOwnerHailuo02I2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_HAILUO02_I2V"));
   const ownerVeoT2vEnabled = readOwnerFlag("SYNTX_OWNER_VEO_T2V");
   const ownerVeoOmniT2vEnabled = readOwnerFlag("SYNTX_OWNER_VEO_OMNI_T2V");
-  const ownerVeoOmniReferencesEnabled = readOwnerVeoOmniReferenceFlag(process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES);
+  const ownerVeoOmniReferencesEnabled = readOwnerVeoOmniReferenceFlag(reviewedMediaFlagValue("SYNTX_OWNER_VEO_OMNI_REFERENCES"));
   const ownerVeoOmniReferencesOperator = readOwnerVeoOmniReferenceOperatorConfiguration(ownerVeoOmniReferencesEnabled,
-    process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH, process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES);
-  const ownerKling4Enabled = readOwnerKling4Flag(process.env.SYNTX_OWNER_KLING4);
-  const ownerWan27VideoEditEnabled = readOwnerWan27VideoEditFlag(process.env.SYNTX_OWNER_WAN27_VIDEOEDIT);
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH), process.env.SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES);
+  const ownerKling4Enabled = readOwnerKling4Flag(reviewedMediaFlagValue("SYNTX_OWNER_KLING4"));
+  const ownerWan27VideoEditEnabled = readOwnerWan27VideoEditFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN27_VIDEOEDIT"));
   const ownerWan27VideoEditOperator = readOwnerWan27VideoEditOperatorConfiguration(ownerWan27VideoEditEnabled,
-    process.env.SYNTX_OWNER_WAN27_VIDEOEDIT_FFPROBE_PATH, process.env.SYNTX_OWNER_WAN27_VIDEOEDIT_MAX_VIDEO_FILE_BYTES);
-  const ownerSeedanceEditorEnabled = readOwnerSeedanceEditorFlag(process.env.SYNTX_OWNER_SEEDANCE_EDITOR);
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_WAN27_VIDEOEDIT_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH), process.env.SYNTX_OWNER_WAN27_VIDEOEDIT_MAX_VIDEO_FILE_BYTES);
+  const ownerSeedanceEditorEnabled = readOwnerSeedanceEditorFlag(reviewedMediaFlagValue("SYNTX_OWNER_SEEDANCE_EDITOR"));
   const ownerSeedanceEditorOperator = readOwnerSeedanceEditorOperatorConfiguration(ownerSeedanceEditorEnabled,
-    process.env.SYNTX_OWNER_SEEDANCE_EDITOR_FFPROBE_PATH, process.env.SYNTX_OWNER_SEEDANCE_EDITOR_MAX_VIDEO_FILE_BYTES);
-  const ownerRunwayI2vEnabled = readOwnerRunwayI2vFlag(process.env.SYNTX_OWNER_RUNWAY_I2V);
-  const ownerGrokI2vEnabled = readOwnerGrokI2vFlag(process.env.SYNTX_OWNER_GROK_I2V);
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_SEEDANCE_EDITOR_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH), process.env.SYNTX_OWNER_SEEDANCE_EDITOR_MAX_VIDEO_FILE_BYTES);
+  const ownerRunwayI2vEnabled = readOwnerRunwayI2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_RUNWAY_I2V"));
+  const ownerGrokI2vEnabled = readOwnerGrokI2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_GROK_I2V"));
   const ownerGrokI2vOperator = readOwnerGrokI2vOperatorConfiguration(ownerGrokI2vEnabled,
     process.env.SYNTX_OWNER_GROK_I2V_UPLOAD_DESTINATION);
-  const ownerWan25T2vEnabled = readOwnerWan25T2vFlag(process.env.SYNTX_OWNER_WAN25_T2V_PREVIEW);
-  const ownerHiggsfieldDopEnabled = readOwnerHiggsfieldDopFlag(process.env.SYNTX_OWNER_HIGGSFIELD_DOP);
+  const ownerWan25T2vEnabled = readOwnerWan25T2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN25_T2V_PREVIEW"));
+  const ownerHiggsfieldDopEnabled = readOwnerHiggsfieldDopFlag(reviewedMediaFlagValue("SYNTX_OWNER_HIGGSFIELD_DOP"));
   const ownerHiggsfieldDopOperator = readOwnerHiggsfieldDopOperatorConfiguration(ownerHiggsfieldDopEnabled,process.env.SYNTX_OWNER_HIGGSFIELD_DOP_UPLOAD_DESTINATION);
-  const ownerHailuoInitialEnabled = readOwnerHailuoInitialFlag(process.env.SYNTX_OWNER_HAILUO_INITIAL);
+  const ownerHailuoInitialEnabled = readOwnerHailuoInitialFlag(reviewedMediaFlagValue("SYNTX_OWNER_HAILUO_INITIAL"));
   const ownerHailuoInitialOperator = readOwnerHailuoInitialOperatorConfiguration(ownerHailuoInitialEnabled,process.env.SYNTX_OWNER_HAILUO_INITIAL_UPLOAD_DESTINATION);
-  const ownerHappyHorseEnabled = readOwnerHappyHorseFlag(process.env.SYNTX_OWNER_HAPPY_HORSE);
+  const ownerHappyHorseEnabled = readOwnerHappyHorseFlag(reviewedMediaFlagValue("SYNTX_OWNER_HAPPY_HORSE"));
   const ownerHappyHorseOperator = readOwnerHappyHorseOperatorConfiguration(ownerHappyHorseEnabled,
-    process.env.SYNTX_OWNER_HAPPY_HORSE_UPLOAD_DESTINATION,process.env.SYNTX_OWNER_HAPPY_HORSE_FFPROBE_PATH);
-  const ownerWan27I2vEnabled = readOwnerWan27I2vFlag(process.env.SYNTX_OWNER_WAN27_I2V);
+    process.env.SYNTX_OWNER_HAPPY_HORSE_UPLOAD_DESTINATION,resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_HAPPY_HORSE_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH));
+  const ownerWan27I2vEnabled = readOwnerWan27I2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN27_I2V"));
   const ownerWan27I2vOperator = readOwnerWan27I2vOperatorConfiguration(ownerWan27I2vEnabled,process.env.SYNTX_OWNER_WAN27_I2V_UPLOAD_DESTINATION);
-  const ownerKlingMediaEnabled=readOwnerKlingMediaFlag(process.env.SYNTX_OWNER_KLING_MEDIA);
+  const ownerKlingMediaEnabled=readOwnerKlingMediaFlag(reviewedMediaFlagValue("SYNTX_OWNER_KLING_MEDIA"));
   const ownerKlingMediaOperator=readOwnerKlingMediaOperatorConfiguration(ownerKlingMediaEnabled,
-    process.env.SYNTX_OWNER_KLING_MEDIA_UPLOAD_DESTINATION,process.env.SYNTX_OWNER_KLING_MEDIA_FFPROBE_PATH);
+    process.env.SYNTX_OWNER_KLING_MEDIA_UPLOAD_DESTINATION,resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_KLING_MEDIA_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH));
   const ownerSwitchxVideoEnabled=readOwnerFlag("SYNTX_OWNER_SWITCHX_VIDEO");
   const ownerSwitchxVideoOperator=readOwnerSwitchxVideoOperatorConfiguration(ownerSwitchxVideoEnabled,
-    process.env.SYNTX_OWNER_SWITCHX_VIDEO_UPLOAD_DESTINATION,process.env.SYNTX_OWNER_SWITCHX_VIDEO_FFPROBE_PATH);
-  const ownerActTwoEnabled = readOwnerActTwoFlag(process.env.SYNTX_OWNER_ACTTWO);
+    process.env.SYNTX_OWNER_SWITCHX_VIDEO_UPLOAD_DESTINATION,resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_SWITCHX_VIDEO_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH));
+  const ownerActTwoEnabled = readOwnerActTwoFlag(reviewedMediaFlagValue("SYNTX_OWNER_ACTTWO"));
   const ownerActTwoOperator = readOwnerActTwoOperatorConfiguration(ownerActTwoEnabled,
-    process.env.SYNTX_OWNER_ACTTWO_UPLOAD_DESTINATION, process.env.SYNTX_OWNER_ACTTWO_FFPROBE_PATH);
-  const ownerHeygen4Enabled = readOwnerHeygen4Flag(process.env.SYNTX_OWNER_HEYGEN4);
-  const ownerHeygen4Operator = readOwnerHeygen4OperatorConfiguration(ownerHeygen4Enabled, process.env.SYNTX_OWNER_HEYGEN4_FFPROBE_PATH);
-  const ownerExistingVideoRecoveryEnabled = readOwnerExistingVideoRecoveryFlag(process.env.SYNTX_OWNER_EXISTING_VIDEO_RECOVERY);
+    process.env.SYNTX_OWNER_ACTTWO_UPLOAD_DESTINATION, resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_ACTTWO_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH));
+  const ownerHeygen4Enabled = readOwnerHeygen4Flag(reviewedMediaFlagValue("SYNTX_OWNER_HEYGEN4"));
+  const ownerHeygen4Operator = readOwnerHeygen4OperatorConfiguration(ownerHeygen4Enabled, resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_HEYGEN4_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH));
+  const ownerExistingVideoRecoveryEnabled = readOwnerExistingVideoRecoveryFlag(reviewedMediaFlagValue("SYNTX_OWNER_EXISTING_VIDEO_RECOVERY"));
   const ownerKling4Operator = readOwnerKling4OperatorConfiguration(ownerKling4Enabled,
-    process.env.SYNTX_OWNER_KLING4_FFPROBE_PATH, process.env.SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES);
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_KLING4_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH), process.env.SYNTX_OWNER_KLING4_MAX_VIDEO_FILE_BYTES);
   const ownerGrokT2vEnabled = readOwnerFlag("SYNTX_OWNER_GROK_T2V");
   const ownerHailuoLiveT2vEnabled = readOwnerFlag("SYNTX_OWNER_HAILUO_LIVE_T2V");
-  const ownerVideo2AudioEnabled = readOwnerVideo2AudioFlag(process.env.SYNTX_OWNER_VIDEO2AUDIO);
+  const ownerVideo2AudioEnabled = readOwnerVideo2AudioFlag(reviewedMediaFlagValue("SYNTX_OWNER_VIDEO2AUDIO"));
   const ownerFluxImageReferencesEnabled = readOwnerFluxImageReferencesFlag(
-    process.env.SYNTX_OWNER_FLUX_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_FLUX_IMAGE_REFERENCES")
   );
   const ownerIdeogramImageReferencesEnabled = readOwnerIdeogramImageReferencesFlag(
-    process.env.SYNTX_OWNER_IDEOGRAM_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_IDEOGRAM_IMAGE_REFERENCES")
   );
   const ownerSoulCatalogShapeEnabled = readOwnerFlag("SYNTX_OWNER_SOUL_CATALOG_SHAPE");
   const ownerSoulCatalogShapeMaxItems = readOwnerSoulCatalogShapeMaxItems(ownerSoulCatalogShapeEnabled);
   const ownerSoulStyleOptionsEnabled = readOwnerFlag("SYNTX_OWNER_SOUL_STYLE_OPTIONS");
-  const ownerSoulImageReferencesEnabled = readOwnerSoulImageReferencesFlag(process.env.SYNTX_OWNER_SOUL_IMAGE_REFERENCES);
-  const ownerWanT2iImageEnabled = readOwnerWanT2iImageFlag(process.env.SYNTX_OWNER_WAN_T2I_IMAGE);
+  const ownerSoulImageReferencesEnabled = readOwnerSoulImageReferencesFlag(reviewedMediaFlagValue("SYNTX_OWNER_SOUL_IMAGE_REFERENCES"));
+  const ownerWanT2iImageEnabled = readOwnerWanT2iImageFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN_T2I_IMAGE"));
   const ownerBananaInpaintImageReferencesEnabled = readOwnerBananaInpaintImageReferencesFlag(
-    process.env.SYNTX_OWNER_BANANA_INPAINT_IMAGE_REFERENCES
+    reviewedMediaFlagValue("SYNTX_OWNER_BANANA_INPAINT_IMAGE_REFERENCES")
   );
-  const ownerWan27R2vEnabled = readOwnerWan27R2vFlag(process.env.SYNTX_OWNER_WAN27_R2V);
+  const ownerWan27R2vEnabled = readOwnerWan27R2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN27_R2V"));
   const ownerWan27R2vOperatorConfiguration = readOwnerWan27R2vOperatorConfiguration(
     ownerWan27R2vEnabled,
-    process.env.SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH,
-    process.env.SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH, process.env.SYNTX_MEDIA_FFMPEG_PATH)
   );
-  const ownerWan26I2vEnabled = readOwnerWan26I2vFlag(process.env.SYNTX_OWNER_WAN26_I2V);
+  const ownerWan26I2vEnabled = readOwnerWan26I2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN26_I2V"));
   const ownerWan26I2vOperatorConfiguration = readOwnerWan26I2vOperatorConfiguration(
-    ownerWan26I2vEnabled, process.env.SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH
+    ownerWan26I2vEnabled, resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_WAN26_I2V_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH)
   );
-  const ownerWan26R2vEnabled = readOwnerWan26R2vFlag(process.env.SYNTX_OWNER_WAN26_R2V);
+  const ownerWan26R2vEnabled = readOwnerWan26R2vFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN26_R2V"));
   const ownerWan26R2vOperatorConfiguration = readOwnerWan26R2vOperatorConfiguration(
     ownerWan26R2vEnabled,
-    process.env.SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH,
-    process.env.SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_WAN26_R2V_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_WAN26_R2V_FFMPEG_PATH, process.env.SYNTX_MEDIA_FFMPEG_PATH)
   );
-  const ownerWan25I2vPreviewEnabled = readOwnerWan25I2vPreviewFlag(process.env.SYNTX_OWNER_WAN25_I2V_PREVIEW);
+  const ownerWan25I2vPreviewEnabled = readOwnerWan25I2vPreviewFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN25_I2V_PREVIEW"));
   const accountStatusEnabled = readOwnerFlag("SYNTX_OWNER_ACCOUNT_STATUS");
   const uploadedFilesEnabled = readOwnerFlag("SYNTX_OWNER_UPLOADED_FILES");
   const uploadFileEnabled = readOwnerFlag("SYNTX_OWNER_UPLOAD_FILE");
@@ -562,6 +575,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         ownerSunoGenerationEnabled || ownerTopazAstraEnabled || ownerTopazEnhanceEnabled || ownerFlux3VideosEnabled || ownerGrokV2vEnabled || ownerWan27R2vEnabled || ownerWan26I2vEnabled || ownerWan26R2vEnabled || ownerWan25I2vPreviewEnabled ||
         ownerLumaT2vEnabled ||
         ownerHailuo01T2vEnabled ||
+        ownerExpandedT2vEnabled ||
         ownerHailuo01DirectorT2vEnabled ||
         ownerHailuo23T2vEnabled || ownerHailuo02T2vEnabled || ownerSeedance20T2vEnabled || ownerSeedance25T2vEnabled || ownerKlingT2vEnabled || ownerKlingI2vEnabled || ownerKlingKeyframesEnabled || ownerKlingMotionControlEnabled || ownerHailuo02I2vEnabled || ownerVeoT2vEnabled || ownerVeoOmniT2vEnabled || ownerGrokT2vEnabled || ownerHailuoLiveT2vEnabled ||
         ownerVideo2AudioEnabled ||
@@ -671,6 +685,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerWan25I2vPreviewEnabled,
       ownerLumaT2vEnabled,
       ownerHailuo01T2vEnabled,
+      ownerExpandedT2vEnabled,
       ownerHailuo01DirectorT2vEnabled,
       ownerHailuo23T2vEnabled,
       ownerHailuo02T2vEnabled,
@@ -808,7 +823,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           fluxImageReferencesService === undefined && ideogramImageReferencesService === undefined &&
           bananaInpaintImageGenerationService === undefined && hailuo02I2vGenerationService === undefined && wan27R2vReferencesService === undefined && wan26I2vService === undefined && wan26R2vService === undefined && wan25I2vPreviewService === undefined &&
           klingMotionControlReferenceService === undefined && klingMotionControlPresetReferenceService === undefined && klingMotionControlGenerationService === undefined) {
-        await runStdioServer(runtime.application, runtime.serverOptions);
+        await runStdioServer(runtime.application, { ...runtime.serverOptions, selfUpdateApply: isSelfUpdateEnabled() });
         return;
       }
       const server = createMcpServer(runtime.application, runtime.serverOptions);
@@ -839,7 +854,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           topazEnhanceGenerationService !== undefined ||
           flux3VideoGenerationService !== undefined ||
           grokV2vGenerationService !== undefined ||
-          hailuo01T2vGenerationService !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined || hailuo02T2vGenerationService !== undefined || seedance20T2vGenerationService !== undefined || klingT2vGenerationService !== undefined || klingI2vGenerationService !== undefined || veoT2vGenerationService !== undefined ||
+          hailuo01T2vGenerationService !== undefined || runtime.serverOptions.ownerExpandedT2v !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined || hailuo02T2vGenerationService !== undefined || seedance20T2vGenerationService !== undefined || klingT2vGenerationService !== undefined || klingI2vGenerationService !== undefined || veoT2vGenerationService !== undefined ||
           video2AudioGenerationService !== undefined || hailuo02I2vGenerationService !== undefined || wan25I2vPreviewService !== undefined || klingMotionControlReferenceService !== undefined ||
           klingMotionControlPresetReferenceService !== undefined || klingMotionControlGenerationService !== undefined,
         wanT2iImageGenerationService,
@@ -865,7 +880,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerTopazAstraLifecycle,
         runtime.ownerHailuo02I2vLifecycle,
         runtime.ownerWan27R2vLifecycle,
-        combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle, runtime.ownerRunwayI2vLifecycle, runtime.ownerGrokI2vLifecycle,runtime.ownerWan25T2vLifecycle,runtime.ownerHiggsfieldDopLifecycle,runtime.ownerHailuoInitialLifecycle,runtime.ownerHappyHorseLifecycle,runtime.ownerWan27I2vLifecycle,runtime.ownerSeedance25T2vLifecycle,runtime.ownerKlingMediaLifecycle,runtime.ownerSwitchxVideoLifecycle,runtime.ownerActTwoLifecycle,runtime.ownerHeygen4Lifecycle,runtime.ownerExistingVideoRecoveryLifecycle),
+        combineOwnerServiceLifecycles(runtime.ownerExpandedT2vLifecycle, runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle, runtime.ownerRunwayI2vLifecycle, runtime.ownerGrokI2vLifecycle,runtime.ownerWan25T2vLifecycle,runtime.ownerHiggsfieldDopLifecycle,runtime.ownerHailuoInitialLifecycle,runtime.ownerHappyHorseLifecycle,runtime.ownerWan27I2vLifecycle,runtime.ownerSeedance25T2vLifecycle,runtime.ownerKlingMediaLifecycle,runtime.ownerSwitchxVideoLifecycle,runtime.ownerActTwoLifecycle,runtime.ownerHeygen4Lifecycle,runtime.ownerExistingVideoRecoveryLifecycle),
         runtime.ownerWan26I2vLifecycle,
         runtime.ownerWan25I2vPreviewLifecycle,
         runtime.ownerWan26R2vLifecycle,
@@ -881,7 +896,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       return;
     }
 
-    let serverOptions = runtime.serverOptions;
+    let serverOptions = { ...runtime.serverOptions, selfUpdateApply: isSelfUpdateEnabled() };
     if (ownerDurableGenerationEnabled) {
       const managerPromise = createOwnerDurableSessionManager({
         authProfile: privateAuthProfile,
@@ -1008,7 +1023,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           soulImageGenerationService !== undefined || wanT2iImageGenerationService !== undefined ||
             bananaInpaintImageGenerationService !== undefined || seedreamEditorImageReferencesService !== undefined ||
             elevenLabsTtsService !== undefined || elevenLabsDialogueService !== undefined || sunoGenerationService !== undefined || topazAstraGenerationService !== undefined || topazEnhanceGenerationService !== undefined || flux3VideoGenerationService !== undefined || grokV2vGenerationService !== undefined || lumaT2vGenerationService !== undefined ||
-            hailuo01T2vGenerationService !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined || hailuo02T2vGenerationService !== undefined || seedance20T2vGenerationService !== undefined || klingT2vGenerationService !== undefined || klingI2vGenerationService !== undefined || veoT2vGenerationService !== undefined ||
+            hailuo01T2vGenerationService !== undefined || runtime.serverOptions.ownerExpandedT2v !== undefined || hailuo01DirectorT2vGenerationService !== undefined || hailuo23T2vGenerationService !== undefined || hailuo02T2vGenerationService !== undefined || seedance20T2vGenerationService !== undefined || klingT2vGenerationService !== undefined || klingI2vGenerationService !== undefined || veoT2vGenerationService !== undefined ||
             video2AudioGenerationService !== undefined || hailuo02I2vGenerationService !== undefined || wan27R2vGenerationService !== undefined || wan25I2vPreviewService !== undefined ||
             klingMotionControlReferenceService !== undefined || klingMotionControlPresetReferenceService !== undefined || klingMotionControlGenerationService !== undefined,
           wanT2iImageGenerationService,
@@ -1034,7 +1049,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerTopazAstraLifecycle,
           runtime.ownerHailuo02I2vLifecycle,
           runtime.ownerWan27R2vLifecycle,
-          combineOwnerServiceLifecycles(runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle, runtime.ownerRunwayI2vLifecycle, runtime.ownerGrokI2vLifecycle,runtime.ownerWan25T2vLifecycle,runtime.ownerHiggsfieldDopLifecycle,runtime.ownerHailuoInitialLifecycle,runtime.ownerHappyHorseLifecycle,runtime.ownerWan27I2vLifecycle,runtime.ownerSeedance25T2vLifecycle,runtime.ownerKlingMediaLifecycle,runtime.ownerSwitchxVideoLifecycle,runtime.ownerActTwoLifecycle,runtime.ownerHeygen4Lifecycle,runtime.ownerExistingVideoRecoveryLifecycle),
+          combineOwnerServiceLifecycles(runtime.ownerExpandedT2vLifecycle, runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle, runtime.ownerRunwayI2vLifecycle, runtime.ownerGrokI2vLifecycle,runtime.ownerWan25T2vLifecycle,runtime.ownerHiggsfieldDopLifecycle,runtime.ownerHailuoInitialLifecycle,runtime.ownerHappyHorseLifecycle,runtime.ownerWan27I2vLifecycle,runtime.ownerSeedance25T2vLifecycle,runtime.ownerKlingMediaLifecycle,runtime.ownerSwitchxVideoLifecycle,runtime.ownerActTwoLifecycle,runtime.ownerHeygen4Lifecycle,runtime.ownerExistingVideoRecoveryLifecycle),
           runtime.ownerWan26I2vLifecycle,
           runtime.ownerWan25I2vPreviewLifecycle,
           runtime.ownerWan26R2vLifecycle,

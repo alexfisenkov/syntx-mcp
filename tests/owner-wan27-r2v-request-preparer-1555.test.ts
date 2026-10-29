@@ -131,6 +131,14 @@ test("candidate contains a source-reviewed semantic fingerprint and private exac
       assert.equal(imageOnly.selected_video_reference_count, 0);
       assert.equal(h.preparer.getPrivateRequest(imageOnly).settings.duration, 0);
     }
+    const sixImageManifest = await makeManifest(h.referenceService, ATTEMPT, Array.from({ length: 6 }, () => bytes));
+    const sixImageCandidate = await h.preparer.prepare(currentInput(ATTEMPT, sixImageManifest.manifest_handle));
+    assert.equal(sixImageCandidate.image_reference_count, 6);
+    assert.equal(sixImageCandidate.selected_video_reference_count, 0);
+    assert.equal(sixImageCandidate.input_references.length, 6);
+    assert.equal(h.preparer.getPrivateRequest(sixImageCandidate).settings.file_urls.length, 1);
+    await assert.rejects(makeManifest(h.referenceService, ATTEMPT, Array.from({ length: 7 }, () => bytes)),
+      isPreparerError("CAPACITY_EXCEEDED"));
 
     const inlinePrompt = `Use <<<https://r2.syntx.ai/wan27/${ATTEMPT}.png>>>; keep <<<https://outside.example/foreign.png>>> as text.`;
     const prompted = await h.preparer.prepare(currentInput(ATTEMPT, firstManifest.manifest_handle, inlinePrompt));
@@ -239,6 +247,8 @@ test("selected video duration derives from frame-aligned selected seconds and ro
       assert.equal(sizedCandidate.selected_video_reference_count, 1);
       assert.equal(sizedCandidate.image_reference_count, imageCount);
     }
+    await assert.rejects(makeManifest(h.referenceService, ATTEMPT, Array.from({ length: 5 }, () => bytes), 1, crops[0]),
+      isPreparerError("CAPACITY_EXCEEDED"));
   } finally {
     await h.preparer.close(); await h.referenceService.close();
     for (const crop of crops) releaseTrustedOwnerWan27R2vVideoCropReceipt(crop);

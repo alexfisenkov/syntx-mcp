@@ -17,7 +17,7 @@ const VIDEO_HANDLE = /^kling_motion_control_video_[0-9a-f-]{36}$/u;
 const TTL = 15 * 60_000;
 const MAX_RECORDS = 128;
 const MAX_PENDING = 4;
-const MAX_IMAGE_BASE64 = Math.ceil(64 * 1024 * 1024 / 3) * 4;
+const MAX_IMAGE_BASE64 = Math.ceil(10 * 1024 * 1024 / 3) * 4;
 const MAX_VIDEO_BASE64 = Math.ceil(100 * 1024 * 1024 / 3) * 4;
 const NATIVE_IMAGE = SyntxChatHttpClient.prototype.uploadKlingMotionControlImage;
 const NATIVE_VIDEO = SyntxChatHttpClient.prototype.uploadKlingMotionControlVideo;
@@ -26,7 +26,7 @@ const IMAGE_RESOLUTIONS = new WeakMap<object, { service: OwnerKlingMotionControl
 const PAIR_RESOLUTIONS = new WeakMap<object, { service: OwnerKlingMotionControlReferenceService; image: ImageRecord; video: VideoRecord }>();
 
 export const OWNER_KLING_MOTION_CONTROL_REFERENCE_INPUT_LIMITS = Object.freeze({
-  image_max_bytes: 64 * 1024 * 1024, video_max_bytes: 100 * 1024 * 1024,
+  image_max_bytes: 10 * 1024 * 1024, video_max_bytes: 100 * 1024 * 1024,
   image_max_base64_chars: MAX_IMAGE_BASE64, video_max_base64_chars: MAX_VIDEO_BASE64
 });
 

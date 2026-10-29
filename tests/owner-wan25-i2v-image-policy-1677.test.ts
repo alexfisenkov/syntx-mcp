@@ -53,6 +53,7 @@ test("pins one exact preview image and C396 image bounds as local non-authority 
   assert.equal(OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY.max_file_size_bytes, 10 * 1024 * 1024);
   assert.equal(OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY.min_side, 384);
   assert.equal(OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY.max_side, 5_000);
+  assert.equal(OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY.current_public_max_side, 8_000);
   assert.equal(OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY.bounds_policy,
     "C396_CATALOG_LOCAL_GUARD_NOT_CURRENT_PROVIDER_LIMIT_OR_ACCEPTANCE");
   assert.equal(OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY.metadata_confidence, "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED");
@@ -83,13 +84,13 @@ test("accepts the five C396 image MIME spellings and canonicalizes the JPG alias
   }
 });
 
-test("enforces inclusive 384–5000 side bounds and the 10 MiB local byte guard", () => {
-  for (const [width, height] of [[384, 384], [5_000, 384], [384, 5_000]] as const) {
+test("enforces inclusive 384–8000 side bounds and the 10 MiB local byte guard", () => {
+  for (const [width, height] of [[384, 384], [8_000, 384], [384, 8_000]] as const) {
     const receipt = validateOwnerWan25I2vPreviewImage(input(png(width, height), "image/png", "edge.png"));
     assert.equal(receipt.width, width); assert.equal(receipt.height, height);
     assert.equal(releaseValidatedOwnerWan25I2vPreviewImage(receipt), true);
   }
-  for (const [width, height] of [[383, 384], [5_001, 384], [384, 383], [384, 5_001]] as const) {
+  for (const [width, height] of [[383, 384], [8_001, 384], [384, 383], [384, 8_001]] as const) {
     assert.throws(() => validateOwnerWan25I2vPreviewImage(input(png(width, height), "image/png")), invalid);
   }
   assert.throws(() => validateOwnerWan25I2vPreviewImage(input(Buffer.alloc(10 * 1024 * 1024 + 1), "image/png")),

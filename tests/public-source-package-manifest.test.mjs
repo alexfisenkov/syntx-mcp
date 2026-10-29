@@ -23,7 +23,7 @@ const baseManifest = (overrides = {}) => ({
   source_commit: "b".repeat(40),
   included_paths: ["README.md", catalogFixturePath, "package.json", "src/index.ts"],
   excluded_paths: [...PUBLIC_SOURCE_PRIVATE_RECEIPT_PATHS].sort(),
-  excluded_roots: [".autopilot", ".журналы", "docs/контроль", "docs/проект"],
+  excluded_roots: [".aispa-work", ".autopilot", ".журналы", "docs/контроль", "docs/проект"],
   file_sha256: { "README.md": digest, [catalogFixturePath]: digest, "package.json": digest, "src/index.ts": digest },
   ...overrides
 });
@@ -121,7 +121,7 @@ test("manifest rejects dotenv, git metadata, database, private-key, and media so
 });
 
 test("manifest rejects owner receipts and private documentation in public inclusion", () => {
-  for (const path of [PUBLIC_SOURCE_PRIVATE_RECEIPT_PATHS[0], ".autopilot/result.md", ".AUTOPILOT/result.md", ".журналы/live.md", "docs/проект/plan.md", "docs/контроль/audit.md", "docs/private-account.json", "skills/scripts/foo-private.json"]) {
+  for (const path of [PUBLIC_SOURCE_PRIVATE_RECEIPT_PATHS[0], ".aispa-work/private-run.md", ".autopilot/result.md", ".AUTOPILOT/result.md", ".журналы/live.md", "docs/проект/plan.md", "docs/контроль/audit.md", "docs/private-account.json", "skills/scripts/foo-private.json"]) {
     const included = ["README.md", path].sort();
     assert.throws(() => validatePublicSourceManifest(baseManifest({
       included_paths: included,
@@ -145,7 +145,7 @@ test("public package paths must contain manifest and all listed files while excl
   assert.equal(assertPublicSourcePackagePaths(manifest, new Set([
     "publication-manifest.json", "README.md", catalogFixturePath, "dist/src/index.js", "package.json"
   ])).historical_owner_proofs, "NOT_DISTRIBUTED");
-  for (const forbidden of [PUBLIC_SOURCE_PRIVATE_RECEIPT_PATHS[0], ".autopilot/result.md", "docs/проект/private.md"]) {
+  for (const forbidden of [PUBLIC_SOURCE_PRIVATE_RECEIPT_PATHS[0], ".aispa-work/private-run.md", ".autopilot/result.md", "docs/проект/private.md"]) {
     assert.throws(() => assertPublicSourcePackagePaths(manifest, ["publication-manifest.json", "README.md", catalogFixturePath, "dist/src/index.js", forbidden]), /PUBLIC_PACKAGE_CONTENT_MISMATCH/u);
   }
   assert.throws(() => assertPublicSourcePackagePaths(manifest, ["README.md", catalogFixturePath, "dist/src/index.js"]), /PUBLIC_PACKAGE_CONTENT_MISMATCH/u);

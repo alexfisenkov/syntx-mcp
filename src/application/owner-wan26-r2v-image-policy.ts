@@ -3,11 +3,13 @@ import { types } from "node:util";
 import { inspectBoundedOwnerImageBytesWithMax } from "./owner-image-reference-input-validator.js";
 import { inspectBoundedOwnerWanBmp } from "./owner-wan-bmp-inspector.js";
 
-const CATALOG_MAX_FILE_BYTES = 1_048_576_000;
+const PINNED_CATALOG_MAX_FILE_BYTES = 1_048_576_000;
+const CURRENT_PUBLIC_MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_LOCAL_RESOURCE_BYTES = 64 * 1024 * 1024;
 const MAX_BMP_INSPECTOR_BYTES = 20 * 1024 * 1024;
 const MIN_SIDE = 384;
-const MAX_SIDE = 5_000;
+const PINNED_MAX_SIDE = 5_000;
+const CURRENT_PUBLIC_MAX_SIDE = 4_096;
 const MAX_FILENAME_UTF8_BYTES = 255;
 const MODEL_IDS = Object.freeze(["wan_26_r2v", "wan_26_r2v_flash"] as const);
 const SOURCE_MIME_TYPES = Object.freeze(["image/jpg", "image/jpeg", "image/png", "image/bmp", "image/webp"] as const);
@@ -29,14 +31,16 @@ export const OWNER_WAN26_R2V_IMAGE_POLICY = Object.freeze({
   model_ids: MODEL_IDS,
   source_mime_types: SOURCE_MIME_TYPES,
   jpg_alias: "image/jpg -> image/jpeg" as const,
-  catalog_max_file_size_bytes: CATALOG_MAX_FILE_BYTES,
+  catalog_max_file_size_bytes: PINNED_CATALOG_MAX_FILE_BYTES,
   max_local_resource_bytes: MAX_LOCAL_RESOURCE_BYTES,
   bmp_local_resource_bytes: MAX_BMP_INSPECTOR_BYTES,
   local_resource_guard_reason: "EXISTING_BOUNDED_INSPECTOR_MAXIMUMS" as const,
   local_resource_guard_configurable: false as const,
   policy_readonly: true as const,
   min_side: MIN_SIDE,
-  max_side: MAX_SIDE,
+  max_side: PINNED_MAX_SIDE,
+  current_public_observation: Object.freeze({ max_image_file_size_bytes: CURRENT_PUBLIC_MAX_IMAGE_BYTES,
+    max_side: CURRENT_PUBLIC_MAX_SIDE, status: "FETCHED_2026_10_29_NOT_ARCHIVED" as const }),
   size_policy: "C396_CATALOG_METADATA_SEPARATE_FROM_LOCAL_RESOURCE_GUARDS" as const,
   metadata_confidence: "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED" as const,
   generation_permit: false as const,
@@ -59,7 +63,7 @@ export interface ValidatedOwnerWan26R2vImage {
   readonly size: number;
   readonly sha256: string;
   readonly metadata_confidence: "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED";
-  readonly catalog_max_file_size_bytes: typeof CATALOG_MAX_FILE_BYTES;
+  readonly catalog_max_file_size_bytes: typeof PINNED_CATALOG_MAX_FILE_BYTES;
   readonly max_local_resource_bytes: typeof MAX_LOCAL_RESOURCE_BYTES;
   readonly generation_permit: false;
   readonly owner_upload_binding: "NOT_ESTABLISHED";
@@ -82,6 +86,7 @@ export function validateOwnerWan26R2vImage(input: unknown): Readonly<ValidatedOw
         !SOURCE_MIME_TYPES.includes(fields.mime_type as OwnerWan26R2vImageSourceMimeType)) invalid();
     const source = readSourceBytes(fields.bytes, fields.mime_type as OwnerWan26R2vImageSourceMimeType);
     const sourceMime = fields.mime_type as OwnerWan26R2vImageSourceMimeType;
+    if (source.byteLength > CURRENT_PUBLIC_MAX_IMAGE_BYTES) localLimit();
     const mime: OwnerWan26R2vImageCanonicalMimeType = sourceMime === "image/jpg" ? "image/jpeg" : sourceMime;
     owned = Buffer.allocUnsafe(source.byteLength);
     Uint8Array.prototype.set.call(owned, source);
@@ -90,7 +95,7 @@ export function validateOwnerWan26R2vImage(input: unknown): Readonly<ValidatedOw
       ? { mime: "image/bmp" as const, ...inspectBoundedOwnerWanBmp(owned) }
       : inspectBoundedOwnerImageBytesWithMax(owned, MAX_LOCAL_RESOURCE_BYTES);
     if (parsed.mime !== mime || !Number.isSafeInteger(parsed.width) || !Number.isSafeInteger(parsed.height) ||
-        parsed.width < MIN_SIDE || parsed.height < MIN_SIDE || parsed.width > MAX_SIDE || parsed.height > MAX_SIDE) invalid();
+        parsed.width < MIN_SIDE || parsed.height < MIN_SIDE || parsed.width > CURRENT_PUBLIC_MAX_SIDE || parsed.height > CURRENT_PUBLIC_MAX_SIDE) invalid();
 
     const modelId = fields.model_id as OwnerWan26R2vModelId;
     const filename = canonicalFilename(fields.filename, mime);
@@ -109,7 +114,7 @@ export function validateOwnerWan26R2vImage(input: unknown): Readonly<ValidatedOw
       size: state.size,
       sha256: state.sha256,
       metadata_confidence: "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED" as const,
-      catalog_max_file_size_bytes: CATALOG_MAX_FILE_BYTES,
+      catalog_max_file_size_bytes: PINNED_CATALOG_MAX_FILE_BYTES,
       max_local_resource_bytes: MAX_LOCAL_RESOURCE_BYTES,
       generation_permit: false as const,
       owner_upload_binding: "NOT_ESTABLISHED" as const

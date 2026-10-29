@@ -394,7 +394,10 @@ async function capture<T>(fields: NativeInput, expectedClient: SyntxChatHttpClie
 
 function assertCapturedReferences(client: SyntxChatHttpClient, candidate: OwnerWan27R2vPreparedCandidate,
   contexts: readonly OwnerWan27R2vUploadContext[], request: OwnerWan27R2vPreparedRequest): void {
-  if (contexts.length !== candidate.input_references.length || contexts.length < 1 || contexts.length > 5) fail("CANDIDATE_INVALID");
+  if (contexts.length !== candidate.input_references.length || contexts.length < 1 || contexts.length > 6 ||
+      candidate.image_reference_count > 6 || candidate.selected_video_reference_count > 5 ||
+      (candidate.selected_video_reference_count > 0 && contexts.length > 5) ||
+      candidate.image_reference_count + candidate.selected_video_reference_count !== contexts.length) fail("CANDIDATE_INVALID");
   const expectedFiles: { type: "image" | "video"; url: string }[] = [], seen = new Set<string>();
   for (let index = 0; index < contexts.length; index += 1) {
     const context = contexts[index]!, expected = candidate.input_references[index]!;

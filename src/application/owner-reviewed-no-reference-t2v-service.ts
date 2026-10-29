@@ -19,6 +19,14 @@ import {
   type OwnerHailuo01T2vSourceContract
 } from "./owner-hailuo01-t2v-profile.js";
 import {
+  OWNER_EXPANDED_T2V_CONTRACT_REGISTRY_VERSION,
+  OWNER_EXPANDED_T2V_MODEL_IDS,
+  isAuthenticOwnerExpandedT2vProfile,
+  type OwnerExpandedT2vModelId,
+  type OwnerExpandedT2vProfile,
+  type OwnerExpandedT2vSourceContract
+} from "./owner-expanded-t2v-profile.js";
+import {
   OWNER_HAILUO01_DIRECTOR_T2V_CONTRACT_REGISTRY_VERSION,
   isAuthenticOwnerHailuo01DirectorT2vProfile,
   type OwnerHailuo01DirectorT2vSourceContract
@@ -622,6 +630,75 @@ class OwnerReviewedNoReferenceT2vEngine<TSource extends object> {
     byAttempt?.delete(promise); if (byAttempt?.size === 0) this.#pendingByAttempt.delete(attemptId);
   }
   #assertOpen(): void { if (this.#closed) throw new OwnerReviewedNoReferenceT2vServiceError("SERVICE_CLOSED"); }
+}
+
+export type OwnerExpandedT2vGenerationServiceOptions = Omit<
+  OwnerReviewedNoReferenceT2vServiceOptions<OwnerExpandedT2vSourceContract>, "profile"
+> & { readonly profiles: ReadonlyMap<OwnerExpandedT2vModelId, OwnerExpandedT2vProfile> };
+
+/** Grouped six-model facade over the existing sealed no-reference T2V engine. */
+export class OwnerExpandedT2vGenerationService {
+  readonly #engines: ReadonlyMap<OwnerExpandedT2vModelId, OwnerReviewedNoReferenceT2vEngine<OwnerExpandedT2vSourceContract>>;
+
+  constructor(options: OwnerExpandedT2vGenerationServiceOptions) {
+    const engines = new Map<OwnerExpandedT2vModelId, OwnerReviewedNoReferenceT2vEngine<OwnerExpandedT2vSourceContract>>();
+    for (const modelId of OWNER_EXPANDED_T2V_MODEL_IDS) {
+      const profile = options.profiles.get(modelId);
+      if (!profile || !isAuthenticOwnerExpandedT2vProfile(profile) || profile.modelId !== modelId ||
+          profile.registryVersion !== OWNER_EXPANDED_T2V_CONTRACT_REGISTRY_VERSION ||
+          contentAddressedVersion(profile.registry) !== OWNER_EXPANDED_T2V_CONTRACT_REGISTRY_VERSION) {
+        throw new Error("OWNER_EXPANDED_T2V_PROFILE_INVALID");
+      }
+      engines.set(modelId, new OwnerReviewedNoReferenceT2vEngine({ ...options, profile }));
+    }
+    if (options.profiles.size !== engines.size) throw new Error("OWNER_EXPANDED_T2V_PROFILE_INVALID");
+    this.#engines = engines;
+  }
+
+  getParametersSource(modelId: OwnerExpandedT2vModelId): OwnerExpandedT2vSourceContract {
+    return this.#engine(modelId).getParametersSource();
+  }
+
+  getReviewedContract(modelId: OwnerExpandedT2vModelId) {
+    return this.#engine(modelId).getReviewedContract();
+  }
+
+  generate(input: unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    if (!isPlainRecord(input) || typeof input.model_id !== "string" ||
+        !OWNER_EXPANDED_T2V_MODEL_IDS.includes(input.model_id as OwnerExpandedT2vModelId)) {
+      throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+    }
+    return this.#engine(input.model_id as OwnerExpandedT2vModelId).generate(input, signal);
+  }
+
+  reconcile(input: unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    if (!isPlainRecord(input) || typeof input.model_id !== "string" ||
+        !OWNER_EXPANDED_T2V_MODEL_IDS.includes(input.model_id as OwnerExpandedT2vModelId)) {
+      throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+    }
+    const { model_id, ...request } = input;
+    return this.#engine(model_id as OwnerExpandedT2vModelId).reconcile(request, signal);
+  }
+
+  listRecoveries(modelId: OwnerExpandedT2vModelId, attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
+    return this.#engine(modelId).listRecoveries(attemptId, limit);
+  }
+
+  async invalidateAttempt(attemptId: string): Promise<void> {
+    await Promise.all([...this.#engines.values()].map((engine) => engine.invalidateAttempt(attemptId)));
+  }
+
+  async close(): Promise<void> {
+    const results = await Promise.allSettled([...this.#engines.values()].map((engine) => engine.close()));
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") throw failure.reason;
+  }
+
+  #engine(modelId: OwnerExpandedT2vModelId): OwnerReviewedNoReferenceT2vEngine<OwnerExpandedT2vSourceContract> {
+    const engine = this.#engines.get(modelId);
+    if (!engine) throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+    return engine;
+  }
 }
 
 /** Hailuo-facing flat service ABI; only its authentic source-bound factory is admitted. */

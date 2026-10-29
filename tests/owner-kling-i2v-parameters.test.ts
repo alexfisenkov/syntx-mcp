@@ -46,7 +46,7 @@ test("source descriptor pins the current form and keeps I2V source-only", () => 
     "STATIC_FORM_KEYS_CLOSED_EFFECTIVE_CACHE_VALUES_OPEN");
   assert.equal(source.references.required_count, 1);
   assert.deepEqual(source.controls.reference_image.accepted_file_types,
-    ["image/jpeg", "image/jpg", "image/png", "image/avif", "image/webp"]);
+    ["image/jpeg", "image/jpg", "image/png", "image/avif"]);
   assert.ok(source.controls.mode.four_k_enabled_model_ids.includes("kling_image2video"));
   assert.deepEqual(source.controls.native_audio.true_forces_hd_versions, ["2.6"]);
   assert.equal(source.cost_projection.value_binding, "MODEL_SETTINGS_ACCESSOR_OR_STORE_PROPERTY");

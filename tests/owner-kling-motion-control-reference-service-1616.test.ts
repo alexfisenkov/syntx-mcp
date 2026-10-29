@@ -152,7 +152,7 @@ test("principal change during an acknowledged upload returns unknown promptly an
 });
 
 test("image and video base64 caps match their distinct local input policies", () => {
-  assert.equal(OWNER_KLING_MOTION_CONTROL_REFERENCE_INPUT_LIMITS.image_max_bytes, 64 * 1024 * 1024);
+  assert.equal(OWNER_KLING_MOTION_CONTROL_REFERENCE_INPUT_LIMITS.image_max_bytes, 10 * 1024 * 1024);
   assert.equal(OWNER_KLING_MOTION_CONTROL_REFERENCE_INPUT_LIMITS.video_max_bytes, 100 * 1024 * 1024);
   assert.ok(OWNER_KLING_MOTION_CONTROL_REFERENCE_INPUT_LIMITS.video_max_base64_chars > OWNER_KLING_MOTION_CONTROL_REFERENCE_INPUT_LIMITS.image_max_base64_chars);
 });

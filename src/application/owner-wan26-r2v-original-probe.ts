@@ -8,6 +8,8 @@ import { types } from "node:util";
 
 const WAN26_R2V_MODELS = ["wan_26_r2v", "wan_26_r2v_flash"] as const;
 const CATALOG_MAX_BYTES = 1_048_576_000;
+const CURRENT_PUBLIC_MAX_BYTES = 100 * 1024 * 1024;
+const CURRENT_PUBLIC_MAX_SIDE = 4_096;
 const MAX_STDOUT_BYTES = 64 * 1024;
 const PROBE_TIMEOUT_MS = 15_000;
 const INPUT_PREFIX = "syntx-wan26-r2v-probe-";
@@ -46,14 +48,16 @@ export const WAN26_R2V_ORIGINAL_VIDEO_POLICY = Object.freeze({
     accepted_video_mime_types: Object.freeze(["video/mp4", "video/mov"] as const),
     prohibited_codecs: Object.freeze([] as string[])
   }),
+  current_public_observation: Object.freeze({ max_file_size_bytes: CURRENT_PUBLIC_MAX_BYTES,
+    max_side: CURRENT_PUBLIC_MAX_SIDE, status: "FETCHED_2026_10_29_NOT_ARCHIVED" as const }),
   operator_limit_kind: "LOCAL_MEMORY_COPY_GUARD_NOT_VENDOR_LIMIT",
   default_operator_local_max_bytes: 104_857_600,
-  max_operator_local_max_bytes: CATALOG_MAX_BYTES,
+  max_operator_local_max_bytes: CURRENT_PUBLIC_MAX_BYTES,
   concurrency: "ONE_ACTIVE_PROBE_PER_PROCESS_FAIL_FAST"
 } as const);
 
 const DEFAULT_LOCAL_MAX_BYTES = WAN26_R2V_ORIGINAL_VIDEO_POLICY.default_operator_local_max_bytes;
-const MAX_LOCAL_MAX_BYTES = WAN26_R2V_ORIGINAL_VIDEO_POLICY.max_operator_local_max_bytes;
+const MAX_LOCAL_MAX_BYTES = CURRENT_PUBLIC_MAX_BYTES;
 
 export interface OwnerWan26R2vOriginalProbeInput {
   readonly model_id: typeof WAN26_R2V_MODELS[number];
@@ -192,10 +196,11 @@ async function probeOriginal(
     } finally { await file.close(); }
 
     const measured = parseFfprobe(await runFfprobe(ffprobePath, inputPath, signal));
-    const bounds = WAN26_R2V_ORIGINAL_VIDEO_POLICY.catalog_limits;
-    if (measured.duration < bounds.min_duration_seconds || measured.duration > bounds.max_duration_seconds ||
-        measured.width < bounds.min_side || measured.height < bounds.min_side ||
-        measured.width > bounds.max_side || measured.height > bounds.max_side) limit();
+    const pinnedBounds = WAN26_R2V_ORIGINAL_VIDEO_POLICY.catalog_limits;
+    const currentBounds = WAN26_R2V_ORIGINAL_VIDEO_POLICY.current_public_observation;
+    if (measured.duration < pinnedBounds.min_duration_seconds || measured.duration > pinnedBounds.max_duration_seconds ||
+        measured.width < pinnedBounds.min_side || measured.height < pinnedBounds.min_side ||
+        measured.width > currentBounds.max_side || measured.height > currentBounds.max_side) limit();
     const after = await lstat(inputPath);
     if (!after.isFile() || after.isSymbolicLink() || after.size !== length) invalid();
 
@@ -263,7 +268,7 @@ async function wipeAndUnlink(path: string): Promise<void> {
   const file = await open(path, fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0));
   try {
     const info = await file.stat();
-    if (!info.isFile() || info.size > CATALOG_MAX_BYTES) invalid();
+    if (!info.isFile() || info.size > CURRENT_PUBLIC_MAX_BYTES) invalid();
     const zeros = allocateBuffer(Math.min(64 * 1024, Math.max(1, info.size)), true);
     for (let offset = 0; offset < info.size; offset += zeros.length) await file.write(zeros, 0, Math.min(zeros.length, info.size - offset), offset);
     zeros.fill(0);

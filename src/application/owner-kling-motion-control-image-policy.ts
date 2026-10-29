@@ -6,10 +6,11 @@ import {
   UnsupportedOwnerClarityAvifCompositionError
 } from "./owner-clarity-upscale-input-validator.js";
 
-const MAX_BYTES = 64 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024;
 const MIN_SIDE = 300;
 const MAX_FILENAME_UTF8_BYTES = 255;
-const MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/avif", "image/webp"] as const);
+const PINNED_MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/avif", "image/webp"] as const);
+const MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/avif"] as const);
 const DELIMITERS = /[<>:"/\\|?*]/u;
 const RESERVED = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu;
 const TYPED_ARRAY_PROTOTYPE = Object.getPrototypeOf(Uint8Array.prototype) as object;
@@ -23,11 +24,13 @@ export const OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY = Object.freeze({
   policy_id: "OWNER_KLING_MOTION_CONTROL_IMAGE_INPUT_POLICY_B066_LOCAL_GUARD_V1",
   public_catalog_version: "sha256-b06698c84a002f5cc7d379e5d3ead94974b0e279fae45c8bb83fa803b0d895b9.json",
   model_id: "kling_motion_control",
-  source_mime_types: MIME_TYPES,
+  source_mime_types: PINNED_MIME_TYPES,
   source_max_file_size_bytes: null,
+  current_public_mime_types: MIME_TYPES,
+  current_public_image_max_bytes: MAX_BYTES,
   max_file_size_bytes: MAX_BYTES,
   min_side: MIN_SIDE,
-  size_limit_confidence: "LOCAL64MIB_CATALOG_SIZE_UNKNOWN" as const,
+  size_limit_confidence: "CURRENT_PUBLIC_10MIB_IMAGE_MAXIMUM_LOCAL_GUARD" as const,
   metadata_confidence: "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED" as const,
   generation_permit: false as const,
   frame_role_binding: "NOT_ESTABLISHED" as const,
@@ -48,7 +51,7 @@ export interface ValidatedOwnerKlingMotionControlImage {
   readonly size: number;
   readonly sha256: string;
   readonly metadata_confidence: "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED";
-  readonly size_limit_confidence: "LOCAL64MIB_CATALOG_SIZE_UNKNOWN";
+  readonly size_limit_confidence: "CURRENT_PUBLIC_10MIB_IMAGE_MAXIMUM_LOCAL_GUARD";
   readonly generation_permit: false;
   readonly frame_role_binding: "NOT_ESTABLISHED";
   readonly owner_upload_binding: "NOT_ESTABLISHED";
@@ -92,7 +95,7 @@ export function validateOwnerKlingMotionControlImage(input: unknown): Readonly<V
       source_policy_id: OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.policy_id, filename, source_mime_type: mime, mime_type: mime,
       width: state.width, height: state.height, size: state.size, sha256: state.sha256,
       metadata_confidence: "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED" as const,
-      size_limit_confidence: "LOCAL64MIB_CATALOG_SIZE_UNKNOWN" as const, generation_permit: false as const,
+      size_limit_confidence: "CURRENT_PUBLIC_10MIB_IMAGE_MAXIMUM_LOCAL_GUARD" as const, generation_permit: false as const,
       frame_role_binding: "NOT_ESTABLISHED" as const, owner_upload_binding: "NOT_ESTABLISHED" as const });
     IMAGES.set(receipt, state);
     owned = undefined;

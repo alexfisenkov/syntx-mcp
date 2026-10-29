@@ -52,6 +52,11 @@ const mediaCountLimitSchema = z
     audios: nonnegativeIntegerSchema.optional(),
     documents: nonnegativeIntegerSchema.optional(),
     first_frame: nonnegativeIntegerSchema.optional(),
+    character: z.object({
+      images: nonnegativeIntegerSchema.optional(),
+      total: nonnegativeIntegerSchema.optional(),
+      videos: nonnegativeIntegerSchema.optional()
+    }).strict().optional(),
     images: nonnegativeIntegerSchema.optional(),
     last_frame: nonnegativeIntegerSchema.optional(),
     videos: nonnegativeIntegerSchema.optional()
@@ -109,6 +114,7 @@ const publicSettingsSchema = z
       .union([nonnegativeIntegerSchema, mediaFileSizeLimitSchema])
       .optional(),
     max_frame_count: nonnegativeIntegerSchema.optional(),
+    max_height: nonnegativeIntegerSchema.max(65_535).optional(),
     max_image_aspect_ratio: nonnegativeNumberSchema.optional(),
     max_image_dimension: nonnegativeIntegerSchema.optional(),
     max_image_file_size: nonnegativeIntegerSchema.optional(),
@@ -120,6 +126,7 @@ const publicSettingsSchema = z
     max_side: nonnegativeNumberSchema.optional(),
     max_total_file_size: nonnegativeIntegerSchema.optional(),
     max_total_file_size_by_type: mediaFileSizeLimitSchema.optional(),
+    max_duration: nonnegativeNumberSchema.max(10_800).optional(),
     max_video_aspect_ratio: nonnegativeNumberSchema.optional(),
     max_video_duration: nonnegativeNumberSchema.optional(),
     max_video_file_size: nonnegativeIntegerSchema.optional(),
@@ -128,6 +135,7 @@ const publicSettingsSchema = z
     max_video_pixel_count: nonnegativeIntegerSchema.optional(),
     max_video_total_duration: nonnegativeNumberSchema.optional(),
     max_video_width: nonnegativeNumberSchema.optional(),
+    max_width: nonnegativeIntegerSchema.max(65_535).optional(),
     min_audio_duration: nonnegativeNumberSchema.optional(),
     min_audio_total_duration: nonnegativeNumberSchema.optional(),
     min_dimension: nonnegativeNumberSchema.optional(),

@@ -41,7 +41,7 @@ test("1565 WAN R2V runtime exposes 9 opt-in SDK tools, performs one synthetic GE
     if (url.pathname === "/api/v2/get_model_info") { quoteReads.push({ keys: [...url.searchParams.keys()].sort(), duration: url.searchParams.get("duration"), video_duration: url.searchParams.get("video_duration"), resolution: url.searchParams.get("resolution") }); return Response.json({ access: true, cost: 3, discount_cost: null, free_remaining_generations: null, limit: null, show_warning: false }); }
     if (url.pathname.endsWith("/chats/upload-files") && method === "POST") { uploads++; const file = (init.body as FormData).get("files"); assert.ok(file instanceof File); return Response.json({ files: [{ id: "wan27-runtime-upload-1565", filename: file.name, url: `https://r2.syntx.ai/wan27/input-${uploads}.png`, mime_type: file.type, content_type: file.type, size: file.size, status: "success" }] }); }
     if (url.pathname === "/api/v1/chats" && method === "POST") { chats++; return Response.json({ uuid: chatUuid }); }
-    if (url.pathname === "/api/v1/video/generate" && method === "POST") { generations++; assert.equal(url.search, "?ai_name=wan_video"); const body = JSON.parse(String(init.body)); assert.equal(body.settings.model_type, "wan_27_r2v"); assert.equal(body.settings.duration, 0); assert.equal(body.settings.video_duration, 4); assert.deepEqual(Object.keys(body.settings.file_urls[0]).sort(), ["type", "url"]); return Response.json({ id: ack }); }
+    if (url.pathname === "/api/v1/video/generate" && method === "POST") { generations++; assert.equal(url.search, "?ai_name=wan_video"); const body = JSON.parse(String(init.body)); assert.equal(body.settings.model_type, "wan_27_r2v"); assert.equal(body.settings.duration, 0); assert.equal(body.settings.video_duration, 4); assert.equal(body.settings.file_urls.length, 6); assert.deepEqual(Object.keys(body.settings.file_urls[0]).sort(), ["type", "url"]); return Response.json({ id: ack }); }
     if (url.pathname === `/api/v1/chats/${chatUuid}/messages` && method === "GET") { histories++; const page = Number(url.searchParams.get("page")), pageSize = Number(url.searchParams.get("page_size")); return Response.json({ messages: [
       { id: ack, chat_id: 77203, author_id: 17, message_object: [] },
       { id: resultId, chat_id: 77203, author_id: -1, message_object: [{ id: objectId, message_id: resultId, object_type: "video", model_type: "wan_27_r2v" }] }
@@ -58,17 +58,25 @@ test("1565 WAN R2V runtime exposes 9 opt-in SDK tools, performs one synthetic GE
     await link(runtime);
     const draftResult = await client.callTool({ name: "syntx_owner_create_wan27_r2v_manifest", arguments: { link_attempt_id: ATTEMPT, video_reference_count: 0 } });
     assert.equal(draftResult.isError, undefined, JSON.stringify(draftResult)); const manifest = draftResult.structuredContent as { manifest_handle: string };
-    const image = png240(), upload = await client.callTool({ name: "syntx_owner_upload_wan27_r2v_image", arguments: { link_attempt_id: ATTEMPT, manifest_handle: manifest.manifest_handle, filename: "frame.png", mime_type: "image/png", content_base64: image.toString("base64") } });
-    assert.equal(upload.isError, undefined, JSON.stringify(upload)); assert.equal(uploads, 1);
+    const image = png240();
+    for (let index = 0; index < 6; index += 1) {
+      const upload = await client.callTool({ name: "syntx_owner_upload_wan27_r2v_image", arguments: { link_attempt_id: ATTEMPT,
+        manifest_handle: manifest.manifest_handle, filename: `frame-${index}.png`, mime_type: "image/png", content_base64: image.toString("base64") } });
+      assert.equal(upload.isError, undefined, JSON.stringify(upload));
+    }
+    assert.equal(uploads, 6);
     const finalized = await client.callTool({ name: "syntx_owner_finalize_wan27_r2v_manifest", arguments: { link_attempt_id: ATTEMPT, manifest_handle: manifest.manifest_handle } });
-    assert.equal(finalized.isError, undefined, JSON.stringify(finalized)); assert.equal((finalized.structuredContent as { generation_permit: boolean }).generation_permit, false);
+    assert.equal(finalized.isError, undefined, JSON.stringify(finalized));
+    assert.equal((finalized.structuredContent as { generation_permit: boolean }).generation_permit, false);
+    assert.equal((finalized.structuredContent as { total_reference_count: number }).total_reference_count, 6);
+    assert.equal((finalized.structuredContent as { references: unknown[] }).references.length, 6);
     const invalid = await client.callTool({ name: OWNER_WAN27_R2V_GENERATION_TOOL_NAMES[0], arguments: { link_attempt_id: ATTEMPT, model_id: "wan_27_r2v", manifest_handle: manifest.manifest_handle, resolution: "720P", aspect_ratio: "16:9", video_duration: 4, prompt_extend: false, seed: null, native_audio: false, file_url: OUTPUT } });
     assert.equal(invalid.isError, true); assert.equal(generations, 0);
     const base = { link_attempt_id: ATTEMPT, model_id: "wan_27_r2v", manifest_handle: manifest.manifest_handle, prompt: "Synthetic R2V runtime proof", resolution: "1080P", aspect_ratio: "16:9", video_duration: 4, prompt_extend: false, seed: null, native_audio: false };
     const generated = await client.callTool({ name: OWNER_WAN27_R2V_GENERATION_TOOL_NAMES[0], arguments: base }); assert.equal(generated.isError, undefined, JSON.stringify(generated));
     const result = generated.structuredContent as { recovery_id: string; backend_acceptance: string; artifacts: Array<{ object_url: string }> };
     assert.equal(result.backend_acceptance, "UNPROVEN"); assert.equal(result.artifacts[0]?.object_url, OUTPUT); assert.equal(generations, 1);
-    assert.equal(chats, 1); assert.equal(histories, 1); assert.equal(results, 1); assert.equal(uploads, 1);
+    assert.equal(chats, 1); assert.equal(histories, 1); assert.equal(results, 1); assert.equal(uploads, 6);
     assert.equal(quoteReads.length, 2); assert.deepEqual(quoteReads.map((read) => read.keys), [["ai_name", "duration", "model_type", "resolution", "video_duration"], ["ai_name", "duration", "model_type", "resolution", "video_duration"]]);
     assert.deepEqual(quoteReads.map(({ duration, video_duration, resolution }) => [duration, video_duration, resolution]), [["0", "4", "1080P"], ["0", "4", "1080P"]]);
     const listedRecoveries = await client.callTool({ name: OWNER_WAN27_R2V_GENERATION_TOOL_NAMES[2], arguments: { link_attempt_id: ATTEMPT } }); assert.equal(listedRecoveries.isError, undefined); assert.equal((listedRecoveries.structuredContent as { recoveries: unknown[] }).recoveries.length, 1);

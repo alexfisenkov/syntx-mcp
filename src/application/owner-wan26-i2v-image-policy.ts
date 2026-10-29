@@ -5,7 +5,8 @@ import { inspectBoundedOwnerWanBmp } from "./owner-wan-bmp-inspector.js";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const MIN_SIDE = 384;
-const MAX_SIDE = 5_000;
+const PINNED_MAX_SIDE = 5_000;
+const MAX_SIDE = 8_000;
 const MAX_PROMPT_LENGTH = 1_500;
 const MAX_FILENAME_UTF8_BYTES = 255;
 const MODEL_IDS = Object.freeze(["wan_26_i2v", "wan_26_i2v_flash"] as const);
@@ -29,7 +30,8 @@ export const OWNER_WAN26_I2V_IMAGE_POLICY = Object.freeze({
   jpg_alias: "image/jpg -> image/jpeg" as const,
   max_file_size_bytes: MAX_BYTES,
   min_side: MIN_SIDE,
-  max_side: MAX_SIDE,
+  max_side: PINNED_MAX_SIDE,
+  current_public_max_side: MAX_SIDE,
   max_prompt_length: MAX_PROMPT_LENGTH,
   limits_policy: "PINNED_B066_CATALOG_LOCAL_GUARD_NOT_CURRENT_METADATA_OR_PROVIDER_ACCEPTANCE" as const,
   metadata_confidence: "STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED" as const,

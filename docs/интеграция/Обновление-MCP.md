@@ -99,10 +99,13 @@ wire-format. Получение актуального каталога, про�
 ветви. Карта `syntx_get_media_coverage` связывает текущие model ID с группами
 инструментов; она не доказывает полное покрытие настроек или успешную генерацию.
 
-Расширенная карта маршрутов `owner-tool-routes-v2.json` пока оставляет
-`owner_tool_count=null` и `UNVERIFIED_FOR_ROUTE_EXTENSION`: свежий полный
-`tools/list` read-back не подтверждён. Это сохранённый статус покрытия, а не
-ошибка и не повод подставлять подсчёт из старой карты.
+Текущий реестр `owner-tool-routes-v3.json` сохраняет предыдущие v1/v2 snapshots и
+добавляет общий reader существующих результатов для `kling_4_keyframes` и
+`kling_4_omni`. Его `NO_REFERENCE_ONLY` маршрут использует
+`syntx_owner_get_existing_video_recovery` под `SYNTX_OWNER_EXISTING_VIDEO_RECOVERY`;
+он читает существующую задачу и не разрешает upload или generation. Реестр не
+хранит общее число stdio-инструментов (`owner_tool_count=null`); спрашивайте
+`tools/list` у работающего сервера, чтобы узнать текущий состав инструментов.
 
 Kling 4 Keyframes/Omni используют process-local media handles: после перезапуска
 они не восстанавливаются. Отдельная no-reference GET-recovery ветка читает уже

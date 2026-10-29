@@ -2,6 +2,7 @@ import { types } from "node:util";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import { schemaHash } from "../domain/generation-contract.js";
 import {
+  getOwnerSeedanceEditorCurrentUiObservation,
   getOwnerSeedanceEditorSourceProfile,
   normalizeOwnerSeedanceEditorParameters,
   type OwnerSeedanceEditorNormalizedParameters
@@ -29,7 +30,7 @@ export interface OwnerSeedanceEditorWireInput {
     readonly aspect_ratio: "adaptive";
     readonly resolution: OwnerSeedanceEditorNormalizedParameters["intent"]["resolution"];
     readonly video_duration: 0;
-    readonly generate_audio: false;
+    readonly generate_audio: true;
     readonly file_urls: readonly Readonly<{ readonly type: "video"; readonly url: string }>[];
   }>;
 }
@@ -38,6 +39,7 @@ export interface OwnerSeedanceEditorWireCandidate {
   readonly status: "SOURCE_ONLY_WIRE_CANDIDATE_NOT_DISPATCH_AUTHORITY";
   readonly model_id: typeof MODEL_ID;
   readonly profile_sha256: string;
+  readonly current_ui_observation_sha256: string;
   readonly wire: Readonly<OwnerSeedanceEditorWireInput>;
   readonly source_input_duration_context: Readonly<{
     readonly seconds: number;
@@ -73,7 +75,7 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     aspect_ratio: "adaptive" as const,
     resolution: normalized.intent.resolution,
     video_duration: 0 as const,
-    generate_audio: false as const,
+    generate_audio: true as const,
     file_urls: Object.freeze([Object.freeze({ type: "video" as const, url: source.url })])
   });
   const wire: Readonly<OwnerSeedanceEditorWireInput> = Object.freeze({
@@ -82,6 +84,7 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     settings
   });
   const profileSha256 = getOwnerSeedanceEditorSourceProfile().source_sha256;
+  const currentUiObservation = getOwnerSeedanceEditorCurrentUiObservation();
   const semanticIntent = Object.freeze({
     model_id: MODEL_ID,
     prompt: normalized.intent.prompt,
@@ -93,6 +96,7 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     status: "SOURCE_ONLY_WIRE_CANDIDATE_NOT_DISPATCH_AUTHORITY" as const,
     model_id: MODEL_ID,
     profile_sha256: profileSha256,
+    current_ui_observation_sha256: currentUiObservation.observation_sha256,
     wire,
     source_input_duration_context: Object.freeze({
       seconds: source.duration_seconds,
@@ -105,6 +109,26 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     dispatch_allowed: false as const,
     backend_acceptance: "UNPROVEN" as const
   });
+}
+
+/** Native dispatch guard: candidate identity and the observed current UI audio flag must agree. */
+export function isOwnerSeedanceEditorWireCurrentUiAligned(value: unknown): value is OwnerSeedanceEditorWireCandidate {
+  if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) return false;
+  try {
+    const candidate = value as OwnerSeedanceEditorWireCandidate;
+    const wire = candidate.wire;
+    const settings = wire?.settings;
+    const observation = getOwnerSeedanceEditorCurrentUiObservation();
+    return candidate.status === "SOURCE_ONLY_WIRE_CANDIDATE_NOT_DISPATCH_AUTHORITY" &&
+      candidate.model_id === MODEL_ID && candidate.profile_sha256 === getOwnerSeedanceEditorSourceProfile().source_sha256 &&
+      candidate.current_ui_observation_sha256 === observation.observation_sha256 &&
+      candidate.wire_fingerprint === schemaHash(wire) && wire.ai_name === AI_NAME &&
+      typeof wire.prompt === "string" && settings.n === 1 && settings.model_type === MODEL_TYPE &&
+      settings.mode === "edit" && settings.aspect_ratio === "adaptive" && isResolution(settings.resolution) &&
+      settings.video_duration === 0 && settings.generate_audio === true && Array.isArray(settings.file_urls) &&
+      settings.file_urls.length === 1 && settings.file_urls[0]?.type === "video" &&
+      isSafeUploadReferenceUrl(settings.file_urls[0]?.url);
+  } catch { return false; }
 }
 
 function exactSource(value: unknown): OwnerSeedanceEditorCapturedSource {
@@ -127,4 +151,8 @@ function exactSource(value: unknown): OwnerSeedanceEditorCapturedSource {
 
 function invalidWire(): never {
   throw new OwnerSeedanceEditorWireError("INVALID_WIRE_CANDIDATE");
+}
+
+function isResolution(value: unknown): value is OwnerSeedanceEditorNormalizedParameters["intent"]["resolution"] {
+  return value === "480p" || value === "720p" || value === "1080p";
 }

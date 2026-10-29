@@ -51,6 +51,8 @@ test("Suno track-operation MCP exports six owner tools and strict fixed-mode inp
     negative_tags: "noise", styles: "ambient", title: "Новая версия" };
   assert.equal(cover.safeParse(base).success, true);
   assert.equal(extend.safeParse({ ...base, continue_at: 12.3 }).success, true);
+  assert.equal(cover.safeParse({ ...base, is_instrumental: true }).success, false);
+  assert.equal(extend.safeParse({ ...base, is_instrumental: true, continue_at: 12.3 }).success, false);
   for (const invalid of [
     { ...base, mode: "extend" }, { ...base, continue_at: 12 }, { ...base, file_urls: [] },
     { ...base, source_clip_id: "foreign" }, { ...base, source_task_id: "foreign" },
@@ -143,10 +145,22 @@ test("genuine SDK runs base Suno, lists an opaque track, dispatches cover and ex
   await linkAttempt(runtime, ATTEMPT, now);
   try {
     await server.connect(serverTransport); await client.connect(clientTransport);
-    const registered = (await client.listTools()).tools.map(({ name }) => name);
+    const toolRows = (await client.listTools()).tools;
+    const registered = toolRows.map(({ name }) => name);
     assert.deepEqual(registered.filter((name) => (OWNER_SUNO_TRACK_OPERATION_TOOL_NAMES as readonly string[]).includes(name)), TOOL_NAMES);
+    const coverDescription = toolRows.find(({ name }) => name === SYNTX_OWNER_COVER_SUNO_AUDIO_TOOL_NAME)?.description ?? "";
+    const extendDescription = toolRows.find(({ name }) => name === SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME)?.description ?? "";
+    assert.match(coverDescription, /current UI admission.*is_instrumental=false/iu);
+    assert.match(extendDescription, /current UI admission.*is_instrumental=false/iu);
     const profile = await client.callTool({ name: SYNTX_GET_SUNO_TRACK_OPERATION_PARAMETERS_TOOL_NAME, arguments: {} });
     assert.equal(structured(profile).dispatch_allowed, false);
+    assert.deepEqual(structured(profile).current_ui_admission, {
+      status: "CURRENT_FORM_TRACK_OPERATION_ADMISSION_NOT_PROVIDER_POLICY",
+      source_build_id: "1793202992",
+      form: { module: "suno.js", bytes: 44_529, sha256: "sha256:7861b84e849dafd787bd484dd99b1dd6383d115d1398071b853fc6ee2bd609ae" },
+      model_ids: ["V6", "V6_wild"], modes: ["cover", "extend"],
+      is_instrumental: { allowed_values: [false], policy_reason: "TRACK_MODES_RESET_FALSE_AND_CONTROL_HAS_NO_TRUE_BINDING" }
+    });
     assert.equal(counts.posts, 0);
 
     const base = await client.callTool({ name: SYNTX_OWNER_GENERATE_SUNO_AUDIO_TOOL_NAME, arguments: {

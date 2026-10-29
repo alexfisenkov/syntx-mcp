@@ -185,6 +185,7 @@ test("all-supported config pins the updateable reviewed media profile", async ()
   assert.equal(stderr.join(""), "");
   assert.equal(env.SYNTX_OWNER_MEDIA_PROFILE, "all-supported");
   assert.equal(env.SYNTX_OWNER_GENERATE_VIDEO, "1");
+  assert.equal(env.SYNTX_OWNER_EXISTING_VIDEO_RECOVERY, "1");
   assert.equal(env.SYNTX_OWNER_GROK_REFERENCE_PROFILE_VERSION, "sha256-87f53d7f198a6550038a59279948e10b251a4138509bf76c25c791c990d66299.json");
   assert.deepEqual(Object.keys(env).filter((name) => name.startsWith("SYNTX_OWNER_") && /_(?:FFPROBE|FFMPEG)_PATH$/u.test(name)), []);
   assert.equal(env.SYNTX_MEDIA_FFPROBE_PATH, "<absolute path to trusted ffprobe executable>");
@@ -196,6 +197,19 @@ test("all-supported config pins the updateable reviewed media profile", async ()
   }
   assert.equal(env.SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES, "67108864");
   assert.equal(env.SYNTX_SELF_UPDATE, undefined);
+});
+
+test("programmatic all-supported selection expands the existing-video reader and honors explicit opt-out", () => {
+  const all = buildMediaMcpConfig(pathToFileURL(SCRIPT_PATH).href, "/node/bin/node", {
+    includeAllSupportedMedia: true, includeSelfUpdate: true
+  }).mcpServers.syntx.env;
+  assert.equal(all.SYNTX_OWNER_EXISTING_VIDEO_RECOVERY, "1");
+  assert.equal(all.SYNTX_SELF_UPDATE, "1");
+  const optedOut = buildMediaMcpConfig(pathToFileURL(SCRIPT_PATH).href, "/node/bin/node", {
+    includeAllSupportedMedia: true, includeExistingVideoRecovery: false
+  }).mcpServers.syntx.env;
+  assert.equal(optedOut.SYNTX_OWNER_EXISTING_VIDEO_RECOVERY, "0");
+  assert.equal(optedOut.SYNTX_SELF_UPDATE, undefined);
 });
 
 test("Flux3 media placeholders are emitted only behind the existing exact paid-tools confirmation", async () => {

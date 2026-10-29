@@ -7,6 +7,7 @@ const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", impo
 const installChecker = readFileSync(new URL("../scripts/check-package-install.mjs", import.meta.url), "utf8");
 const coverageMapV1 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v1.json", import.meta.url), "utf8"));
 const coverageMapV2 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v2.json", import.meta.url), "utf8"));
+const coverageMapV3 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v3.json", import.meta.url), "utf8"));
 
 test("public npm manifest declares the updater command and source files", () => {
   assert.equal(packageJson.bin["syntx-mcp-update"], "scripts/update-mcp.mjs");
@@ -33,6 +34,17 @@ test("release test command pins catalog, coverage, profiles, updater, and packag
     "dist/tests/owner-expanded-t2v-tools.test.js",
     "dist/tests/owner-existing-kling4-recovery.test.js",
     "dist/tests/owner-existing-video-recovery2361.test.js",
+    "dist/tests/owner-suno-track-operation-parameters.test.js",
+    "dist/tests/owner-suno-track-operation-preparer.test.js",
+    "dist/tests/owner-suno-track-operation-generation-service.test.js",
+    "dist/tests/owner-suno-track-operation-tools.test.js",
+    "dist/tests/syntx-chat-http-client-owner-suno-track-operation.test.js",
+    "dist/tests/owner-seedance-editor-source2216.test.js",
+    "dist/tests/owner-seedance-editor-cost2222.test.js",
+    "dist/tests/owner-seedance-editor-chat2221.test.js",
+    "dist/tests/owner-seedance-editor-flow2230.test.js",
+    "dist/tests/owner-seedance-editor-mcp2231.test.js",
+    "tests/public-media-stdio-optins.test.mjs",
     "tests/mcp-self-update-service.test.mjs",
     "tests/print-media-all-supported-media.test.mjs",
     "tests/public-media-update-package.test.mjs"
@@ -49,9 +61,18 @@ test("public package checker compares the packed media map and verifies the upda
   assert.equal(coverageMapV2.schema_version, "2.0.0");
   assert.equal(coverageMapV2.owner_tool_count, null);
   assert.equal(coverageMapV2.owner_tool_count_status, "UNVERIFIED_FOR_ROUTE_EXTENSION");
+  assert.equal(coverageMapV3.schema_version, "3.0.0");
+  assert.equal(coverageMapV3.owner_tool_count, null);
+  assert.equal(coverageMapV3.owner_tool_count_status, "UNVERIFIED_FOR_ROUTE_EXTENSION");
+  assert.equal(coverageMapV3.public_catalog_version, coverageMapV2.public_catalog_version);
+  const recoveryAlias = coverageMapV3.native_alias_bindings.find((binding) => binding.operator_flag === "SYNTX_OWNER_EXISTING_VIDEO_RECOVERY");
+  assert.deepEqual(recoveryAlias?.public_model_ids, ["kling_4_keyframes", "kling_4_omni"]);
+  assert.deepEqual(recoveryAlias?.tool_names, ["syntx_owner_get_existing_video_recovery"]);
+  assert.match(recoveryAlias?.operation_note ?? "", /NO_REFERENCE_ONLY/u);
   for (const path of [
     '"catalog/media-coverage/owner-tool-routes-v1.json"',
     '"catalog/media-coverage/owner-tool-routes-v2.json"',
+    '"catalog/media-coverage/owner-tool-routes-v3.json"',
     '"catalog/media-coverage/owner-expanded-t2v-controls-v2.json"'
   ]) assert.ok(installChecker.includes(path), `package checker omits ${path}`);
   assert.ok(installChecker.includes("assertInstalledMediaUpdateArtifacts(installedPackagePath, consumerPath)"));

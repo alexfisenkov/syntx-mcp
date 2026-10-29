@@ -18,6 +18,19 @@ const COST_HELPER_SHA256 = "sha256:3d9bb6b5fb2ee26c8cc61251777fa3bad121a7a575415
 const COST_SERVICE_SHA256 = "sha256:261d93d75b204703201d1d0c3cf0ce747832159ef44f818cdd44ebee27c07ada" as const;
 const FORM_MODULE = "suno.js" as const;
 const FORM_BUILD_ID = "1791904852" as const;
+const CURRENT_UI_BUILD_ID = "1793202992" as const;
+const CURRENT_UI_FORM_SHA256 = "sha256:7861b84e849dafd787bd484dd99b1dd6383d115d1398071b853fc6ee2bd609ae" as const;
+const CURRENT_UI_ADMISSION = Object.freeze({
+  status: "CURRENT_FORM_TRACK_OPERATION_ADMISSION_NOT_PROVIDER_POLICY" as const,
+  source_build_id: CURRENT_UI_BUILD_ID,
+  form: Object.freeze({ module: "suno.js" as const, bytes: 44_529 as const, sha256: CURRENT_UI_FORM_SHA256 }),
+  model_ids: OWNER_SUNO_TRACK_OPERATION_MODEL_IDS,
+  modes: OWNER_SUNO_TRACK_OPERATION_MODES,
+  is_instrumental: Object.freeze({
+    allowed_values: Object.freeze([false] as const),
+    policy_reason: "TRACK_MODES_RESET_FALSE_AND_CONTROL_HAS_NO_TRUE_BINDING" as const
+  })
+});
 const SIMPLE_PROMPT_MAX = 500;
 const CUSTOM_PROMPT_MAX = 5_000;
 const STYLE_MAX = 1_000;
@@ -59,6 +72,7 @@ export interface OwnerSunoTrackOperationModelSource {
 export interface OwnerSunoTrackOperationParameterSource {
   readonly profile_id: "owner-suno-track-operation-parameters-source-v1";
   readonly status: "CURRENT_FORM_WITH_PINNED_PUBLIC_CATALOG_RESOURCE_LIMITS";
+  readonly current_ui_admission: typeof CURRENT_UI_ADMISSION;
   readonly source_pins: OwnerSunoTrackOperationSourcePins;
   readonly model_ids: readonly OwnerSunoTrackOperationModel[];
   readonly modes: readonly OwnerSunoTrackOperationMode[];
@@ -110,7 +124,7 @@ interface OwnerSunoTrackOperationRequestBase {
   readonly track_handle: string;
   readonly prompt: string;
   readonly is_custom_mode: boolean;
-  readonly is_instrumental: boolean;
+  readonly is_instrumental: false;
   readonly negative_tags: string;
   readonly styles: string;
   readonly title: string;
@@ -122,7 +136,7 @@ export type OwnerSunoTrackOperationRequest = OwnerSunoTrackOperationRequestBase 
 interface OwnerSunoTrackOperationSettingsCandidateBase {
   readonly model_type: OwnerSunoTrackOperationModel;
   readonly is_custom_mode: boolean;
-  readonly is_instrumental: boolean;
+  readonly is_instrumental: false;
   readonly negative_tags: string;
   readonly styles: string;
   readonly title: string;
@@ -189,6 +203,7 @@ export function getOwnerSunoTrackOperationParameterSource(): DeepReadonly<OwnerS
   return deepFreeze({
     profile_id: "owner-suno-track-operation-parameters-source-v1" as const,
     status: "CURRENT_FORM_WITH_PINNED_PUBLIC_CATALOG_RESOURCE_LIMITS" as const,
+    current_ui_admission: CURRENT_UI_ADMISSION,
     source_pins: SOURCE_PINS,
     model_ids: OWNER_SUNO_TRACK_OPERATION_MODEL_IDS,
     modes: OWNER_SUNO_TRACK_OPERATION_MODES,
@@ -242,7 +257,7 @@ export function normalizeOwnerSunoTrackOperationParameters(
 ): DeepReadonly<OwnerSunoNormalizedTrackOperationParameters> {
   const fields = readRequest(input);
   if (!isModel(fields.model_id) || (fields.mode !== "cover" && fields.mode !== "extend") ||
-      typeof fields.is_custom_mode !== "boolean" || typeof fields.is_instrumental !== "boolean") invalid();
+      typeof fields.is_custom_mode !== "boolean" || fields.is_instrumental !== false) invalid();
 
   const modelId = fields.model_id;
   const mode = fields.mode;
@@ -269,7 +284,7 @@ export function normalizeOwnerSunoTrackOperationParameters(
   const settingsBase = {
     model_type: modelId,
     is_custom_mode: fields.is_custom_mode,
-    is_instrumental: fields.is_instrumental,
+    is_instrumental: false as const,
     negative_tags: negativeTags,
     styles,
     title

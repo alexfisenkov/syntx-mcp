@@ -17,8 +17,8 @@ import { AccountStatusService } from "./account-status.js";
 import { ModelAccessService } from "./model-access.js";
 import { evaluateOwnerSeedanceEditorBudget } from "./owner-seedance-editor-budget.js";
 import { buildOwnerSeedanceEditorCostParameters, loadOwnerSeedanceEditorRuntimeCatalog } from "./owner-seedance-editor-cost.js";
-import { normalizeOwnerSeedanceEditorParameters, getOwnerSeedanceEditorSourceProfile } from "./owner-seedance-editor-parameters.js";
-import { buildOwnerSeedanceEditorWire, type OwnerSeedanceEditorWireCandidate } from "./owner-seedance-editor-wire.js";
+import { normalizeOwnerSeedanceEditorParameters, getOwnerSeedanceEditorCurrentUiObservation, getOwnerSeedanceEditorSourceProfile } from "./owner-seedance-editor-parameters.js";
+import { buildOwnerSeedanceEditorWire, isOwnerSeedanceEditorWireCurrentUiAligned, type OwnerSeedanceEditorWireCandidate } from "./owner-seedance-editor-wire.js";
 import { OwnerSeedanceEditorReferenceService, isOwnerSeedanceEditorReferenceService,
   type OwnerSeedanceEditorOwnedReferences } from "./owner-seedance-editor-reference-service.js";
 
@@ -129,7 +129,9 @@ export class OwnerSeedanceEditorGenerationService {
                 ["createOwnerSeedanceEditorChat", "isOwnerSeedanceEditorChat", "startOwnerSeedanceEditorOperation", "readOwnerSeedanceEditorHistory", "readOwnerSeedanceEditorResult"])) fail("PRINCIPAL_NOT_LINKED");
           if (op.chat && !SyntxChatHttpClient.prototype.isOwnerSeedanceEditorChat.call(op.client, op.chat, request.attemptId)) fail("PRINCIPAL_NOT_LINKED");
           if (dispatch && (!o.referenceService.isOwnedReferences(refs) || refs.expires_at <= this.#time() ||
-              op.wire.profile_sha256 !== getOwnerSeedanceEditorSourceProfile().source_sha256)) fail("REFERENCE_EXPIRED");
+              op.wire.profile_sha256 !== getOwnerSeedanceEditorSourceProfile().source_sha256 ||
+              op.wire.current_ui_observation_sha256 !== getOwnerSeedanceEditorCurrentUiObservation().observation_sha256 ||
+              !isOwnerSeedanceEditorWireCurrentUiAligned(op.wire))) fail("REFERENCE_EXPIRED");
           if (dispatch && op.phase === "READY" && (this.#time() < op.quoteAt || this.#time() - op.quoteAt > 15000)) fail("PREFLIGHT_EXPIRED");
         } };
       try {
@@ -277,6 +279,7 @@ export class OwnerSeedanceEditorGenerationService {
 /** Called only by the fixed native method. A fabricated token or clone has no state/dispatch authority. */
 export function consumeOwnerSeedanceEditorDispatch(client: SyntxChatHttpClient, token: unknown): Readonly<{ chat_uuid: string; body: Record<string, unknown> }> {
   const op = operation(client, token); op.validate(true);
+  if (!isOwnerSeedanceEditorWireCurrentUiAligned(op.wire)) fail("MODEL_BINDING_MISMATCH");
   if (op.phase !== "READY" || !op.chat || CLAIMS.has(op.semantic)) fail("INTENT_ALREADY_CLAIMED");
   // No await between final validation, permanent claim and the native POST invocation.
   CLAIMS.add(op.semantic); op.phase = "POSTED";

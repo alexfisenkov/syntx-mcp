@@ -4,7 +4,7 @@ import type { DiscoveryCatalogRepository, DiscoveryModelRecord } from "./discove
 import type { RuntimeCapabilityCatalog, RuntimeCapabilityRecord } from "./runtime-capability-catalog.js";
 import { z } from "zod/v4";
 
-export const MEDIA_COVERAGE_VERSION = "2.0.0" as const;
+export const MEDIA_COVERAGE_VERSION = "3.0.0" as const;
 
 export interface MediaCoverageRecord {
   readonly model_id: string;
@@ -51,7 +51,7 @@ const nativeAliasBindingSchema = z.object({
 }).strict();
 
 const routeSnapshotSchema = z.object({
-  schema_version: z.literal("2.0.0"),
+  schema_version: z.literal("3.0.0"),
   captured_date: z.iso.date(),
   public_catalog_version: z.string().min(1),
   public_source_hashes: z.object({ ai: z.string().min(1), llm_models: z.string().min(1), models: z.string().min(1) }).strict(),
@@ -133,7 +133,7 @@ const GENERATOR_FLAGS: Readonly<Record<string, string>> = Object.freeze({
 });
 
 function loadReviewedOwnerRoutes(discovery: DiscoveryCatalogRepository) {
-  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v2.json", import.meta.url));
+  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v3.json", import.meta.url));
   const raw: unknown = JSON.parse(readFileSync(routePath, "utf8"));
   const snapshot = routeSnapshotSchema.parse(raw);
   if (JSON.stringify(snapshot.public_source_hashes) !== JSON.stringify(discovery.source_hashes)) {

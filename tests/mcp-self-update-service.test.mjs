@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -425,7 +425,28 @@ test("Unix PATH discovery resolves only a symlink to npm-cli.js and rejects shel
   assert.equal(await resolveNpmCliPath(path.join(root, "node", "node"), "darwin", bin), null);
 });
 
-test("apply runs the discovered PATH npm-cli.js through the trusted Node executable", async (t) => {
+test("npm discovery prefers adjacent JavaScript CLIs before PATH candidates", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "syntx-npm-adjacent-priority-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const fakeNode = path.join(root, "runtime", "bin", "node");
+  const [firstCandidate, secondCandidate] = getNpmCliCandidates(fakeNode, process.platform);
+  const pathBin = path.join(root, "path-bin");
+  const pathCli = path.join(root, "path-install", "node_modules", "npm", "bin", "npm-cli.js");
+  for (const candidate of [firstCandidate, secondCandidate, pathCli]) {
+    await mkdir(path.dirname(candidate), { recursive: true });
+    await writeFile(candidate, "process.exit(0);\n");
+  }
+  if (process.platform !== "win32") {
+    await mkdir(pathBin, { recursive: true });
+    await symlink(pathCli, path.join(pathBin, "npm"));
+  }
+  const resolved = await resolveNpmCliPath(fakeNode, process.platform, pathBin);
+  assert.equal(resolved, await realpath(firstCandidate));
+  assert.equal(path.basename(resolved), "npm-cli.js");
+  assert.equal((await stat(resolved)).isFile(), true);
+});
+
+test("apply runs the selected adjacent-or-PATH npm-cli.js through trusted Node and preserves PATH", async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "syntx-npm-apply-path-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const bin = path.join(root, "bin");
@@ -434,15 +455,29 @@ test("apply runs the discovered PATH npm-cli.js through the trusted Node executa
   await mkdir(path.dirname(cli), { recursive: true });
   await writeFile(cli, "process.exit(0);\n");
   await symlink(cli, path.join(bin, "npm"));
+  const adjacentCli = await firstExistingNpmCli(getNpmCliCandidates(process.execPath, process.platform));
+  const expectedCli = adjacentCli ?? await realpath(cli);
+  assert.equal(await resolveNpmCliPath(process.execPath, process.platform, bin), expectedCli);
   const f = await fixture(t, { npmCliPath: undefined, pathEnv: bin });
   await installVersion(f.root, shaA);
   await writeFile(path.join(f.root, "pointer.json"), JSON.stringify({ current: shaA, previous: null }));
   assert.equal((await f.service.apply()).status, "STAGED");
   const npmCalls = f.calls.filter(({ file }) => file === process.execPath);
   assert.equal(npmCalls.length, 2);
-  assert.deepEqual(npmCalls.map(({ args }) => args[0]), [await realpath(cli), await realpath(cli)]);
-  assert.equal(npmCalls.every(({ options }) => options.env.PATH === bin), true);
+  assert.deepEqual(npmCalls.map(({ args }) => args[0]), [expectedCli, expectedCli]);
+  assert.equal(npmCalls.every(({ file, args, options }) => file === process.execPath && path.basename(args[0]) === "npm-cli.js" &&
+    options.env.PATH === bin), true);
 });
+
+async function firstExistingNpmCli(candidates) {
+  for (const candidate of candidates) {
+    try {
+      const resolved = await realpath(candidate);
+      if (path.basename(resolved) === "npm-cli.js" && (await stat(resolved)).isFile()) return resolved;
+    } catch { /* absent adjacent CLI: test the injected PATH fallback */ }
+  }
+  return null;
+}
 
 test("host npm discovery is a read-only filesystem probe", async () => {
   const result = await resolveNpmCliPath(process.execPath);

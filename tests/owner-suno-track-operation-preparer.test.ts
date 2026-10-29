@@ -38,7 +38,7 @@ function errorCode(error: unknown): string | undefined {
 
 function generateParameters(): Record<string, unknown> {
   return { model_id: "V6", mode: "generate", prompt: PROMPT, is_custom_mode: false,
-    is_instrumental: true, negative_tags: "", styles: "", title: "Suno operation fixture" };
+    is_instrumental: false, negative_tags: "", styles: "", title: "Suno operation fixture" };
 }
 
 function operationParameters(trackHandle: string, mode: "cover" | "extend" = "cover",

@@ -826,7 +826,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         await runStdioServer(runtime.application, { ...runtime.serverOptions, selfUpdateApply: isSelfUpdateEnabled() });
         return;
       }
-      const server = createMcpServer(runtime.application, runtime.serverOptions);
+      const serverOptions = { ...runtime.serverOptions, selfUpdateApply: isSelfUpdateEnabled() };
+      const server = createMcpServer(runtime.application, serverOptions);
       profileTransport = withOmittedAuthArguments(new StdioServerTransport(input));
       closeOwnerImageReferences = closeOwnerReadServicesOnTransportEof(
         profileTransport,

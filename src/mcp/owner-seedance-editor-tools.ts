@@ -151,7 +151,7 @@ export function registerSyntxOwnerSeedanceEditorTools(server: McpServer, options
 
   server.registerTool(OWNER_SEEDANCE_EDITOR_TOOL_NAMES[1], {
     title: "Generate one Seedance Editor video",
-    description: "Experimental no-frame request using an opaque owner-uploaded source video. Live end-to-end provider generation is not yet confirmed. Resolution and prompt are explicit. The provider cost is not capped; if dispatch is uncertain, reconcile the returned recovery ID and never repeat generation. Safe HTTP and transport metadata may appear in gaps; they do not prove provider acceptance or terminal status.",
+    description: "Experimental no-frame request using an opaque owner-uploaded source video. The current UI wire observation uses generate_audio=true; the same fixed value is sent here. The UI received HTTP 400, so provider acceptance and the cause are unproven. Resolution and prompt are explicit. Cost is not capped; reconcile uncertain dispatch and never repeat generation.",
     inputSchema: generateInput, outputSchema: resultSchema,
     annotations: { title: "Generate one Seedance Editor video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => {

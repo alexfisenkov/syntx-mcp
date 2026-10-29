@@ -435,7 +435,7 @@ function readOptionalSelections(value) {
       includeSeedance25T2v: descriptors.includeSeedance25T2v?.value ?? includeAllSupportedMedia,
       includeKlingMedia: descriptors.includeKlingMedia?.value ?? includeAllSupportedMedia, includeSwitchxVideo: descriptors.includeSwitchxVideo?.value ?? includeAllSupportedMedia,
       includeActTwo: descriptors.includeActTwo?.value ?? includeAllSupportedMedia, includeHeygen4: descriptors.includeHeygen4?.value ?? includeAllSupportedMedia,
-      includeExistingVideoRecovery: descriptors.includeExistingVideoRecovery?.value ?? false,
+      includeExistingVideoRecovery: descriptors.includeExistingVideoRecovery?.value ?? includeAllSupportedMedia,
       includeSelfUpdate: descriptors.includeSelfUpdate?.value ?? false,
       includeAllSupportedMedia });
   } catch {

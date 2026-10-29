@@ -39,6 +39,14 @@ test("reports exact current cover/extend pins and source limits without enabling
   assert.equal(source.source_pins.form.bytes, 44_975);
   assert.equal(source.source_pins.form.sha256,
     "sha256:23d8a074cb2a4579f52671a0dc4fe8a99ec7bbae925bfd5f5f0e8d4db5e6effa");
+  assert.deepEqual(source.current_ui_admission, {
+    status: "CURRENT_FORM_TRACK_OPERATION_ADMISSION_NOT_PROVIDER_POLICY",
+    source_build_id: "1793202992",
+    form: { module: "suno.js", bytes: 44_529, sha256: "sha256:7861b84e849dafd787bd484dd99b1dd6383d115d1398071b853fc6ee2bd609ae" },
+    model_ids: ["V6", "V6_wild"],
+    modes: ["cover", "extend"],
+    is_instrumental: { allowed_values: [false], policy_reason: "TRACK_MODES_RESET_FALSE_AND_CONTROL_HAS_NO_TRUE_BINDING" }
+  });
   assert.deepEqual(source.cost_projection.query_keys, ["ai_name", "model_type"]);
   assert.equal(source.cost_projection.model_type_source, "settings_candidate.model_type");
   assert.deepEqual(source.controls.continue_at, {
@@ -69,6 +77,18 @@ test("normalizes extend continuation as explicit seconds on the UI tenth-second 
   assert.equal(result.settings_candidate.mode, "extend");
   assert.equal(result.settings_candidate.continue_at, 12.3);
   assert.equal(result.continuation_measure, "SECONDS");
+});
+
+test("rejects instrumental track-operation intents for both modes and models", () => {
+  for (const model_id of ["V6", "V6_wild"] as const) {
+    for (const mode of ["cover", "extend"] as const) {
+      assert.throws(() => normalize(explicitInput(mode, { model_id, is_custom_mode: true, is_instrumental: true })), isInvalidParameters,
+        `${model_id}/${mode}`);
+      const accepted = normalize(explicitInput(mode, { model_id, is_custom_mode: true, is_instrumental: false }));
+      assert.equal(accepted.settings_candidate.is_custom_mode, true, `${model_id}/${mode} custom-mode scope remains independent`);
+      assert.equal(accepted.settings_candidate.is_instrumental, false, `${model_id}/${mode}`);
+    }
+  }
 });
 
 test("rejects invalid mode-specific fields, raw IDs, unknown keys, and unsafe continuation values", () => {

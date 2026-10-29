@@ -58,6 +58,36 @@ const SOURCE_FACTS = Object.freeze({
 
 const SOURCE_PROFILE = Object.freeze({ ...SOURCE_FACTS, source_sha256: schemaHash(SOURCE_FACTS) });
 
+const CURRENT_UI_OBSERVATION_FACTS = Object.freeze({
+  observation_date: "2026-10-30" as const,
+  status: "CURRENT_UI_POST_OBSERVED_HTTP_400_ACCEPTANCE_UNPROVEN" as const,
+  source: Object.freeze({
+    build_id: "1793202992" as const,
+    form_module: "seedance-editor.js" as const,
+    form_sha256: "sha256:118844ecf40ae5735cbabb0fc52f2d40531a29ebd1c11431ab3e97638fe938cd" as const
+  }),
+  observed_source_video_duration_seconds: 5,
+  request: Object.freeze({
+    method: "POST" as const,
+    path: "/api/v1/video/generate" as const,
+    query_ai_name: AI_NAME,
+    body_keys: Object.freeze(["chat_id", "prompt", "settings"] as const),
+    settings: Object.freeze({
+      n: 1 as const,
+      model_type: MODEL_TYPE,
+      mode: "edit" as const,
+      aspect_ratio: "adaptive" as const,
+      resolution: "720p" as const,
+      video_duration: 0 as const,
+      generate_audio: true as const,
+      file_urls: Object.freeze([Object.freeze({ type: "video" as const, url: "OWNER_SUPPLIED_URL_REDACTED" as const })])
+    })
+  }),
+  response: Object.freeze({ http_status: 400 as const, accepted: "UNPROVEN" as const, generation_result: "NOT_CONFIRMED" as const })
+});
+const CURRENT_UI_OBSERVATION = Object.freeze({ ...CURRENT_UI_OBSERVATION_FACTS,
+  observation_sha256: schemaHash(CURRENT_UI_OBSERVATION_FACTS) });
+
 export type OwnerSeedanceEditorResolution = typeof RESOLUTIONS[number];
 
 export interface OwnerSeedanceEditorParametersInput {
@@ -87,6 +117,11 @@ export class OwnerSeedanceEditorParametersError extends Error {
 
 export function getOwnerSeedanceEditorSourceProfile(): Readonly<typeof SOURCE_PROFILE> {
   return SOURCE_PROFILE;
+}
+
+/** Separate current browser-wire observation; it does not replace the immutable older static profile. */
+export function getOwnerSeedanceEditorCurrentUiObservation(): Readonly<typeof CURRENT_UI_OBSERVATION> {
+  return CURRENT_UI_OBSERVATION;
 }
 
 /** Normalizes explicit choices only; the form initializer is not treated as an effective default. */

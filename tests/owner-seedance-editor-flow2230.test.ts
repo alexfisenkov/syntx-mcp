@@ -74,7 +74,7 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
       assert.equal(url.searchParams.get("ai_name"), "seedance");
       assert.equal(last.chat_id, "editorchat2230"); assert.equal(last.chat_uuid, undefined);
       assert.deepEqual(last.settings, { n: 1, model_type: "seedance-2.5", mode: "edit", aspect_ratio: "adaptive",
-        resolution: "480p", video_duration: 0, generate_audio: false, file_urls: [{ type: "video", url: INPUT }] });
+        resolution: "480p", video_duration: 0, generate_audio: true, file_urls: [{ type: "video", url: INPUT }] });
       if (options.generationHttpStatus) return json({ detail: "PRIVATE_RESPONSE_BODY_MUST_NOT_ESCAPE" }, options.generationHttpStatus);
       if (options.loseAck) throw new Error("synthetic lost ACK");
       return json({ id: "owner2230" });

@@ -205,6 +205,22 @@ async function seededTrack(f: Awaited<ReturnType<typeof fixture>>) {
   return { source, track: first };
 }
 
+test("rejects instrumental=true cover and extend before principal, quote, chat, or operation POST", async () => {
+  const f = await fixture();
+  try {
+    const { track } = await seededTrack(f);
+    const countsBefore = { ...f.counts }, eventsBefore = f.events.length;
+    for (const mode of ["cover", "extend"] as const) {
+      await assert.rejects(f.service.generateTrackOperation({ attemptId: ATTEMPT_A,
+        request: operationRequest(track.track_handle, { mode, is_custom_mode: true, is_instrumental: true,
+          ...(mode === "extend" ? { continue_at: 12.3 } : {}) }) }),
+      (error: unknown) => errorCode(error) === "INVALID_REQUEST", mode);
+      assert.deepEqual(f.counts, countsBefore, `${mode} true must fail before principal and preflight reads`);
+      assert.equal(f.events.length, eventsBefore, `${mode} true must produce no API call`);
+    }
+  } finally { await f.close(); }
+});
+
 test("cover and extend use the genuine source-owned track binding and return only bounded safe result DTOs", async () => {
   const f = await fixture();
   try {

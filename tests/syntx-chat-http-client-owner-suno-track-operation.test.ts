@@ -171,7 +171,7 @@ async function fixture(options: {
     principal, handle, events, chats, get operationPosts() { return operationPosts; }, get now() { return now; },
     async operation(mode: "cover" | "extend", attempt = ATTEMPT) {
       const normalized = normalizeOwnerSunoTrackOperationParameters({ model_id: "V6", mode, track_handle: handle,
-        prompt: BASE_PROMPT, is_custom_mode: false, is_instrumental: true, negative_tags: "", styles: "",
+        prompt: BASE_PROMPT, is_custom_mode: false, is_instrumental: false, negative_tags: "", styles: "",
         title: `Native ${mode}`, ...(mode === "extend" ? { continue_at: 17.3 } : {}) });
       const candidate = await operationPreparer.prepare({ attemptId: attempt, normalized });
       const permit = operationPolicy.createPermit({ candidate, attemptId: attempt, principal });
@@ -206,7 +206,7 @@ test("native track-operation path exposes isolated methods and sends source-boun
       assert.equal(post.method, "POST");
       assert.equal(post.query, "?ai_name=suno");
       assert.deepEqual(post.body, { chat_uuid: chat.chat_uuid, prompt: BASE_PROMPT, settings: {
-        model_type: "V6", mode, is_custom_mode: false, is_instrumental: true,
+        model_type: "V6", mode, is_custom_mode: false, is_instrumental: false,
         negative_tags: "", styles: "", title: `Native ${mode}`,
         source_clip_id: "owned-base-clip-1302", source_task_id: "owned-base-task-1302",
         file_urls: [],
@@ -332,7 +332,7 @@ test("Cover and Extend preserve the source-observed empty file_urls settings fie
       await f.native.startSunoTrackOperationWithOwnedCandidate({ ...operation.input, chat });
       const post = f.events.filter(({ pathname, method }) => pathname === "/api/v1/audio/generate" && method === "POST").at(-1)!;
       assert.deepEqual(post.body, { chat_uuid: chat.chat_uuid, prompt: BASE_PROMPT, settings: {
-        model_type: "V6", mode, is_custom_mode: false, is_instrumental: true,
+        model_type: "V6", mode, is_custom_mode: false, is_instrumental: false,
         negative_tags: "", styles: "", title: `Native ${mode}`,
         source_clip_id: "owned-base-clip-1302", source_task_id: "owned-base-task-1302",
         file_urls: [], ...(mode === "extend" ? { continue_at: 17.3 } : {})

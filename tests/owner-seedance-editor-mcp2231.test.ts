@@ -5,6 +5,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createDefaultApplication } from "../src/application/factory.js";
 import { createMcpServer } from "../src/mcp/server.js";
 import { OWNER_SEEDANCE_EDITOR_TOOL_NAMES, type OwnerSeedanceEditorToolOptions } from "../src/mcp/owner-seedance-editor-tools.js";
+import { SYNTX_SEEDANCE_EDITOR_SOURCE_TOOL_NAME } from "../src/mcp/seedance-editor-source-tool.js";
 
 const ATTEMPT = "link_seedance_mcp_owner_0123456789abcdef";
 const HANDLE = "seedance_editor_reference_00000000-0000-4000-8000-000000000001";
@@ -58,6 +59,28 @@ async function withClient<T>(options: Record<string, unknown> | undefined, run: 
   try { await server.connect(serverTransport); await client.connect(clientTransport); return await run(client); }
   finally { await client.close(); await server.close(); }
 }
+
+test("source getter keeps historical static pins separate from the current UI wire observation", async () => {
+  await withClient(undefined, async client => {
+    const result = await client.callTool({ name: SYNTX_SEEDANCE_EDITOR_SOURCE_TOOL_NAME, arguments: {} });
+    assert.equal(result.isError, undefined);
+    const content = result.structuredContent as {
+      network_access: boolean; paid_operations: boolean; dispatch_allowed: boolean;
+      profile: { source_pins: { source_build_id: string }; form_initializer: { generate_audio: boolean } };
+      current_ui_observation: { source: { build_id: string; form_sha256: string }; request: { settings: { generate_audio: boolean } };
+        response: { http_status: number; accepted: string } };
+    };
+    assert.deepEqual([content.network_access, content.paid_operations, content.dispatch_allowed], [false, false, false]);
+    assert.equal(content.profile.source_pins.source_build_id, "1792156098");
+    assert.equal(content.profile.form_initializer.generate_audio, false);
+    assert.equal(content.current_ui_observation.source.build_id, "1793202992");
+    assert.equal(content.current_ui_observation.source.form_sha256,
+      "sha256:118844ecf40ae5735cbabb0fc52f2d40531a29ebd1c11431ab3e97638fe938cd");
+    assert.equal(content.current_ui_observation.request.settings.generate_audio, true);
+    assert.equal(content.current_ui_observation.response.http_status, 400);
+    assert.equal(content.current_ui_observation.response.accepted, "UNPROVEN");
+  });
+});
 
 test("2231 default MCP omits Seedance Editor owner tools; explicit registration exposes exactly four", async () => {
   await withClient(undefined, async client => {

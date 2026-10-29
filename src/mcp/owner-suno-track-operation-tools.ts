@@ -63,7 +63,7 @@ const commonShape = {
   track_handle: trackHandleSchema,
   prompt: textSchema(SOURCE.controls.prompt.custom_max, true),
   is_custom_mode: z.boolean(),
-  is_instrumental: z.boolean(),
+  is_instrumental: z.literal(false).describe("Current Suno cover/extend UI admission: false only; form build 1793202992, suno.js SHA-256 7861b84e849dafd787bd484dd99b1dd6383d115d1398071b853fc6ee2bd609ae. This is a local UI policy, not a claim that the provider rejects true."),
   negative_tags: textSchema(SOURCE.controls.negative_tags.local_max),
   styles: textSchema(SOURCE.controls.styles.max),
   title: textSchema(SOURCE.controls.title.max)
@@ -105,6 +105,16 @@ const modelSourceSchema = (model: OwnerSunoTrackOperationModel) => z.object({ mo
   }).strict() }).strict();
 const parameterSourceSchema = z.object({
   profile_id: z.literal(SOURCE.profile_id), status: z.literal(SOURCE.status), source_pins: sourcePinsSchema,
+  current_ui_admission: z.object({
+    status: z.literal(SOURCE.current_ui_admission.status),
+    source_build_id: z.literal(SOURCE.current_ui_admission.source_build_id),
+    form: z.object({ module: z.literal(SOURCE.current_ui_admission.form.module), bytes: z.literal(SOURCE.current_ui_admission.form.bytes),
+      sha256: z.literal(SOURCE.current_ui_admission.form.sha256) }).strict(),
+    model_ids: z.tuple([z.literal("V6"), z.literal("V6_wild")]),
+    modes: z.tuple([z.literal("cover"), z.literal("extend")]),
+    is_instrumental: z.object({ allowed_values: z.tuple([z.literal(false)]),
+      policy_reason: z.literal(SOURCE.current_ui_admission.is_instrumental.policy_reason) }).strict()
+  }).strict(),
   model_ids: z.tuple([z.literal("V6"), z.literal("V6_wild")]), modes: z.tuple([z.literal("cover"), z.literal("extend")]),
   models: z.object({ V6: modelSourceSchema("V6"), V6_wild: modelSourceSchema("V6_wild") }).strict(),
   controls: z.object({
@@ -169,7 +179,7 @@ export function registerSyntxOwnerSunoTrackOperationTools(server: McpServer, opt
   const options = snapshotOptions(optionsInput);
   server.registerTool(SYNTX_GET_SUNO_TRACK_OPERATION_PARAMETERS_TOOL_NAME, {
     title: "Get Suno cover and extend parameters",
-    description: "Returns the pinned static cover and extend source profile. Runtime availability, dispatch permission, and provider acceptance remain unproven.",
+    description: "Returns historical native source pins separately from current UI admission for cover/extend (form build 1793202992). The current UI admits is_instrumental=false for these track-operation modes; this does not establish a provider-side rejection rule. Runtime availability, dispatch permission, and provider acceptance remain unproven.",
     inputSchema: parametersInputSchema, outputSchema: parameterSourceSchema,
     annotations: { title: "Suno track-operation parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async () => {
@@ -182,7 +192,7 @@ export function registerSyntxOwnerSunoTrackOperationTools(server: McpServer, opt
     const inputSchema = mode === "cover" ? coverInputSchema : extendInputSchema;
     server.registerTool(toolName, {
       title: mode === "cover" ? "Create Suno cover" : "Extend Suno audio",
-      description: `Submits one explicit Suno ${mode} request for a current owner-bound track handle. An uncertain outcome must be reconciled and never replayed.`,
+      description: `Submits one explicit Suno ${mode} request for a current owner-bound track handle. Current UI admission is is_instrumental=false only (build 1793202992, suno.js SHA-256 7861b84e849dafd787bd484dd99b1dd6383d115d1398071b853fc6ee2bd609ae); this is not a provider rejection claim. An uncertain outcome must be reconciled and never replayed.`,
       inputSchema, outputSchema: resultSchema,
       annotations: { title: mode === "cover" ? "Suno cover" : "Suno extend", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
     }, async (rawInput, { signal }) => {

@@ -337,6 +337,7 @@ const REQUIRED_PACKAGE_PATHS = [
   "dist/src/mcp/owner-expanded-t2v-tools.js",
   "catalog/media-coverage/owner-tool-routes-v1.json",
   "catalog/media-coverage/owner-tool-routes-v2.json",
+  "catalog/media-coverage/owner-tool-routes-v3.json",
   "catalog/media-coverage/owner-expanded-t2v-controls-v2.json"
 ];
 
@@ -455,6 +456,7 @@ async function assertInstalledMediaUpdateArtifacts(installedPackagePath, consume
   await assertInstalledJsonArtifactBytes(installedPackagePath, [
     "catalog/media-coverage/owner-tool-routes-v1.json",
     "catalog/media-coverage/owner-tool-routes-v2.json",
+    "catalog/media-coverage/owner-tool-routes-v3.json",
     "catalog/media-coverage/owner-expanded-t2v-controls-v2.json"
   ]);
   const routes = JSON.parse(await readFile(join(installedPackagePath, "catalog/media-coverage/owner-tool-routes-v1.json"), "utf8"));
@@ -466,6 +468,16 @@ async function assertInstalledMediaUpdateArtifacts(installedPackagePath, consume
   if (routesV2.schema_version !== "2.0.0" || routesV2.owner_tool_count !== null ||
       routesV2.owner_tool_count_status !== "UNVERIFIED_FOR_ROUTE_EXTENSION" ||
       typeof routesV2.routes !== "object" || routesV2.routes === null || Array.isArray(routesV2.routes)) {
+    throw new PackageSmokeError("MEDIA_COVERAGE_PACKAGE_INVALID");
+  }
+  const routesV3 = JSON.parse(await readFile(join(installedPackagePath, "catalog/media-coverage/owner-tool-routes-v3.json"), "utf8"));
+  const existingKling4Alias = routesV3.native_alias_bindings?.find((binding) => binding.operator_flag === "SYNTX_OWNER_EXISTING_VIDEO_RECOVERY");
+  if (routesV3.schema_version !== "3.0.0" || routesV3.owner_tool_count !== null ||
+      routesV3.owner_tool_count_status !== "UNVERIFIED_FOR_ROUTE_EXTENSION" ||
+      routesV3.public_catalog_version !== routesV2.public_catalog_version ||
+      JSON.stringify(existingKling4Alias?.public_model_ids) !== JSON.stringify(["kling_4_keyframes", "kling_4_omni"]) ||
+      JSON.stringify(existingKling4Alias?.tool_names) !== JSON.stringify(["syntx_owner_get_existing_video_recovery"]) ||
+      existingKling4Alias?.operation_note?.includes("NO_REFERENCE_ONLY") !== true) {
     throw new PackageSmokeError("MEDIA_COVERAGE_PACKAGE_INVALID");
   }
   const updater = await readFile(join(installedPackagePath, "scripts/update-mcp.mjs"), "utf8");
@@ -3345,7 +3357,7 @@ async function assertInstalledManifest(installedPackagePath, version) {
     manifest.scripts?.test !==
       "npm run build && node --test dist/tests/*.test.js tests/syntx-maintenance-cli.test.mjs tests/print-media-mcp-config.test.mjs tests/print-media-omni-reference-config-2117.test.mjs tests/print-media-mcp-config-kling4-2149.test.mjs tests/print-media-grok-i2v-config2288.test.mjs tests/upload-form-view2287.test.mjs tests/public-source-package-manifest.test.mjs tests/export-public-snapshot.test.mjs tests/public-secret-scan.test.mjs tests/prime-package-test-cache.test.mjs tests/public-source-line-endings.test.mjs" ||
     manifest.scripts?.["test:media:update"] !==
-      "node --test --test-concurrency=1 dist/tests/syntx-public-catalog-schema-20261028.test.js dist/tests/public-catalog-selection.test.js dist/tests/public-catalog-sync.test.js dist/tests/owner-kling-i2v-input-policy.test.js dist/tests/owner-kling-i2v-parameters.test.js dist/tests/owner-kling-media-sdk2350.test.js dist/tests/owner-kling-motion-control-image-policy-1607.test.js dist/tests/owner-kling-motion-control-reference-service-1616.test.js dist/tests/owner-wan25-i2v-image-policy-1677.test.js dist/tests/owner-wan26-i2v-image-policy-1649.test.js dist/tests/owner-wan26-r2v-image-policy-1725.test.js dist/tests/owner-wan26-r2v-original-probe-1726.test.js dist/tests/owner-wan27-r2v-generation-parameters-1546.test.js dist/tests/owner-wan27-r2v-request-preparer-1555.test.js dist/tests/owner-wan27-r2v-generation-mcp-runtime-1565.test.js dist/tests/media-coverage.test.js dist/tests/reviewed-media-profile.test.js dist/tests/expanded-t2v-profile.test.js dist/tests/owner-expanded-t2v-tools.test.js dist/tests/owner-existing-kling4-recovery.test.js dist/tests/owner-existing-video-recovery2361.test.js tests/mcp-self-update-service.test.mjs tests/print-media-all-supported-media.test.mjs tests/public-media-update-package.test.mjs && node --test --test-name-pattern=\"all-supported config pins the updateable reviewed media profile\" tests/print-media-mcp-config.test.mjs && node --test --test-name-pattern=\"exports only the exact committed|exports only the allowlisted media guides|manifest rejects owner receipts and private documentation|public package paths must contain manifest\" tests/export-public-snapshot.test.mjs tests/public-source-package-manifest.test.mjs" ||
+      "node --test --test-concurrency=1 dist/tests/syntx-public-catalog-schema-20261028.test.js dist/tests/public-catalog-selection.test.js dist/tests/public-catalog-sync.test.js dist/tests/owner-kling-i2v-input-policy.test.js dist/tests/owner-kling-i2v-parameters.test.js dist/tests/owner-kling-media-sdk2350.test.js dist/tests/owner-kling-motion-control-image-policy-1607.test.js dist/tests/owner-kling-motion-control-reference-service-1616.test.js dist/tests/owner-wan25-i2v-image-policy-1677.test.js dist/tests/owner-wan26-i2v-image-policy-1649.test.js dist/tests/owner-wan26-r2v-image-policy-1725.test.js dist/tests/owner-wan26-r2v-original-probe-1726.test.js dist/tests/owner-wan27-r2v-generation-parameters-1546.test.js dist/tests/owner-wan27-r2v-request-preparer-1555.test.js dist/tests/owner-wan27-r2v-generation-mcp-runtime-1565.test.js dist/tests/owner-suno-track-operation-parameters.test.js dist/tests/owner-suno-track-operation-preparer.test.js dist/tests/owner-suno-track-operation-generation-service.test.js dist/tests/owner-suno-track-operation-tools.test.js dist/tests/syntx-chat-http-client-owner-suno-track-operation.test.js dist/tests/owner-seedance-editor-source2216.test.js dist/tests/owner-seedance-editor-cost2222.test.js dist/tests/owner-seedance-editor-chat2221.test.js dist/tests/owner-seedance-editor-flow2230.test.js dist/tests/owner-seedance-editor-mcp2231.test.js dist/tests/media-coverage.test.js dist/tests/reviewed-media-profile.test.js dist/tests/expanded-t2v-profile.test.js dist/tests/owner-expanded-t2v-tools.test.js dist/tests/owner-existing-kling4-recovery.test.js dist/tests/owner-existing-video-recovery2361.test.js tests/public-media-stdio-optins.test.mjs tests/mcp-self-update-service.test.mjs tests/print-media-all-supported-media.test.mjs tests/public-media-update-package.test.mjs && node --test --test-name-pattern=\"all-supported config pins the updateable reviewed media profile\" tests/print-media-mcp-config.test.mjs && node --test --test-name-pattern=\"exports only the exact committed|exports only the allowlisted media guides|manifest rejects owner receipts and private documentation|public package paths must contain manifest\" tests/export-public-snapshot.test.mjs tests/public-source-package-manifest.test.mjs" ||
     manifest.scripts?.["settings:ir:check"] !==
       "node scripts/sync-normalized-settings-ir.mjs --check" ||
     manifest.scripts?.["settings:parser:check"] !==

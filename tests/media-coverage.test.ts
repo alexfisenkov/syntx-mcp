@@ -82,6 +82,33 @@ test("route v2 captures the expanded owner alias without inventing a tools/list 
     "syntx_owner_reconcile_expanded_t2v", "syntx_owner_list_expanded_t2v_recoveries"].sort());
 });
 
+test("route v3 advertises only no-reference K4 recovery without granting generation", () => {
+  const snapshot = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v3.json"), "utf8"));
+  assert.equal(snapshot.schema_version, "3.0.0");
+  assert.equal(snapshot.owner_tool_count, null);
+  assert.equal(snapshot.owner_tool_count_status, "UNVERIFIED_FOR_ROUTE_EXTENSION");
+  const alias = snapshot.native_alias_bindings.find((binding: { operator_flag: string }) => binding.operator_flag === "SYNTX_OWNER_EXISTING_VIDEO_RECOVERY");
+  assert.deepEqual(alias?.public_model_ids.sort(), ["kling_4_keyframes", "kling_4_omni"].sort());
+  assert.deepEqual(alias?.tool_names, ["syntx_owner_get_existing_video_recovery"]);
+  assert.match(alias?.operation_note ?? "", /NO_REFERENCE_ONLY/u);
+
+  const selected = loadCurrentDiscoveryReadCatalog();
+  const catalog = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
+  const rows: MediaCoverageRecord[] = [];
+  let offset = 0;
+  while (true) {
+    const page = catalog.page({ include_inactive: true, offset, limit: 100 });
+    rows.push(...page.items);
+    if (page.next_offset === null) break;
+    offset = page.next_offset;
+  }
+  for (const modelId of ["kling_4_keyframes", "kling_4_omni"]) {
+    const row = rows.find((item) => item.model_id === modelId);
+    assert.ok(row?.mcp_tool_names.includes("syntx_owner_get_existing_video_recovery"), modelId);
+    assert.ok(row?.operator_flags?.includes("SYNTX_OWNER_EXISTING_VIDEO_RECOVERY"), modelId);
+  }
+});
+
 test("MCP media coverage tool exposes a read-only page with source version and no dispatch", async () => {
   const selected = loadCurrentDiscoveryReadCatalog();
   const catalog = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
@@ -97,6 +124,7 @@ test("MCP media coverage tool exposes a read-only page with source version and n
     const result = await client.callTool({ name: SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME, arguments: { limit: 2 } });
     assert.equal(result.isError, undefined);
     const value = result.structuredContent as Record<string, unknown>;
+    assert.equal(value.coverage_version, "3.0.0");
     assert.equal(value.total, 121);
     assert.equal(value.next_offset, 2);
     assert.equal(value.runtime_usable, false);

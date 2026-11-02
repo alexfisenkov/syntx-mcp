@@ -13450,7 +13450,7 @@ function redactStandardImageResult(
   const pending = (reason: StandardImageResultPendingReason): InternalStandardImageResult =>
     Object.freeze({ ...context, status: "PENDING", reason });
   if (!isRecord(raw)) return unverified("RESPONSE_SHAPE_INVALID");
-  if (typeof raw.id !== "string" || raw.id !== context.message_id) return unverified("OUTER_MESSAGE_MISMATCH");
+  if (optionalProviderId(raw.id) !== context.message_id) return unverified("OUTER_MESSAGE_MISMATCH");
   if (typeof raw.chat_id !== "number" || !Number.isSafeInteger(raw.chat_id) || raw.chat_id < 0 ||
       String(raw.chat_id) !== context.provider_chat_id) return unverified("PROVIDER_CHAT_MISMATCH");
   if (raw.author_id !== BOT_AUTHOR_ID) return unverified("NOT_BOT_MESSAGE");
@@ -13461,8 +13461,8 @@ function redactStandardImageResult(
   if (raw.message_object.length !== 1) return unverified("RESULT_OBJECT_CARDINALITY_INVALID");
   const object = raw.message_object[0];
   if (!isRecord(object)) return unverified("RESULT_OBJECT_SHAPE_INVALID");
-  if (typeof object.id !== "string" || object.id !== context.message_object_ids[0]) return unverified("OBJECT_ID_MISMATCH");
-  if (typeof object.message_id !== "string" || object.message_id !== context.message_id) return unverified("OBJECT_MESSAGE_MISMATCH");
+  if (optionalProviderId(object.id) !== context.message_object_ids[0]) return unverified("OBJECT_ID_MISMATCH");
+  if (optionalProviderId(object.message_id) !== context.message_id) return unverified("OBJECT_MESSAGE_MISMATCH");
   if (object.object_type !== "image") return unverified("OBJECT_TYPE_MISMATCH");
   if (typeof object.model_type !== "string") return unverified("MODEL_TYPE_UNAVAILABLE");
   if (object.model_type !== context.variant) return unverified("MODEL_TYPE_MISMATCH");

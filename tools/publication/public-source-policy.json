@@ -29,6 +29,7 @@
     "LICENSE",
     "package-lock.json",
     "package.json",
+    "scripts/print-chatgpt-tunnel-config.mjs",
     "tsconfig.json",
     "tsconfig.source-backed-build.json"
   ],

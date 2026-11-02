@@ -16,6 +16,7 @@ import {
   type OwnerImageRecoveryStoreLike
 } from "../application/owner-image-recovery.js";
 import { SYNTX_HTTP_ERROR_MESSAGES } from "./syntx-http-error-messages.js";
+import { imageArtifactContent, imageArtifactResultJsonText } from "./image-artifact-content.js";
 
 export const SYNTX_OWNER_GENERATE_IMAGE_TOOL_NAME =
   "syntx_owner_generate_image" as const;
@@ -225,7 +226,10 @@ export function registerSyntxOwnerGenerateImageTool(
           notes
         };
         return {
-          content: [{ type: "text", text: JSON.stringify(result) }],
+          content: [
+            { type: "text", text: imageArtifactResultJsonText(result) },
+            ...imageArtifactContent(images)
+          ],
           structuredContent: result
         };
       } catch (error) {
@@ -267,14 +271,13 @@ export function registerSyntxOwnerReconcileImageTool(
       try {
         const client = options.resolveChatClient(input.link_attempt_id);
         const images = await reconcileOwnerImageRecovery(client, record, signal);
+        const result = { images, requested_copies: 1, succeeded_copies: 1, notes: [] };
         return {
-          content: [{ type: "text", text: JSON.stringify({
-            images,
-            requested_copies: 1,
-            succeeded_copies: 1,
-            notes: []
-          }) }],
-          structuredContent: { images, requested_copies: 1, succeeded_copies: 1, notes: [] }
+          content: [
+            { type: "text", text: imageArtifactResultJsonText(result) },
+            ...imageArtifactContent(images)
+          ],
+          structuredContent: result
         };
       } catch (error) {
         if (error instanceof OwnerImageGenerationOutcomeUnknownError) return ownerImageUnknownResult(error);

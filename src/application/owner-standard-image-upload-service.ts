@@ -281,6 +281,29 @@ export class OwnerStandardImageUploadService {
     }
   }
 
+  /** Read-only owner-link preflight used before downloading a host-provided attachment. */
+  async assertLinkedAttempt(attemptId: string, signal?: AbortSignal): Promise<void> {
+    if (typeof attemptId !== "string" || !ATTEMPT_PATTERN.test(attemptId)) fail("INVALID_REQUEST");
+    const operation = this.#beginOperation(attemptId, signal, false);
+    try {
+      this.#throwIfClosedOrAborted(operation.controller);
+      const principal = await this.#resolvePrincipal(attemptId, operation.controller.signal);
+      this.#throwIfClosedOrAborted(operation.controller);
+      if (!this.#rememberPrincipal(attemptId, principal)) {
+        this.#invalidateAttemptState(attemptId);
+        fail("PRINCIPAL_NOT_LINKED");
+      }
+    } catch (error) {
+      if (error instanceof OwnerReferencePrincipalError) {
+        this.#invalidateAttemptState(attemptId);
+        fail("PRINCIPAL_NOT_LINKED");
+      }
+      throw error;
+    } finally {
+      this.#finishOperation(attemptId, operation);
+    }
+  }
+
   createOwnedReferenceBindingIssuer(): OwnerStandardImageReferenceBindingIssuer {
     this.#assertOpen();
     if (this.#issuer) return this.#issuer.exposed;

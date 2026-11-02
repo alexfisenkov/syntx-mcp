@@ -12,6 +12,7 @@ on:
           - changed-media
           - docs-only
           - media-cli-fix
+          - image-file-fix
           - catalog-update
           - media-update
           - full
@@ -22,7 +23,7 @@ permissions:
 jobs:
   changed-media:
     name: Scoped checks / Linux / Node 24.21.0
-    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -41,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        if: inputs.scope == 'changed-media' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
         run: npm run build
 
       - name: Install media probe tools for changed video checks
@@ -90,6 +91,10 @@ jobs:
         run: |
           node --test tests/print-media-kling-switchx2357.test.mjs
           node --test --test-name-pattern="allowlisted media guides|exports only the exact committed" tests/export-public-snapshot.test.mjs
+
+      - name: Verify ChatGPT image-file input and image result links
+        if: inputs.scope == 'image-file-fix'
+        run: npm run test:image:file-fix
 
       - name: Verify public manifest hashes, read safety, and secrets
         # catalog-update has only offline/mock requests; it never starts provider jobs.

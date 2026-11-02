@@ -96,6 +96,78 @@ test("owner generate-image dispatches only the observed banana-2.1 settings tupl
     assert.deepEqual(result.structuredContent?.images, [
       { url: "https://r2.syntx.ai/generated/banana-21-test.jpg", mime_type: "image/jpeg" }
     ]);
+    assert.ok(result.content.some((item) => item.type === "resource_link" && item.uri === "https://r2.syntx.ai/generated/banana-21-test.jpg"));
+    assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("![Generated image 1]")));
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("owner image results omit non-HTTPS and credentialed URLs from added links", async () => {
+  const server = createMcpServer(createDefaultApplication(), {
+    ownerGenerateImage: {
+      resolveChatClient: () => fakeChatClient("https://user:secret@r2.syntx.ai/generated/private.png"),
+      wait: instant
+    }
+  });
+  const client = new Client({ name: "owner-image-unsafe-result-link-test", version: "1" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  try {
+    const result = requireResult(await client.callTool({
+      name: SYNTX_OWNER_GENERATE_IMAGE_TOOL_NAME,
+      arguments: { link_attempt_id: LINK_ATTEMPT_ID, model_id: "banana", prompt: "a small wooden lighthouse" }
+    }));
+    assert.equal(result.content.some((item) => item.type === "resource_link"), false);
+    assert.equal(result.content.some((item) => item.type === "text" && item.text.includes("![Generated image")), false);
+    assert.equal(result.content.some((item) => item.type === "text" && item.text.includes("secret")), false);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("owner image GET recovery returns artifact resource and Markdown links", async () => {
+  const recoveryStore = new OwnerImageRecoveryStore();
+  const record = recoveryStore.create({
+    attempt_id: LINK_ATTEMPT_ID,
+    chat_uuid: "recovery-chat-test",
+    model_id: "banana",
+    model_type: "banana",
+    mime_types: ["image/png"],
+    message_id: "bot-image-1"
+  });
+  const clientImpl: OwnerImageChatClient = {
+    ...fakeChatClient("https://r2.syntx.ai/generated/recovered.png"),
+    async getMessage(chatUuid, messageId) {
+      return {
+        chat_uuid: chatUuid,
+        message_id: messageId,
+        object_type: "image",
+        model_type: "banana",
+        artifacts: [{ url: "https://r2.syntx.ai/generated/recovered.png", mime_type: "image/png" }]
+      };
+    }
+  };
+  const server = createMcpServer(createDefaultApplication(), {
+    ownerGenerateImage: { resolveChatClient: () => clientImpl, recoveryStore, wait: instant }
+  });
+  const client = new Client({ name: "owner-image-recovery-links-test", version: "1" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  try {
+    const result = requireResult(await client.callTool({
+      name: SYNTX_OWNER_RECONCILE_IMAGE_TOOL_NAME,
+      arguments: { link_attempt_id: LINK_ATTEMPT_ID, model_id: "banana", recovery_id: record.recovery_id }
+    }));
+    assert.deepEqual(result.structuredContent?.images, [
+      { url: "https://r2.syntx.ai/generated/recovered.png", mime_type: "image/png" }
+    ]);
+    assert.ok(result.content.some((item) => item.type === "resource_link" && item.uri === "https://r2.syntx.ai/generated/recovered.png"));
+    assert.ok(result.content.some((item) => item.type === "text" && item.text.includes("![Generated image 1]")));
   } finally {
     await client.close();
     await server.close();

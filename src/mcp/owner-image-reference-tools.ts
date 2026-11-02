@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
 import { z } from "zod/v4";
 import { OwnerContractMediaError } from "../application/owner-contract-media.js";
 import { OwnerMediaReferenceStoreError } from "../application/owner-media-reference-store.js";
@@ -155,7 +156,7 @@ export function registerSyntxOwnerImageReferenceTools(
 }
 
 function success(value: Record<string, unknown>): CallToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value };
+  return { content: [{ type: "text", text: imageArtifactResultJsonText(value) }, ...imageArtifactContentForResult(value)], structuredContent: value };
 }
 
 function errorResult(error: unknown, fallback: string): CallToolResult {

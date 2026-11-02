@@ -178,6 +178,31 @@ test("refuses a caller-supplied upload method and invalid bytes before any nativ
   await client.close();
 });
 
+test("linked-attempt preflight is read-only and fails closed before any native upload", async () => {
+  let statusReads = 0;
+  let posts = 0;
+  const linkService = { async getStatus(_binding: typeof BINDING, attemptId: string) {
+    statusReads += 1;
+    return { attempt_id: attemptId, authorization_profile: "OBSERVED_OWNER_AUTHORIZED" as const,
+      status: "LINKED" as const, expires_at: null, linked: true as const };
+  } };
+  const client = service(async () => { posts += 1; throw new Error("unexpected upload"); }, linkService);
+  assert.equal(await client.assertLinkedAttempt(ATTEMPT), undefined);
+  assert.equal(statusReads, 1);
+  assert.equal(posts, 0);
+  await client.close();
+
+  const unlinkedService = { async getStatus(_binding: typeof BINDING, attemptId: string) {
+    return { attempt_id: attemptId, authorization_profile: "OBSERVED_OWNER_AUTHORIZED" as const,
+      status: "FAILED_TERMINAL" as const, expires_at: null, linked: false as const };
+  } };
+  const unlinked = service(async () => { posts += 1; throw new Error("unexpected upload"); }, unlinkedService);
+  await assert.rejects(() => unlinked.assertLinkedAttempt(ATTEMPT),
+    (error: unknown) => error instanceof OwnerStandardImageUploadServiceError && error.code === "PRINCIPAL_NOT_LINKED");
+  assert.equal(posts, 0);
+  await unlinked.close();
+});
+
 test("preserves an ambiguous native upload outcome without automatic retry", async () => {
   let posts = 0;
   const client = service(async () => { posts += 1; throw new Error("synthetic transport interruption"); });

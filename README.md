@@ -87,6 +87,71 @@ syntx-mcp-update apply
 и повторный вход выполняются обычным способом. Для инструкций и ограничений см.
 [обновление MCP](docs/интеграция/Обновление-MCP.md).
 
+### ChatGPT: изображения на входе и в ответе (2026-11-02)
+
+`_meta["openai/fileParams"]` включён пока только у
+`syntx_upload_standard_image_reference` для standard Banana/GPT Image references.
+В подключённом ChatGPT добавьте изображение к запросу с референсом и вызовите этот
+инструмент; там, где хост передаёт вложение как file object, он примет его без
+ручного Base64. Остальные image-family tools пока используют свои входные поля,
+в том числе `content_base64`, где оно предусмотрено. Схема и правила описаны в
+[официальной справке OpenAI](https://developers.openai.com/plugins/reference).
+
+Сервер скачивает переданный временный `download_url` только по HTTPS и только с
+точного `files.oaiusercontent.com` origin. Это консервативная политика текущего
+резолвера, а не опубликованная OpenAI гарантия имени хоста или полного контракта
+скачивания. Ссылка может истечь; сервер не пишет URL или `file_id` в логи, не
+передаёт cookies/Authorization headers и отказывает при redirect. Если файл не
+принят, проверьте выбранный вариант и размер; для этого инструмента доступен
+прежний Base64-вход.
+
+Image-family MCP results могут включать preview и `resource_link` для полученных
+image artifact URLs. Это представление результата в MCP, а не гарантия, что
+каждый клиент покажет картинку или что URL останется доступен. Если исход генерации
+неясен, используйте соответствующий существующий GET-only recovery/reconcile
+инструмент для чтения той же операции; не отправляйте платную генерацию повторно
+вслепую.
+
+Поправка 2026-11-02: source приводит безопасные числовые upstream ID к строкам
+связанного context; guard-проверки владельца, модели и чата сохранены. В одном
+свежем live кейсе локальный owner MCP через MCP SDK InMemory transport выполнил одну генерацию Banana 2.1 с
+одной собственной PNG-референс-картинкой и параметрами 1K/minimal/1:1. Результат содержал один
+`image/jpeg` artifact `resource_link`; тот же файл скачан и полностью декодирован.
+Это не подтверждает ChatGPT fileParams download, другие модели, Secure MCP Tunnel,
+cloud connection или inline-показ результата в ChatGPT.
+
+Эти возможности сейчас относятся к локальному owner-stdio процессу. Текущий
+owner HTTP transport остаётся локальным read-only; этот выпуск не доказывает
+generation deployment, OAuth или готовое подключение из облачного ChatGPT. Для
+ChatGPT OpenAI документирует два пути: MCP endpoint с HTTPS либо Secure MCP
+Tunnel для локального/private stdio или HTTP процесса. Второй путь может
+использовать отдельный [OpenAI tunnel-client](https://github.com/openai/tunnel-client);
+это внешний компонент, не зависимость проекта. Ни tunnel-client, ни ChatGPT
+connector для SYNTX здесь не установлены и не приняты. VPS stdio может также
+исполняться удалённым агентом, который запускает этот процесс. Передавайте в
+ChatGPT только тот доступ, который разрешают его аккаунт и workspace. После
+изменения схемы перезапустите MCP, обновите или переподключите tools и откройте
+новый чат для read-back.
+
+Owner runtime рассчитан на одного владельца, не на совместный multiuser доступ.
+Для каждого пользователя нужны отдельные SYNTX installation, tunnel и private
+ChatGPT MCP app/connection, ограниченные этим пользователем. Не подключайте
+workspace-пользователей к одной owner installation/tunnel и не делитесь
+учётными данными владельца. Публичный репозиторий содержит исходный код, а не
+общий многопользовательский сервис.
+
+Для этого документированного Tunnel route checkout содержит
+`syntx-mcp-chatgpt-tunnel-config` — локальный printer профиля, который не создаёт
+tunnel и не проверяет ChatGPT connection. Сгенерированный owner profile открывает
+all-supported media tools, включая платную генерацию; проверьте список и workspace
+до подключения. Полные шаги, версия внешнего `tunnel-client` и operator placeholders описаны в
+[руководстве по обновлению](docs/интеграция/Обновление-MCP.md). Здесь не заявляется
+успешное подключение ChatGPT, fileParams download или cloud-inline доставка.
+
+См. [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+и [подключение MCP в ChatGPT](https://developers.openai.com/plugins/deploy/connect-chatgpt).
+Канонический проект: [alexfisenkov/syntx-mcp](https://github.com/alexfisenkov/syntx-mcp).
+
 ## Покрытие и ограничения
 
 ### Seedance 2.5 Editor: один исходный видеоролик

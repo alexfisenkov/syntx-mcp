@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
 import { z } from "zod/v4";
 import { types } from "node:util";
 import {
@@ -341,7 +342,7 @@ function recoveryListError(code: "INVALID_REQUEST" | "SERVICE_BUSY" | "SERVICE_C
 }
 
 function structured<T extends Record<string, unknown> | readonly unknown[]>(output: T): CallToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output as Record<string, unknown> };
+  return { content: [{ type: "text", text: imageArtifactResultJsonText(output) }, ...imageArtifactContentForResult(output)], structuredContent: output as Record<string, unknown> };
 }
 
 function parseSafeOutput<T>(schema: z.ZodType<T>, value: unknown): T {

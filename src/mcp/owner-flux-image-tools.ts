@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
 import { z } from "zod/v4";
 import { OwnerReferencePrincipalError } from "../auth/owner-reference-principal.js";
 import {
@@ -212,7 +213,7 @@ export function registerSyntxOwnerFluxImageTools(server: McpServer, options: Reg
 function annotations(title: string, readOnly: boolean, destructive: boolean, idempotent: boolean, openWorld: boolean) {
   return { title, readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: openWorld };
 }
-function structured(value: object): CallToolResult { return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value as Record<string, unknown> }; }
+function structured(value: object): CallToolResult { return { content: [{ type: "text", text: imageArtifactResultJsonText(value) }, ...imageArtifactContentForResult(value)], structuredContent: value as Record<string, unknown> }; }
 function errorResult(error: unknown, fallback: string): CallToolResult {
   const uploadCodes = ["INVALID_REQUEST", "INVALID_IMAGE_INPUT", "LOCAL_RESOURCE_LIMIT_EXCEEDED", "PRINCIPAL_NOT_LINKED", "MODEL_BINDING_MISMATCH",
     "SERVICE_BUSY", "CAPACITY_EXCEEDED", "SERVICE_CLOSED", "REQUEST_ABORTED", "REFERENCE_UNAVAILABLE", "REFERENCE_EXPIRED", "UPLOAD_REJECTED", "UPLOAD_OUTCOME_UNKNOWN"];

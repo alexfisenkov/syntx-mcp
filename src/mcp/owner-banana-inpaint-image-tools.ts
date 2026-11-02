@@ -1,6 +1,7 @@
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
 import { z } from "zod/v4";
 import {
   OWNER_BANANA_INPAINT_IMAGE_GENERATION_ERROR_CODES,
@@ -458,7 +459,7 @@ function annotations(title: string, readOnly: boolean, destructive: boolean, ope
   return { title, readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: readOnly, openWorldHint: openWorld };
 }
 function structured(value: object): CallToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value as Record<string, unknown> };
+  return { content: [{ type: "text", text: imageArtifactResultJsonText(value) }, ...imageArtifactContentForResult(value)], structuredContent: value as Record<string, unknown> };
 }
 function safeParseInput<T>(schema: z.ZodType<T>, input: unknown): T | undefined {
   const copied = snapshotSafeInput(input);

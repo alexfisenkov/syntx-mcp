@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
 import { OwnerReferencePrincipalError } from "../auth/owner-reference-principal.js";
 import {
   OWNER_WAN_IMAGE_GENERATION_ERROR_CODES,
@@ -294,7 +295,7 @@ export function registerSyntxOwnerWanImageTools(
 }
 
 function safeStructured(value: Record<string, unknown>): CallToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value };
+  return { content: [{ type: "text", text: imageArtifactResultJsonText(value) }, ...imageArtifactContentForResult(value)], structuredContent: value };
 }
 
 function errorResult(error: unknown, fallback: string): CallToolResult {

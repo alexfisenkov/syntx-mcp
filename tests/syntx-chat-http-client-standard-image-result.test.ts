@@ -71,6 +71,22 @@ test("standard result GET binds one exact image across all ten model IDs and exp
   }
 });
 
+test("standard result GET canonicalizes all three safe numeric provider IDs to the exact history strings", async () => {
+  const request = { ...context("banana-2.1"), message_id: "42", message_object_ids: ["17"] as [string] };
+  const body = { ...envelope(request), id: 42, message_object: [{
+    ...envelope(request).message_object[0], id: 17, message_id: 42
+  }] };
+  const harness = client(async () => json(body));
+  const result = await harness.client.getStandardImageResult(request);
+  assert.equal(result.status, "COMPLETE");
+  if (result.status === "COMPLETE") {
+    assert.equal(result.artifact.message_id, "42");
+    assert.equal(result.artifact.message_object_id, "17");
+    assert.equal(result.artifact.url, `${HOST}result.png`);
+  }
+  assert.equal(harness.calls.credentials, 1);
+});
+
 test("empty and incomplete results stay pending; unknown extension remains complete with UNKNOWN MIME", async () => {
   const request = context("banana-2.1");
   const cases = [
@@ -110,6 +126,39 @@ test("wrong IDs, chat, author, object, model, URL, and cardinality stay unverifi
     assert.equal(result.status, "UNVERIFIED");
     if (result.status === "UNVERIFIED") assert.equal(result.reason, reason);
     assert.equal(JSON.stringify(result).includes("evil.invalid"), false);
+  }
+});
+
+test("numeric result IDs reject wrong, negative, fractional, unsafe, and string-alias values", async () => {
+  const request = { ...context("banana-2.1"), message_id: "42", message_object_ids: ["17"] as [string] };
+  const base = { ...envelope(request), id: 42, message_object: [{
+    ...envelope(request).message_object[0], id: 17, message_id: 42
+  }] };
+  const stringOuter = { ...base, id: "42" };
+  const stringOuterAndObjectId = { ...stringOuter, message_object: [{ ...base.message_object[0], id: "17" }] };
+  const invalidCases: Array<[unknown, string]> = [
+    [{ ...base, id: 43 }, "OUTER_MESSAGE_MISMATCH"],
+    [{ ...base, id: -42 }, "OUTER_MESSAGE_MISMATCH"],
+    [{ ...base, id: 42.5 }, "OUTER_MESSAGE_MISMATCH"],
+    [{ ...base, id: Number.MAX_SAFE_INTEGER + 1 }, "OUTER_MESSAGE_MISMATCH"],
+    [{ ...base, id: "042" }, "OUTER_MESSAGE_MISMATCH"],
+    [{ ...stringOuter, message_object: [{ ...base.message_object[0], id: 18 }] }, "OBJECT_ID_MISMATCH"],
+    [{ ...stringOuter, message_object: [{ ...base.message_object[0], id: -17 }] }, "OBJECT_ID_MISMATCH"],
+    [{ ...stringOuter, message_object: [{ ...base.message_object[0], id: 17.5 }] }, "OBJECT_ID_MISMATCH"],
+    [{ ...stringOuter, message_object: [{ ...base.message_object[0], id: Number.MAX_SAFE_INTEGER + 1 }] }, "OBJECT_ID_MISMATCH"],
+    [{ ...stringOuter, message_object: [{ ...base.message_object[0], id: "017" }] }, "OBJECT_ID_MISMATCH"],
+    [{ ...stringOuterAndObjectId, message_object: [{ ...stringOuterAndObjectId.message_object[0], message_id: 43 }] }, "OBJECT_MESSAGE_MISMATCH"],
+    [{ ...stringOuterAndObjectId, message_object: [{ ...stringOuterAndObjectId.message_object[0], message_id: -42 }] }, "OBJECT_MESSAGE_MISMATCH"],
+    [{ ...stringOuterAndObjectId, message_object: [{ ...stringOuterAndObjectId.message_object[0], message_id: 42.5 }] }, "OBJECT_MESSAGE_MISMATCH"],
+    [{ ...stringOuterAndObjectId, message_object: [{ ...stringOuterAndObjectId.message_object[0], message_id: Number.MAX_SAFE_INTEGER + 1 }] }, "OBJECT_MESSAGE_MISMATCH"],
+    [{ ...stringOuterAndObjectId, message_object: [{ ...stringOuterAndObjectId.message_object[0], message_id: "042" }] }, "OBJECT_MESSAGE_MISMATCH"]
+  ];
+  for (const [body, reason] of invalidCases) {
+    const harness = client(async () => json(body));
+    const result = await harness.client.getStandardImageResult(request);
+    assert.equal(result.status, "UNVERIFIED");
+    if (result.status === "UNVERIFIED") assert.equal(result.reason, reason);
+    assert.equal(harness.calls.credentials, 1);
   }
 });
 

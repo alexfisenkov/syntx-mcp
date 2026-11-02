@@ -173,6 +173,64 @@ test("SDK schemas keep all ten variants, all three settings, strict nesting, and
   } finally { await client.close(); await server.close(); }
 });
 
+test("standard image upload accepts an official ChatGPT file attachment input", async () => {
+  let received: unknown;
+  let resolverCalls = 0;
+  const order: string[] = [];
+  const attachmentBytes = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const expectedBase64 = Buffer.from(attachmentBytes).toString("base64");
+  const composition = {
+    uploadService: { async assertLinkedAttempt(attemptId: string) {
+      assert.equal(attemptId, "link_standard_test_attempt_000001");
+      order.push("auth");
+    }, async upload(input: unknown) { received = input; return { status: "uploaded", reference_handle: "standard_image_823e4567-e89b-12d3-a456-426614174000",
+      variant: "banana", kind: "image", original_mime_type: "image/png", mime_type: "image/png", width: 1, height: 1,
+      duration: null, size: attachmentBytes.byteLength, sha256: digest(90), expires_in_seconds: 900,
+      metadata_confidence: "CONTAINER_METADATA_ONLY",
+      validation_confidence: "JPEG_PNG_WEBP_STRUCTURAL_HEADER_ONLY;LOCAL_PROCESS_32MIB_RESOURCE_CEILING_NOT_PROVIDER_LIMIT" }; }, async invalidateAttempt() {}, async close() {} },
+    generationService: {
+      async generate() { throw new Error("unused"); }, async reconcile() { throw new Error("unused"); },
+      async listRecoveries() { return []; }, async invalidateAttempt() {}, async close() {}
+    },
+    async resolveChatgptImageFile(file: unknown) {
+      resolverCalls += 1;
+      order.push("download");
+      assert.deepEqual(file, { download_url: "https://files.oaiusercontent.com/file-test", file_id: "file-test" });
+      return { bytes: attachmentBytes, filename: "attachment.png", mime_type: "image/png" };
+    }
+  };
+  const server = createMcpServer(createDefaultApplication(), { ownerStandardImageReferences: composition } as unknown as CreateMcpServerOptions);
+  const client = new Client({ name: "standard-image-chatgpt-file-test", version: "1.0.0" });
+  await connect(server, client);
+  try {
+    const tool = (await client.listTools()).tools.find(({ name }) => name === "syntx_upload_standard_image_reference")!;
+    assert.deepEqual((tool._meta as { "openai/fileParams"?: unknown })?.["openai/fileParams"], ["file"]);
+    const inputSchema = tool.inputSchema as { properties: Record<string, { properties?: Record<string, unknown>; required?: string[] }> };
+    assert.deepEqual(inputSchema.properties.file?.required?.sort(), ["download_url", "file_id"]);
+    assert.deepEqual(Object.keys(inputSchema.properties.file?.properties ?? {}).sort(), ["download_url", "file_id", "file_name", "mime_type"]);
+    const result = await client.callTool({ name: "syntx_upload_standard_image_reference", arguments: {
+      link_attempt_id: "link_standard_test_attempt_000001", variant: "banana", file: {
+        download_url: "https://files.oaiusercontent.com/file-test", file_id: "file-test"
+      }
+    } });
+    assert.equal(result.isError, undefined, JSON.stringify(result));
+    assert.equal(resolverCalls, 1);
+    assert.deepEqual(order, ["auth", "download"]);
+    assert.equal((received as { content_base64: string }).content_base64, expectedBase64);
+    assert.equal((received as { filename: string }).filename, "attachment.png");
+    assert.equal((received as { mime_type: string }).mime_type, "image/png");
+    assert.equal(JSON.stringify(result).includes("file-test"), false);
+
+    const ambiguous = await client.callTool({ name: "syntx_upload_standard_image_reference", arguments: {
+      link_attempt_id: "link_standard_test_attempt_000001", variant: "banana", file: {
+        download_url: "https://files.oaiusercontent.com/file-test", file_id: "file-test"
+      }, content_base64: "AAAA", filename: "legacy.png", mime_type: "image/png"
+    } });
+    assert.equal(ambiguous.isError, true);
+    assert.equal(resolverCalls, 1);
+  } finally { await client.close(); await server.close(); }
+});
+
 test("all ten source variants accept only their complete explicit three-field setting state", async () => {
   const cases = [
     { variant: "banana", ai_name: "banana", parameters: { aspect_ratio: "1:1", image_size: null, thinking_level: null },
@@ -230,6 +288,9 @@ test("all ten source variants accept only their complete explicit three-field se
       assert.equal(output.isError, undefined, `${entry.variant}: ${JSON.stringify(output)}`);
       assert.deepEqual((output.structuredContent as { parameters: unknown }).parameters, entry.parameters);
       assert.deepEqual((output.structuredContent as { cost_inputs: unknown }).cost_inputs, entry.cost_inputs);
+      const content = output.content as Array<{ type: string; text?: string; uri?: string }>;
+      assert.equal(content.some((item) => item.type === "text" && item.text?.includes("![Generated image 1]")), true);
+      assert.equal(content.some((item) => item.type === "resource_link" && item.uri === "https://r2.syntx.ai/result.png"), true);
     }
   } finally { await client.close(); await server.close(); }
 });
@@ -268,6 +329,9 @@ test("empty GPT Image 2.5 input preserves explicit settings and omits zero ref_c
     assert.deepEqual((received as { reference_handles: string[] }).reference_handles, []);
     assert.deepEqual((output.structuredContent as { cost_inputs: unknown }).cost_inputs, { quality: "2K", details_quality: "max" });
     assert.deepEqual((output.structuredContent as { artifact: unknown }).artifact, resultDto.artifact);
+    const content = output.content as Array<{ type: string; text?: string; uri?: string }>;
+    assert.equal(content.some((item) => item.type === "text" && item.text?.includes("![Generated image 1]")), true);
+    assert.equal(content.some((item) => item.type === "resource_link" && item.uri === "https://r2.syntx.ai/result.unknown"), true);
   } finally { await client.close(); await server.close(); }
 });
 

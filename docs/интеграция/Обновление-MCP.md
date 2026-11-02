@@ -17,6 +17,138 @@ npm run build
 checkout должен сохранять origin `https://github.com/alexfisenkov/syntx-mcp.git`
 и оставаться чистым; форки и локально изменённые копии self-update не принимает.
 
+## ChatGPT: загрузка reference image и получение результата
+
+В текущем source release официальный MCP file-input контракт подключён только к
+`syntx_upload_standard_image_reference`, для standard Banana/GPT Image variants.
+В ChatGPT приложите одно изображение к сообщению, которое просит использовать его
+как reference, и вызовите этот инструмент. Если этот MCP host не передал вложение
+как file object, используйте существующий Base64-вход этого инструмента. Для других
+image-family tools пока используйте их существующие поля, включая `content_base64`,
+где оно предусмотрено; официальное описание file parameters — в
+[OpenAI Plugins reference](https://developers.openai.com/plugins/reference).
+
+File object содержит `download_url` и `file_id`; `mime_type` и `file_name` могут
+отсутствовать. `download_url` временный: обработайте файл сразу, не сохраняйте и
+не публикуйте ссылку. Текущая локальная политика разрешает только HTTPS на точном
+origin `files.oaiusercontent.com`, не следует redirect и не отправляет cookies или
+Authorization headers. Это консервативное ограничение реализации, а не гарантия
+OpenAI, что все допустимые файлы будут приходить с этого хоста; официальная
+спецификация не подтверждает этот hostname или полное поведение download URL.
+Никакие реальные ChatGPT-вложения и скачивания этим source-level тестом не
+подтверждены.
+
+После image generation MCP-ответ может содержать preview и `resource_link` для
+image artifact URL, если соответствующий tool вернул такой URL. Это подключено к
+общей генерации, Banana inpaint, Flux, Grok, Ideogram, Kontext, Magnific/Clarity
+upscale, Runway, Seedream, Soul, Uni и WAN image results. Хост может отобразить
+эти ссылки по-разному, а доступность исходного URL со временем может измениться.
+При неизвестном результате используйте предусмотренный для той же операции
+GET-only reconcile/recovery инструмент. Не повторяйте generation POST вслепую:
+это может создать второй платный запуск.
+
+Поправка 2026-11-02: сравнение результата приводит безопасные числовые upstream
+ID к строковому виду уже связанного context; guards владельца, модели и чата
+сохранены. В одном свежем live запуске локального owner MCP через MCP SDK
+InMemory transport выполнили одну
+генерацию Banana 2.1 с собственной PNG-референс-картинкой и параметрами
+1K/minimal/1:1. Результат содержал один
+`image/jpeg` artifact `resource_link`; тот же файл скачан и полностью декодирован.
+ChatGPT fileParams download, другие модели, tunnel и ChatGPT cloud-inline delivery
+этим кейсом не проверены.
+
+Эта поддержка реализована и описана для локального owner-stdio процесса. Текущий
+owner HTTP transport остаётся локальным и read-only; generation deployment,
+OAuth и готовое подключение из облачного ChatGPT не подтверждены. Официальная
+документация ChatGPT предлагает для custom MCP server публичный HTTPS endpoint
+или [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels),
+который связывает private/local stdio или HTTP MCP через customer-run
+[OpenAI tunnel-client](https://github.com/openai/tunnel-client). Это внешний
+компонент, не зависимость проекта; tunnel-client и connector для SYNTX здесь не
+установлены и не проверены. Альтернатива — отдельный HTTPS endpoint. Для обоих
+путей нужны настройка ChatGPT connection, разрешения аккаунта/workspace и
+read-back списка tools. Документация OpenAI предупреждает, что аккаунтные и
+workspace policies применяются к custom MCP connections.
+
+Owner runtime привязан к одному владельцу и не рассчитан на совместное
+использование разными workspace users. Для каждого пользователя подготовьте
+собственные SYNTX installation, tunnel и private owner-only ChatGPT MCP
+app/connection; не направляйте несколько пользователей в один owner process или
+tunnel и не делитесь owner credentials. Публичный GitHub repository — это
+исходный код, не общий multitenant service.
+
+### Сгенерировать локальный tunnel profile
+
+Установите OpenAI `tunnel-client` отдельно от SYNTX MCP и зафиксируйте версию
+`v0.0.19` с [release commit `01d67bb4da0d8359b808b4761f8db171ab682cd7`](https://github.com/openai/tunnel-client/commit/01d67bb4da0d8359b808b4761f8db171ab682cd7).
+Контракт команды профиля сверялся с этой версией. Она не входит в зависимости
+SYNTX MCP. В чистом checkout проекта выполните команду с вашим `tunnel_id`
+(пример ниже нужно заменить):
+
+```sh
+umask 077
+node scripts/print-chatgpt-tunnel-config.mjs \
+  --tunnel-id tunnel_0123456789abcdef0123456789abcdef \
+  --api-key-env OPENAI_API_KEY > /absolute/private/path/syntx-tunnel.yaml
+```
+
+Команда только печатает конфигурацию JSON, совместимую с YAML. Она не создаёт
+tunnel, не читает credentials, файлы или настройки клиента и не проверяет
+соединение. Создайте или выберите tunnel в [Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels).
+Используйте отдельный runtime API key с необходимыми правами Tunnel Read + Use,
+не admin key. Значение секрета задайте только в защищённом окружении
+процесса `tunnel-client` как `OPENAI_API_KEY` (или выберите другое имя через
+`--api-key-env`); не помещайте значение ключа в профиль или аргументы команды.
+Этот ключ нужен для control plane туннеля и не является учётными данными SYNTX
+или OAuth пользователя.
+Профиль запускает существующий `dist/src/transports/stdio-owner.js` напрямую через
+Node, без shell. Он сохраняет owner media settings, принудительно устанавливает
+`SYNTX_SELF_UPDATE=0` и отказывается импортировать MCP, пока все operator
+placeholders не заменены валидными одноимёнными environment variables. Среди
+проверяемых значений — абсолютные `ffprobe`/`ffmpeg` пути и `uploaded` либо
+`hidden` upload destination. Вывод ошибки показывает имена отсутствующих ключей,
+но не их значения. Профиль открывает all-supported owner media tools, включая
+инструменты платной генерации; перед подключением проверьте список и workspace,
+где он будет доступен.
+
+Проверьте профиль, затем запустите tunnel-client в foreground; оставьте его
+работать, пока ChatGPT открывает connection:
+
+```sh
+tunnel-client --version
+tunnel-client doctor --profile-file /absolute/private/path/syntx-tunnel.yaml --explain
+tunnel-client run --profile-file /absolute/private/path/syntx-tunnel.yaml
+```
+
+Проверьте, что версия — `v0.0.19`; для одного tunnel ID не запускайте параллельно
+второй stdio tunnel-client. Для ChatGPT создайте custom MCP connection с методом
+Tunnel, выберите тот же `tunnel_id`, выполните требуемую account/workspace
+авторизацию, затем прочитайте список tools и сделайте безопасный read-only smoke.
+После изменения схемы перезапустите MCP/tunnel-client, обновите connection и
+откройте новый чат. Это документированный setup path, не результат установки или
+приёмки: tunnel, ChatGPT connection, fileParams upload и cloud-inline delivery не
+проверены.
+
+У Secure MCP Tunnel есть общий deadline 120 секунд от очереди до ответа и лимит
+10 MiB на весь сериализованный request или response envelope (полезная нагрузка
+меньше). Эти пределы не доказывают, что долгий SYNTX generation завершится в
+окне. Если MCP-ответ не подтвердил конечный результат, используйте соответствующий
+GET-only reconcile/recovery инструмент для чтения той же операции; не повторяйте
+generation POST вслепую. Ограничения приведены в
+[официальном описании туннеля](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
+
+Для удалённого агента можно запустить owner-stdio процесс на VPS; это отдельный
+способ размещения самого агента и не является готовым ChatGPT connector. После
+изменения схемы остановите/перезапустите MCP, затем в ChatGPT обновите connection
+или tools и откройте новый чат для read-back. Инструкция OpenAI для
+[подключения и проверки в ChatGPT](https://developers.openai.com/plugins/deploy/connect-chatgpt)
+описывает setup, account/workspace access, Refresh и проверку в новом чате.
+
+После обновления проекта выполните `syntx-mcp-update apply` либо
+`node scripts/update-mcp.mjs apply`, остановите и перезапустите MCP, затем
+перезапустите MCP-клиент. Для ChatGPT обновите или переподключите connector/tool
+catalog и откройте новый чат, чтобы прочитать актуальную схему инструментов.
+
 Чтобы получить настройки текущих проверенных групп, выполните в source checkout:
 
 ```sh
@@ -120,7 +252,12 @@ recovery path, результат остаётся `UNKNOWN`; не повтор�
 ### Ручной release check
 
 В maintainers repo GitHub Actions запускается вручную через `Actions → Verify`.
-Выберите `media-update`: он запускает текущие изменённые синтетические тесты,
+Для этого patch выберите `image-file-fix`: он собирает проект, запускает тесты
+fileParams/resolver/upload и result links по затронутым image families, а также
+export/manifest scope checks. Общая проверка публичного manifest и секретов
+запускается как отдельный обязательный шаг workflow. Scope пропускает прежние
+FFmpeg media suites и clean package consumer; он не запускает generation.
+Для широкого набора изменений выберите `media-update`: он запускает текущие изменённые синтетические тесты,
 проверку public manifest и секретов, а также clean package consumer check.
 Это один целевой hosted workflow, не матрица полного тестового набора и не
 провайдерская приёмка. Выполняйте его только на замороженном точном source SHA.

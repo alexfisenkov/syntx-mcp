@@ -21,6 +21,14 @@ import {
 } from "../application/owner-standard-image-request-preparer.js";
 import { getOwnerBananaImageSourceParameters } from "../application/owner-banana-image-parameters.js";
 import { getOwnerGptImageSourceParameters } from "../application/owner-gpt-image-parameters.js";
+import { ChatgptImageFileResolveError } from "../application/chatgpt-image-file-resolver.js";
+import {
+  CHATGPT_IMAGE_FILE_SCHEMA,
+  CHATGPT_IMAGE_FILE_TOOL_META,
+  resolveChatgptImageUploadInput,
+  type ChatgptImageFileResolver
+} from "./chatgpt-image-file-input.js";
+import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
 
 const ATTEMPT_ID_PATTERN = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const REFERENCE_HANDLE_PATTERN = /^standard_image_[0-9a-f-]{36}$/u;
@@ -94,11 +102,19 @@ const parametersSchema = z.union([bananaParametersSchema, gptParametersSchema]);
 const uploadInputSchema = z.object({
   link_attempt_id: attemptIdSchema,
   variant: variantSchema,
-  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64)
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64).optional()
     .describe("Padded standard Base64. The 32 MiB encoded-input ceiling is a local MCP guard; variant validators enforce actual decoded limits."),
-  filename: filenameSchema,
-  mime_type: z.enum(ORIGINAL_MIMES)
-}).strict();
+  filename: filenameSchema.optional(),
+  mime_type: z.enum(ORIGINAL_MIMES).optional(),
+  file: CHATGPT_IMAGE_FILE_SCHEMA.optional()
+}).strict().superRefine((input, context) => {
+  const hasBase64 = input.content_base64 !== undefined;
+  const hasFile = input.file !== undefined;
+  if (hasBase64 === hasFile || (hasBase64 && (input.filename === undefined || input.mime_type === undefined || input.file !== undefined)) ||
+      (hasFile && (input.filename !== undefined || input.mime_type !== undefined || input.content_base64 !== undefined))) {
+    context.addIssue({ code: "custom", path: ["file"], message: "Provide exactly one complete Base64 input or one ChatGPT file attachment." });
+  }
+});
 
 const generateInputSchema = z.object({
   link_attempt_id: attemptIdSchema,
@@ -255,8 +271,11 @@ const recoveryListOutputSchema = z.object({ recoveries: z.array(z.object({
 }).strict()).max(20), confidence_scope: z.literal("process_local_get_only_recovery") }).strict();
 
 export interface RegisterSyntxOwnerStandardImageToolsOptions {
-  readonly uploadService: Pick<OwnerStandardImageUploadService, "upload">;
+  readonly uploadService: Pick<OwnerStandardImageUploadService, "upload"> &
+    Partial<Pick<OwnerStandardImageUploadService, "assertLinkedAttempt">>;
   readonly generationService: Pick<OwnerStandardImageGenerationService, "generate" | "reconcile" | "listRecoveries">;
+  /** Optional deterministic seam for local tests; production defaults to the pinned OpenAI attachment resolver. */
+  readonly resolveChatgptImageFile?: ChatgptImageFileResolver;
 }
 
 /** Register only when an explicit owner-local composition is supplied. */
@@ -266,17 +285,25 @@ export function registerSyntxOwnerStandardImageTools(
 ): void {
   server.registerTool(SYNTX_UPLOAD_STANDARD_IMAGE_REFERENCE_TOOL_NAME, {
     title: "Upload a Banana or GPT Image reference",
-    description: "Upload one owner-provided image, or for Banana 2.1 a supported video or PDF input. The Base64 ceiling is 32 MiB encoded text; the variant validator applies the actual decoded local limits. Metadata confidence is reported explicitly. The filename is used only for validation and is not returned. No path or URL is accepted.",
+    description: "Upload one owner-provided image, or for Banana 2.1 a supported video or PDF input. Supply either the existing Base64 fields or one ChatGPT-attached image file. ChatGPT file downloads are limited to the supported files.oaiusercontent.com origin; caller URLs are not fetched. The Base64 ceiling is 32 MiB encoded text; the variant validator applies the actual decoded local limits. Metadata confidence is reported explicitly. The filename is used only for validation and is never returned.",
     inputSchema: uploadInputSchema, outputSchema: uploadOutputSchema,
+    _meta: CHATGPT_IMAGE_FILE_TOOL_META,
     annotations: { title: "Upload a standard image reference", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {
     const request = uploadInputSchema.safeParse(input);
     if (!request.success) return errorResult(undefined, "INVALID_REQUEST");
     try {
+      let resolvedFile: Awaited<ReturnType<typeof resolveChatgptImageUploadInput>> | undefined;
+      if (request.data.file !== undefined) {
+        if (options.uploadService.assertLinkedAttempt === undefined) return errorResult(undefined, "FILE_ATTACHMENT_AUTH_REQUIRED");
+        await options.uploadService.assertLinkedAttempt(request.data.link_attempt_id, signal);
+        resolvedFile = await resolveChatgptImageUploadInput(request.data.file, request.data.variant, signal, options.resolveChatgptImageFile);
+      }
       const receipt = await options.uploadService.upload({
         attemptId: request.data.link_attempt_id, variant: request.data.variant,
-        content_base64: request.data.content_base64, filename: request.data.filename,
-        mime_type: request.data.mime_type, ...(signal === undefined ? {} : { signal })
+        content_base64: resolvedFile?.content_base64 ?? request.data.content_base64!,
+        filename: resolvedFile?.filename ?? request.data.filename!,
+        mime_type: resolvedFile?.mime_type ?? request.data.mime_type!, ...(signal === undefined ? {} : { signal })
       });
       return safeStructured(uploadOutputSchema.parse(receipt) as OwnerStandardImageUploadReceipt);
     } catch (error) { return errorResult(error, "UPLOAD_FAILED"); }
@@ -296,7 +323,7 @@ export function registerSyntxOwnerStandardImageTools(
         reference_handles: request.data.reference_handles, parameters: request.data.parameters,
         prompt: request.data.prompt
       }, signal);
-      return safeStructured(generationOutputSchema.parse(result) as OwnerStandardImageGenerationResult);
+      return safeImageResult(generationOutputSchema.parse(result) as OwnerStandardImageGenerationResult);
     } catch (error) { return errorResult(error, "GENERATION_FAILED"); }
   });
 
@@ -311,7 +338,7 @@ export function registerSyntxOwnerStandardImageTools(
     try {
       const result = await options.generationService.reconcile({ attemptId: request.data.link_attempt_id,
         recovery_id: request.data.recovery_id }, signal);
-      return safeStructured(generationOutputSchema.parse(result) as OwnerStandardImageGenerationResult);
+      return safeImageResult(generationOutputSchema.parse(result) as OwnerStandardImageGenerationResult);
     } catch (error) { return errorResult(error, "GENERATION_FAILED"); }
   });
 
@@ -386,11 +413,22 @@ function isHttpsUrl(value: string): boolean {
 function safeStructured(value: object): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value as Record<string, unknown> };
 }
+function safeImageResult(value: OwnerStandardImageGenerationResult): CallToolResult {
+  return {
+    content: [
+      { type: "text", text: imageArtifactResultJsonText(value) },
+      ...imageArtifactContentForResult(value)
+    ],
+    structuredContent: value as unknown as Record<string, unknown>
+  };
+}
 function errorResult(error: unknown, fallback: string): CallToolResult {
   let code = fallback;
   let recoveryId: string | undefined;
   let diagnostic: unknown;
-  if (error instanceof OwnerStandardImageUploadServiceError && (UPLOAD_ERROR_CODES as readonly string[]).includes(error.code)) {
+  if (error instanceof ChatgptImageFileResolveError && error.code === "UNSUPPORTED_HOST") {
+    code = "FILE_ATTACHMENT_UNSUPPORTED";
+  } else if (error instanceof OwnerStandardImageUploadServiceError && (UPLOAD_ERROR_CODES as readonly string[]).includes(error.code)) {
     code = error.code;
   } else if (error instanceof OwnerStandardImageGenerationServiceError &&
       (OWNER_STANDARD_IMAGE_GENERATION_ERROR_CODES as readonly string[]).includes(error.code)) {
@@ -405,6 +443,8 @@ function errorResult(error: unknown, fallback: string): CallToolResult {
   }
   const messages: Record<string, string> = {
     INVALID_REQUEST: "The owner standard image request is invalid.",
+    FILE_ATTACHMENT_UNSUPPORTED: "The ChatGPT attachment host is not supported for secure download.",
+    FILE_ATTACHMENT_AUTH_REQUIRED: "The exact linked owner attempt could not be checked before downloading the attachment.",
     INVALID_IMAGE_INPUT: "Provide a supported image with matching MIME and valid container metadata.",
     LOCAL_RESOURCE_LIMIT_EXCEEDED: "The input exceeds the selected variant's local resource guard.",
     UNSUPPORTED_IMAGE_COMPOSITION: "This image composition is not supported by the current local validator.",

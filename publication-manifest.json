@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "d9cd8696bc9089afb399a9092c4dce304aa588cf",
+  "source_commit": "7a4697744ae4558a601572ef299a317a061dd1fc",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2029,7 +2029,7 @@
   ],
   "file_sha256": {
     ".gitattributes": "e6a761bace28c69308bf1c43ab5f2f398d01de3cfbae6e2cb316ea86226b0fbe",
-    ".github/workflows/verify.yml": "03dfb4eda038924b417a4c1ef67bbb3ba6e6bd197bf4726c8848831b1ad96984",
+    ".github/workflows/verify.yml": "c042c0582f7d2b51f85e7fb1cad2f9093c57de07ee0d3f3893c73d05160f80f8",
     ".gitignore": "d69b6e3b1799372e2e768fd634e2171f918155cb202498225e7eafadb90db99b",
     ".gitleaks.toml": "649d0cd3ee28612d2dd429e42a17953e7e19c35223e5affb1cc97e477fd584f1",
     "AGENTS.md": "014cb4aee0a9002a5b5dd9f4cf41efe683ec62baaa43e5384ff2109f4ae631a1",

@@ -22,9 +22,9 @@ permissions:
 
 jobs:
   changed-media:
-    name: Scoped checks / Linux / Node 24.21.0
+    name: Scoped checks / Ubuntu 24.04 / Node 24.21.0
     if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Checkout source
@@ -60,7 +60,7 @@ jobs:
             -o Acquire::http::Timeout=20 \
             -o Acquire::https::Timeout=20 \
             update
-          sudo env DEBIAN_FRONTEND=noninteractive timeout 180s apt-get \
+          sudo env DEBIAN_FRONTEND=noninteractive timeout 600s apt-get \
             -o Acquire::Retries=1 \
             -o Acquire::http::Timeout=20 \
             -o Acquire::https::Timeout=20 \

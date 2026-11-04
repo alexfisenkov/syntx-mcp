@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -21,7 +22,6 @@ const RECOVERY_ID = /^wan25_generation_recovery_[0-9a-f-]{36}$/u;
 const MAX_COUNT = 10_000;
 const MAX_PAGE_SIZE = 64;
 const MAX_IMAGE_BASE64 = Math.ceil(OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY.max_file_size_bytes / 3) * 4;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const PORTABLE_FILENAME = /^(?!\.{1,2}$)(?!.*[. ]$)(?!.*[<>:"/\\|?*\p{Cc}\p{Cf}\p{Cs}])(?!(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)).+$/iu;
 const source = getOwnerWan25I2vGenerationParametersSource();
 const attempt = z.string().regex(ATTEMPT).describe("Exact linked owner attempt ID.");
@@ -44,7 +44,7 @@ const diagnosticCode = z.enum([
 
 const parameterInput = z.object({}).strict();
 const imageInput = z.object({ link_attempt_id: attempt, model_id: z.literal(MODEL_ID), filename, mime_type: imageMime,
-  content_base64: z.string().min(4).max(MAX_IMAGE_BASE64).regex(BASE64) }).strict();
+  content_base64: z.string().min(4).max(MAX_IMAGE_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_IMAGE_BASE64)) }).strict();
 const generateInput = z.object({ link_attempt_id: attempt, model_id: z.literal(MODEL_ID), image_handle: imageHandle,
   audio_handle: z.literal(null), prompt: z.string().max(1_500), resolution: z.enum(["480P", "720P", "1080P"]),
   aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4"]), video_duration: z.union([z.literal(5), z.literal(10)]),

@@ -26,7 +26,7 @@ const CATALOG = new DiscoveryCatalogRepository(loadPublicCatalogVersion(CATALOG_
 function response(value: unknown): Response { return Response.json(value); }
 test("Topaz Enhance generation preflights exact quote twice, dispatches once, and permits GET recovery past source TTL", async () => {
   const directory = await mkdtemp(join(tmpdir(), "syntx-topaz-enhance-generation-1986-")), ffprobe = join(directory, "ffprobe");
-  await writeFile(ffprobe, "#!/bin/sh\nprintf '%s' '{\"streams\":[{\"codec_type\":\"video\",\"codec_name\":\"h264\",\"width\":640,\"height\":360,\"nb_read_frames\":\"72\",\"duration\":\"3.0\",\"disposition\":{\"attached_pic\":0}}],\"format\":{\"format_name\":\"mov,mp4,m4a,3gp,3g2,mj2\",\"duration\":\"3.0\"}}'\n"); await chmod(ffprobe, 0o700);
+  await writeFile(ffprobe, "#!/bin/sh\nprintf '%s' '{\"streams\":[{\"codec_type\":\"video\",\"codec_name\":\"h264\",\"codec_tag_string\":\"avc1\",\"width\":640,\"height\":360,\"nb_read_frames\":\"72\",\"duration\":\"3.0\",\"disposition\":{\"attached_pic\":0}}],\"format\":{\"format_name\":\"mov,mp4,m4a,3gp,3g2,mj2\",\"duration\":\"3.0\"}}'\n"); await chmod(ffprobe, 0o700);
   const trustedFfprobe = await realpath(ffprobe);
   let clock = 1_000_000, balanceReads = 0, quotes = 0, chatCalls = 0, genCalls = 0, historyCalls = 0, resultCalls = 0;
   const provider: AuthLinkProvider = { authorizationProfile: OBSERVED_AUTHORIZATION_PROFILE,
@@ -91,7 +91,7 @@ test("Topaz Enhance accepts a fresh active subscription with unknown expiry but 
   const expiryAttempt = "link_topaz_enhance_expiry_1991_0123456789";
   const expiryBinding: AuthBinding = Object.freeze({ tenant_id: "topaz-enhance-expiry-tenant", subject: "expiry-owner" });
   const directory = await mkdtemp(join(tmpdir(), "syntx-topaz-enhance-expiry-1991-")), ffprobe = join(directory, "ffprobe");
-  await writeFile(ffprobe, "#!/bin/sh\nprintf '%s' '{\"streams\":[{\"codec_type\":\"video\",\"codec_name\":\"h264\",\"width\":640,\"height\":360,\"nb_read_frames\":\"72\",\"duration\":\"3.0\",\"disposition\":{\"attached_pic\":0}}],\"format\":{\"format_name\":\"mov,mp4,m4a,3gp,3g2,mj2\",\"duration\":\"3.0\"}}'\n"); await chmod(ffprobe, 0o700);
+  await writeFile(ffprobe, "#!/bin/sh\nprintf '%s' '{\"streams\":[{\"codec_type\":\"video\",\"codec_name\":\"h264\",\"codec_tag_string\":\"avc1\",\"width\":640,\"height\":360,\"nb_read_frames\":\"72\",\"duration\":\"3.0\",\"disposition\":{\"attached_pic\":0}}],\"format\":{\"format_name\":\"mov,mp4,m4a,3gp,3g2,mj2\",\"duration\":\"3.0\"}}'\n"); await chmod(ffprobe, 0o700);
   const trustedFfprobe = await realpath(ffprobe), clock = Date.now();
   let endDate: string | null = null, quoteReads = 0, chatCalls = 0, generationCalls = 0;
   const provider: AuthLinkProvider = { authorizationProfile: OBSERVED_AUTHORIZATION_PROFILE,

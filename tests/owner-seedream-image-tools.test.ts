@@ -210,6 +210,11 @@ test("upload tool enforces variant-specific source base64 ceilings before callin
       } });
       assert.equal(result.isError, true);
     }
+    const malformedLarge = await client.callTool({ name: "syntx_upload_seedream_image_reference", arguments: {
+      link_attempt_id: "link_seedream_tools_test_attempt_000001", variant: "seedream-5",
+      content_base64: `${"A".repeat(5_261_292)}!AAA`, filename: "invalid.png", mime_type: "image/png"
+    } });
+    assert.equal(malformedLarge.isError, true);
     assert.equal(uploadCalls, 0);
   } finally { await client.close(); await server.close(); }
 });

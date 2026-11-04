@@ -14,6 +14,8 @@ import {
 import { createObservedOwnerRuntime } from "../src/runtime/observed-owner-runtime.js";
 import {
   closeOwnerReadServicesOnTransportEof,
+  readOwnerLocalImageFilesFlag,
+  readOwnerLocalImageRoots,
   readOwnerStandardImageReferencesFlag,
   runObservedOwnerStdioServer
 } from "../src/transports/stdio-owner.js";
@@ -27,6 +29,15 @@ test("standard image owner flag is strict and default-off", () => {
     assert.throws(() => readOwnerStandardImageReferencesFlag(value),
       /Invalid SYNTX_OWNER_STANDARD_IMAGE_REFERENCES configuration/u);
   }
+});
+
+test("local image file flag is strict default-off and roots must be operator absolute-path JSON", () => {
+  for (const value of [undefined, "", "0"]) assert.equal(readOwnerLocalImageFilesFlag(value), false);
+  assert.equal(readOwnerLocalImageFilesFlag("1"), true);
+  for (const value of ["true", "01", " 1", "2"]) assert.throws(() => readOwnerLocalImageFilesFlag(value));
+  assert.deepEqual(readOwnerLocalImageRoots('["/Users/AlexFisenkov/Pictures"]'), ["/Users/AlexFisenkov/Pictures"]);
+  for (const value of [undefined, "", "bad", "[\"relative\"]", "[\"/\"]", "[]", "{}"])
+    assert.throws(() => readOwnerLocalImageRoots(value));
 });
 
 test("standard image owner composition is absent by default and opt-in adds the four SDK tools without startup traffic", async () => {
@@ -75,6 +86,46 @@ test("standard image owner composition is absent by default and opt-in adds the 
     await server.close();
     await composition.generationService.close();
   }
+});
+
+test("separate local-files opt-in adds one stdio composition tool only when its trusted roots exist", async () => {
+  assert.throws(() => createObservedOwnerRuntime({ ownerLocalImageFilesEnabled: true }), /require owner standard image references/u);
+  assert.throws(() => createObservedOwnerRuntime({ ownerLocalImageFilesEnabled: true, ownerStandardImageReferencesEnabled: true,
+    ownerLocalImageRoots: [] }), (error: unknown) => error instanceof Error && "code" in error && error.code === "INVALID_REQUEST");
+  const baselineRuntime = createObservedOwnerRuntime({ ownerStandardImageReferencesEnabled: true,
+    publicCatalogVersion: DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION, catalogDirectory: resolve(process.cwd(), "catalog") });
+  const baselineServer = createMcpServer(baselineRuntime.application, baselineRuntime.serverOptions);
+  const baselineClient = new Client({ name: "local-image-baseline-tool-list-test", version: "1.0.0" });
+  const [baselineClientTransport, baselineServerTransport] = InMemoryTransport.createLinkedPair();
+  await baselineServer.connect(baselineServerTransport);
+  await baselineClient.connect(baselineClientTransport);
+  let baselineNames: string[];
+  try { baselineNames = (await baselineClient.listTools()).tools.map(({ name }) => name); }
+  finally { await baselineClient.close(); await baselineServer.close(); await baselineRuntime.serverOptions.ownerStandardImageReferences?.generationService.close(); }
+  const runtime = createObservedOwnerRuntime({ ownerStandardImageReferencesEnabled: true, ownerLocalImageFilesEnabled: true,
+    ownerLocalImageRoots: [process.cwd()], publicCatalogVersion: DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION,
+    catalogDirectory: resolve(process.cwd(), "catalog"), fetchImpl: async () => { throw new Error("startup must not fetch"); } });
+  const composition = runtime.serverOptions.ownerStandardImageReferences;
+  assert.ok(composition?.localImageFileService);
+  const defaultTransportServer = createMcpServer(runtime.application, runtime.serverOptions);
+  const defaultTransportClient = new Client({ name: "local-image-default-transport-test", version: "1.0.0" });
+  const [defaultTransportClientLink, defaultTransportServerLink] = InMemoryTransport.createLinkedPair();
+  await defaultTransportServer.connect(defaultTransportServerLink);
+  await defaultTransportClient.connect(defaultTransportClientLink);
+  try { assert.equal((await defaultTransportClient.listTools()).tools.some(({ name }) => name === "syntx_upload_standard_image_reference_file"), false); }
+  finally { await defaultTransportClient.close(); await defaultTransportServer.close(); }
+  const server = createMcpServer(runtime.application, { ...runtime.serverOptions, ownerLocalImageFileTransport: "stdio" });
+  const client = new Client({ name: "local-image-file-runtime-test", version: "1.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  try {
+    const names = (await client.listTools()).tools.map(({ name }) => name);
+    assert.equal(names.includes("syntx_upload_standard_image_reference_file"), true);
+    assert.equal(names.length, baselineNames!.length + 1);
+    assert.deepEqual(names.filter((name) => !baselineNames!.includes(name)), ["syntx_upload_standard_image_reference_file"]);
+    assert.equal(names.filter((name) => name.startsWith("syntx_upload_standard_image_reference")).length, 2);
+  } finally { await client.close(); await server.close(); await composition.generationService.close(); }
 });
 
 test("standard generation drains before credential revoke and EOF cleanup precedes auth close", async () => {

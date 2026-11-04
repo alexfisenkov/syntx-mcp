@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -50,10 +51,10 @@ const motionOutput = z.object({ motions: z.array(motionSelection).min(1).max(256
 }).strict() }).strict();
 const imageMime = z.enum(MIME_TYPES);
 const uploadInput = z.object({ link_attempt_id: attemptId, model_id: modelId, filename: z.string().min(1).max(255),
-  mime_type: imageMime, content_base64: z.string().min(4).max(MAX_BASE64).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+  mime_type: imageMime, content_base64: z.string().min(4).max(MAX_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64)) }).strict();
 const fileId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u);
 const importInput = z.object({ link_attempt_id: attemptId, model_id: modelId, filename: z.string().min(1).max(255),
-  mime_type: imageMime, content_base64: z.string().min(4).max(MAX_BASE64).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u),
+  mime_type: imageMime, content_base64: z.string().min(4).max(MAX_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64)),
   file_id: fileId, destination: z.literal("uploaded") }).strict();
 const generateInput = z.object({ link_attempt_id: attemptId, model_id: modelId, prompt: z.string().min(1).max(1_000),
   enhance_prompt: z.literal(false), motions: z.array(motionSelection).min(1).max(2),

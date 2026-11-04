@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { types } from "node:util";
@@ -49,7 +50,7 @@ const recoveryId = z.string().regex(RECOVERY);
 const uploadInput = z.object({
   link_attempt_id: attempt, model_id: z.literal(MODEL_ID), filename: z.string().min(1).max(255),
   mime_type: z.enum(["video/mp4", "video/quicktime"]), content_base64: z.string().min(4).max(MAX_BASE64)
-    .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u)
+    .refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64))
 }).strict().superRefine((value, context) => {
   if ((value.mime_type === "video/mp4" && !value.filename.toLowerCase().endsWith(".mp4")) ||
       (value.mime_type === "video/quicktime" && !/\.mov$/iu.test(value.filename))) {
@@ -123,7 +124,7 @@ export function registerSyntxOwnerSeedanceEditorTools(server: McpServer, options
   if (!Number.isSafeInteger(videoCap) || videoCap < 1 || videoCap > MAX_VIDEO_BYTES) throw new Error("INVALID_SEEDANCE_EDITOR_VIDEO_CAP");
 
   const boundedUploadInput = uploadInput.safeExtend({ content_base64: z.string().min(4).max(Math.ceil(videoCap / 3) * 4)
-    .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+    .refine((value) => isCanonicalBase64Bounded(value, Math.ceil(videoCap / 3) * 4)) }).strict();
   const boundedUploadOutput = uploadOutput.extend({ size: z.number().int().min(1).max(videoCap) }).strict();
 
   server.registerTool(OWNER_SEEDANCE_EDITOR_TOOL_NAMES[0], {

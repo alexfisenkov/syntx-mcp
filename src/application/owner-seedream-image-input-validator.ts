@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION, loadSelectedDiscoveryCatalog } from "../catalog/selected-discovery-catalog.js";
@@ -64,7 +65,7 @@ export function validateOwnerSeedreamImageInput(input: unknown): ValidatedOwnerS
     if (typeof fields.content_base64 !== "string" || fields.content_base64.length === 0) invalid();
     if (fields.content_base64.length > Math.ceil(profile.input_policy.image_max_file_bytes / 3) * 4) limit();
     if (fields.content_base64.length > MAX_BASE64_CHARS || fields.content_base64.length % 4 !== 0 ||
-        !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(fields.content_base64) ||
+        !isCanonicalBase64(fields.content_base64, MAX_BASE64_CHARS) ||
         typeof fields.filename !== "string" || !safeFilename(fields.filename) || typeof fields.mime_type !== "string") invalid();
     const mime = readMime(fields.mime_type, profile.mime_policy.accepted_file_types);
     decoded = Buffer.from(fields.content_base64, "base64");

@@ -52,6 +52,8 @@ import { OwnerWanImageGenerationService } from "../application/owner-wan-image-g
 import { OwnerStandardImageUploadService } from "../application/owner-standard-image-upload-service.js";
 import { OwnerStandardImageGenerationService } from "../application/owner-standard-image-generation-service.js";
 import type { OwnerStandardImageGenerationPreflight } from "../application/owner-standard-image-generation-service.js";
+import { OwnerLocalImageFileService } from "../application/owner-local-image-file-service.js";
+import { prepareStandardImageReference } from "../application/standard-image-reference-preparation.js";
 import { OwnerRunwayImageUploadService } from "../application/owner-runway-image-upload-service.js";
 import { OwnerRunwayImageGenerationService } from "../application/owner-runway-image-generation-service.js";
 import type { OwnerRunwayImageGenerationPreflight } from "../application/owner-runway-image-generation-service.js";
@@ -409,6 +411,10 @@ export interface ObservedOwnerRuntimeOptions {
   ownerWanImageReferencesEnabled?: boolean;
   /** Explicit owner-stdio opt-in to private Banana/GPT Image reference and generation tools. */
   ownerStandardImageReferencesEnabled?: boolean;
+  /** Separate operator opt-in; local roots are never supplied by an MCP caller. */
+  ownerLocalImageFilesEnabled?: boolean;
+  ownerLocalImageRoots?: readonly string[];
+  ownerLocalImageFfmpegPath?: string;
   /** Explicit owner-stdio opt-in to private Runway Frames image reference and generation tools. */
   ownerRunwayImageReferencesEnabled?: boolean;
   /** Explicit owner-stdio opt-in for private Seedream image-reference and generation tools. */
@@ -443,6 +449,9 @@ export interface ObservedOwnerRuntimeOptions {
 export function createObservedOwnerRuntime(
   options: ObservedOwnerRuntimeOptions = {}
 ) {
+  if (options.ownerLocalImageFilesEnabled === true && options.ownerStandardImageReferencesEnabled !== true) {
+    throw new Error("Owner local image files require owner standard image references to be enabled.");
+  }
   const now = options.now ?? Date.now;
   const selected = loadSelectedDiscoveryCatalog(
     options.publicCatalogVersion,
@@ -945,7 +954,16 @@ export function createObservedOwnerRuntime(
           },
           now
         });
-        return Object.freeze({ uploadService, generationService });
+        const localImageFileService = options.ownerLocalImageFilesEnabled === true
+          ? new OwnerLocalImageFileService({
+              roots: options.ownerLocalImageRoots,
+              uploadService,
+              prepare: prepareStandardImageReference,
+              ...(options.ownerLocalImageFfmpegPath === undefined ? {} : { ffmpegPath: options.ownerLocalImageFfmpegPath })
+            })
+          : undefined;
+        return Object.freeze({ uploadService, generationService,
+          ...(localImageFileService === undefined ? {} : { localImageFileService }) });
       })()
     : undefined;
   const ownerRunwayImageReferences = options.ownerRunwayImageReferencesEnabled === true

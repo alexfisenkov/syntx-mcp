@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
@@ -56,7 +57,7 @@ const attemptSchema = z.string().regex(ATTEMPT).describe("Exact linked owner att
 const loraHandleSchema = z.string().regex(LORA).describe("Opaque public Civitai LoRA handle for this exact attempt.");
 const imageHandleSchema = z.string().regex(IMAGE).describe("Opaque owner-uploaded Flux-1 image handle for this exact attempt.");
 const recoverySchema = z.string().regex(RECOVERY).describe("Opaque Flux recovery handle for this exact attempt.");
-const base64Schema = z.string().min(4).max(MAX_BASE64_CHARS).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u);
+const base64Schema = z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS));
 const filenameSchema = z.string().min(1).max(255).refine(isSafeFilename, "Use a safe basename; paths are rejected.");
 const promptSchema = z.string().min(1).max(65_536).refine(isValidPrompt, "Prompt must be nonblank and within the local input ceiling.");
 const uploadInputSchema = z.object({ link_attempt_id: attemptSchema, content_base64: base64Schema,

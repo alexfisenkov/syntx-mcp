@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
@@ -47,7 +48,6 @@ const VALIDATION_CONFIDENCES = [
 ] as const;
 const SOURCE_ALPHA_CONFIDENCES = ["SOURCE_CANVAS_ALPHA8_NEAREST_SAMPLED", "UNSUPPORTED_PNG_ALPHA_COMPOSITION", "NOT_PNG_SOURCE"] as const;
 const SOURCE_ALPHA_SCOPE = "SOURCE_CANVAS_ALPHA8_NEAREST_SAMPLED" as const;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const MAX_BASE64_CHARS = Math.ceil(OWNER_SEEDREAM_IMAGE_INPUT_POLICY.image_byte_caps.pro / 3) * 4;
 
 export const SYNTX_UPLOAD_SEEDREAM_IMAGE_REFERENCE_TOOL_NAME = "syntx_upload_seedream_image_reference" as const;
@@ -67,7 +67,7 @@ const filenameSchema = z.string().min(1).max(255).refine(isSafeFilename, "Use a 
 const promptSchema = z.string().min(1).max(65_536).refine(isValidPrompt, "Prompt must be nonblank and within the local input guard.");
 
 const uploadInputSchema = z.object({
-  link_attempt_id: attemptSchema, variant: z.enum(VARIANTS), content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64),
+  link_attempt_id: attemptSchema, variant: z.enum(VARIANTS), content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)),
   filename: filenameSchema, mime_type: z.enum(ALL_SOURCE_MIMES)
 }).strict().superRefine((value, context) => {
   const accepted = value.variant === "seedream-5.0-flash" ? FLASH_MIMES : value.variant === "seedream-5.0-pro" ? PRO_MIMES : BASIC_MIMES;

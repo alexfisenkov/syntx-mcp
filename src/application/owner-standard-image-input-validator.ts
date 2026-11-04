@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { OWNER_BANANA_IMAGE_VARIANTS, type OwnerBananaImageVariant } from "./owner-banana-image-parameters.js";
 import { type OwnerGptImageVariant } from "./owner-gpt-image-parameters.js";
 import { inspectBoundedOwnerImageBytes32MiB } from "./owner-image-reference-input-validator.js";
@@ -58,7 +59,7 @@ export function validateOwnerStandardImageInput(input: OwnerStandardImageInput |
     const fields = exactRecord(input, ["variant", "content_base64", "filename", "mime_type"]);
     if (typeof fields.variant !== "string" || !isVariant(fields.variant) ||
         typeof fields.content_base64 !== "string" || fields.content_base64.length === 0 ||
-        fields.content_base64.length > MAX_BASE64_CHARS || fields.content_base64.length % 4 !== 0 ||
+        !isCanonicalBase64(fields.content_base64, MAX_BASE64_CHARS) ||
         typeof fields.filename !== "string" || !isSafeFilename(fields.filename) || typeof fields.mime_type !== "string") invalid();
     const variant = fields.variant as OwnerStandardImageInputVariant;
     const mimeInput = fields.mime_type;

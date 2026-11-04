@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
@@ -22,7 +23,6 @@ const MAX_BASE64_CHARS = Math.ceil(MAX_VIDEO_BYTES / 3) * 4;
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const HANDLE = /^video2audio_original_[0-9a-f-]{36}$/u;
 const RECOVERY = /^video2audio_generation_recovery_[0-9a-f-]{36}$/u;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const attemptSchema = z.string().regex(ATTEMPT);
 const handleSchema = z.string().regex(HANDLE);
 const recoverySchema = z.string().regex(RECOVERY);
@@ -113,7 +113,7 @@ export function registerSyntxOwnerVideo2AudioTools(server: McpServer, options: R
     title: "Upload an MP4 original for Video2Audio",
     description: "Uploads caller-supplied MP4 bytes to the exact linked owner attempt and returns a URL-free 15-minute handle. Base64 is canonical; 10 MiB is a local resource ceiling, not a provider limit. This is an external upload, not generation; ambiguous upload outcomes must not be retried with the same content.",
     inputSchema: z.object({ link_attempt_id: attemptSchema,
-      content_base64: z.string().min(24).max(MAX_BASE64_CHARS).regex(BASE64).refine(isCanonicalBase64, "Expected canonical padded base64."),
+      content_base64: z.string().min(24).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)).refine(isCanonicalBase64, "Expected canonical padded base64."),
       filename: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}\.mp4$/iu), mime_type: z.literal("video/mp4") }).strict(),
     outputSchema: uploadOutputSchema,
     annotations: { title: "Upload an MP4 original for Video2Audio", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }

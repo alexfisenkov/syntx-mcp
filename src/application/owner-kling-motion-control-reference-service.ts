@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { isAbsolute } from "node:path";
@@ -293,7 +294,7 @@ function validateImage(r: OwnerKlingMotionControlUploadInput): Readonly<Validate
   catch { fail("INVALID_REQUEST"); } finally { bytes.fill(0); }
 }
 function decodeBase64(s: string, max: number): Buffer {
-  if (!s || s.length > max || s.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(s)) fail("INVALID_REQUEST");
+  if (!s || s.length > max || s.length % 4 !== 0 || !isCanonicalBase64(s, max)) fail("INVALID_REQUEST");
   const b = Buffer.from(s, "base64"); if (b.length === 0 || b.toString("base64") !== s) { b.fill(0); fail("INVALID_REQUEST"); } return b;
 }
 function snapshotUpload(v: unknown): OwnerKlingMotionControlUploadInput {

@@ -105,6 +105,10 @@ test("upload accepts canonical bytes, maps image/jpg to jpeg, and wipes the forw
       const rejected = await state.client.callTool({ name: OWNER_WAN27_VIDEOEDIT_TOOL_NAMES[1], arguments: { ...args, ...patch } });
       assert.equal(rejected.isError, true, JSON.stringify(patch));
     }
+    const largeMalformed = await state.client.callTool({ name: OWNER_WAN27_VIDEOEDIT_TOOL_NAMES[1], arguments: {
+      ...args, mime_type: "video/mp4", filename: "invalid.mp4", content_base64: `${"A".repeat(5_261_292)}!AAA`
+    } });
+    assert.equal(largeMalformed.isError, true);
     assert.equal(state.calls.length, 1);
   } finally { await state.close(); }
 });

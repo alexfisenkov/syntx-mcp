@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { AbsoluteRequestDeadline } from "../adapter/syntx/request-deadline.js";
@@ -476,7 +477,7 @@ function snapshotList(value: unknown): Readonly<{ attemptId: string; limit: numb
   return Object.freeze({ attemptId: row.attemptId, limit: row.limit === undefined ? 20 : row.limit });
 }
 function decodeCanonicalBase64(value: string): Buffer {
-  if (!value || value.length > 14_000_000 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) invalid();
+  if (!value || value.length > 14_000_000 || !isCanonicalBase64(value, 14_000_000)) invalid();
   const bytes = Buffer.from(value, "base64"); if (bytes.length < 16 || bytes.length > 10 * 1024 * 1024 || bytes.toString("base64") !== value) {
     bytes.fill(0); fail("INVALID_REQUEST");
   }

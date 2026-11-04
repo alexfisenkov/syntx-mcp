@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -13,7 +14,7 @@ const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const uploadInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.enum(["kling_elements", "kling_o1_image2video", "kling_o1_video2video"]),
   filename: z.string().min(1).max(255), mime_type: z.enum([...IMAGE_MIMES, ...VIDEO_MIMES]),
-  content_base64: z.string().min(4).max(Math.ceil(MAX_VIDEO_BYTES / 3) * 4).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+  content_base64: z.string().min(4).max(Math.ceil(MAX_VIDEO_BYTES / 3) * 4).refine((value) => isCanonicalBase64Bounded(value, Math.ceil(MAX_VIDEO_BYTES / 3) * 4)) }).strict();
 const generateInput = z.discriminatedUnion("model_id", [
   z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("kling_elements"), prompt: z.string().min(1).max(1_000), version: z.literal("1.6"),
     mode: z.literal("hd"), aspect_ratio: z.literal("16:9"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(HANDLE) }).strict(),

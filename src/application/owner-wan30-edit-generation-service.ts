@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { AbsoluteRequestDeadline } from "../adapter/syntx/request-deadline.js";
@@ -476,7 +477,7 @@ export function isOwnerWan30EditGenerationService(value: unknown): value is Owne
 
 function snapshotUpload(input: unknown, signal?: AbortSignal): Readonly<UploadSnapshot> {
   if (signal !== undefined && (!(signal instanceof AbortSignal) || types.isProxy(signal))) invalid(); const row = exact(input, ["attemptId", "content_base64", "filename", "mime_type"]), attemptId = safeAttempt(row.attemptId);
-  if (typeof row.content_base64 !== "string" || !row.content_base64 || row.content_base64.length > MAX_BASE64_CHARS || row.content_base64.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(row.content_base64) || typeof row.filename !== "string" || typeof row.mime_type !== "string") invalid();
+  if (typeof row.content_base64 !== "string" || !row.content_base64 || row.content_base64.length > MAX_BASE64_CHARS || row.content_base64.length % 4 !== 0 || !isCanonicalBase64(row.content_base64, MAX_BASE64_CHARS) || typeof row.filename !== "string" || typeof row.mime_type !== "string") invalid();
   const bytes = Buffer.from(row.content_base64, "base64"); if (!bytes.length || bytes.length > MAX_VIDEO_BYTES || bytes.toString("base64") !== row.content_base64) { bytes.fill(0); invalid(); }
   return Object.freeze({ attemptId, filename: row.filename, mime_type: row.mime_type, bytes });
 }

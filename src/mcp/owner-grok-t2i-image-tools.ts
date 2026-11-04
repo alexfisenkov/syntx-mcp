@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -41,8 +42,6 @@ const SOURCE_MIMES = OWNER_GROK_T2I_IMAGE_INPUT_POLICY.accepted_source_mime_type
 const CANONICAL_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;
 const MAX_IMAGE_BYTES = OWNER_GROK_T2I_IMAGE_INPUT_POLICY.local_max_bytes;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
-
 export const SYNTX_UPLOAD_GROK_T2I_IMAGE_REFERENCE_TOOL_NAME = "syntx_upload_grok_t2i_image_reference" as const;
 export const SYNTX_OWNER_GENERATE_GROK_T2I_IMAGE_TOOL_NAME = "syntx_owner_generate_grok_t2i_image" as const;
 export const SYNTX_OWNER_RECONCILE_GROK_T2I_IMAGE_TOOL_NAME = "syntx_owner_reconcile_grok_t2i_image" as const;
@@ -63,7 +62,7 @@ const attemptSchema = z.string().regex(ATTEMPT).describe("Exact linked owner att
 const imageHandleSchema = z.string().regex(IMAGE_HANDLE).describe("Opaque Grok T2I upload handle for this exact owner attempt.");
 const recoveryIdSchema = z.string().regex(RECOVERY_ID).describe("Opaque process-local Grok T2I recovery handle for this attempt.");
 const filenameSchema = z.string().min(1).max(255).refine(isSafeFilename, "Use a safe basename; paths are rejected.");
-const contentBase64Schema = z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64)
+const contentBase64Schema = z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS))
   .describe("Canonical base64 image bytes; the 64 MiB limit is a local resource ceiling, not a provider limit.");
 const uploadInputSchema = z.object({
   link_attempt_id: attemptSchema,
@@ -421,7 +420,7 @@ function decodedBase64Length(value: string): number {
   return (value.length / 4) * 3 - padding;
 }
 function isCanonicalBase64(value: string): boolean {
-  if (!BASE64.test(value) || value.length % 4 !== 0) return false;
+  if (!isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)) return false;
   if (value.endsWith("==")) {
     const index = base64Index(value.charCodeAt(value.length - 3));
     return index >= 0 && (index & 15) === 0;

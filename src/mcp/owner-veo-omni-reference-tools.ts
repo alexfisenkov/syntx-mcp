@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { types } from "node:util";
@@ -78,7 +79,7 @@ export function registerSyntxOwnerVeoOmniReferenceTools(server: McpServer, optio
   const cap = options.maxFileBytes ?? profile.local_resource_policy.default_max_file_bytes;
   if (!Number.isSafeInteger(cap) || cap < 1 || cap > profile.public_limits.max_file_size_bytes) throw new Error("INVALID_OMNI_OPERATOR_CAP");
   const uploadInput = z.object({ link_attempt_id: attempt, filename: z.string().min(1).max(128), mime_type: mime,
-    content_base64: z.string().min(4).max(Math.ceil(cap / 3) * 4).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u)
+    content_base64: z.string().min(4).max(Math.ceil(cap / 3) * 4).refine((value) => isCanonicalBase64Bounded(value, Math.ceil(cap / 3) * 4))
   }).strict();
   const uploadOutput = z.object({ status: z.literal("uploaded"), reference_handle: handle, model_id: z.literal("veo_omni"),
     kind: z.enum(["image", "video"]), mime_type: mime, size: z.number().int().min(1).max(cap), sha256: z.string().regex(/^[a-f0-9]{64}$/u),

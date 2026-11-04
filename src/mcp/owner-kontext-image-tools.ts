@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { z } from "zod/v4";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
@@ -44,8 +45,6 @@ const GENERATION_ERROR_CODES = [
   "OUTCOME_UNKNOWN", "RECOVERY_NOT_FOUND"
 ] as const;
 const PRINCIPAL_ERROR_CODES = ["REFERENCE_PRINCIPAL_NOT_LINKED", "REFERENCE_PRINCIPAL_INVALID"] as const;
-const STANDARD_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
-
 export const SYNTX_UPLOAD_KONTEXT_REFERENCE_IMAGE_TOOL_NAME = "syntx_upload_kontext_reference_image" as const;
 export const SYNTX_OWNER_GENERATE_KONTEXT_IMAGE_TOOL_NAME = "syntx_owner_generate_kontext_image" as const;
 export const SYNTX_OWNER_RECONCILE_KONTEXT_IMAGE_TOOL_NAME = "syntx_owner_reconcile_kontext_image" as const;
@@ -79,7 +78,7 @@ const parametersSchema = z.object({
 const uploadInputSchema = z.object({
   link_attempt_id: attemptIdSchema,
   variant: variantSchema,
-  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(STANDARD_BASE64)
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS))
     .describe("Padded standard Base64 image bytes. Local resource guard is 10 MiB; it is not a provider limit."),
   filename: filenameSchema,
   mime_type: z.enum(ORIGINAL_MIME_TYPES)

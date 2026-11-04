@@ -42,6 +42,22 @@ function pngWithDimensions(width: number, height: number): string {
   return bytes.toString("base64");
 }
 
+function jpegWithSize(size: number): Buffer {
+  const parts: Buffer[] = [Buffer.from([0xff, 0xd8])];
+  let remaining = size - 28;
+  while (remaining > 0) {
+    const payloadLength = Math.min(65_533, remaining - 4);
+    const segment = Buffer.alloc(payloadLength + 4, 0x5a);
+    segment[0] = 0xff; segment[1] = 0xe0;
+    segment.writeUInt16BE(payloadLength + 2, 2);
+    parts.push(segment);
+    remaining -= segment.byteLength;
+  }
+  parts.push(Buffer.from([0xff,0xc0,0x00,0x0b,0x08,0x00,0x01,0x00,0x01,0x01,0x01,0x11,0x00,
+    0xff,0xda,0x00,0x08,0x01,0x01,0x00,0x00,0x3f,0x00,0x00,0xff,0xd9]));
+  return Buffer.concat(parts);
+}
+
 function pngOver25MiB(): Buffer {
   const base = Buffer.from(PNG_1X1, "base64");
   const payloadLength = 25 * 1024 * 1024;
@@ -90,6 +106,18 @@ test("validates a source-admitted Banana 2.1 PNG and returns owned container met
   assert.equal(result.bytes.byteOffset, 0);
   assert.equal(result.bytes.buffer.byteLength, result.size);
   assert.notEqual(result.bytes.buffer, Buffer.from(PNG_1X1, "base64").buffer);
+});
+
+test("validates a canonical multi-megabyte standard-image Base64 payload linearly", () => {
+  const bytes = jpegWithSize(3_945_971);
+  const content_base64 = bytes.toString("base64");
+  assert.equal(content_base64.length, 5_261_296);
+  const result = validateOwnerStandardImageInput({
+    variant: "gpt-image-2", content_base64, filename: "large.jpg", mime_type: "image/jpeg"
+  });
+  assert.equal(result.size, bytes.byteLength);
+  assert.equal(result.width, 1);
+  result.bytes.fill(0);
 });
 
 test("accepts common HEIC and HEIF primary hvc1 items from their associated ispe metadata", () => {

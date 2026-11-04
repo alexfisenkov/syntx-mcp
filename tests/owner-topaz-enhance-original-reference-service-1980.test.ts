@@ -17,7 +17,7 @@ const BINDING = Object.freeze({ tenant_id: "topaz-enhance-tenant", subject: "top
 const MP4 = Uint8Array.from([0, 0, 0, 20, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0, 0x6d, 0x70, 0x34, 0x31, 0, 0, 0, 8, 0x6d, 0x64, 0x61, 0x74]);
 const UPLOAD_URL = "https://r2.syntx.ai/topaz-enhance/hidden/original.mp4";
 const PROBE_JSON = JSON.stringify({ streams: [
-  { codec_type: "video", codec_name: "h264", width: 640, height: 360, nb_read_frames: "90", duration: "3.000000", disposition: { attached_pic: 0 } },
+  { codec_type: "video", codec_name: "h264", codec_tag_string: "avc1", width: 640, height: 360, nb_read_frames: "90", duration: "3.000000", disposition: { attached_pic: 0 } },
   { codec_type: "audio", codec_name: "aac", duration: "3.000000" }
 ], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "3.000000" } });
 

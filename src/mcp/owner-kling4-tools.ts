@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { types } from "node:util";
@@ -81,7 +82,7 @@ export function registerSyntxOwnerKling4Tools(server: McpServer, options: OwnerK
   if (!Number.isSafeInteger(videoCap) || videoCap < 1 || videoCap > VIDEO_CAP) throw new Error("INVALID_KLING4_OPERATOR_CAP");
   const maxEncoded = Math.ceil(Math.max(IMAGE_CAP, videoCap) / 3) * 4;
   const uploadInput = z.object({ link_attempt_id: attempt, model_id: model, filename: z.string().min(1).max(255), mime_type: mime,
-    content_base64: z.string().min(4).max(maxEncoded).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u)
+    content_base64: z.string().min(4).max(maxEncoded).refine((value) => isCanonicalBase64Bounded(value, maxEncoded))
   }).strict();
   const uploadOutput = z.object({ status: z.literal("uploaded"), reference_handle: handle, model_id: model, kind: z.enum(["image", "video"]),
     mime_type: mime, size: z.number().int().positive(), sha256: z.string().regex(/^[a-f0-9]{64}$/u), width: z.number().int().positive(),

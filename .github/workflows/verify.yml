@@ -46,7 +46,7 @@ jobs:
         run: npm run build
 
       - name: Install media probe tools for changed video checks
-        if: inputs.scope == 'changed-media' || inputs.scope == 'media-update'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'media-update' || inputs.scope == 'image-file-fix'
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends ffmpeg
@@ -92,8 +92,11 @@ jobs:
           node --test tests/print-media-kling-switchx2357.test.mjs
           node --test --test-name-pattern="allowlisted media guides|exports only the exact committed" tests/export-public-snapshot.test.mjs
 
-      - name: Verify ChatGPT image-file input and image result links
+      # Linux scope installs ffmpeg and runs the real JPEG preparation/decode suite.
+      - name: Verify ChatGPT image-file input, local image import, and real Linux JPEG preparation
         if: inputs.scope == 'image-file-fix'
+        env:
+          SYNTX_MEDIA_FFMPEG_PATH: /usr/bin/ffmpeg
         run: npm run test:image:file-fix
 
       - name: Verify public manifest hashes, read safety, and secrets
@@ -113,13 +116,41 @@ jobs:
           SYNTX_KLING_MEDIA_TEST_FFPROBE: /usr/bin/ffprobe
         run: npm run test:media:update
 
-      - name: Prepare npm registry cache for public package consumer
-        if: inputs.scope == 'media-update'
-        run: npm run package:cache:prime -- --confirm-registry-fetch
+  local-image-file-portability:
+    name: Local file paths only / ${{ matrix.os }} / Node 24.21.0
+    if: inputs.scope == 'image-file-fix'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
-      - name: Verify clean public package consumer
-        if: inputs.scope == 'media-update'
-        run: npm run package:smoke:public
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify local path/import behavior on macOS and Windows
+        run: node --test dist/tests/owner-local-image-file-service.test.js dist/tests/owner-local-image-file-tool.test.js
+
+      - name: Verify repeatable native absolute roots in the config printer
+        run: node --test --test-name-pattern="repeatable absolute local image roots" tests/print-media-mcp-config.test.mjs
+
+      - name: Verify preparation refusal and input preservation without codec acceptance claims
+        run: node --test --test-name-pattern="preserves valid in-limit|rejects unrecognized binary|oversize image requires|abort is reported" dist/tests/standard-image-reference-preparation.test.js
 
   portability:
     name: ${{ matrix.os }} / Node ${{ matrix.node }}

@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import type { AuthBinding } from "../auth/types.js";
@@ -754,7 +755,7 @@ function semantic(
 }
 
 function decode(value: string): Buffer {
-  const validBase64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value);
+  const validBase64 = isCanonicalBase64(value, 140_000_000);
   if (!validBase64 || !value.length) fail("INVALID_REQUEST");
   const bytes = Buffer.from(value, "base64");
   if (bytes.toString("base64") !== value) {

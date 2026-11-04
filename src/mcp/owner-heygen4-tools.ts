@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -19,7 +20,7 @@ const sourceSchema = z.object({ status: z.string(), source_pins: z.record(z.stri
   media: z.record(z.string(), z.unknown()), public_bounds: z.record(z.string(), z.unknown()), prompt: z.record(z.string(), z.unknown()),
   settings: z.record(z.string(), z.unknown()), source_gaps: z.array(z.string()), avatar_voice_training: z.string(), provider_acceptance: z.literal("UNPROVEN") }).strict();
 const importSchema = z.object({ link_attempt_id: ATTEMPT, file_id: FILE_ID, media_type: z.enum(["image", "audio"]), filename: z.string().min(1).max(255),
-  mime_type: z.string().min(1).max(128), content_base64: z.string().min(4).max(MAX_BASE64).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+  mime_type: z.string().min(1).max(128), content_base64: z.string().min(4).max(MAX_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64)) }).strict();
 const importOutput = z.object({ status: z.literal("imported"), reference_handle: z.string().regex(HANDLE), model_id: z.literal("heygen4"),
   media_type: z.enum(["image", "audio"]), file_id: FILE_ID, filename: z.string().max(255), mime_type: z.string().max(128),
   size: z.number().int().positive().max(MAX_BYTES), sha256: z.string().regex(/^[a-f0-9]{64}$/u), width: z.number().int().positive().optional(),

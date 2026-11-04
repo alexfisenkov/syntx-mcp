@@ -25,6 +25,7 @@ export const INCLUDE_HEYGEN4_FLAG = "--include-heygen4";
 export const INCLUDE_EXISTING_VIDEO_RECOVERY_FLAG = "--include-existing-video-recovery";
 export const INCLUDE_ALL_SUPPORTED_MEDIA_FLAG = "--include-all-supported-media";
 export const INCLUDE_SELF_UPDATE_FLAG = "--include-self-update";
+export const LOCAL_IMAGE_ROOT_FLAG = "--local-image-root";
 
 const ENABLED_FLAGS = Object.freeze([
   "SYNTX_OWNER_ACCOUNT_STATUS",
@@ -139,6 +140,7 @@ const HELP_TEXT = [
   `WAN 2.7 Video Edit is omitted by default; select its independent owner-stdio group with ${INCLUDE_WAN27_VIDEOEDIT_FLAG}. When selected, replace SYNTX_OWNER_WAN27_VIDEOEDIT_FFPROBE_PATH with an absolute trusted ffprobe executable path; SYNTX_OWNER_WAN27_VIDEOEDIT_MAX_VIDEO_FILE_BYTES defaults to 67108864 (64 MiB), with a 100 MiB source ceiling. Its local image cap is 20 MiB; width and height are each limited to 240–4096. It requires an already-trimmed 2–10 second video; no implicit crop is performed and there is no enforceable provider cost cap. Startup only registers explicitly callable paid tools; it does not upload or generate automatically.`,
   `Seedance Editor is EXPERIMENTAL and omitted by default; select its independent owner-stdio group with ${INCLUDE_SEEDANCE_EDITOR_FLAG}. Live provider E2E is unconfirmed. The local input is one MP4/MOV video, 4–30 seconds, with a 64 MiB default and 100 MiB ceiling. Replace SYNTX_OWNER_SEEDANCE_EDITOR_FFPROBE_PATH with an absolute path to a trusted ffprobe executable. Startup does not upload, probe, or generate; paid actions are explicitly called and there is no enforceable provider cost cap.`,
   "This command does not edit client settings, read credentials, log in, or call the network.",
+  `Local image-file import is opt-in. Repeat ${LOCAL_IMAGE_ROOT_FLAG} <absolute-directory> for each trusted local folder; emitted paths are not inspected or resolved on disk.`,
   "The confirmed owner-stdio config enables Kling I2V with SYNTX_OWNER_KLING_I2V=1 and Hailuo-02 I2V with SYNTX_OWNER_HAILUO02_I2V=1.",
   "The confirmed owner-stdio config enables WAN 2.7 R2V with SYNTX_OWNER_WAN27_R2V=1; replace SYNTX_OWNER_WAN27_R2V_FFPROBE_PATH and SYNTX_OWNER_WAN27_R2V_FFMPEG_PATH placeholders with absolute trusted executable paths.",
   "The confirmed owner-stdio config enables the exact WAN 2.5 I2V preview image-only tool group with SYNTX_OWNER_WAN25_I2V_PREVIEW=1; optional input audio is not enabled in this slice and no ffprobe path is required.",
@@ -175,6 +177,7 @@ export function parseArguments(argv) {
   }
   if (argv.includes("--help") || argv[0] !== PAID_TOOLS_CONFIRMATION_FLAG) throw new MediaMcpConfigCliError();
   const seen = new Set();
+  const localImageRoots = [];
   let confirmed = false;
   let includeKling4 = false;
   let includeWan27VideoEdit = false;
@@ -194,7 +197,16 @@ export function parseArguments(argv) {
   let includeExistingVideoRecovery = false;
   let includeAllSupportedMedia = false;
   let includeSelfUpdate = false;
-  for (const argument of argv) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === LOCAL_IMAGE_ROOT_FLAG) {
+      const root = argv[++index];
+      if (typeof root !== "string" || root.length === 0 || root.startsWith("--") || !isAbsolute(root) || root.includes("\0")) {
+        throw new MediaMcpConfigCliError();
+      }
+      localImageRoots.push(resolve(root));
+      continue;
+    }
     if (seen.has(argument)) throw new MediaMcpConfigCliError();
     seen.add(argument);
     if (argument === PAID_TOOLS_CONFIRMATION_FLAG) confirmed = true;
@@ -225,7 +237,7 @@ export function parseArguments(argv) {
     includeWan27I2v = includeSeedance25T2v = includeKlingMedia = includeSwitchxVideo = true;
     includeActTwo = includeHeygen4 = includeExistingVideoRecovery = true;
   }
-  return Object.freeze({ kind: "emit", ...(includeAllSupportedMedia ? { includeAllSupportedMedia: true } : {}), ...(includeSelfUpdate ? { includeSelfUpdate: true } : {}), ...(includeKling4 ? { includeKling4: true } : {}),
+  return Object.freeze({ kind: "emit", ...(localImageRoots.length ? { localImageRoots: Object.freeze(localImageRoots) } : {}), ...(includeAllSupportedMedia ? { includeAllSupportedMedia: true } : {}), ...(includeSelfUpdate ? { includeSelfUpdate: true } : {}), ...(includeKling4 ? { includeKling4: true } : {}),
     ...(includeWan27VideoEdit ? { includeWan27VideoEdit: true } : {}),
     ...(includeSeedanceEditor ? { includeSeedanceEditor: true } : {}),
     ...(includeRunwayI2v ? { includeRunwayI2v: true } : {}),
@@ -291,6 +303,8 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefine
     ["SYNTX_MEDIA_FFMPEG_PATH", "<absolute path to trusted ffmpeg executable>"]
   ]);
   if (selection.includeSelfUpdate) env.SYNTX_SELF_UPDATE = "1";
+  env.SYNTX_OWNER_LOCAL_IMAGE_FILES = selection.localImageRoots?.length ? "1" : "0";
+  env.SYNTX_LOCAL_IMAGE_ROOTS = JSON.stringify(selection.localImageRoots ?? []);
   if (selection.includeAllSupportedMedia) {
     env.SYNTX_OWNER_MEDIA_PROFILE = "all-supported";
     env.SYNTX_OWNER_GENERATE_IMAGE = "1";
@@ -393,7 +407,8 @@ export async function main(argv, options = {}) {
       ...(parsed.includeHeygen4 === true ? { includeHeygen4: true } : {}),
       ...(parsed.includeExistingVideoRecovery === true ? { includeExistingVideoRecovery: true } : {}),
       ...(parsed.includeAllSupportedMedia === true ? { includeAllSupportedMedia: true } : {}),
-      ...(parsed.includeSelfUpdate === true ? { includeSelfUpdate: true } : {})
+      ...(parsed.includeSelfUpdate === true ? { includeSelfUpdate: true } : {}),
+      ...(parsed.localImageRoots ? { localImageRoots: parsed.localImageRoots } : {})
     };
     const config = buildMediaMcpConfig(options.entryUrl ?? import.meta.url, options.nodeExecutable ?? process.execPath,
       Object.keys(selection).length === 0 ? undefined : selection);
@@ -414,11 +429,17 @@ function readOptionalSelections(value) {
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const keys = Reflect.ownKeys(descriptors);
     if (keys.length < 1 || keys.some((key) =>
+      key !== "localImageRoots" &&
       key !== "includeKling4" && key !== "includeWan27VideoEdit" && key !== "includeSeedanceEditor" &&
       key !== "includeRunwayI2v" && key !== "includeGrokI2v" && key !== "includeWan25T2vPreview" && key !== "includeHiggsfieldDop" && key !== "includeHailuoInitial" && key !== "includeHappyHorse" && key !== "includeWan27I2v" && key !== "includeSeedance25T2v" && key !== "includeKlingMedia" && key !== "includeSwitchxVideo" &&
       key !== "includeActTwo" && key !== "includeHeygen4" && key !== "includeExistingVideoRecovery" && key !== "includeSelfUpdate" && key !== "includeAllSupportedMedia")) throw new Error();
     for (const key of keys) {
       const descriptor = descriptors[key];
+      if (key === "localImageRoots") {
+        if (!descriptor || !Object.hasOwn(descriptor, "value") || descriptor.enumerable !== true || !Array.isArray(descriptor.value) ||
+            descriptor.value.length === 0 || descriptor.value.some((root) => typeof root !== "string" || root.length === 0 || !isAbsolute(root) || root.includes("\0"))) throw new Error();
+        continue;
+      }
       if (!descriptor || !Object.hasOwn(descriptor, "value") || descriptor.enumerable !== true || typeof descriptor.value !== "boolean") throw new Error();
     }
     const includeAllSupportedMedia = descriptors.includeAllSupportedMedia?.value ?? false;
@@ -437,7 +458,7 @@ function readOptionalSelections(value) {
       includeActTwo: descriptors.includeActTwo?.value ?? includeAllSupportedMedia, includeHeygen4: descriptors.includeHeygen4?.value ?? includeAllSupportedMedia,
       includeExistingVideoRecovery: descriptors.includeExistingVideoRecovery?.value ?? includeAllSupportedMedia,
       includeSelfUpdate: descriptors.includeSelfUpdate?.value ?? false,
-      includeAllSupportedMedia });
+      includeAllSupportedMedia, ...(descriptors.localImageRoots ? { localImageRoots: Object.freeze([...descriptors.localImageRoots.value]) } : {}) });
   } catch {
     throw new MediaMcpConfigCliError();
   }

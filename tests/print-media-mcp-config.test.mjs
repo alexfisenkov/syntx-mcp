@@ -161,8 +161,12 @@ test("emitted JSON has absolute owner-stdio target and only the requested indivi
     "SYNTX_OWNER_VEO_OMNI_REFERENCES_FFPROBE_PATH",
     "SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES",
     "SYNTX_MEDIA_FFPROBE_PATH",
-    "SYNTX_MEDIA_FFMPEG_PATH"
+    "SYNTX_MEDIA_FFMPEG_PATH",
+    "SYNTX_OWNER_LOCAL_IMAGE_FILES",
+    "SYNTX_LOCAL_IMAGE_ROOTS"
   ].sort());
+  assert.equal(server.env.SYNTX_OWNER_LOCAL_IMAGE_FILES, "0");
+  assert.equal(server.env.SYNTX_LOCAL_IMAGE_ROOTS, "[]");
   assert.equal(JSON.stringify(config).includes("token"), false);
   assert.equal(JSON.stringify(config).includes(".env"), false);
 });
@@ -197,6 +201,31 @@ test("all-supported config pins the updateable reviewed media profile", async ()
   }
   assert.equal(env.SYNTX_OWNER_VEO_OMNI_REFERENCES_MAX_FILE_BYTES, "67108864");
   assert.equal(env.SYNTX_SELF_UPDATE, undefined);
+});
+
+test("repeatable absolute local image roots opt in without inspecting the filesystem", async () => {
+  const roots = [join(tmpdir(), "SYNTX local roots with spaces", "Pictures"), join(tmpdir(), "SYNTX local roots with spaces", "参考")];
+  assert.deepEqual(parseArguments([ENABLE_FLAG, "--local-image-root", roots[0], "--local-image-root", roots[1]]), {
+    kind: "emit", localImageRoots: roots
+  });
+  for (const args of [
+    [ENABLE_FLAG, "--local-image-root"],
+    [ENABLE_FLAG, "--local-image-root", "relative/images"],
+    [ENABLE_FLAG, "--local-image-root", "--include-self-update"]
+  ]) assert.throws(() => parseArguments(args), MediaMcpConfigCliError);
+
+  const stdout = [];
+  const stderr = [];
+  assert.equal(await main([ENABLE_FLAG, ...roots.flatMap((root) => ["--local-image-root", root])], {
+    entryUrl: pathToFileURL(SCRIPT_PATH).href,
+    nodeExecutable: "/node/bin/node",
+    writeStdout: (value) => stdout.push(value),
+    writeStderr: (value) => stderr.push(value)
+  }), 0);
+  const env = JSON.parse(stdout.join("")).mcpServers.syntx.env;
+  assert.equal(env.SYNTX_OWNER_LOCAL_IMAGE_FILES, "1");
+  assert.deepEqual(JSON.parse(env.SYNTX_LOCAL_IMAGE_ROOTS), roots);
+  assert.deepEqual(stderr, []);
 });
 
 test("programmatic all-supported selection expands the existing-video reader and honors explicit opt-out", () => {
@@ -457,7 +486,7 @@ test("Live installed config requires opt-in and checks the exact tool-list delta
   assert.ok(/jointToolCount-klingOff\.count,\$\{klingToolNames\.length\}/u.test(source), "Kling tools must be counted from tools/list");
   assert.ok(/for\(const n of \$\{JSON\.stringify\(klingToolNames\)\}\)assert\.ok\(!klingOff\.names\.includes\(n\)\)/u.test(source), "Kling tools must be absent when opted out");
   assert.ok(source.includes("SYNTX_OWNER_VEO_T2V:'0'"), "installed checker must exercise Veo default-off");
-  assert.ok(/jointToolCount-veoOff\.count,\$\{veoToolNames\.length\}/u.test(source), "Veo tools must be counted from tools/list");
+  assert.ok(/jointToolCount-veoOff\.count,\$\{veoToolNames\.length \+ 1\}/u.test(source), "Veo opt-out must subtract its four model tools and preserve the shared read-only parameter getter");
   assert.ok(/for\(const n of \$\{JSON\.stringify\(veoToolNames\)\}\)assert\.ok\(!veoOff\.names\.includes\(n\)\)/u.test(source), "Veo tools must be absent when opted out");
   assert.ok(source.includes("SYNTX_OWNER_GROK_T2V:'0'"), "installed checker must exercise Grok default-off");
   assert.ok(/jointToolCount-grokOff\.count,\$\{grokToolNames\.length\}/u.test(source), "Grok tools must be counted from tools/list");

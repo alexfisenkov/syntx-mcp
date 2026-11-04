@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { z } from "zod/v4";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
@@ -19,7 +20,6 @@ const IMAGE_HANDLE_PATTERN = /^magnific_image_[0-9a-f-]{36}$/u;
 const RECOVERY_ID_PATTERN = /^magnific_recovery_[0-9a-f-]{36}$/u;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
-const STANDARD_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const SOURCE_PARAMETERS = getOwnerMagnificUpscaleSourceParameters();
 const MAGNIFIC_VARIANTS = SOURCE_PARAMETERS.variants;
 const SCALE_FACTORS = SOURCE_PARAMETERS.controls.scale_factor.values;
@@ -66,7 +66,7 @@ const parametersSchema = z.object({
 const uploadInputSchema = z.object({
   link_attempt_id: attemptIdSchema,
   variant: variantSchema,
-  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(STANDARD_BASE64)
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS))
     .describe("Portable padded standard Base64 image bytes; local maximum encodes 10 MiB, a UI fallback not a provider cap."),
   filename: z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/u)
     .describe("Portable filename only; local paths and URL fields are not accepted."),

@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -116,7 +117,7 @@ const drawingHandleSchema = z.string().regex(DRAWING_HANDLE).describe("Opaque PN
 const recoveryIdSchema = z.string().regex(RECOVERY_ID).describe("Opaque process-local recovery handle for GET-only reconciliation; never replay generation.");
 const resultIdSchema = z.string().regex(RESULT_ID).describe("Opaque cached result handle for the exact owner attempt.");
 const filenameSchema = z.string().min(1).max(255).refine(isSafeFilename, "Use a portable filename basename without a path.");
-const base64Schema = (maxLength: number) => z.string().min(4).max(maxLength).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u)
+const base64Schema = (maxLength: number) => z.string().min(4).max(maxLength).refine((value) => isCanonicalBase64Bounded(value, maxLength))
   .refine(isCanonicalBase64, "Image bytes must be canonical padded base64 within the local input bound.");
 const promptSchema = z.string().min(1).max(OWNER_SEEDREAM_EDITOR_GENERATION_PROMPT_LOCAL_BOUND.max_utf8_bytes)
   .refine((value) => isWellFormedUnicode(value) && value.trim().length > 0 &&

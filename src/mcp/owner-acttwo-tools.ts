@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -15,10 +16,10 @@ const MAX_IMAGE_BASE64 = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
 const MAX_VIDEO_BASE64 = Math.ceil(MAX_VIDEO_BYTES / 3) * 4;
 const imageUploadInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), filename: z.string().min(1).max(255),
   mime_type: z.enum(["image/jpeg", "image/png"]), content_base64: z.string().min(4).max(MAX_IMAGE_BASE64)
-    .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+    .refine((value) => isCanonicalBase64Bounded(value, MAX_IMAGE_BASE64)) }).strict();
 const videoUploadInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), filename: z.string().min(1).max(255),
   mime_type: z.literal("video/mp4"), content_base64: z.string().min(4).max(MAX_VIDEO_BASE64)
-    .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+    .refine((value) => isCanonicalBase64Bounded(value, MAX_VIDEO_BASE64)) }).strict();
 const generateInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("acttwo"), aspect_ratio: z.literal("1:1"),
   seed: z.null(), expression: z.literal(3), character_image_handle: z.string().regex(IMAGE_HANDLE),
   performance_video_handle: z.string().regex(VIDEO_HANDLE) }).strict();

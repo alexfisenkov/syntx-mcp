@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import type { AuthBinding } from "../auth/types.js";
@@ -462,7 +463,7 @@ export class OwnerKlingKeyframesReferenceService {
 function validateEncodedImage(request: OwnerKlingKeyframesImageUploadInput): Readonly<ValidatedOwnerKlingKeyframesImage> {
   const value = request.content_base64;
   if (value.length === 0 || value.length > MAX_BASE64_CHARS || value.length % 4 !== 0 ||
-      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) fail("INVALID_REQUEST");
+      !isCanonicalBase64(value, MAX_BASE64_CHARS)) fail("INVALID_REQUEST");
   const bytes = Buffer.from(value, "base64");
   if (bytes.byteLength < 1 || bytes.byteLength > 50 * 1024 * 1024 || bytes.toString("base64") !== value) { bytes.fill(0); fail("INVALID_REQUEST"); }
   try { return validateOwnerKlingKeyframesImage({ filename: request.filename, mime_type: request.mime_type, bytes }); }

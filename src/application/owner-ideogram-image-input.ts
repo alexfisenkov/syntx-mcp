@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import { inspectBoundedOwnerImageBytesWithMax } from "./owner-image-reference-input-validator.js";
@@ -84,7 +85,7 @@ export function validateOwnerIdeogramImageInput(input: unknown): ValidatedOwnerI
     const maxBytes = effectiveMaxBytes(policy);
     const maxBase64Chars = Math.ceil(maxBytes / 3) * 4;
     if (fields.content_base64.length > maxBase64Chars) byteLimit(modelId, policy);
-    if (fields.content_base64.length % 4 !== 0 || !CANONICAL_BASE64.test(fields.content_base64)) invalid();
+    if (fields.content_base64.length % 4 !== 0 || !isCanonicalBase64(fields.content_base64, maxBase64Chars)) invalid();
     decoded = Buffer.from(fields.content_base64, "base64");
     if (decoded.byteLength < 1 || decoded.byteLength > maxBytes) byteLimit(modelId, policy);
     if (decoded.toString("base64") !== fields.content_base64) invalid();
@@ -132,9 +133,6 @@ export function validateOwnerIdeogramImageUploadData(input: unknown): ValidatedO
     invalid();
   }
 }
-
-const CANONICAL_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
-
 function validateOwnedBytes(
   modelId: OwnerIdeogramImageModelId,
   bytes: Uint8Array,

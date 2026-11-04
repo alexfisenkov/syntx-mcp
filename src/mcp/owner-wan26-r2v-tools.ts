@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -29,7 +30,6 @@ const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const HANDLE = /^wan26ref_[0-9a-f]{32}$/u;
 const RECOVERY = /^wan26_r2v_recovery_[0-9a-f-]{36}$/u;
 const MAX_PAGE = 4_096;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const PORTABLE_FILENAME = /^(?!\.{1,2}$)(?!.*[. ]$)(?!.*[<>:"/\\|?*\p{Cc}\p{Cf}\p{Cs}])(?!(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)).+$/iu;
 const source = getOwnerWan26R2vGenerationParametersSource();
 const attempt = z.string().regex(ATTEMPT);
@@ -44,9 +44,9 @@ const diagnosticCode = z.enum(["ACCOUNT_READ_UNAVAILABLE", "ACCOUNT_STATUS_STALE
 const startErrorClass = z.enum(["INVALID_REQUEST", "AUTH_REQUIRED", "AUTH_OR_ACCESS_DENIED", "UPSTREAM_RATE_LIMITED", "UPSTREAM_UNAVAILABLE", "UPSTREAM_TIMEOUT", "UPSTREAM_REQUEST_ABORTED", "UPSTREAM_PROTOCOL_ERROR"]);
 const emptyInput = z.object({}).strict();
 const imageInput = z.object({ link_attempt_id: attempt, model_id: model, filename, mime_type: imageMime,
-  content_base64: z.string().min(4).max(Math.ceil(OWNER_WAN26_R2V_IMAGE_POLICY.max_local_resource_bytes * 4 / 3)).regex(BASE64) }).strict();
+  content_base64: z.string().min(4).max(Math.ceil(OWNER_WAN26_R2V_IMAGE_POLICY.max_local_resource_bytes * 4 / 3)).refine((value) => isCanonicalBase64Bounded(value, Math.ceil(OWNER_WAN26_R2V_IMAGE_POLICY.max_local_resource_bytes * 4 / 3))) }).strict();
 const videoInput = z.object({ link_attempt_id: attempt, model_id: model, filename,
-  mime_type: z.literal("video/mp4"), content_base64: z.string().min(4).max(Math.ceil(100 * 1024 * 1024 * 4 / 3)).regex(BASE64),
+  mime_type: z.literal("video/mp4"), content_base64: z.string().min(4).max(Math.ceil(100 * 1024 * 1024 * 4 / 3)).refine((value) => isCanonicalBase64Bounded(value, Math.ceil(100 * 1024 * 1024 * 4 / 3))),
   start_seconds: z.number().finite().min(0), end_seconds: z.number().finite().gt(0), total_reference_count: z.number().int().min(1).max(5) }).strict();
 const referenceCheckInput = z.object({ link_attempt_id: attempt, model_id: model,
   reference_handles: z.array(handle).min(1).max(5) }).strict();

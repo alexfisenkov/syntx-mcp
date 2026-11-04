@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { z } from "zod/v4";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
@@ -39,8 +40,6 @@ const UPLOAD_ERROR_CODES = [
   "REQUEST_ABORTED", "REFERENCE_UNAVAILABLE", "REFERENCE_EXPIRED", "UPLOAD_REJECTED", "UPLOAD_OUTCOME_UNKNOWN"
 ] as const;
 const PRINCIPAL_ERROR_CODES = ["REFERENCE_PRINCIPAL_NOT_LINKED", "REFERENCE_PRINCIPAL_INVALID"] as const;
-const STANDARD_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
-
 export const SYNTX_UPLOAD_WAN_REFERENCE_IMAGE_TOOL_NAME = "syntx_upload_wan_reference_image" as const;
 export const SYNTX_OWNER_GENERATE_WAN_IMAGE_TOOL_NAME = "syntx_owner_generate_wan_image" as const;
 export const SYNTX_OWNER_RECONCILE_WAN_IMAGE_TOOL_NAME = "syntx_owner_reconcile_wan_image" as const;
@@ -89,7 +88,7 @@ const parametersSchema = z.object({
 const uploadInputSchema = z.object({
   link_attempt_id: attemptIdSchema,
   variant: variantSchema,
-  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(STANDARD_BASE64)
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS))
     .describe("Padded standard Base64 image data only. The 20 MiB encoded-input ceiling is an MCP guard; the service applies the selected variant's 10/20 MiB decoded limit."),
   filename: filenameSchema,
   mime_type: z.enum(ORIGINAL_MIME_TYPES)

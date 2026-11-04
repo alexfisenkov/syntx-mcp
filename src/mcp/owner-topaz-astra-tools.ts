@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -18,7 +19,7 @@ const model = z.enum(OWNER_TOPAZ_ASTRA_MODEL_IDS);
 const uploadInput = z.object({ link_attempt_id: attempt, model_id: model,
   filename: z.string().min(1).max(255).regex(/^[^\u0000-\u001f\\/:*?"<>|]+\.(?:mp4|mov)$/iu),
   mime_type: z.enum(["video/mp4", "video/quicktime"]), content_base64: z.string().min(4).max(MAX_BASE64)
-    .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+    .refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64)) }).strict();
 const generateInput = z.object({ link_attempt_id: attempt, model_id: model, topaz_original_handle: z.string().regex(HANDLE),
   prompt: z.string().refine((value) => Buffer.byteLength(value, "utf8") <= OWNER_TOPAZ_ASTRA_PROMPT_LOCAL_BOUND.max_utf8_bytes).optional(), parameters: z.object({ resolution: z.enum(["1920x1080", "3840x2160"]),
     frame_rate: z.union([z.literal(24), z.literal(30), z.literal(60), z.literal(120)]),

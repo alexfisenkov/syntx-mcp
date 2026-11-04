@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { types } from "node:util";
@@ -125,7 +126,7 @@ export function registerSyntxOwnerWan27VideoEditTools(server: McpServer, options
   const maxEncoded = Math.ceil(Math.max(IMAGE_CAP, videoCap) / 3) * 4;
   const uploadInput = z.object({ link_attempt_id: attempt, model_id: z.literal(MODEL_ID), filename: z.string().min(1).max(255),
     mime_type: uploadMime, content_base64: z.string().min(4).max(maxEncoded)
-      .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u)
+      .refine((value) => isCanonicalBase64Bounded(value, maxEncoded))
   }).strict();
 
   const uploadOutput = z.object({ status: z.literal("uploaded"), reference_handle: handle, model_id: z.literal(MODEL_ID),

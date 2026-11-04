@@ -152,7 +152,6 @@ test("Kling I2V SDK schemas reject unsafe extra fields and unsupported settings"
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "1.5", mode: "standart", video_duration: 5, native_audio: true, temperature: 0.5 },
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "2.1-master", mode: "standart", video_duration: 5, native_audio: false, temperature: 0.5 },
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "3.0", mode: "hd", video_duration: 5, native_audio: false, temperature: 0.55, multi_shots: false },
-      { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "3.0", mode: "hd", video_duration: 5, native_audio: false, temperature: 0.5, multi_shots: true },
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "3.0-turbo", mode: "hd", video_duration: 5, native_audio: false, temperature: 0.5, reference_url: ARTIFACT_URL },
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "1.5", mode: "hd", video_duration: 5, native_audio: false, temperature: 0.5, provider_id: "secret" }
     ];
@@ -165,6 +164,18 @@ test("Kling I2V SDK schemas reject unsafe extra fields and unsupported settings"
     } });
     assert.equal(badUpload.isError, true);
     assert.equal(state.calls.length, 0);
+
+    const multiShots = await state.client.callTool({ name: SYNTX_OWNER_GENERATE_KLING_I2V_VIDEO_TOOL_NAME, arguments: {
+      link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "3.0",
+      mode: "hd", video_duration: 5, native_audio: false, temperature: 0.5, multi_shots: true
+    } });
+    assert.equal(multiShots.isError, undefined, JSON.stringify(multiShots));
+    assert.deepEqual(state.calls.find((call) => call.method === "generate")?.input, {
+      attemptId: ATTEMPT, image_handle: IMAGE_HANDLE,
+      parameters: { model_id: "kling_image2video", prompt: "x", reference_count: 1,
+        version: "3.0", mode: "hd", video_duration: 5, native_audio: false },
+      controls: { temperature: 0.5, multi_shots: true }
+    });
   } finally { await state.close(); }
 });
 

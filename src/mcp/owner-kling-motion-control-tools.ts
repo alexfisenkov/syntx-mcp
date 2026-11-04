@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -50,7 +51,6 @@ const PRESET_VIDEO_HANDLE = /^kling_motion_control_preset_video_[0-9a-f-]{36}$/u
 const RECOVERY_ID = /^kling_motion_control_generation_recovery_[0-9a-f-]{36}$/u;
 const MAX_IMAGE_BASE64 = Math.ceil(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.max_file_size_bytes / 3) * 4;
 const MAX_VIDEO_BASE64 = Math.ceil(OWNER_KLING_MOTION_CONTROL_VIDEO_POLICY.max_file_size_bytes / 3) * 4;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const SOURCE = getOwnerKlingMotionControlParametersSource();
 const attempt = z.string().regex(ATTEMPT).describe("Exact currently linked owner attempt.");
 const recovery = z.string().regex(RECOVERY_ID);
@@ -82,9 +82,9 @@ const parameterSourceToolOutputSchema = parameterSourceSchema.partial().extend({
 }).strict();
 
 const attemptOnlySchema = z.object({ link_attempt_id: attempt }).strict();
-const uploadImageInputSchema = z.object({ link_attempt_id: attempt, content_base64: z.string().min(4).max(MAX_IMAGE_BASE64).regex(BASE64),
+const uploadImageInputSchema = z.object({ link_attempt_id: attempt, content_base64: z.string().min(4).max(MAX_IMAGE_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_IMAGE_BASE64)),
   filename: z.string().min(1).max(255), mime_type: z.enum(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.source_mime_types) }).strict();
-const uploadVideoInputSchema = z.object({ link_attempt_id: attempt, content_base64: z.string().min(4).max(MAX_VIDEO_BASE64).regex(BASE64),
+const uploadVideoInputSchema = z.object({ link_attempt_id: attempt, content_base64: z.string().min(4).max(MAX_VIDEO_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_VIDEO_BASE64)),
   filename: z.string().min(1).max(255), mime_type: z.enum(OWNER_KLING_MOTION_CONTROL_VIDEO_POLICY.source_mime_types) }).strict();
 const uploadImageOutputSchema = z.object({ status: z.literal("uploaded"), image_handle: imageHandle, model_id: z.literal(MODEL_ID),
   filename: z.string().min(1).max(255), mime_type: z.enum(OWNER_KLING_MOTION_CONTROL_IMAGE_POLICY.source_mime_types),

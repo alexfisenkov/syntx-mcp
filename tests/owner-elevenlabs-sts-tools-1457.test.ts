@@ -113,6 +113,10 @@ test("stock SDK composes exact STS tools with genuine owner services and validat
       link_attempt_id: ATTEMPT, filename: "input.mp3", mime_type: "audio/mpeg", content_base64: "AB=="
     } });
     assert.equal(badBase64.isError, true); assert.equal(uploads, 0, "noncanonical base64 must be rejected before native upload");
+    const malformedLarge = await client.callTool({ name: SYNTX_OWNER_UPLOAD_ELEVENLABS_STS_ORIGINAL_TOOL_NAME, arguments: {
+      link_attempt_id: ATTEMPT, filename: "input.mp3", mime_type: "audio/mpeg", content_base64: `${"A".repeat(5_261_292)}!AAA`
+    } });
+    assert.equal(malformedLarge.isError, true); assert.equal(uploads, 0, "large malformed base64 must be rejected before native upload");
     const uploaded = await client.callTool({ name: SYNTX_OWNER_UPLOAD_ELEVENLABS_STS_ORIGINAL_TOOL_NAME, arguments: {
       link_attempt_id: ATTEMPT, filename: "input.mp3", mime_type: "audio/mpeg", content_base64: Buffer.from(INPUT_MP3).toString("base64")
     } });

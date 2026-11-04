@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -12,7 +13,7 @@ const RECOVERY = z.string().regex(/^hailuo02_i2v_recovery_[0-9a-f-]{36}$/u);
 const model = z.literal("hailuo-02");
 const uploadInput = z.object({ link_attempt_id: ATTEMPT, filename: z.string().min(1).max(255),
   mime_type: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]),
-  content_base64: z.string().min(4).max(MAX_BASE64).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+  content_base64: z.string().min(4).max(MAX_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64)) }).strict();
 const generateInput = z.object({ link_attempt_id: ATTEMPT, model_id: model,
   image_handle: z.string().regex(/^h02img_[A-Za-z0-9_-]{20,120}$/u), prompt: z.string().min(1).max(5000),
   resolution: z.enum(["512p", "768p", "1080p"]), video_duration: z.union([z.literal(6), z.literal(10)]) }).strict()

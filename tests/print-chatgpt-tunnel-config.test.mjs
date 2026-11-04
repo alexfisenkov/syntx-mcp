@@ -60,6 +60,8 @@ test("builds the official main-channel stdio profile without losing the existing
   assert.equal(environment.SYNTX_OWNER_GENERATE_IMAGE, "1");
   assert.equal(environment.SYNTX_OWNER_GENERATE_VIDEO, "1");
   assert.equal(environment.SYNTX_OWNER_HIGGSFIELD_DOP_UPLOAD_DESTINATION, "<uploaded|hidden>");
+  assert.equal(environment.SYNTX_OWNER_LOCAL_IMAGE_FILES, "0");
+  assert.equal(environment.SYNTX_LOCAL_IMAGE_ROOTS, "[]");
   assert.equal(environment.SYNTX_SELF_UPDATE, undefined);
   assert.equal(config.control_plane.api_key, "env:OPENAI_API_KEY");
   assert.equal(JSON.stringify(config).includes("OPENAI-API-KEY"), false);

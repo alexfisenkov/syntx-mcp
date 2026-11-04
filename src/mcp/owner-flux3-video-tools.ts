@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -33,7 +34,7 @@ const recoveryId = z.string().regex(RECOVERY);
 const filename = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._ -]*$/u);
 const modelIdSchema = z.enum(OWNER_FLUX3_VIDEO_MODEL_IDS);
 const base64 = (maximum: number) => z.string().min(4).max(maximum)
-  .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u);
+  .refine((value) => isCanonicalBase64Bounded(value, maximum));
 
 const uploadInput = z.object({
   link_attempt_id: attempt,

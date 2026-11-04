@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { isCanonicalBase64 } from "../application/canonical-base64.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { OwnerReferencePrincipalError } from "../auth/owner-reference-principal.js";
 import {
@@ -61,7 +62,6 @@ const UPLOAD_ERROR_CODES = [
   "REFERENCE_UNAVAILABLE", "REFERENCE_EXPIRED", "UPLOAD_REJECTED", "UPLOAD_OUTCOME_UNKNOWN"
 ] as const;
 const PRINCIPAL_ERROR_CODES = ["REFERENCE_PRINCIPAL_NOT_LINKED", "REFERENCE_PRINCIPAL_INVALID"] as const;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const SHA256 = /^sha256:[a-f0-9]{64}$/u;
 
 export const SYNTX_UPLOAD_STANDARD_IMAGE_REFERENCE_TOOL_NAME = "syntx_upload_standard_image_reference" as const;
@@ -102,8 +102,8 @@ const parametersSchema = z.union([bananaParametersSchema, gptParametersSchema]);
 const uploadInputSchema = z.object({
   link_attempt_id: attemptIdSchema,
   variant: variantSchema,
-  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64).optional()
-    .describe("Padded standard Base64. The 32 MiB encoded-input ceiling is a local MCP guard; variant validators enforce actual decoded limits."),
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64(value, MAX_BASE64_CHARS)).optional()
+    .describe("Padded Base64, capped at 44,739,244 characters (the encoded form of a 32 MiB decoded-input ceiling). Variant validators enforce lower limits, including 7 MiB for direct Banana 2.1 image inputs."),
   filename: filenameSchema.optional(),
   mime_type: z.enum(ORIGINAL_MIMES).optional(),
   file: CHATGPT_IMAGE_FILE_SCHEMA.optional()
@@ -285,7 +285,7 @@ export function registerSyntxOwnerStandardImageTools(
 ): void {
   server.registerTool(SYNTX_UPLOAD_STANDARD_IMAGE_REFERENCE_TOOL_NAME, {
     title: "Upload a Banana or GPT Image reference",
-    description: "Upload one owner-provided image, or for Banana 2.1 a supported video or PDF input. Supply either the existing Base64 fields or one ChatGPT-attached image file. ChatGPT file downloads are limited to the supported files.oaiusercontent.com origin; caller URLs are not fetched. The Base64 ceiling is 32 MiB encoded text; the variant validator applies the actual decoded local limits. Metadata confidence is reported explicitly. The filename is used only for validation and is never returned.",
+    description: "Upload one owner-provided image, or for Banana 2.1 a supported video or PDF input. Base64 is capped at 44,739,244 characters (the encoded form of a 32 MiB decoded-input ceiling); variant validators enforce actual decoded limits, including the 7 MiB direct-image ceiling for Banana 2.1. When syntx_upload_standard_image_reference_file is listed, prefer it for local photos, especially large images, to avoid serializing file bytes as Base64; it reads paths only on the computer running this local MCP process and inside an operator-approved root. This tool accepts one ChatGPT-attached image file from the supported files.oaiusercontent.com origin; caller URLs are not fetched. Metadata confidence is reported explicitly. The filename is used only for validation and is never returned.",
     inputSchema: uploadInputSchema, outputSchema: uploadOutputSchema,
     _meta: CHATGPT_IMAGE_FILE_TOOL_META,
     annotations: { title: "Upload a standard image reference", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }

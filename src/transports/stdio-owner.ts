@@ -151,6 +151,27 @@ export function readOwnerStandardImageReferencesFlag(value: string | undefined):
   throw new Error("Invalid SYNTX_OWNER_STANDARD_IMAGE_REFERENCES configuration.");
 }
 
+/** Strict default-off gate for reading image files from operator-approved local folders. */
+export function readOwnerLocalImageFilesFlag(value: string | undefined): boolean {
+  if (value === undefined || value === "" || value === "0") return false;
+  if (value === "1") return true;
+  throw new Error("Invalid SYNTX_OWNER_LOCAL_IMAGE_FILES configuration.");
+}
+
+/** Parse trusted local roots from operator configuration, never from tool arguments. */
+export function readOwnerLocalImageRoots(value: string | undefined): readonly string[] {
+  if (value === undefined || value.length === 0 || value.length > 16_384) {
+    throw new Error("Invalid SYNTX_LOCAL_IMAGE_ROOTS configuration.");
+  }
+  let parsed: unknown;
+  try { parsed = JSON.parse(value); } catch { throw new Error("Invalid SYNTX_LOCAL_IMAGE_ROOTS configuration."); }
+  if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > 16 ||
+      parsed.some((path) => typeof path !== "string" || !isAbsolute(path) || path.includes("\0") || path === "/" || path.endsWith("/.."))) {
+    throw new Error("Invalid SYNTX_LOCAL_IMAGE_ROOTS configuration.");
+  }
+  return Object.freeze([...new Set(parsed as string[])]);
+}
+
 /** Strict default-off gate for the local Runway Frames paid image composition. */
 export function readOwnerRunwayImageReferencesFlag(value: string | undefined): boolean {
   if (value === undefined || value === "" || value === "0") return false;
@@ -419,6 +440,12 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerStandardImageReferencesEnabled = readOwnerStandardImageReferencesFlag(
     reviewedMediaFlagValue("SYNTX_OWNER_STANDARD_IMAGE_REFERENCES")
   );
+  const ownerLocalImageFilesEnabled = readOwnerLocalImageFilesFlag(process.env.SYNTX_OWNER_LOCAL_IMAGE_FILES);
+  const ownerLocalImageRoots = ownerLocalImageFilesEnabled ? readOwnerLocalImageRoots(process.env.SYNTX_LOCAL_IMAGE_ROOTS) : undefined;
+  const ownerLocalImageFfmpegPath = ownerLocalImageFilesEnabled
+    ? resolveReviewedMediaBinaryPath(undefined, process.env.SYNTX_MEDIA_FFMPEG_PATH)
+    : undefined;
+  const localImageFileTransport = ownerLocalImageFilesEnabled ? { ownerLocalImageFileTransport: "stdio" as const } : {};
   const ownerRunwayImageReferencesEnabled = readOwnerRunwayImageReferencesFlag(
     reviewedMediaFlagValue("SYNTX_OWNER_RUNWAY_IMAGE_REFERENCES")
   );
@@ -629,6 +656,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerKontextImageReferencesEnabled,
       ownerWanImageReferencesEnabled,
       ownerStandardImageReferencesEnabled,
+      ownerLocalImageFilesEnabled,
+      ...(ownerLocalImageRoots === undefined ? {} : { ownerLocalImageRoots }),
+      ...(ownerLocalImageFfmpegPath === undefined ? {} : { ownerLocalImageFfmpegPath }),
       ownerRunwayImageReferencesEnabled,
       ownerSeedreamImageReferencesEnabled,
       ownerSeedreamEditorImageReferencesEnabled,
@@ -823,10 +853,10 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           fluxImageReferencesService === undefined && ideogramImageReferencesService === undefined &&
           bananaInpaintImageGenerationService === undefined && hailuo02I2vGenerationService === undefined && wan27R2vReferencesService === undefined && wan26I2vService === undefined && wan26R2vService === undefined && wan25I2vPreviewService === undefined &&
           klingMotionControlReferenceService === undefined && klingMotionControlPresetReferenceService === undefined && klingMotionControlGenerationService === undefined) {
-        await runStdioServer(runtime.application, { ...runtime.serverOptions, selfUpdateApply: isSelfUpdateEnabled() });
+        await runStdioServer(runtime.application, { ...runtime.serverOptions, ...localImageFileTransport, selfUpdateApply: isSelfUpdateEnabled() });
         return;
       }
-      const serverOptions = { ...runtime.serverOptions, selfUpdateApply: isSelfUpdateEnabled() };
+      const serverOptions = { ...runtime.serverOptions, ...localImageFileTransport, selfUpdateApply: isSelfUpdateEnabled() };
       const server = createMcpServer(runtime.application, serverOptions);
       profileTransport = withOmittedAuthArguments(new StdioServerTransport(input));
       closeOwnerImageReferences = closeOwnerReadServicesOnTransportEof(
@@ -897,7 +927,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       return;
     }
 
-    let serverOptions = { ...runtime.serverOptions, selfUpdateApply: isSelfUpdateEnabled() };
+    let serverOptions = { ...runtime.serverOptions, ...localImageFileTransport, selfUpdateApply: isSelfUpdateEnabled() };
     if (ownerDurableGenerationEnabled) {
       const managerPromise = createOwnerDurableSessionManager({
         authProfile: privateAuthProfile,

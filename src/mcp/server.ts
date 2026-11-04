@@ -118,6 +118,8 @@ import {
 } from "./owner-standard-image-tools.js";
 import type { OwnerStandardImageGenerationService } from "../application/owner-standard-image-generation-service.js";
 import type { OwnerStandardImageUploadService } from "../application/owner-standard-image-upload-service.js";
+import type { OwnerLocalImageFileService } from "../application/owner-local-image-file-service.js";
+import { registerSyntxOwnerLocalImageFileTool } from "./owner-local-image-file-tool.js";
 import {
   registerSyntxOwnerRunwayImageTools,
   type RegisterSyntxOwnerRunwayImageToolsOptions
@@ -330,6 +332,7 @@ export interface OwnerStandardImageServiceComposition extends RegisterSyntxOwner
   readonly uploadService: Pick<OwnerStandardImageUploadService, "upload" | "invalidateAttempt" | "close">;
   readonly generationService: Pick<OwnerStandardImageGenerationService,
     "generate" | "reconcile" | "listRecoveries" | "invalidateAttempt" | "close">;
+  readonly localImageFileService?: Pick<OwnerLocalImageFileService, "upload">;
 }
 
 /** Optional owner-local Runway Frames tools with one generation-owned upload lifecycle. */
@@ -569,6 +572,8 @@ export interface OwnerVideo2AudioServiceComposition {
 }
 
 export interface CreateMcpServerOptions {
+  /** Internal transport assertion; local filesystem tools require the owner-stdio entrypoint. */
+  ownerLocalImageFileTransport?: "stdio";
   /** Update apply is enabled only by explicitly opted-in owner stdio. */
   selfUpdateApply?: boolean | undefined;
   /** Optional and request-scoped; the default eight-tool server has no login surface. */
@@ -1265,6 +1270,9 @@ export function createMcpServer(
   }
   if (options.ownerStandardImageReferences) {
     registerSyntxOwnerStandardImageTools(server, options.ownerStandardImageReferences);
+    if (options.ownerLocalImageFileTransport === "stdio" && options.ownerStandardImageReferences.localImageFileService) {
+      registerSyntxOwnerLocalImageFileTool(server, options.ownerStandardImageReferences.localImageFileService as OwnerLocalImageFileService);
+    }
   }
   if (options.ownerRunwayImageReferences) {
     registerSyntxOwnerRunwayImageTools(server, options.ownerRunwayImageReferences);

@@ -66,6 +66,10 @@ test("Flux MCP input and output contract schemas are exported for downstream com
   assert.ok(outputs && typeof outputs === "object");
   assert.deepEqual(Object.keys(inputs).sort(), ["generate", "list_recoveries", "reconcile", "register_public_lora", "upload"].sort());
   assert.deepEqual(Object.keys(outputs).sort(), ["generate", "list_recoveries", "reconcile", "register_public_lora", "upload"].sort());
+  const upload = (inputs as { upload: { safeParse(value: unknown): { success: boolean } } }).upload;
+  const largeMalformed = { link_attempt_id: "link_flux_test_attempt_000000001", filename: "bad.png", mime_type: "image/png",
+    content_base64: `${"A".repeat(5_261_292)}!AAA` };
+  assert.equal(upload.safeParse(largeMalformed).success, false);
 });
 
 test("generation schema preserves all 18 source resolutions and exact fractional controls", async () => {

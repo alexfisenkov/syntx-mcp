@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -33,7 +34,6 @@ const IMAGE_HANDLE = /^kling_i2v_image_[0-9a-f-]{36}$/u;
 const RECOVERY_ID = /^kling_i2v_generation_recovery_[0-9a-f-]{36}$/u;
 const MAX_IMAGE_BYTES = OWNER_KLING_I2V_IMAGE_INPUT_POLICY.local_max_bytes;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const VERSIONS = ["1.5", "1.6", "2.1-master", "2.5-turbo", "2.6", "3.0", "3.0-turbo"] as const;
 const MODES = ["standart", "hd", "4K"] as const;
 const PIN_VALUE_SCHEMA = z.union([z.string(), z.number().finite()]);
@@ -51,7 +51,7 @@ const sourceOutputSchema = z.object({
 const attemptSchema = z.string().regex(ATTEMPT).describe("Exact currently linked owner attempt.");
 const uploadInputSchema = z.object({
   link_attempt_id: attemptSchema,
-  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64),
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)),
   filename: z.string().min(1).max(255),
   mime_type: z.enum(OWNER_KLING_I2V_IMAGE_INPUT_POLICY.mime_types)
 }).strict();

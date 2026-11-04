@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import {
@@ -96,7 +97,7 @@ export function validateOwnerSeedreamEditorOriginalInput(input: unknown): Valida
     if (typeof fields.content_base64 !== "string" || fields.content_base64.length === 0) invalid();
     const cap = SOURCE_CAPS[variant];
     if (fields.content_base64.length > Math.ceil(cap / 3) * 4) localLimit();
-    if (fields.content_base64.length > BASE64_MAX_CHARS || !hasCanonicalBase64(fields.content_base64) ||
+    if (fields.content_base64.length > BASE64_MAX_CHARS || !hasCanonicalBase64(fields.content_base64, Math.ceil(cap / 3) * 4) ||
         typeof fields.filename !== "string" || !isSafeFilename(fields.filename) || typeof fields.mime_type !== "string") invalid();
     const mime = readMime(fields.mime_type, variant);
     decoded = Buffer.from(fields.content_base64, "base64");
@@ -213,9 +214,8 @@ function getBuffer(value: Uint8Array): ArrayBuffer { return Reflect.apply(TYPED_
 function getOffset(value: Uint8Array): number { return Reflect.apply(TYPED_ARRAY_OFFSET_GETTER, value, []) as number; }
 function getLength(value: Uint8Array): number { return Reflect.apply(TYPED_ARRAY_LENGTH_GETTER, value, []) as number; }
 function getArrayBufferLength(value: ArrayBuffer): number { return Reflect.apply(ARRAY_BUFFER_LENGTH_GETTER, value, []) as number; }
-function hasCanonicalBase64(value: string): boolean {
-  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) return false;
-  return true;
+function hasCanonicalBase64(value: string, maxChars: number): boolean {
+  return isCanonicalBase64(value, maxChars);
 }
 function mapError(error: unknown): never {
   if (error instanceof OwnerSeedreamEditorOriginalInputError) throw error;

@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 
@@ -37,7 +38,7 @@ export function validateOwnerImageReferenceInput(input: unknown): ValidatedOwner
     const fields = exactRecord(input, ["content_base64", "filename", "mime_type"]);
     if (typeof fields.content_base64 !== "string" || fields.content_base64.length === 0 ||
         fields.content_base64.length > MAX_BASE64_CHARS || fields.content_base64.length % 4 !== 0 ||
-        !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(fields.content_base64) ||
+        !isCanonicalBase64(fields.content_base64, MAX_BASE64_CHARS) ||
         typeof fields.filename !== "string" || !SAFE_FILENAME.test(fields.filename) ||
         typeof fields.mime_type !== "string" || !MIME_TYPES.has(fields.mime_type)) invalid();
 

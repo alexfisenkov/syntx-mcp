@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -32,7 +33,7 @@ const recoveryId = z.string().regex(RECOVERY);
 const filename = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._ -]*$/u);
 const videoMime = z.enum(["video/mp4", "video/quicktime"]);
 const base64 = z.string().min(4).max(MAX_BASE64_LENGTH)
-  .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u);
+  .refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_LENGTH));
 const prompt = z.string().max(2_000).refine((value) => value.trim().length > 0 && isWellFormedUnicode(value));
 const profilePins = z.object({
   public_catalog_version: z.literal("sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json"),

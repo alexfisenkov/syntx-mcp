@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { createHash } from "node:crypto";
@@ -23,7 +24,6 @@ const HANDLE = /^grok_i2v_reference_[0-9a-f-]{36}$/u;
 const RECOVERY = /^grok_i2v_recovery_[0-9a-f-]{36}$/u;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const ERROR_CODES = new Set([
   "INVALID_REQUEST", "SERVICE_CLOSED", "SERVICE_BUSY", "REQUEST_ABORTED", "CAPACITY_EXCEEDED", "CLOCK_INVALID",
   "PRINCIPAL_NOT_LINKED", "VALIDATION_REJECTED", "UPLOAD_OUTCOME_UNKNOWN", "REFERENCE_UNAVAILABLE", "REFERENCE_EXPIRED",
@@ -61,7 +61,7 @@ const uploadInput = z.object({
   model_id: modelId,
   filename: z.string().min(1).max(255).refine(isSafeFilename),
   mime_type: mimeType,
-  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64)
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS))
 }).strict().superRefine((value, context) => {
   const extension = value.filename.slice(value.filename.lastIndexOf(".")).toLowerCase();
   const validExtension = value.mime_type === "image/jpeg" ? [".jpg", ".jpeg"].includes(extension)

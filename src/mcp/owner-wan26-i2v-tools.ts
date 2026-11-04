@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -31,7 +32,6 @@ const IMAGE_HANDLE = /^wan26image_[0-9a-f-]{36}$/u;
 const AUDIO_HANDLE = /^wan26audio_[0-9a-f-]{36}$/u;
 const RECOVERY_ID = /^wan26_generation_recovery_[0-9a-f-]{36}$/u;
 const MAX_RESULTS = 4096;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const PORTABLE_FILENAME = /^(?!\.{1,2}$)(?!.*[. ]$)(?!.*[<>:"/\\|?*\p{Cc}\p{Cf}\p{Cs}])(?!(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)).+$/iu;
 const source = getOwnerWan26I2vGenerationParametersSource();
 const attempt = z.string().regex(ATTEMPT).describe("Exact linked owner attempt ID.");
@@ -59,9 +59,9 @@ const diagnosticCode = z.enum([
 
 const parameterInput = z.object({}).strict();
 const imageInput = z.object({ link_attempt_id: attempt, model_id: modelId, filename, mime_type: imageMime,
-  content_base64: z.string().min(4).max(OWNER_WAN26_I2V_REFERENCE_LIMITS.image_max_base64_chars).regex(BASE64) }).strict();
+  content_base64: z.string().min(4).max(OWNER_WAN26_I2V_REFERENCE_LIMITS.image_max_base64_chars).refine((value) => isCanonicalBase64Bounded(value, OWNER_WAN26_I2V_REFERENCE_LIMITS.image_max_base64_chars)) }).strict();
 const audioInput = z.object({ link_attempt_id: attempt, model_id: modelId, filename, mime_type: audioMime,
-  content_base64: z.string().min(4).max(OWNER_WAN26_I2V_REFERENCE_LIMITS.audio_max_base64_chars).regex(BASE64) }).strict();
+  content_base64: z.string().min(4).max(OWNER_WAN26_I2V_REFERENCE_LIMITS.audio_max_base64_chars).refine((value) => isCanonicalBase64Bounded(value, OWNER_WAN26_I2V_REFERENCE_LIMITS.audio_max_base64_chars)) }).strict();
 const generateInput = z.object({ link_attempt_id: attempt, model_id: modelId, image_handle: imageHandle,
   audio_handle: audioHandle.nullable(), prompt: z.string().max(1_500), resolution: z.enum(["720P", "1080P"]),
   aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4"]), video_duration: z.number().int().min(2).max(15),

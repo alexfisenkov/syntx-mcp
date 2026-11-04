@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -22,7 +23,6 @@ const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const IMAGE_HANDLE = /^kling_keyframes_image_[0-9a-f-]{36}$/u;
 const MAX_IMAGE_BYTES = OWNER_KLING_KEYFRAMES_IMAGE_POLICY.max_file_size_bytes;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const attemptSchema = z.string().regex(ATTEMPT).describe("Exact currently linked owner attempt.");
 const imageHandleSchema = z.string().regex(IMAGE_HANDLE);
 const imageMetadataSchema = z.object({
@@ -42,7 +42,7 @@ const policyOutputSchema = z.object({
 }).strict();
 const uploadInputSchema = z.object({
   link_attempt_id: attemptSchema,
-  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(BASE64),
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)),
   filename: z.string().min(1).max(255),
   mime_type: z.enum(OWNER_KLING_KEYFRAMES_IMAGE_POLICY.source_mime_types)
 }).strict();

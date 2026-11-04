@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -41,7 +42,7 @@ const voiceSchema = z.string().regex(VOICE).describe("Opaque owner voice referen
 const recoverySchema = z.string().regex(RECOVERY);
 const parametersInput = z.object({}).strict();
 const uploadInput = z.object({ link_attempt_id: attemptSchema, filename: z.string().min(1).max(255).regex(/^[^\u0000-\u001f\\/:*?"<>|]+\.mp3$/iu),
-  mime_type: z.literal("audio/mpeg"), content_base64: z.string().min(4).max(MAX_BASE64_CHARS).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u) }).strict();
+  mime_type: z.literal("audio/mpeg"), content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)) }).strict();
 const generateInput = z.object({ link_attempt_id: attemptSchema, model_id: z.literal(OWNER_ELEVENLABS_STS_MODEL_ID),
   mode: z.literal(OWNER_ELEVENLABS_STS_MODE), audio_original_handle: originalSchema, voice_ref: voiceSchema }).strict();
 const reconcileInput = z.object({ link_attempt_id: attemptSchema, recovery_id: recoverySchema }).strict();

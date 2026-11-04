@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import {
   inspectOwnerStandardImageAuxContainer,
   OwnerStandardImageAuxContainerError
@@ -12,7 +13,6 @@ const PDF_MIME = "application/pdf" as const;
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 const MAX_PDF_BYTES = 5 * 1024 * 1024;
 const MAX_FILENAME_UTF8_BYTES = 255;
-const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const TYPED_ARRAY_PROTOTYPE = Object.getPrototypeOf(Uint8Array.prototype) as object;
 const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(TYPED_ARRAY_PROTOTYPE, "byteLength")?.get;
 const TYPED_ARRAY_BYTE_OFFSET = Object.getOwnPropertyDescriptor(TYPED_ARRAY_PROTOTYPE, "byteOffset")?.get;
@@ -60,7 +60,7 @@ export function validateOwnerStandardImageAuxInput(input: unknown): ValidatedOwn
     if (fields.content_base64.length > maxBase64Chars) localLimit();
     const padding = fields.content_base64.endsWith("==") ? 2 : fields.content_base64.endsWith("=") ? 1 : 0;
     if (fields.content_base64.length / 4 * 3 - padding > maxBytes) localLimit();
-    if (fields.content_base64.length % 4 !== 0 || !BASE64_PATTERN.test(fields.content_base64)) invalid();
+    if (!isCanonicalBase64(fields.content_base64, maxBase64Chars)) invalid();
 
     decoded = Buffer.from(fields.content_base64, "base64");
     if (decoded.byteLength > maxBytes) localLimit();

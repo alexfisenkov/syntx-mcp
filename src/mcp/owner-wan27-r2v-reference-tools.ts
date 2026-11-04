@@ -2,6 +2,7 @@ import { types } from "node:util";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
+import { isCanonicalBase64 } from "../application/canonical-base64.js";
 import {
   getOwnerWan27R2vGenerationParametersSource,
   type OwnerWan27R2vGenerationSourceContract
@@ -160,7 +161,7 @@ async function uploadVideo(raw: unknown, signal: AbortSignal | undefined, compos
 }
 
 function decodeBase64(value: string, maximum: number): Buffer {
-  if (value.length % 4 !== 0 || value.length > Math.ceil(maximum / 3) * 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+  if (value.length > Math.ceil(maximum / 3) * 4 || !isCanonicalBase64(value, Math.ceil(maximum / 3) * 4)) {
     throw new OwnerWan27R2vReferenceUploadServiceError("INVALID_REQUEST");
   }
   const bytes = Buffer.from(value, "base64");

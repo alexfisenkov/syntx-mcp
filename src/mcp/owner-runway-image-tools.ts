@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
@@ -31,8 +32,6 @@ const VALIDATION_CONFIDENCES = [
   "JPEG_PNG_WEBP_STRUCTURAL_HEADER_ONLY;LOCAL_PROCESS_32MIB_RESOURCE_CEILING_NOT_PROVIDER_LIMIT",
   "AVIF_PRIMARY_ITEM_PROPERTY_ASSOCIATION_ONLY;LOCAL_PROCESS_32MIB_RESOURCE_CEILING_NOT_PROVIDER_LIMIT"
 ] as const;
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
-
 export const SYNTX_UPLOAD_RUNWAY_IMAGE_REFERENCE_TOOL_NAME = "syntx_upload_runway_image_reference" as const;
 export const SYNTX_OWNER_GENERATE_RUNWAY_IMAGE_TOOL_NAME = "syntx_owner_generate_runway_image" as const;
 export const SYNTX_OWNER_RECONCILE_RUNWAY_IMAGE_TOOL_NAME = "syntx_owner_reconcile_runway_image" as const;
@@ -54,7 +53,7 @@ const parametersSchema = z.object({
 const uploadInputSchema = z.object({
   link_attempt_id: attemptSchema,
   variant: variantSchema,
-  content_base64: z.string().min(4).max(MAX_BASE64).regex(BASE64).describe("Standard padded Base64; 32 MiB is a local resource ceiling, not a provider limit."),
+  content_base64: z.string().min(4).max(MAX_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64)).describe("Standard padded Base64; 32 MiB is a local resource ceiling, not a provider limit."),
   filename: z.string().min(1).max(255).refine(isSafeFilename, "Use a portable basename; paths are rejected."),
   mime_type: z.enum(INPUT_MIMES)
 }).strict();

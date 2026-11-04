@@ -105,7 +105,7 @@ test("Banana 2.1 accepts the full ordered mixed image-video-file reference set t
   } finally { await client.close(); await server.close(); }
 });
 
-test("SDK schemas keep all ten variants, all three settings, strict nesting, and the 32 MiB encoded ceiling", async () => {
+test("SDK schemas keep all ten variants, all three settings, strict nesting, and the 32 MiB decoded-input ceiling", async () => {
   let generateCalls = 0;
   const composition = {
     uploadService: { async upload() { throw new Error("unused"); }, async invalidateAttempt() {}, async close() {} },
@@ -170,6 +170,30 @@ test("SDK schemas keep all ten variants, all three settings, strict nesting, and
       ownerStandardImageReferences: composition,
       ownerDurableGeneration: {} as NonNullable<CreateMcpServerOptions["ownerDurableGeneration"]>
     }), /OWNER_DURABLE_GENERATION_COMPOSITION_CONFLICT/u);
+  } finally { await client.close(); await server.close(); }
+});
+
+test("MCP rejects malformed multi-megabyte Base64 without a regex stack overflow", async () => {
+  let uploadCalls = 0;
+  const composition = {
+    uploadService: { async upload() { uploadCalls += 1; throw new Error("must not upload"); }, async invalidateAttempt() {}, async close() {} },
+    generationService: {
+      async generate() { throw new Error("unused"); }, async reconcile() { throw new Error("unused"); },
+      async listRecoveries() { return []; }, async invalidateAttempt() {}, async close() {}
+    }
+  };
+  const server = createMcpServer(createDefaultApplication(), { ownerStandardImageReferences: composition } as unknown as CreateMcpServerOptions);
+  const client = new Client({ name: "standard-image-large-base64-test", version: "1.0.0" });
+  await connect(server, client);
+  try {
+    const content_base64 = `${"A".repeat(5_261_292)}!AAA`;
+    const result = await client.callTool({ name: "syntx_upload_standard_image_reference", arguments: {
+      link_attempt_id: "link_standard_test_attempt_000001", variant: "gpt-image-2", content_base64,
+      filename: "invalid.jpg", mime_type: "image/jpeg"
+    } });
+    assert.equal(result.isError, true);
+    assert.equal(uploadCalls, 0);
+    assert.doesNotMatch(JSON.stringify(result), /Maximum call stack size exceeded/u);
   } finally { await client.close(); await server.close(); }
 });
 

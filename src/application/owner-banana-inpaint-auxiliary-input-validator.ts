@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import {
@@ -11,7 +12,6 @@ import { inspectOwnerSeedreamExtraImageBytes, OwnerSeedreamExtraImageInspectorEr
 const LOCAL_RESOURCE_BOUND_BYTES = 50 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(LOCAL_RESOURCE_BOUND_BYTES / 3) * 4;
 const MAX_FILENAME_UTF8_BYTES = 255;
-const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const VARIANTS = Object.freeze(["banana", "banana2", "banana3", "banana3_light"] as const);
 const MIME_TYPES = Object.freeze([
   "image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif",
@@ -86,7 +86,7 @@ export function validateOwnerBananaInpaintAuxiliaryInput(input: unknown): Readon
     const metadata = validateMetadata(fields.variant, fields.filename, fields.mime_type);
     if (typeof fields.content_base64 !== "string" || fields.content_base64.length === 0) invalid();
     if (fields.content_base64.length > MAX_BASE64_CHARS) localLimit();
-    if (fields.content_base64.length % 4 !== 0 || !BASE64_PATTERN.test(fields.content_base64)) invalid();
+    if (fields.content_base64.length % 4 !== 0 || !isCanonicalBase64(fields.content_base64, MAX_BASE64_CHARS)) invalid();
     decoded = Buffer.from(fields.content_base64, "base64");
     if (decoded.byteLength < 1 || decoded.toString("base64") !== fields.content_base64) invalid();
     if (decoded.byteLength > LOCAL_RESOURCE_BOUND_BYTES) localLimit();

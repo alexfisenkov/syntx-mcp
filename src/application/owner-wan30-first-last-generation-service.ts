@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { AbsoluteRequestDeadline } from "../adapter/syntx/request-deadline.js";
@@ -895,7 +896,7 @@ function snapshotUploadInput(input: unknown, signal?: AbortSignal): Readonly<Upl
   if (fields.role !== "first_frame" && fields.role !== "last_frame") invalid();
   if (typeof fields.content_base64 !== "string" || fields.content_base64.length === 0 ||
       fields.content_base64.length > MAX_BASE64_CHARS || fields.content_base64.length % 4 !== 0 ||
-      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(fields.content_base64) ||
+      !isCanonicalBase64(fields.content_base64, MAX_BASE64_CHARS) ||
       typeof fields.filename !== "string" || typeof fields.mime_type !== "string") invalid();
   const bytes = Buffer.from(fields.content_base64, "base64");
   if (bytes.byteLength < 1 || bytes.byteLength > MAX_IMAGE_BYTES || bytes.toString("base64") !== fields.content_base64) {

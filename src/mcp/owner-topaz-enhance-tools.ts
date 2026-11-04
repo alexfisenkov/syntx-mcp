@@ -1,3 +1,4 @@
+import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -31,7 +32,7 @@ const uploadInput = z.object({
   link_attempt_id: attempt,
   filename: z.string().min(1).max(255).regex(/^[^\u0000-\u001f\\/:*?"<>|]+\.mp4$/iu),
   content_base64: z.string().min(4).max(MAX_BASE64)
-    .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u)
+    .refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64))
 }).strict();
 
 const parametersInput = z.object({

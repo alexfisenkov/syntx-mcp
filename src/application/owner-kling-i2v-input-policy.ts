@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import {
@@ -60,7 +61,7 @@ export function validateOwnerKlingI2VImageInput(input: unknown): ValidatedOwnerK
     if (typeof fields.content_base64 !== "string" || fields.content_base64.length === 0) invalid();
     if (fields.content_base64.length > MAX_BASE64_CHARS) resourceLimit();
     if (fields.content_base64.length % 4 !== 0 ||
-        !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(fields.content_base64) ||
+        !isCanonicalBase64(fields.content_base64, MAX_BASE64_CHARS) ||
         typeof fields.filename !== "string" || !isSafePortableBasename(fields.filename) ||
         typeof fields.mime_type !== "string" || !MIME_TYPES.includes(fields.mime_type as OwnerKlingI2VMimeType)) invalid();
 

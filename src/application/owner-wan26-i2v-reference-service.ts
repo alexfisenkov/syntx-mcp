@@ -1,3 +1,4 @@
+import { isCanonicalBase64 } from "./canonical-base64.js";
 import { createHash, randomUUID } from "node:crypto";
 import { isAbsolute } from "node:path";
 import { types } from "node:util";
@@ -638,7 +639,7 @@ function sameResolveInput(a: OwnerWan26I2vReferenceResolveInput, b: OwnerWan26I2
 }
 function decodeBase64(value: string): Buffer {
   if (!value || value.length > MAX_BASE64_CHARS || value.length % 4 !== 0 ||
-      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) fail("INVALID_REQUEST");
+      !isCanonicalBase64(value, MAX_BASE64_CHARS)) fail("INVALID_REQUEST");
   const bytes = Buffer.from(value, "base64");
   if (bytes.byteLength < 1 || bytes.byteLength > MAX_MEDIA_BYTES || bytes.toString("base64") !== value) { bytes.fill(0); fail("INVALID_REQUEST"); }
   return bytes;

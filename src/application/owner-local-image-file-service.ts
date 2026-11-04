@@ -192,7 +192,7 @@ function snapshotInput(input: unknown): Required<Pick<OwnerLocalImageFileUploadI
   if (typeof fields.attemptId !== "string" || !ATTEMPT_PATTERN.test(fields.attemptId) ||
       typeof fields.variant !== "string" || !STANDARD_VARIANTS.has(fields.variant) ||
       typeof fields.absolute_path !== "string" || !isAbsolute(fields.absolute_path) ||
-      fields.absolute_path.length > 4096 || fields.absolute_path.includes("\0") || fields.absolute_path.split(sep).includes("..") ||
+      fields.absolute_path.length > 4096 || fields.absolute_path.includes("\0") || fields.absolute_path.split(/[\\/]/u).includes("..") ||
       (fields.auto_compress !== undefined && typeof fields.auto_compress !== "boolean") ||
       (fields.signal !== undefined && (!(fields.signal instanceof AbortSignal) || types.isProxy(fields.signal)))) invalid();
   return { attemptId: fields.attemptId, variant: fields.variant as OwnerStandardImageVariant,

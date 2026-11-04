@@ -138,7 +138,9 @@ test("local file upload rejects paths outside configured roots, traversal and sy
     const alias = join(root, "alias.png");
     await symlink(path, alias);
     const harness = createService(root);
-    for (const absolute_path of [external, alias, `${root}/../outside/external.png`]) {
+    const forwardSlashTraversal = `${root}/../outside/external.png`;
+    const backslashTraversal = `${root}\\..\\outside\\external.png`;
+    for (const absolute_path of [external, alias, forwardSlashTraversal, backslashTraversal]) {
       await assert.rejects(() => harness.service.upload({ attemptId: ATTEMPT, variant: "banana", absolute_path }),
         (error: unknown) => error instanceof OwnerLocalImageFileServiceError && ["PATH_NOT_ALLOWED", "INVALID_REQUEST"].includes(error.code));
     }

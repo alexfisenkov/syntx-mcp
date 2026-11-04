@@ -12,6 +12,10 @@ npm ci
 npm run build
 ```
 
+Сборка source-проекта и typecheck могут использовать до 4 GiB heap TypeScript
+компилятора. Ограничение действует только во время сборки/проверки и не меняет
+память работающего MCP-сервера.
+
 В MCP-клиенте используйте owner-stdio entrypoint этой установки. В примере
 настройки замените путь к `dist/src/transports/stdio-owner.js` на свой. Git
 checkout должен сохранять origin `https://github.com/alexfisenkov/syntx-mcp.git`

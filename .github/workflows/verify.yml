@@ -47,9 +47,26 @@ jobs:
 
       - name: Install media probe tools for changed video checks
         if: inputs.scope == 'changed-media' || inputs.scope == 'media-update' || inputs.scope == 'image-file-fix'
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends ffmpeg
+          set -euo pipefail
+          if [[ -x /usr/bin/ffmpeg && -x /usr/bin/ffprobe ]]; then
+            /usr/bin/ffmpeg -version
+            /usr/bin/ffprobe -version
+            exit 0
+          fi
+          sudo env DEBIAN_FRONTEND=noninteractive timeout 180s apt-get \
+            -o Acquire::Retries=1 \
+            -o Acquire::http::Timeout=20 \
+            -o Acquire::https::Timeout=20 \
+            update
+          sudo env DEBIAN_FRONTEND=noninteractive timeout 180s apt-get \
+            -o Acquire::Retries=1 \
+            -o Acquire::http::Timeout=20 \
+            -o Acquire::https::Timeout=20 \
+            install --yes --no-install-recommends ffmpeg
+          test -x /usr/bin/ffmpeg
+          test -x /usr/bin/ffprobe
           /usr/bin/ffmpeg -version
           /usr/bin/ffprobe -version
 

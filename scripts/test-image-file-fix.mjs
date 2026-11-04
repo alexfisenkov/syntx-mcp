@@ -88,6 +88,17 @@ const additionalSuites = [
 ];
 
 const uniqueSuites = [...new Set([...affectedSuites, ...additionalSuites])];
+for (const [alias, sharedPath] of [
+  ["SYNTX_MCV_TEST_FFMPEG", "SYNTX_MEDIA_FFMPEG_PATH"],
+  ["SYNTX_MCV_TEST_FFPROBE", "SYNTX_MEDIA_FFPROBE_PATH"],
+  ["SYNTX_WAN26_I2V_TEST_FFMPEG", "SYNTX_MEDIA_FFMPEG_PATH"],
+  ["SYNTX_WAN26_I2V_TEST_FFPROBE", "SYNTX_MEDIA_FFPROBE_PATH"]
+]) {
+  if (process.env[alias] === undefined && process.env[sharedPath] !== undefined) {
+    process.env[alias] = process.env[sharedPath];
+  }
+}
+
 const run = (args) => spawnSync(process.execPath, args, { stdio: "inherit" });
 const suiteResult = run(["--test", "--test-concurrency=1", ...uniqueSuites.map((name) => `dist/tests/${name}`)]);
 if (suiteResult.error) throw suiteResult.error;

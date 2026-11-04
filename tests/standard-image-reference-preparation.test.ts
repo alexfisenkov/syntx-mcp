@@ -22,7 +22,7 @@ test("preserves valid in-limit input byte-for-byte and returns an owned buffer",
 });
 
 test("rejects unrecognized binary data without invoking an encoder", async () => {
-  await assert.rejects(prepareStandardImageReference({ bytes: Buffer.alloc(8 * 1024 * 1024, 7), filename: "bad.jpg", mime_type: "image/jpeg", variant: "banana-2.1" }, { ffmpegPath: FFMPEG }),
+  await assert.rejects(prepareStandardImageReference({ bytes: Buffer.alloc(8 * 1024 * 1024, 7), filename: "bad.jpg", mime_type: "image/jpeg", variant: "banana-2.1" }),
     (error: unknown) => error instanceof StandardImageReferencePreparationError && error.code === "INVALID_IMAGE_INPUT");
 });
 

@@ -114,6 +114,7 @@ jobs:
         if: inputs.scope == 'image-file-fix'
         env:
           SYNTX_MEDIA_FFMPEG_PATH: /usr/bin/ffmpeg
+          SYNTX_MEDIA_FFPROBE_PATH: /usr/bin/ffprobe
         run: npm run test:image:file-fix
 
       - name: Verify public manifest hashes, read safety, and secrets

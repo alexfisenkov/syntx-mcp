@@ -158,18 +158,18 @@ async function prepareCopiedImage(
     } catch { fail("INVALID_IMAGE_INPUT"); }
   }
   if (options.autoCompress === false) fail("IMAGE_PREPARATION_UNAVAILABLE");
-  const ffmpeg = options.ffmpegPath ?? process.env.SYNTX_MEDIA_FFMPEG_PATH;
-  if (!ffmpeg || !isAbsolute(ffmpeg)) fail("IMAGE_PREPARATION_UNAVAILABLE");
   if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(input.mime_type)) fail("UNSUPPORTED_IMAGE_FORMAT");
-  let resolvedFfmpeg: string;
-  try { resolvedFfmpeg = await realpath(ffmpeg); const metadata = await stat(resolvedFfmpeg); if (!metadata.isFile()) fail("IMAGE_PREPARATION_UNAVAILABLE"); await access(resolvedFfmpeg, fsConstants.X_OK); }
-  catch (error) { if (error instanceof StandardImageReferencePreparationError) throw error; fail("IMAGE_PREPARATION_UNAVAILABLE"); }
   let dimensions: ReturnType<typeof inspectBoundedOwnerImageBytesWithMax>;
   try {
     dimensions = inspectBoundedOwnerImageBytesWithMax(source, HARD_INPUT_BYTES);
     const declaredMime = input.mime_type === "image/jpg" ? "image/jpeg" : input.mime_type;
     if (dimensions.width > Math.min(MAX_EDGE, policy.max_width) || dimensions.height > Math.min(MAX_EDGE, policy.max_height) || dimensions.width * dimensions.height > PIXEL_BUDGET || dimensions.mime !== declaredMime) fail("INVALID_IMAGE_INPUT");
   } catch (error) { if (error instanceof StandardImageReferencePreparationError) throw error; fail("INVALID_IMAGE_INPUT"); }
+  const ffmpeg = options.ffmpegPath ?? process.env.SYNTX_MEDIA_FFMPEG_PATH;
+  if (!ffmpeg || !isAbsolute(ffmpeg)) fail("IMAGE_PREPARATION_UNAVAILABLE");
+  let resolvedFfmpeg: string;
+  try { resolvedFfmpeg = await realpath(ffmpeg); const metadata = await stat(resolvedFfmpeg); if (!metadata.isFile()) fail("IMAGE_PREPARATION_UNAVAILABLE"); await access(resolvedFfmpeg, fsConstants.X_OK); }
+  catch (error) { if (error instanceof StandardImageReferencePreparationError) throw error; fail("IMAGE_PREPARATION_UNAVAILABLE"); }
   const outputCap = targetLimit - TARGET_MARGIN;
   let directory: string | undefined;
   try {

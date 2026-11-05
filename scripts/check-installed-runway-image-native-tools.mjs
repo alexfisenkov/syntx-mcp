@@ -130,7 +130,7 @@ export function assertRunwayImageToolSurface(tools, enabled, diagnosticEnums) {
       reconcile.inputSchema.properties?.recovery_id?.pattern !== recovery ||
       !sameArray(uploadInput.variant?.enum, VARIANTS) || !sameArray(generateInput.variant?.enum, VARIANTS)) fail("INSTALLED_RUNWAY_IMAGE_ID_SCHEMA_INVALID");
   if (uploadInput.content_base64?.minLength !== 4 || uploadInput.content_base64?.maxLength !== 44_739_244 ||
-      uploadInput.content_base64?.pattern !== "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" ||
+      uploadInput.content_base64?.type !== "string" ||
       uploadInput.filename?.minLength !== 1 || uploadInput.filename?.maxLength !== 255 || !sameArray(uploadInput.mime_type?.enum, INPUT_MIMES)) {
     fail("INSTALLED_RUNWAY_IMAGE_UPLOAD_INPUT_SCHEMA_INVALID");
   }

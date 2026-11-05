@@ -124,8 +124,7 @@ function validNativeTools() {
     model_id: variants, operation_id: { const: "generate-image" }, status: { const: "OUTCOME_UNKNOWN" }, diagnostic }) },
     confidence_scope: { const: "process_local_get_only_recovery" } });
   const uploadInput = object({ link_attempt_id: attempt, variant: variants,
-    content_base64: { type: "string", minLength: 4, maxLength: 44739244,
-      pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" },
+    content_base64: { type: "string", minLength: 4, maxLength: 44739244 },
     filename: { type: "string", description: "Portable basename; local paths and URLs are rejected." },
     mime_type: { type: "string", enum: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif", "image/heic", "image/heif", "video/mp4", "video/webm", "video/quicktime", "video/mpeg", "video/mov", "video/3gpp", "video/x-flv", "video/x-ms-wmv", "application/pdf"] } });
   const generationInput = object({ link_attempt_id: attempt, variant: variants,

@@ -229,7 +229,8 @@ export function assertWanImageToolSurface(tools, enabled) {
       !sameArray(mimeInput?.enum, NATIVE_SOURCE_MIME_TYPES) ||
       uploadInput.content_base64?.minLength !== 4 ||
       uploadInput.content_base64?.maxLength !== Math.ceil((20 * 1024 * 1024) / 3) * 4 ||
-      uploadInput.content_base64?.pattern !== "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" ||
+      uploadInput.content_base64?.type !== "string" ||
+      !String(uploadInput.content_base64?.description ?? "").includes("Padded standard Base64 image data only") ||
       !String(uploadInput.filename?.description ?? "").includes("255 UTF-8 bytes") ||
       !String(uploadInput.filename?.description ?? "").includes("Local paths and URLs are not accepted") ||
       !sameArray(uploadOutput.variant?.enum, NATIVE_VARIANTS) ||

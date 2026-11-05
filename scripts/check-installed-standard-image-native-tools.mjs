@@ -116,7 +116,7 @@ export function assertStandardImageToolSurface(tools, enabled, sourceParameters,
       reconcile.inputSchema.properties?.recovery_id?.pattern !== recoveryPattern ||
       !sameArray(uploadInput.variant?.enum, VARIANTS) || !sameArray(generateInput.variant?.enum, VARIANTS)) fail("INSTALLED_STANDARD_IMAGE_ID_INPUT_SCHEMA_INVALID");
   if (uploadInput.content_base64?.minLength !== 4 || uploadInput.content_base64?.maxLength !== 44_739_244 ||
-      uploadInput.content_base64?.pattern !== "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" ||
+      uploadInput.content_base64?.type !== "string" ||
       !String(uploadInput.filename?.description ?? "").includes("local paths and URLs are rejected") ||
       !sameArray(uploadInput.mime_type?.enum, ORIGINAL_MIMES)) fail("INSTALLED_STANDARD_IMAGE_UPLOAD_INPUT_SCHEMA_INVALID");
   if (generateInput.reference_handles?.type !== "array" || generateInput.reference_handles?.maxItems !== 34 ||

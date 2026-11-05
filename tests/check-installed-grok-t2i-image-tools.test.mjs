@@ -101,8 +101,7 @@ test("a literal strict four-tool schema fixture passes, while missing fields, wi
     batch_size: { anyOf: [1, 2, 3, 4, 5].map((value) => ({ const: value, type: "integer" })) }, resolution: enumeration(["1k", "2k"]),
     details_quality: enumeration(["low", "medium"]) });
   const uploadInput = object({ link_attempt_id: link, model_id: enumeration(["grok_imagine_2", "grok_imagine_quality"]),
-    content_base64: { type: "string", minLength: 4, maxLength: Math.ceil(64 * 1024 * 1024 / 3) * 4,
-      pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" },
+    content_base64: { type: "string", minLength: 4, maxLength: Math.ceil(64 * 1024 * 1024 / 3) * 4 },
     filename: { type: "string", minLength: 1, maxLength: 255 },
     mime_type: enumeration(["image/jpeg", "image/jpg", "image/png", "image/webp"]) });
   const generateInput = object({ link_attempt_id: link, model_id: enumeration(["grok_t2i", "grok_t2i_pro", "grok_imagine_2", "grok_imagine_quality"]),

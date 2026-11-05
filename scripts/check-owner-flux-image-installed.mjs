@@ -100,7 +100,7 @@ export function assertOwnerFluxImageToolSurface(tools, enabled, diagnosticEnums)
     fail("INSTALLED_FLUX_IMAGE_ID_SCHEMA_INVALID");
   }
   if (uploadInput.content_base64?.minLength !== 4 || uploadInput.content_base64?.maxLength !== 44_739_244 ||
-      uploadInput.content_base64?.pattern !== "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" ||
+      uploadInput.content_base64?.type !== "string" ||
       uploadInput.filename?.minLength !== 1 || uploadInput.filename?.maxLength !== 255 ||
       !assertPositiveSafeInteger(registerInput.model_version_id) || !assertPositiveSafeInteger(registerInput.file_id) ||
       (registerInput.model_id_source !== undefined && !assertPositiveSafeInteger(registerInput.model_id_source)) ||

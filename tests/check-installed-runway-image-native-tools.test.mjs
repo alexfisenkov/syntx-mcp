@@ -220,7 +220,7 @@ function literalRunwayTools() {
     confidence_scope: { const: "process_local_get_only_recovery" } });
   return [
     { name: "syntx_upload_runway_image_reference", description: "Upload", inputSchema: strict({ link_attempt_id: attempt, variant,
-      content_base64: { ...string, minLength: 4, maxLength: 44_739_244, pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" },
+      content_base64: { ...string, minLength: 4, maxLength: 44_739_244 },
       filename: { ...string, minLength: 1, maxLength: 255 }, mime_type: enumeration(inputMimes) }),
       outputSchema: uploadOutput, annotations: annotations(false) },
     { name: "syntx_owner_generate_runway_image", description: "Starts one real billed generation; may incur provider cost; do not repeat.",

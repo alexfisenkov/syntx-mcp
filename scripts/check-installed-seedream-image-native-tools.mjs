@@ -124,7 +124,7 @@ export function assertSeedreamImageToolSurface(tools, enabled, diagnosticEnums) 
       reconcile.inputSchema.properties?.link_attempt_id?.pattern !== attempt || list.inputSchema.properties?.link_attempt_id?.pattern !== attempt ||
       reconcile.inputSchema.properties?.recovery_id?.pattern !== recovery ||
       !sameArray(uploadInput.variant?.enum, VARIANTS) || !sameArray(generateInput.variant?.enum, VARIANTS)) fail("INSTALLED_SEEDREAM_IMAGE_ID_SCHEMA_INVALID");
-  if (uploadInput.content_base64?.minLength !== 4 || uploadInput.content_base64?.pattern !== "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" ||
+  if (uploadInput.content_base64?.minLength !== 4 || uploadInput.content_base64?.maxLength !== Math.ceil(27_525_120 / 3) * 4 || uploadInput.content_base64?.type !== "string" ||
       uploadInput.filename?.minLength !== 1 || uploadInput.filename?.maxLength !== 255 || !sameArray(uploadInput.mime_type?.enum, ALL_SOURCE_MIMES)) {
     fail("INSTALLED_SEEDREAM_IMAGE_UPLOAD_INPUT_SCHEMA_INVALID");
   }

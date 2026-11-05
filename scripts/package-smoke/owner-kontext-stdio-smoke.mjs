@@ -15,7 +15,6 @@ const PARAMETER_NAMES = Object.freeze(["resolution", "cfg", "steps", "image_stre
 const INPUT_IMAGE_METADATA_NAMES = Object.freeze(["mime_type", "width", "height", "size", "sha256", "metadata_confidence"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
-const BASE64_PATTERN = "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$";
 
 const EXPECTED_ANNOTATIONS = Object.freeze([
   { title: "Upload a Flux Kontext reference image", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
@@ -94,7 +93,7 @@ export function assertKontextOwnerToolSurface(tools, enabled) {
       uploadOutput.reference_handle?.pattern !== "^kontext_image_[0-9a-f-]{36}$" ||
       uploadProperties.content_base64?.minLength !== 4 ||
       uploadProperties.content_base64?.maxLength !== MAX_BASE64_CHARS ||
-      uploadProperties.content_base64?.pattern !== BASE64_PATTERN ||
+      uploadProperties.content_base64?.type !== "string" ||
       !hasLiteral(generateProperties.workflow_policy, "LOCAL_CLIENT_INTENT_EXPLICIT_NO_LORA") ||
       generateProperties.prompt?.type !== "string" ||
       !String(generateProperties.prompt.description ?? "").includes("Required, nonblank prompt") ||

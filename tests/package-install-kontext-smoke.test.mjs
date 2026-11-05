@@ -59,8 +59,7 @@ function validKontextTools() {
   const uploadInput = strictObject({
     link_attempt_id: { type: "string", pattern: "^link_[A-Za-z0-9_-]{20,120}$" },
     variant: stringEnum(VARIANTS),
-    content_base64: { type: "string", minLength: 4, maxLength: Math.ceil((10 * 1024 * 1024) / 3) * 4,
-      pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" },
+    content_base64: { type: "string", minLength: 4, maxLength: Math.ceil((10 * 1024 * 1024) / 3) * 4 },
     filename: { type: "string", description: "Portable basename only; the 255-byte limit is a local portability rule." },
     mime_type: stringEnum(INPUT_MIME)
   });

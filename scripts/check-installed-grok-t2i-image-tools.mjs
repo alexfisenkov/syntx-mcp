@@ -340,7 +340,7 @@ export function assertGrokT2iToolSurface(tools, enabled, enums) {
   if (genIn.prompt?.minLength !== 1 || genIn.prompt?.maxLength !== 5_000 || genIn.reference_handles?.maxItems !== 5 ||
       genIn.reference_handles?.items?.pattern !== handle || genIn.parameters?.anyOf?.length !== 3 ||
       uploadIn.content_base64?.minLength !== 4 || uploadIn.content_base64?.maxLength !== Math.ceil(64 * 1024 * 1024 / 3) * 4 ||
-      !String(uploadIn.content_base64?.pattern ?? "").includes("A-Za-z0-9+/")) {
+      uploadIn.content_base64?.type !== "string") {
     fail("INSTALLED_GROK_T2I_INPUT_SCHEMA_INVALID");
   }
   assertGrokParameterBranches(genIn.parameters, "INSTALLED_GROK_T2I_GENERATE_PARAMETER_BRANCH_INVALID");

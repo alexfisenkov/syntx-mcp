@@ -163,7 +163,7 @@ function validWanTools() {
     operation_id: { const: "generate-image" }, status: { const: "OUTCOME_UNKNOWN" }, diagnostic });
   const attempt = string({ pattern: "^link_[A-Za-z0-9_-]{20,120}$" });
   const uploadInput = object({ link_attempt_id: attempt, variant, content_base64: string({ minLength: 4, maxLength: Math.ceil((20 * 1024 * 1024) / 3) * 4,
-    pattern: "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$" }),
+    description: "Padded standard Base64 image data only." }),
     filename: string({ description: "Portable basename at most 255 UTF-8 bytes. Local paths and URLs are not accepted." }), mime_type: mime });
   const generateInput = object({ link_attempt_id: attempt, variant, reference_handles: { type: "array", maxItems: 9, items: string({ pattern: "^wan_image_[0-9a-f-]{36}$" }) },
     parameters: params, prompt: string({ description: "Required explicit prompt. Source-observed limit is UTF-16 code units plus LF count; preserve the original, do not clip." }),
@@ -191,6 +191,7 @@ test("installed WAN native validator rejects schema, variant, field, policy, pro
     (tools) => { tools[1].inputSchema.properties.variant.enum.pop(); },
     (tools) => { delete tools[1].inputSchema.properties.parameters.properties.seed; tools[1].inputSchema.properties.parameters.required.pop(); },
     (tools) => { tools[0].inputSchema.properties.content_base64.maxLength -= 4; },
+    (tools) => { tools[0].inputSchema.properties.content_base64.description = ""; },
     (tools) => { tools[1].inputSchema.properties.bbox_coordinate_policy.anyOf.pop(); },
     (tools) => { tools[1].outputSchema.properties.backend_acceptance.const = "accepted"; },
     (tools) => { tools[1].outputSchema.properties.artifacts.maxItems = 3; },

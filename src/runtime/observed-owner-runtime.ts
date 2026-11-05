@@ -1,3 +1,4 @@
+import { createSunoAudioProbe } from "../application/owner-suno-audio-reference-probe.js";
 import { LinkedAttemptCredentialBroker } from "../adapter/syntx/link-credential-broker.js";
 import { createOwnerVeoOmniT2vRuntime } from "./owner-veo-omni-t2v-runtime.js";
 import { createOwnerVeoOmniReferenceRuntime, getOwnerVeoOmniReferenceRuntimeStartupCleanup } from "./owner-veo-omni-reference-runtime.js";
@@ -281,6 +282,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerElevenLabsStsUploadDestination?: "uploaded" | "hidden";
   /** Explicit owner-stdio opt-in for private Suno generation and recovery tools. */
   ownerSunoGenerationEnabled?: boolean;
+  /** Optional trusted local ffprobe path enabling only the additional Suno uploaded-audio input tool. */
+  ownerSunoFfprobePath?: string;
   /** Explicit owner-stdio opt-in for private Topaz Astra upload, generation, and recovery tools. */
   ownerTopazAstraEnabled?: boolean;
   /** Trusted absolute local ffprobe path, required only when Topaz Astra is enabled. */
@@ -1720,7 +1723,8 @@ export function createObservedOwnerRuntime(
             resolveChatClient: resolveSunoChatClient,
             createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
             createModelAccessService: (attemptId: string) => new ModelAccessService(sunoCatalog, createReadClient(attemptId), now),
-            now
+            now,
+            ...(options.ownerSunoFfprobePath === undefined ? {} : { audioProbe: createSunoAudioProbe(options.ownerSunoFfprobePath) })
           });
         } catch (error) {
           clientsByAttempt.clear();
@@ -1736,7 +1740,7 @@ export function createObservedOwnerRuntime(
             finally { clientsByAttempt.clear(); }
           }
         });
-        return Object.freeze({ generationService, lifecycle });
+        return Object.freeze({ generationService, lifecycle, audioUploadEnabled: options.ownerSunoFfprobePath !== undefined });
       })()
     : undefined;
   const ownerTopazAstra = options.ownerTopazAstraEnabled === true
@@ -3861,7 +3865,8 @@ export function createObservedOwnerRuntime(
       existingMediaService: ownerElevenLabsSts.existingMediaService
     } }),
     ...(ownerSunoGeneration === undefined ? {} : {
-      ownerSunoGeneration: { generationService: ownerSunoGeneration.generationService }
+      ownerSunoGeneration: { generationService: ownerSunoGeneration.generationService,
+        ...(ownerSunoGeneration.audioUploadEnabled ? { audioUploadEnabled: true } : {}) }
     }),
     ...(ownerTopazAstra === undefined ? {} : {
       ownerTopazAstra: {

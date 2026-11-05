@@ -1,3 +1,4 @@
+import { consumeSunoAudioProbe, SUNO_AUDIO_UPLOAD_SOURCE, type SunoAudioProbeResult } from "../../application/owner-suno-audio-reference-probe.js";
 import { createHash, randomUUID } from "node:crypto";
 import { TextDecoder, isDeepStrictEqual, types } from "node:util";
 import { z } from "zod/v4";
@@ -1414,6 +1415,20 @@ export class OwnerSunoExistingTrackNativeError extends Error {
 }
 
 /** A separate native capability for one source-bound Cover or Extend request. */
+export interface OwnerSunoAudioUploadContext {
+  readonly status: "uploaded";
+  readonly source_kind: "UPLOADED_AUDIO";
+  readonly attempt_id: string;
+  readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly model_id: "V6" | "V6_wild";
+  readonly size: number;
+  readonly sha256: string;
+  readonly duration_seconds: number;
+  readonly mime_type: "audio/mpeg" | "audio/wav";
+}
+const SUNO_AUDIO_UPLOAD_CONTEXTS = new WeakMap<object, Readonly<{ client: SyntxChatHttpClient;
+  context: OwnerSunoAudioUploadContext; url: string }>>();
+
 export interface OwnerSunoTrackOperationChatContext {
   readonly status: "created";
   readonly chat_uuid: string;
@@ -7107,7 +7122,7 @@ export class SyntxChatHttpClient {
     }
     const chats = ownerSunoTrackOperationChats(this);
     if (chats.size >= OWNER_SUNO_GENERATION_CHAT_LIMIT) throw ownerSunoTrackOperationError("CAPACITY_EXCEEDED");
-    validateOwnerSunoTrackOperation(operation, apis.native);
+    validateSunoUploadedAudioBinding(validateOwnerSunoTrackOperation(operation, apis.native), this);
 
     // Chat creation is one-shot too: a lost free-chat ACK never authorizes a second chat.
     OWNER_SUNO_TRACK_OPERATION_USED_PERMITS.add(operation.permit);
@@ -7123,6 +7138,7 @@ export class SyntxChatHttpClient {
     } catch { throw ownerSunoTrackOperationError("CHAT_CREATE_FAILED"); }
 
     const binding = validateOwnerSunoTrackOperation(operation, apis.native);
+    validateSunoUploadedAudioBinding(binding, this);
     const context: OwnerSunoTrackOperationChatContext = Object.freeze({
       status: "created", chat_uuid: receipt.chat_uuid, attempt_id: operation.attemptId,
       principal: operation.principal, model_id: binding.model_id, mode: binding.mode,
@@ -7183,20 +7199,22 @@ export class SyntxChatHttpClient {
     }
     state.phase = "PRE_DISPATCH_FAILED";
     const privateRequest = validateOwnerSunoTrackOperationPrivateRequest(consumed.private_request, state);
-    const settings = sanitizeSettings({ ...privateRequest.settings, file_urls: [] });
-    if (!isPlainRecord(settings) || !Array.isArray(settings.file_urls) || settings.file_urls.length !== 0) {
+    const settings = sanitizeSettings({ ...privateRequest.settings, file_urls: privateRequest.settings.file_urls ?? [] });
+    if (!isPlainRecord(settings) || !Array.isArray(settings.file_urls) || settings.file_urls.length !== (state.binding.uploaded_audio_context ? 1 : 0)) {
       throw ownerSunoTrackOperationError("CANDIDATE_INVALID");
     }
-    assertNoUnverifiedExternalReferences(settings);
+    // The one file_urls entry was checked against the genuine same-client upload above.
+    assertNoUnverifiedExternalReferences({ ...settings, file_urls: [] });
     state.privatePrompt = privateRequest.prompt;
 
     // From this point, all failures are unknown: reconcile by GET and never repeat POST.
     state.phase = "OUTCOME_UNKNOWN";
     let receipt: MediaGenerationReceipt;
     try {
-      receipt = await Reflect.apply(NATIVE_OWNER_SUNO_START_AUDIO, this, [{
-        ai_name: "suno", chat_uuid: state.chat.chat_uuid, prompt: privateRequest.prompt, settings
-      }, signal]) as MediaGenerationReceipt;
+      // Only this genuine, consumed owner-track capability permits the form's optional prompt.
+      // Generic startAudio and ordinary Suno generation retain their nonblank prompt guard.
+      receipt = await this.#startMedia("audio/generate", "suno", state.chat.chat_uuid,
+        { chat_uuid: state.chat.chat_uuid, prompt: privateRequest.prompt, settings }, signal);
     } catch { throw ownerSunoTrackOperationError("OUTCOME_UNKNOWN"); }
     if (signal?.aborted) throw ownerSunoTrackOperationError("OUTCOME_UNKNOWN");
     if (!receipt || receipt.chat_uuid !== state.chat.chat_uuid || !isSafeProviderId(receipt.message_id)) {
@@ -7217,7 +7235,7 @@ export class SyntxChatHttpClient {
     if (state.phase !== "ACKNOWLEDGED" && state.phase !== "OUTCOME_UNKNOWN") {
       throw ownerSunoTrackOperationError("CHAT_NOT_DISPATCHED");
     }
-    if (!state.privatePrompt) throw ownerSunoTrackOperationError("PRIVATE_REQUEST_UNAVAILABLE");
+    if (state.privatePrompt === undefined) throw ownerSunoTrackOperationError("PRIVATE_REQUEST_UNAVAILABLE");
     validateOwnerSunoTrackOperationAbortSignal(signal);
     if (signal?.aborted) throw ownerSunoTrackOperationError("REQUEST_ABORTED");
 
@@ -7278,11 +7296,11 @@ export class SyntxChatHttpClient {
       return emptyOwnerSunoTrackOperationHistory("PENDING", getCalls, "HISTORY_EMPTY");
     }
     const ownerRows = messages.filter((row) => row.author_id > 0);
-    const matchingAcks = ownerRows.filter((row) => isPositiveOwnerSunoAck(row, state.privatePrompt!, state.modelId));
+    const matchingAcks = ownerRows.filter((row) => isPositiveOwnerSunoTrackAck(row, state));
     const ackRows = state.ownerEchoMessageId === undefined
       ? matchingAcks
       : ownerRows.filter((row) => row.id === state.ownerEchoMessageId &&
-        isPositiveOwnerSunoAck(row, state.privatePrompt!, state.modelId));
+        isPositiveOwnerSunoTrackAck(row, state));
     if (ackRows.length !== 1) {
       const ackStatus = ackRows.length > 1 ? "AMBIGUOUS" : ownerRows.length > 0 ? "MISMATCH" : "MISSING";
       const gapCode: OwnerSunoTrackOperationNativeGap = ackStatus === "AMBIGUOUS" ? "OWNER_ACK_AMBIGUOUS"
@@ -7935,6 +7953,47 @@ export class SyntxChatHttpClient {
     OWNER_ELEVENLABS_DIALOGUE_RESULT_CONTEXTS.set(context, { client: this, chat: state, context });
     state.resultContexts.set(context.message_id, context);
     return context;
+  }
+
+  /** Current Suno as-is audio upload: exactly one file, no conversion or ai_name field. */
+  async uploadOwnedSunoAudio(input: unknown, signal?: AbortSignal): Promise<OwnerSunoAudioUploadContext> {
+    assertNativeOwnerSunoClient(this);
+    const row = readExactDataRecord(input, ["attemptId", "principal", "probe"], ["attemptId", "principal", "probe"]);
+    if (typeof row.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(row.attemptId)) throw invalidRequest();
+    const principal = snapshotGenerationPrincipal(row.principal as GenerationPrincipalRef);
+    if (principal.connection_id !== row.attemptId) throw invalidRequest();
+    const probe = row.probe as SunoAudioProbeResult;
+    const bytes = consumeSunoAudioProbe(row.probe);
+    let form: FormData | undefined;
+    try {
+      if (probe.policy_id !== SUNO_AUDIO_UPLOAD_SOURCE.policy_id || (probe.model_id !== "V6" && probe.model_id !== "V6_wild") ||
+          bytes.byteLength !== probe.size || probe.size > SUNO_AUDIO_UPLOAD_SOURCE.max_file_bytes ||
+          createHash("sha256").update(bytes).digest("hex") !== probe.sha256 ||
+          !Number.isFinite(probe.duration_seconds) || probe.duration_seconds <= 0 || probe.duration_seconds > 480) throw invalidRequest();
+      form = this.#buildUploadForm({ bytes, filename: probe.filename, mime_type: probe.mime_type,
+        destination: "uploaded", check_duplicates: true, model_type: probe.model_id }, bytes);
+      const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+      const parsed = z.object({ files: z.array(z.object({ url: z.string(), status: z.string().optional(),
+        size: z.number().int().optional(), mime_type: z.string().optional() }).strip()).length(1) }).strip().safeParse(raw);
+      if (!parsed.success) throw protocolError();
+      const file = parsed.data.files[0]!;
+      if (!isSafeUploadReferenceUrl(file.url) || file.status?.toLowerCase() === "error" ||
+          (file.size !== undefined && file.size !== probe.size) ||
+          (file.mime_type !== undefined && file.mime_type !== probe.mime_type && !(probe.mime_type === "audio/mpeg" && file.mime_type === "audio/mp3"))) throw protocolError();
+      const context: OwnerSunoAudioUploadContext = Object.freeze({ status: "uploaded", source_kind: "UPLOADED_AUDIO",
+        attempt_id: row.attemptId, principal, model_id: probe.model_id, size: probe.size, sha256: probe.sha256,
+        duration_seconds: probe.duration_seconds, mime_type: probe.mime_type });
+      SUNO_AUDIO_UPLOAD_CONTEXTS.set(context, Object.freeze({ client: this, context, url: file.url }));
+      return context;
+    } finally { bytes.fill(0); form?.delete("files"); }
+  }
+
+  /** Internal-only projection; URL stays behind the owner track store. Forged/cross-client contexts fail closed. */
+  getOwnedSunoAudioUploadMetadata(input: unknown): Readonly<OwnerSunoAudioUploadContext & { url: string }> {
+    if (!input || typeof input !== "object" || types.isProxy(input)) throw invalidRequest();
+    const state = SUNO_AUDIO_UPLOAD_CONTEXTS.get(input);
+    if (!state || state.client !== this || state.context !== input) throw invalidRequest();
+    return Object.freeze({ ...state.context, url: state.url });
   }
 
   async uploadFile(
@@ -12330,26 +12389,39 @@ function validateOwnerSunoTrackOperation(input: Readonly<OwnerSunoTrackOperation
   } catch { throw ownerSunoTrackOperationError("CANDIDATE_INVALID"); }
 }
 
+function validateSunoUploadedAudioBinding(binding: OwnerSunoTrackOperationCandidateBinding, client: SyntxChatHttpClient) {
+  const context = binding.uploaded_audio_context;
+  if (context === undefined) return undefined;
+  const upload = SUNO_AUDIO_UPLOAD_CONTEXTS.get(context);
+  if (!upload || upload.client !== client || upload.context !== context || context.attempt_id !== binding.attempt_id ||
+      context.model_id !== binding.model_id || !sameGenerationPrincipal(context.principal, binding.principal)) {
+    throw ownerSunoTrackOperationError("CANDIDATE_INVALID");
+  }
+  return upload;
+}
+
 function validateOwnerSunoTrackOperationPrivateRequest(value: unknown,
   state: OwnerSunoTrackOperationChatState): OwnerSunoTrackOperationPrivateRequest {
   try {
     const request = readExactDataRecord(value, ["ai_name", "prompt", "settings"], ["ai_name", "prompt", "settings"]);
     const isExtend = state.mode === "extend";
+    const upload = validateSunoUploadedAudioBinding(state.binding, state.client);
     const settingsKeys = ["model_type", "mode", "is_custom_mode", "is_instrumental", "negative_tags", "styles", "title",
-      "source_clip_id", "source_task_id", ...(isExtend ? ["continue_at"] : [])];
+      "source_clip_id", "source_task_id", ...(isExtend ? ["continue_at"] : []), ...(upload ? ["file_urls"] : [])];
     const settings = readExactDataRecord(request.settings, settingsKeys, settingsKeys);
     const promptLimit = settings.is_custom_mode === true ? 5_000 : 500;
-    if (request.ai_name !== "suno" || typeof request.prompt !== "string" || request.prompt.trim().length === 0 ||
+    if (request.ai_name !== "suno" || typeof request.prompt !== "string" ||
         request.prompt.length > promptLimit || settings.model_type !== state.modelId || settings.mode !== state.mode ||
-        typeof settings.is_custom_mode !== "boolean" || typeof settings.is_instrumental !== "boolean" ||
+        typeof settings.is_custom_mode !== "boolean" || settings.is_instrumental !== false ||
         typeof settings.negative_tags !== "string" || settings.negative_tags.length > 5_000 ||
-        typeof settings.styles !== "string" || settings.styles.length > 1_000 ||
-        typeof settings.title !== "string" || settings.title.length > 80 ||
-        !isBoundedPrintableOwnerSunoSourceId(settings.source_clip_id) ||
-        !isBoundedPrintableOwnerSunoSourceId(settings.source_task_id)) throw null;
+        typeof settings.styles !== "string" || settings.styles.length < 1 || settings.styles.length > 1_000 ||
+        typeof settings.title !== "string" || settings.title.length < 1 || settings.title.length > 80 ||
+        (upload ? settings.source_clip_id !== "" || settings.source_task_id !== "" :
+          !isBoundedPrintableOwnerSunoSourceId(settings.source_clip_id) || !isBoundedPrintableOwnerSunoSourceId(settings.source_task_id))) throw null;
+    if (upload && !isDeepStrictEqual(settings.file_urls, [{ type: "audio", url: upload.url }])) throw null;
     if (isExtend) {
       const continueAt = settings.continue_at;
-      if (typeof continueAt !== "number" || !Number.isFinite(continueAt) || continueAt < 0 ||
+      if (typeof continueAt !== "number" || !Number.isFinite(continueAt) || continueAt <= 0 || (upload && continueAt > upload.context.duration_seconds + 1) ||
           Math.abs(continueAt * 10 - Math.round(continueAt * 10)) > Number.EPSILON * Math.max(1, Math.abs(continueAt * 10)) * 4) {
         throw null;
       }
@@ -12558,11 +12630,31 @@ function ownerSunoDecodedProviderId(value: unknown): string | undefined {
   return undefined;
 }
 
+// Observed 2026-11-05 for empty-prompt Extend/V6_wild: server-normalized owner ACK only.
+// This is neither an instrumental-setting inference nor provider success evidence.
+const OWNER_SUNO_EMPTY_TRACK_PROMPT_ACK = "Instrumental audio";
+
+/** Uploaded inputs may add one exact owned audio reference to the owner text ACK. */
+function isPositiveOwnerSunoTrackAck(row: z.infer<typeof OWNER_SUNO_GENERATION_HISTORY_ROW_SCHEMA>, state: OwnerSunoTrackOperationChatState): boolean {
+  if (isPositiveOwnerSunoAck(row, state.privatePrompt!, state.modelId, true)) return true;
+  const context = state.binding.uploaded_audio_context;
+  const upload = context === undefined ? undefined : SUNO_AUDIO_UPLOAD_CONTEXTS.get(context);
+  if (!upload || upload.client !== state.client || row.author_id <= 0 || row.message_object.length !== 2) return false;
+  const texts = row.message_object.filter((object) => object.object_type === "text");
+  const references = row.message_object.filter((object) => object.object_type === "audio");
+  return texts.length === 1 && references.length === 1 && references[0]!.object_url === upload.url &&
+    references[0]!.model_type === state.modelId &&
+    isPositiveOwnerSunoAck({ ...row, message_object: texts }, state.privatePrompt!, state.modelId, true);
+}
+
 function isPositiveOwnerSunoAck(
-  row: z.infer<typeof OWNER_SUNO_GENERATION_HISTORY_ROW_SCHEMA>, prompt: string, modelId: OwnerSunoGenerationModel
+  row: z.infer<typeof OWNER_SUNO_GENERATION_HISTORY_ROW_SCHEMA>, prompt: string, modelId: OwnerSunoGenerationModel,
+  allowOptionalTrackPrompt = false
 ): boolean {
   return row.author_id > 0 && row.message_object.length === 1 && row.message_object[0]!.object_type === "text" &&
-    row.message_object[0]!.object_text === prompt && row.message_object[0]!.object_text!.trim().length > 0 &&
+    (row.message_object[0]!.object_text === prompt ||
+      (allowOptionalTrackPrompt && prompt === "" && row.message_object[0]!.object_text === OWNER_SUNO_EMPTY_TRACK_PROMPT_ACK)) &&
+    (allowOptionalTrackPrompt || prompt.trim().length > 0) &&
     row.message_object[0]!.model_type === modelId;
 }
 

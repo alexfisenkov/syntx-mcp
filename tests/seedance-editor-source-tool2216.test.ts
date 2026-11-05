@@ -24,6 +24,7 @@ test("default MCP exposes the offline Seedance Editor contract without claiming 
     assert.equal(output.network_access, false);
     assert.equal(output.paid_operations, false);
     assert.equal(output.dispatch_allowed, false);
+    assert.equal((output.current_source as { source_build_id: string }).source_build_id, "1793711938");
     const profile = output.profile as Record<string, unknown>;
     assert.equal(profile.form_id, "seedance-editor");
     assert.equal(profile.scope, "tool_video_inpaint");

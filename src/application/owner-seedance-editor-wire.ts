@@ -3,6 +3,7 @@ import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-brid
 import { schemaHash } from "../domain/generation-contract.js";
 import {
   getOwnerSeedanceEditorCurrentUiObservation,
+  getOwnerSeedanceEditorCurrentSource,
   getOwnerSeedanceEditorSourceProfile,
   normalizeOwnerSeedanceEditorParameters,
   type OwnerSeedanceEditorNormalizedParameters
@@ -24,7 +25,6 @@ export interface OwnerSeedanceEditorWireInput {
   readonly ai_name: typeof AI_NAME;
   readonly prompt: string;
   readonly settings: Readonly<{
-    readonly n: 1;
     readonly model_type: typeof MODEL_TYPE;
     readonly mode: "edit";
     readonly aspect_ratio: "adaptive";
@@ -40,6 +40,7 @@ export interface OwnerSeedanceEditorWireCandidate {
   readonly model_id: typeof MODEL_ID;
   readonly profile_sha256: string;
   readonly current_ui_observation_sha256: string;
+  readonly current_source_sha256: string;
   readonly wire: Readonly<OwnerSeedanceEditorWireInput>;
   readonly source_input_duration_context: Readonly<{
     readonly seconds: number;
@@ -69,7 +70,6 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
   let normalized: Readonly<OwnerSeedanceEditorNormalizedParameters>;
   try { normalized = normalizeOwnerSeedanceEditorParameters(input); } catch { return invalidWire(); }
   const settings = Object.freeze({
-    n: 1 as const,
     model_type: MODEL_TYPE,
     mode: "edit" as const,
     aspect_ratio: "adaptive" as const,
@@ -97,6 +97,7 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     model_id: MODEL_ID,
     profile_sha256: profileSha256,
     current_ui_observation_sha256: currentUiObservation.observation_sha256,
+    current_source_sha256: getOwnerSeedanceEditorCurrentSource().source_sha256,
     wire,
     source_input_duration_context: Object.freeze({
       seconds: source.duration_seconds,
@@ -111,7 +112,7 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
   });
 }
 
-/** Native dispatch guard: candidate identity and the observed current UI audio flag must agree. */
+/** Native dispatch guard: candidate identity and the current static submit and historical UI audio flag must agree. */
 export function isOwnerSeedanceEditorWireCurrentUiAligned(value: unknown): value is OwnerSeedanceEditorWireCandidate {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) return false;
   try {
@@ -122,8 +123,9 @@ export function isOwnerSeedanceEditorWireCurrentUiAligned(value: unknown): value
     return candidate.status === "SOURCE_ONLY_WIRE_CANDIDATE_NOT_DISPATCH_AUTHORITY" &&
       candidate.model_id === MODEL_ID && candidate.profile_sha256 === getOwnerSeedanceEditorSourceProfile().source_sha256 &&
       candidate.current_ui_observation_sha256 === observation.observation_sha256 &&
+      candidate.current_source_sha256 === getOwnerSeedanceEditorCurrentSource().source_sha256 &&
       candidate.wire_fingerprint === schemaHash(wire) && wire.ai_name === AI_NAME &&
-      typeof wire.prompt === "string" && settings.n === 1 && settings.model_type === MODEL_TYPE &&
+      typeof wire.prompt === "string" && !Reflect.has(settings, "n") && settings.model_type === MODEL_TYPE &&
       settings.mode === "edit" && settings.aspect_ratio === "adaptive" && isResolution(settings.resolution) &&
       settings.video_duration === 0 && settings.generate_audio === true && Array.isArray(settings.file_urls) &&
       settings.file_urls.length === 1 && settings.file_urls[0]?.type === "video" &&

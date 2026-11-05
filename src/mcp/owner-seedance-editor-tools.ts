@@ -129,7 +129,7 @@ export function registerSyntxOwnerSeedanceEditorTools(server: McpServer, options
 
   server.registerTool(OWNER_SEEDANCE_EDITOR_TOOL_NAMES[0], {
     title: "Upload one Seedance Editor source video",
-    description: "Upload one owner-supplied MP4 or MOV for the no-frame Seedance Editor path. Local validation inspects bounded media metadata only and returns an opaque handle; the private upload URL is never returned. Do not retry an uncertain upload.",
+    description: "Upload one owner-supplied MP4 or MOV for the no-frame Seedance Editor path. Local validation checks ffprobe dimensions, duration and average frame rate against conservative source-bound limits; it does not decode frames or prove every frame rate. It returns an opaque handle; the private upload URL is never returned. Do not retry an uncertain upload.",
     inputSchema: boundedUploadInput, outputSchema: boundedUploadOutput,
     annotations: { title: "Upload one Seedance Editor source video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => {
@@ -152,7 +152,7 @@ export function registerSyntxOwnerSeedanceEditorTools(server: McpServer, options
 
   server.registerTool(OWNER_SEEDANCE_EDITOR_TOOL_NAMES[1], {
     title: "Generate one Seedance Editor video",
-    description: "Experimental no-frame request using an opaque owner-uploaded source video. The current UI wire observation uses generate_audio=true; the same fixed value is sent here. The UI received HTTP 400, so provider acceptance and the cause are unproven. Resolution and prompt are explicit. Cost is not capped; reconcile uncertain dispatch and never repeat generation.",
+    description: "Experimental no-frame request using an opaque owner-uploaded source video. The current static source removes n and initializes generate_audio=true; the same wire choices are sent here. The earlier UI received HTTP 400, so provider acceptance and the cause are unproven. Resolution and prompt are explicit. Cost is not capped; reconcile uncertain dispatch and never repeat generation.",
     inputSchema: generateInput, outputSchema: resultSchema,
     annotations: { title: "Generate one Seedance Editor video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => {

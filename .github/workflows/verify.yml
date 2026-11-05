@@ -128,6 +128,9 @@ jobs:
       - name: Verify current media, updater, and package changes
         if: inputs.scope == 'media-update'
         env:
+          SYNTX_MEDIA_FFMPEG_PATH: /usr/bin/ffmpeg
+          SYNTX_MEDIA_FFPROBE_PATH: /usr/bin/ffprobe
+          SYNTX_SUNO_TEST_FFPROBE: /usr/bin/ffprobe
           SYNTX_MCV_TEST_FFMPEG: /usr/bin/ffmpeg
           SYNTX_MCV_TEST_FFPROBE: /usr/bin/ffprobe
           SYNTX_KLING_MEDIA_TEST_FFMPEG: /usr/bin/ffmpeg

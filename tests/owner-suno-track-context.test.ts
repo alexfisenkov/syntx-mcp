@@ -123,6 +123,7 @@ test("issues an opaque handle for the exact native owner result and resolves its
     assert.equal(projection.attempt_id, ATTEMPT);
     assert.deepEqual(projection.principal, { tenant_id: BINDING.tenant_id, subject_id: BINDING.subject, connection_id: ATTEMPT });
     assert.equal(projection.model_id, "V6");
+    assert.ok(projection.source_kind === "OWNER_GENERATION");
     assert.equal(projection.chat_uuid, "suno-track-chat-1289");
     assert.equal(projection.message_id, "suno-track-bot-message-1289");
     assert.equal(projection.message_object_id, "suno-track-object-1289");

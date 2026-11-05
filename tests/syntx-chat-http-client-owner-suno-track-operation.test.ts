@@ -43,7 +43,11 @@ function code(error: unknown, expected: string): boolean {
 async function fixture(options: {
   readonly loseOperationAck?: boolean;
   readonly operationHistory?: "error-only" | "mixed" | "irrelevant";
+  readonly modelId?: "V6" | "V6_wild";
+  readonly operationAckText?: string;
+  readonly operationAckModel?: string;
 } = {}) {
+  const selectedModel = options.modelId ?? "V6";
   let now = Date.parse("2026-10-14T00:00:00.000Z");
   const events: Array<{ method: string; pathname: string; query: string; body: unknown }> = [];
   const chats = new Map<string, { prompt?: string; model: string; ack: string; mode?: string; isOperation: boolean }>();
@@ -103,10 +107,11 @@ async function fixture(options: {
     if (url.pathname.endsWith("/messages") && method === "GET") {
       const chatUuid = url.pathname.split("/")[4]!;
       const state = chats.get(chatUuid);
-      if (!state?.prompt) throw new Error("Synthetic fixture has no sent prompt.");
+      if (state?.prompt === undefined) throw new Error("Synthetic fixture has no sent prompt.");
       const ownerRow = { id: state.ack, chat_id: 91302, author_id: 42,
         message_object: [{ id: `${state.ack}-text`, message_id: state.ack, object_type: "text",
-          object_text: state.prompt, model_type: state.model }] };
+          object_text: state.isOperation ? options.operationAckText ?? state.prompt : state.prompt,
+          model_type: state.isOperation ? options.operationAckModel ?? state.model : state.model }] };
       const botId = `${state.ack}-bot`;
       const errorObject = (model: string, index: number) => ({ id: `${botId}-error-${index}`,
         message_id: botId, object_type: "error", model_type: model,
@@ -144,7 +149,7 @@ async function fixture(options: {
   const basePreparer = new OwnerSunoGenerationRequestPreparer({ binding: BINDING, linkService, now: () => now });
   const basePolicy = new OwnerSunoGenerationOneShotPolicy({ preparer: basePreparer, now: () => now });
   const baseCandidate = await basePreparer.prepare({ attemptId: ATTEMPT, normalized: normalizeOwnerSunoGenerationParameters({
-    model_id: "V6", mode: "generate", prompt: BASE_PROMPT, is_custom_mode: false, is_instrumental: true,
+    model_id: selectedModel, mode: "generate", prompt: BASE_PROMPT, is_custom_mode: false, is_instrumental: true,
     negative_tags: "", styles: "", title: "Base source track"
   }) });
   const principal = await resolveOwnerReferencePrincipal({ binding: BINDING, attemptId: ATTEMPT, linkService });
@@ -169,9 +174,9 @@ async function fixture(options: {
   const operationPolicy = new OwnerSunoTrackOperationOneShotPolicy({ preparer: operationPreparer, now: () => now });
   return { client, otherClient, native, basePreparer, basePolicy, trackStore, operationPreparer, operationPolicy,
     principal, handle, events, chats, get operationPosts() { return operationPosts; }, get now() { return now; },
-    async operation(mode: "cover" | "extend", attempt = ATTEMPT) {
-      const normalized = normalizeOwnerSunoTrackOperationParameters({ model_id: "V6", mode, track_handle: handle,
-        prompt: BASE_PROMPT, is_custom_mode: false, is_instrumental: false, negative_tags: "", styles: "",
+    async operation(mode: "cover" | "extend", attempt = ATTEMPT, prompt = BASE_PROMPT) {
+      const normalized = normalizeOwnerSunoTrackOperationParameters({ model_id: selectedModel, mode, track_handle: handle,
+        prompt, is_custom_mode: false, is_instrumental: false, negative_tags: "", styles: "ambient",
         title: `Native ${mode}`, ...(mode === "extend" ? { continue_at: 17.3 } : {}) });
       const candidate = await operationPreparer.prepare({ attemptId: attempt, normalized });
       const permit = operationPolicy.createPermit({ candidate, attemptId: attempt, principal });
@@ -207,7 +212,7 @@ test("native track-operation path exposes isolated methods and sends source-boun
       assert.equal(post.query, "?ai_name=suno");
       assert.deepEqual(post.body, { chat_uuid: chat.chat_uuid, prompt: BASE_PROMPT, settings: {
         model_type: "V6", mode, is_custom_mode: false, is_instrumental: false,
-        negative_tags: "", styles: "", title: `Native ${mode}`,
+        negative_tags: "", styles: "ambient", title: `Native ${mode}`,
         source_clip_id: "owned-base-clip-1302", source_task_id: "owned-base-task-1302",
         file_urls: [],
         ...(mode === "extend" ? { continue_at: 17.3 } : {})
@@ -223,6 +228,94 @@ test("native track-operation path exposes isolated methods and sends source-boun
       assert.equal(result.model_echo, "MATCHED");
       assert.equal(f.operationPosts, 1);
       assert.equal(f.events.filter(({ pathname, method }) => pathname === "/api/v1/audio/generate" && method === "POST").length, 2);
+    } finally { await f.close(); }
+  }
+});
+
+test("only genuine owner track operations send an empty prompt and bind its exact ACK", async () => {
+  for (const mode of ["cover", "extend"] as const) {
+    const f = await fixture();
+    try {
+      const beforeInvalid = f.events.length;
+      await assert.rejects(f.client.startAudio({ ai_name: "suno", chat_uuid: "unbound-direct-chat", prompt: "",
+        settings: { model_type: "V6", mode, source_clip_id: "forged", source_task_id: "forged" } }));
+      assert.equal(f.events.length, beforeInvalid, "generic startAudio keeps its nonblank prompt gate");
+      assert.throws(() => normalizeOwnerSunoGenerationParameters({
+        model_id: "V6", mode: "generate", prompt: "", is_custom_mode: false, is_instrumental: false,
+        negative_tags: "", styles: "ambient", title: "Still requires prompt"
+      }));
+      const operation = await f.operation(mode, ATTEMPT, "");
+      const chat = await f.native.createOwnerSunoTrackOperationChat(operation.input);
+      await f.native.startSunoTrackOperationWithOwnedCandidate({ ...operation.input, chat });
+      const post = f.events.filter((event) => event.pathname === "/api/v1/audio/generate").at(-1)!;
+      assert.equal((post.body as { prompt: string }).prompt, "");
+      const history = await f.native.listOwnedSunoTrackOperationCandidates(chat);
+      assert.equal(history.owner_ack_status, "MATCHED");
+      assert.equal((history.contexts as unknown[]).length, 1);
+      await assert.rejects(f.native.startSunoTrackOperationWithOwnedCandidate({ ...operation.input, chat }),
+        (error: unknown) => code(error, "CHAT_DISPATCH_ALREADY_STARTED"));
+      assert.equal(f.operationPosts, 1);
+    } finally { await f.close(); }
+  }
+});
+
+test("observed empty-prompt server ACK binds a V6_wild Extend after lost POST acknowledgement using GET only", async () => {
+  const f = await fixture({ modelId: "V6_wild", loseOperationAck: true, operationAckText: "Instrumental audio" });
+  try {
+    const operation = await f.operation("extend", ATTEMPT, "");
+    const chat = await f.native.createOwnerSunoTrackOperationChat(operation.input);
+    await assert.rejects(f.native.startSunoTrackOperationWithOwnedCandidate({ ...operation.input, chat }),
+      (error: unknown) => code(error, "OUTCOME_UNKNOWN"));
+    const beforeRead = f.events.length;
+    const history = await f.native.listOwnedSunoTrackOperationCandidates(chat);
+    assert.equal(history.owner_ack_status, "MATCHED");
+    assert.equal(history.history_binding_status, "BOUND");
+    assert.equal((history.contexts as unknown[]).length, 1);
+    const result = await f.native.getOwnedSunoTrackOperationResult((history.contexts as unknown[])[0]);
+    assert.equal(result.message_binding, "BOUND");
+    assert.equal(result.model_echo, "MATCHED");
+    assert.ok(f.events.slice(beforeRead).length >= 2);
+    assert.equal(f.events.slice(beforeRead).every((event) => event.method === "GET"), true);
+    await assert.rejects(f.native.startSunoTrackOperationWithOwnedCandidate({ ...operation.input, chat }),
+      (error: unknown) => code(error, "CHAT_DISPATCH_ALREADY_STARTED"));
+    assert.equal(f.operationPosts, 1);
+  } finally { await f.close(); }
+});
+
+test("observed empty-prompt ACK preserves bound bot error classification without inventing successful audio", async () => {
+  const f = await fixture({ modelId: "V6_wild", operationAckText: "Instrumental audio", operationHistory: "error-only" });
+  try {
+    const operation = await f.operation("extend", ATTEMPT, "");
+    const chat = await f.native.createOwnerSunoTrackOperationChat(operation.input);
+    await f.native.startSunoTrackOperationWithOwnedCandidate({ ...operation.input, chat });
+    const history = await f.native.listOwnedSunoTrackOperationCandidates(chat);
+    assert.equal(history.owner_ack_status, "MATCHED");
+    assert.equal(history.history_binding_status, "BOUND");
+    assert.deepEqual(history.gaps, ["BOT_ERROR_OBSERVED"]);
+    assert.equal(history.status, "INCOMPLETE");
+    assert.deepEqual(history.contexts, []);
+    assert.equal(f.operationPosts, 1);
+  } finally { await f.close(); }
+});
+
+test("empty-prompt ACK normalization rejects arbitrary, case-changed, wrong-model and nonempty-prompt owner echoes", async () => {
+  for (const example of [
+    { ack: "Arbitrary owner text", prompt: "" },
+    { ack: "instrumental audio", prompt: "" },
+    { ack: "Instrumental audio ", prompt: "" },
+    { ack: "Instrumental audio", prompt: "", ackModel: "V6" },
+    { ack: "Instrumental audio", prompt: "Explicit continuation lyrics" }
+  ]) {
+    const f = await fixture({ modelId: "V6_wild", operationAckText: example.ack,
+      ...(example.ackModel ? { operationAckModel: example.ackModel } : {}) });
+    try {
+      const operation = await f.operation("extend", ATTEMPT, example.prompt);
+      const chat = await f.native.createOwnerSunoTrackOperationChat(operation.input);
+      await f.native.startSunoTrackOperationWithOwnedCandidate({ ...operation.input, chat });
+      const history = await f.native.listOwnedSunoTrackOperationCandidates(chat);
+      assert.equal(history.owner_ack_status, "MISMATCH", JSON.stringify(example));
+      assert.deepEqual(history.contexts, []);
+      assert.equal(f.operationPosts, 1);
     } finally { await f.close(); }
   }
 });
@@ -251,7 +344,7 @@ test("track-operation native contexts reject forged and cross-client capabilitie
 test("an unknown operation POST stays single-use and reconciles from exact owner history by GET", async () => {
   const f = await fixture({ loseOperationAck: true });
   try {
-    const operation = await f.operation("extend");
+    const operation = await f.operation("extend", ATTEMPT, "");
     const chat = await f.native.createOwnerSunoTrackOperationChat(operation.input);
     await assert.rejects(f.native.startSunoTrackOperationWithOwnedCandidate({ ...operation.input, chat }),
       (error: unknown) => code(error, "OUTCOME_UNKNOWN"));
@@ -333,7 +426,7 @@ test("Cover and Extend preserve the source-observed empty file_urls settings fie
       const post = f.events.filter(({ pathname, method }) => pathname === "/api/v1/audio/generate" && method === "POST").at(-1)!;
       assert.deepEqual(post.body, { chat_uuid: chat.chat_uuid, prompt: BASE_PROMPT, settings: {
         model_type: "V6", mode, is_custom_mode: false, is_instrumental: false,
-        negative_tags: "", styles: "", title: `Native ${mode}`,
+        negative_tags: "", styles: "ambient", title: `Native ${mode}`,
         source_clip_id: "owned-base-clip-1302", source_task_id: "owned-base-task-1302",
         file_urls: [], ...(mode === "extend" ? { continue_at: 17.3 } : {})
       } });

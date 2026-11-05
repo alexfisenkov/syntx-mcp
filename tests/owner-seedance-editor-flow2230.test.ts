@@ -37,7 +37,7 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
   const interpreter = join(directory, "node"), probe = join(directory, "probe");
   await symlink(process.execPath, interpreter);
   await writeFile(probe, `#!${interpreter}\nprocess.stdout.write(${JSON.stringify(JSON.stringify({ streams: [
-    { codec_type: "video", width: 320, height: 240, start_time: "0", duration: "4.25", duration_ts: 4250, time_base: "1/1000" }
+    { codec_type: "video", width: 1280, height: 720, avg_frame_rate: "25/1", start_time: "0", duration: "4.25", duration_ts: 4250, time_base: "1/1000" }
   ], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2" } }))});\n`, { mode: 0o700, flag: "wx" });
   const stats = { uploads: 0, chats: 0, posts: 0, quotes: 0, histories: 0, results: 0, balances: 0, subscriptions: 0 };
   let last: any, ready = !options.pending;
@@ -73,7 +73,7 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
       stats.posts++; last = JSON.parse(String(init.body));
       assert.equal(url.searchParams.get("ai_name"), "seedance");
       assert.equal(last.chat_id, "editorchat2230"); assert.equal(last.chat_uuid, undefined);
-      assert.deepEqual(last.settings, { n: 1, model_type: "seedance-2.5", mode: "edit", aspect_ratio: "adaptive",
+      assert.deepEqual(last.settings, { model_type: "seedance-2.5", mode: "edit", aspect_ratio: "adaptive",
         resolution: "480p", video_duration: 0, generate_audio: true, file_urls: [{ type: "video", url: INPUT }] });
       if (options.generationHttpStatus) return json({ detail: "PRIVATE_RESPONSE_BODY_MUST_NOT_ESCAPE" }, options.generationHttpStatus);
       if (options.loseAck) throw new Error("synthetic lost ACK");

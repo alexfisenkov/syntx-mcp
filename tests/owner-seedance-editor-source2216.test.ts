@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { schemaHash } from "../src/domain/generation-contract.js";
 import {
+  getOwnerSeedanceEditorCurrentSource,
   getOwnerSeedanceEditorCurrentUiObservation,
   getOwnerSeedanceEditorSourceProfile,
   normalizeOwnerSeedanceEditorParameters
@@ -88,7 +89,6 @@ test("builds a source-only exact no-frame-reference wire from one captured video
     ai_name: "seedance",
     prompt: "Retain the subject and continue the movement.",
     settings: {
-      n: 1,
       model_type: "seedance-2.5",
       mode: "edit",
       aspect_ratio: "adaptive",
@@ -106,6 +106,11 @@ test("builds a source-only exact no-frame-reference wire from one captured video
   assert.equal(candidate.profile_sha256, getOwnerSeedanceEditorSourceProfile().source_sha256);
   assert.equal(candidate.current_ui_observation_sha256, getOwnerSeedanceEditorCurrentUiObservation().observation_sha256);
   assert.equal(isOwnerSeedanceEditorWireCurrentUiAligned(candidate), true);
+  assert.equal(candidate.current_source_sha256, getOwnerSeedanceEditorCurrentSource().source_sha256);
+  assert.equal(getOwnerSeedanceEditorCurrentSource().source_build_id, "1793711938");
+  assert.equal(Object.hasOwn(candidate.wire.settings, "n"), false);
+  const injectedWire = { ...candidate.wire, settings: { ...candidate.wire.settings, n: 1 } };
+  assert.equal(isOwnerSeedanceEditorWireCurrentUiAligned({ ...candidate, wire: injectedWire, wire_fingerprint: schemaHash(injectedWire) }), false);
   assert.equal(candidate.dispatch_allowed, false);
   assert.equal(candidate.backend_acceptance, "UNPROVEN");
   assert.equal(Object.isFrozen(candidate), true);

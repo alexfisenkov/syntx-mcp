@@ -88,6 +88,24 @@ const CURRENT_UI_OBSERVATION_FACTS = Object.freeze({
 const CURRENT_UI_OBSERVATION = Object.freeze({ ...CURRENT_UI_OBSERVATION_FACTS,
   observation_sha256: schemaHash(CURRENT_UI_OBSERVATION_FACTS) });
 
+const CURRENT_SOURCE_FACTS = Object.freeze({
+  observation_date: "2026-11-05" as const,
+  status: "STATIC_SOURCE_ONLY_NOT_RUNTIME_OR_PROVIDER_ACCEPTANCE" as const,
+  source_build_id: "1793711938" as const,
+  public_catalog_sha256: "bca24244ca2a2ffc79e6788621993335181f0a44958d3b0ff0fac724326fd41b" as const,
+  settings_sha256: "f8012eea6e0f7017604df399f6d5e1e5dc1f41dec5e813ec353588de746866b2" as const,
+  form_sha256: "ad1a4e965e13d9765fe4f885dc7ac352c68d9bad5fdcfe417be30d8fa8028cf7" as const,
+  submit_helper_sha256: "54d454584001e2f1289d139e2c9259e880c877a50f14d574063021078e2f4a72" as const,
+  submit_removes_n: true as const,
+  initializer_generate_audio: true as const,
+  provider_acceptance: "UNPROVEN" as const
+});
+const CURRENT_SOURCE = Object.freeze({ ...CURRENT_SOURCE_FACTS, source_sha256: schemaHash(CURRENT_SOURCE_FACTS) });
+
+export function getOwnerSeedanceEditorCurrentSource(): Readonly<typeof CURRENT_SOURCE> {
+  return CURRENT_SOURCE;
+}
+
 export type OwnerSeedanceEditorResolution = typeof RESOLUTIONS[number];
 
 export interface OwnerSeedanceEditorParametersInput {

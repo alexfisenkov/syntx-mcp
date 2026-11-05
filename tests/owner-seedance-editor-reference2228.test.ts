@@ -13,20 +13,20 @@ const A = "link_seedance_editor_owner_0123456789abcdef";
 const B = "link_seedance_editor_owner_fedcba9876543210";
 const BINDING = Object.freeze({ tenant_id: "seedance-editor-local", subject: "owner" });
 const URL = "https://r2.syntx.ai/seedance-editor/hidden/clip.mp4";
-const PROBE = JSON.stringify({ streams: [{ codec_type: "video", width: 320, height: 240, start_time: "0", duration: "4.25",
+const PROBE = JSON.stringify({ streams: [{ codec_type: "video", width: 1280, height: 720, avg_frame_rate: "25/1", start_time: "0", duration: "4.25",
   time_base: "1/1000", duration_ts: 4250, start_pts: 0, disposition: { attached_pic: 0 } }] });
 
 function mp4(): Buffer {
   const bytes = Buffer.alloc(24); bytes.writeUInt32BE(24, 0); bytes.write("ftyp", 4, "ascii"); bytes.write("isom", 8, "ascii");
   bytes.writeUInt32BE(0, 12); bytes.write("isom", 16, "ascii"); bytes.write("mp41", 20, "ascii"); return bytes;
 }
-async function ffprobeFixture(): Promise<{ directory: string; path: string }> {
+async function ffprobeFixture(probe = PROBE): Promise<{ directory: string; path: string }> {
   const directory = await mkdtemp(join(tmpdir(), "syntx-seedance-editor-reference-2228-"));
   const path = join(directory, "ffprobe-fixture");
-  await writeFile(path, "#!" + process.execPath + "\nprocess.stdout.write(" + JSON.stringify(PROBE) + ");\n", { mode: 0o700, flag: "wx" });
+  await writeFile(path, "#!" + process.execPath + "\nprocess.stdout.write(" + JSON.stringify(probe) + ");\n", { mode: 0o700, flag: "wx" });
   await chmod(path, 0o700); return { directory, path: await realpath(path) };
 }
-async function env(fetchHandler: (signal: AbortSignal | null, init: RequestInit) => Response | Promise<Response>) {
+async function env(fetchHandler: (signal: AbortSignal | null, init: RequestInit) => Response | Promise<Response>, probe = PROBE) {
   let time = 1_000, next = 0, calls = 0;
   const now = () => time;
   const provider: AuthLinkProvider = { authorizationProfile: "OBSERVED_OWNER_AUTHORIZED",
@@ -38,7 +38,7 @@ async function env(fetchHandler: (signal: AbortSignal | null, init: RequestInit)
   const makeClient = () => new SyntxChatHttpClient({ credentialBroker: {
     async useCredential<T>(operation: (credential: string) => Promise<T>) { return operation("synthetic-seedance-editor-credential"); }
   }, fetchImpl: async (_url, init) => { calls++; return fetchHandler(init?.signal ?? null, init ?? {}); } });
-  const fixture = await ffprobeFixture(); let client = makeClient();
+  const fixture = await ffprobeFixture(probe); let client = makeClient();
   const service = new OwnerSeedanceEditorReferenceService({ binding: BINDING, linkService: links,
     resolveClient: () => client, ffprobePath: fixture.path, now });
   return { service, links, client: () => client, rotate: () => { client = makeClient(); }, count: () => calls,
@@ -125,4 +125,15 @@ test("2228 expiry and pending invalidation revoke the handle and fence late uplo
     await assert.rejects(expired.service.resolveReferences(resolve(receipt.reference_handle)), { code: "REFERENCE_UNAVAILABLE" });
     assert.equal(expired.count(), 1);
   } finally { await expired.cleanup(); }
+});
+
+
+test("current source pixel and fps bounds reject before native upload", async (t) => {
+  if (process.platform === "win32") { t.skip("POSIX ffprobe fixture executable unavailable on Windows"); return; }
+  for (const change of [{ width: 640, height: 360 }, { avg_frame_rate: "22/1" }]) {
+    const data = JSON.parse(PROBE); Object.assign(data.streams[0], change);
+    const e = await env(() => response(), JSON.stringify(data));
+    try { await assert.rejects(e.service.uploadReference(upload()), { code: "VALIDATION_REJECTED" }); assert.equal(e.count(), 0); }
+    finally { await e.cleanup(); }
+  }
 });

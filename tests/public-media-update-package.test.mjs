@@ -7,6 +7,8 @@ const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", impo
 const installChecker = readFileSync(new URL("../scripts/check-package-install.mjs", import.meta.url), "utf8");
 const coverageMapV1 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v1.json", import.meta.url), "utf8"));
 const coverageMapV2 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v2.json", import.meta.url), "utf8"));
+const coverageMapV4 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v4.json", import.meta.url), "utf8"));
+const coverageMapV5 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v5.json", import.meta.url), "utf8"));
 const coverageMapV3 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v3.json", import.meta.url), "utf8"));
 
 test("public npm manifest declares the updater command and source files", () => {
@@ -65,6 +67,16 @@ test("public package checker compares the packed media map and verifies the upda
   assert.equal(coverageMapV3.owner_tool_count, null);
   assert.equal(coverageMapV3.owner_tool_count_status, "UNVERIFIED_FOR_ROUTE_EXTENSION");
   assert.equal(coverageMapV3.public_catalog_version, coverageMapV2.public_catalog_version);
+  assert.equal(coverageMapV4.schema_version, "4.0.0");
+  assert.equal(coverageMapV4.route_method, "REUSED_V3_CODE_BINDINGS_NO_NEW_TOOLS_LIST_OR_PROVIDER_PROOF");
+  assert.deepEqual(coverageMapV4.routes, coverageMapV3.routes);
+  assert.deepEqual(coverageMapV4.native_alias_bindings, coverageMapV3.native_alias_bindings);
+  assert.equal(coverageMapV5.schema_version, "5.0.0");
+  assert.equal(coverageMapV5.public_catalog_version, coverageMapV4.public_catalog_version);
+  assert.equal(coverageMapV5.route_provenance.source_v4_sha256, "sha256:2847eb6ca45ac5c820a8b51dfa6d622b382097e25310346588979c4fe94897e7");
+  const expectedRoutes = structuredClone(coverageMapV4.routes);
+  for (const id of ["V6", "V6_wild"]) expectedRoutes[id] = [...expectedRoutes[id], "syntx_owner_upload_suno_audio_reference"].sort();
+  assert.deepEqual(coverageMapV5.routes, expectedRoutes);
   const recoveryAlias = coverageMapV3.native_alias_bindings.find((binding) => binding.operator_flag === "SYNTX_OWNER_EXISTING_VIDEO_RECOVERY");
   assert.deepEqual(recoveryAlias?.public_model_ids, ["kling_4_keyframes", "kling_4_omni"]);
   assert.deepEqual(recoveryAlias?.tool_names, ["syntx_owner_get_existing_video_recovery"]);
@@ -73,6 +85,8 @@ test("public package checker compares the packed media map and verifies the upda
     '"catalog/media-coverage/owner-tool-routes-v1.json"',
     '"catalog/media-coverage/owner-tool-routes-v2.json"',
     '"catalog/media-coverage/owner-tool-routes-v3.json"',
+    '"catalog/media-coverage/owner-tool-routes-v4.json"',
+    '"catalog/media-coverage/owner-tool-routes-v5.json"',
     '"catalog/media-coverage/owner-expanded-t2v-controls-v2.json"'
   ]) assert.ok(installChecker.includes(path), `package checker omits ${path}`);
   assert.ok(installChecker.includes("assertInstalledMediaUpdateArtifacts(installedPackagePath, consumerPath)"));

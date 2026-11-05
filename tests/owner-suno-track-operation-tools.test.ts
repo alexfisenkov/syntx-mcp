@@ -50,6 +50,17 @@ test("Suno track-operation MCP exports six owner tools and strict fixed-mode inp
     prompt: "Переосмыслить мелодию 🎵", is_custom_mode: true, is_instrumental: false,
     negative_tags: "noise", styles: "ambient", title: "Новая версия" };
   assert.equal(cover.safeParse(base).success, true);
+  for (const is_custom_mode of [false, true]) {
+    const { prompt: _prompt, ...withoutPrompt } = base;
+    for (const promptInput of [{ ...base, prompt: "" }, withoutPrompt]) {
+      assert.equal(cover.safeParse({ ...promptInput, is_custom_mode }).success, true);
+      assert.equal(extend.safeParse({ ...promptInput, is_custom_mode, continue_at: 12.3 }).success, true);
+    }
+    for (const field of ["title", "styles"]) {
+      assert.equal(cover.safeParse({ ...base, is_custom_mode, [field]: "" }).success, false);
+      assert.equal(extend.safeParse({ ...base, is_custom_mode, [field]: "", continue_at: 12.3 }).success, false);
+    }
+  }
   assert.equal(extend.safeParse({ ...base, continue_at: 12.3 }).success, true);
   assert.equal(cover.safeParse({ ...base, is_instrumental: true }).success, false);
   assert.equal(extend.safeParse({ ...base, is_instrumental: true, continue_at: 12.3 }).success, false);
@@ -60,7 +71,7 @@ test("Suno track-operation MCP exports six owner tools and strict fixed-mode inp
   ]) assert.equal(cover.safeParse(invalid).success, false);
   for (const invalid of [
     { ...base, mode: "cover", continue_at: 12.3 }, { ...base, continue_at: -0.1 }, { ...base, continue_at: 12.35 },
-    { ...base, continue_at: Number.POSITIVE_INFINITY }, { ...base, model_id: "V7" }, { ...base, prompt: "   " }
+    { ...base, continue_at: Number.POSITIVE_INFINITY }, { ...base, model_id: "V7" }, { ...base, continue_at: 0 }, { ...base, styles: "" }, { ...base, title: "" }
   ]) assert.equal(extend.safeParse(invalid).success, false);
   assert.equal(OWNER_SUNO_TRACK_OPERATION_TOOL_INPUT_SCHEMAS.parameters.safeParse({ unexpected: true }).success, false);
 });
@@ -80,12 +91,12 @@ test("stock SDK keeps six operation tools default-off and owner opt-in preserves
   } finally { await client.close(); await server.close(); }
 });
 
-test("genuine SDK runs base Suno, lists an opaque track, dispatches cover and extend once, then GET-reconciles", async () => {
+test("genuine SDK blocks generated-track Extend and preserves one-shot Cover with GET-only recovery", async () => {
   let now = Date.parse("2026-10-14T00:00:00.000Z");
   const counts = { account: 0, model: 0, chats: 0, posts: 0, history: 0, results: 0 };
   const jobs = new Map<string, { prompt: string; model: string; ack: string; operation: string; sourceClip: string; sourceTask: string }>();
   const requests: Array<{ method: string; path: string; body?: Record<string, unknown> }> = [];
-  let loseExtendAck = false;
+  let loseOperationAck = false;
   const fetchImpl: typeof fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = init?.method ?? "GET";
@@ -109,7 +120,7 @@ test("genuine SDK runs base Suno, lists an opaque track, dispatches cover and ex
       const ack = `suno-operation-ack-${counts.posts}`;
       jobs.set(chat, { prompt, model: String(settings.model_type), ack,
         operation: String(settings.mode), sourceClip: String(settings.source_clip_id ?? ""), sourceTask: String(settings.source_task_id ?? "") });
-      if (loseExtendAck && settings.mode === "extend") { loseExtendAck = false; throw new Error("Synthetic lost POST acknowledgement."); }
+      if (loseOperationAck && settings.mode === "cover") { loseOperationAck = false; throw new Error("Synthetic lost POST acknowledgement."); }
       return Response.json({ id: ack });
     }
     const history = /^\/api\/v1\/chats\/([^/]+)\/messages$/u.exec(url.pathname);
@@ -152,6 +163,8 @@ test("genuine SDK runs base Suno, lists an opaque track, dispatches cover and ex
     const extendDescription = toolRows.find(({ name }) => name === SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME)?.description ?? "";
     assert.match(coverDescription, /current UI admission.*is_instrumental=false/iu);
     assert.match(extendDescription, /current UI admission.*is_instrumental=false/iu);
+    assert.match(extendDescription, /First call syntx_owner_upload_suno_audio_reference/u);
+    assert.match(extendDescription, /duration_seconds \+ 1/u);
     const profile = await client.callTool({ name: SYNTX_GET_SUNO_TRACK_OPERATION_PARAMETERS_TOOL_NAME, arguments: {} });
     assert.equal(structured(profile).dispatch_allowed, false);
     assert.deepEqual(structured(profile).current_ui_admission, {
@@ -177,7 +190,7 @@ test("genuine SDK runs base Suno, lists an opaque track, dispatches cover and ex
     assert.ok(track);
     assert.ok(track.track_handle.startsWith("track_")); assert.equal(track.model_id, "V6");
 
-    const coverInput = { link_attempt_id: ATTEMPT, model_id: "V6", track_handle: track.track_handle, prompt: "Обложка 🎵",
+    const coverInput = { link_attempt_id: ATTEMPT, model_id: "V6", track_handle: track.track_handle, prompt: "",
       is_custom_mode: true, is_instrumental: false, negative_tags: "noise", styles: "ambient", title: "Кавер" };
     const foreign = await client.callTool({ name: SYNTX_OWNER_COVER_SUNO_AUDIO_TOOL_NAME, arguments: { ...coverInput, model_id: "V6_wild" } });
     assert.equal(foreign.isError, true);
@@ -194,31 +207,43 @@ test("genuine SDK runs base Suno, lists an opaque track, dispatches cover and ex
     assert.equal((structured(page).artifacts as unknown[]).length, 1);
     assert.deepEqual(counts, beforeCachedPage, "cached operation result pages make no upstream requests");
 
-    loseExtendAck = true;
-    const extend = await client.callTool({ name: SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME, arguments: { ...coverInput,
+    const beforeBlockedExtend = { ...counts };
+    const blocked = await client.callTool({ name: SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME, arguments: { ...coverInput,
       prompt: "Продолжение 🎵", title: "Продление", continue_at: 12.3
     } });
-    assert.equal(extend.isError, true);
-    const extendError = JSON.parse((extend.content as Array<{ text?: string }>).find((item) => item.text)?.text ?? "{}") as {
+    assert.equal(blocked.isError, true);
+    const blockedText = (blocked.content as Array<{ text?: string }>).find((item) => item.text)?.text ?? "{}";
+    const blockedError = JSON.parse(blockedText) as { error?: { code?: string; message?: string; recovery_id?: string } };
+    assert.equal(blockedError.error?.code, "AUDIO_REFERENCE_REQUIRED");
+    assert.match(blockedError.error?.message ?? "", /syntx_owner_upload_suno_audio_reference/u);
+    assert.equal(blockedError.error?.recovery_id, undefined);
+    assert.deepEqual(counts, beforeBlockedExtend, "generated-track Extend must make no quote, chat or generation request");
+
+    loseOperationAck = true;
+    const followUp = await client.callTool({ name: SYNTX_OWNER_COVER_SUNO_AUDIO_TOOL_NAME, arguments: { ...coverInput,
+      prompt: "Продолжение 🎵", title: "Продление"
+    } });
+    assert.equal(followUp.isError, true);
+    const followUpError = JSON.parse((followUp.content as Array<{ text?: string }>).find((item) => item.text)?.text ?? "{}") as {
       error?: { code?: string; recovery_id?: string }
     };
-    assert.equal(extendError.error?.code, "OUTCOME_UNKNOWN");
-    assert.match(extendError.error?.recovery_id ?? "", /^suno_track_operation_recovery_[0-9a-f-]{36}$/u);
-    assert.equal(counts.posts, 3, "only base, cover and one extend POST were issued");
+    assert.equal(followUpError.error?.code, "OUTCOME_UNKNOWN");
+    assert.match(followUpError.error?.recovery_id ?? "", /^suno_track_operation_recovery_[0-9a-f-]{36}$/u);
+    assert.equal(counts.posts, 3, "only base and two distinct Cover intents were issued");
     const settings = requests.filter((request) => request.method === "POST" && request.path === "/api/v1/audio/generate")
       .map((request) => request.body?.settings as Record<string, unknown>);
     assert.deepEqual(settings[1], { model_type: "V6", mode: "cover", is_custom_mode: true, is_instrumental: false,
       negative_tags: "noise", styles: "ambient", title: "Кавер", source_clip_id: "base-clip-1", source_task_id: "base-task-1", file_urls: [] });
-    assert.deepEqual(settings[2], { model_type: "V6", mode: "extend", is_custom_mode: true, is_instrumental: false,
+    assert.deepEqual(settings[2], { model_type: "V6", mode: "cover", is_custom_mode: true, is_instrumental: false,
       negative_tags: "noise", styles: "ambient", title: "Продление", source_clip_id: "base-clip-1", source_task_id: "base-task-1",
-      continue_at: 12.3, file_urls: [] });
+      file_urls: [] });
     const listedBeforeReconcile = await client.callTool({ name: SYNTX_OWNER_LIST_SUNO_TRACK_OPERATION_RECOVERIES_TOOL_NAME,
       arguments: { link_attempt_id: ATTEMPT } });
     assert.equal(listedBeforeReconcile.isError, undefined, JSON.stringify(listedBeforeReconcile));
     assert.equal((structured(listedBeforeReconcile).recoveries as unknown[]).length, 1);
     const beforeReconcile = { ...counts };
     const reconciled = await client.callTool({ name: SYNTX_OWNER_RECONCILE_SUNO_TRACK_OPERATION_TOOL_NAME, arguments: {
-      link_attempt_id: ATTEMPT, recovery_id: extendError.error!.recovery_id!
+      link_attempt_id: ATTEMPT, recovery_id: followUpError.error!.recovery_id!
     } });
     assert.equal(reconciled.isError, undefined, JSON.stringify(reconciled));
     assert.equal((structured(reconciled).status_semantics), "LOCAL_OBSERVED_AVAILABILITY_ONLY");
@@ -229,11 +254,11 @@ test("genuine SDK runs base Suno, lists an opaque track, dispatches cover and ex
     const recoveries = await client.callTool({ name: SYNTX_OWNER_LIST_SUNO_TRACK_OPERATION_RECOVERIES_TOOL_NAME, arguments: { link_attempt_id: ATTEMPT } });
     assert.equal(recoveries.isError, undefined, JSON.stringify(recoveries));
     assert.equal((structured(recoveries).recoveries as unknown[]).length, 0, "completed reconciliation leaves no unresolved recovery");
-    const noReplay = await client.callTool({ name: SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME, arguments: { ...coverInput,
-      prompt: "Продолжение 🎵", title: "Продление", continue_at: 12.3
+    const noReplay = await client.callTool({ name: SYNTX_OWNER_COVER_SUNO_AUDIO_TOOL_NAME, arguments: { ...coverInput,
+      prompt: "Продолжение 🎵", title: "Продление"
     } });
     assert.equal(noReplay.isError, undefined, JSON.stringify(noReplay));
-    assert.equal(structured(noReplay).recovery_id, extendError.error?.recovery_id, "same intent returns its existing cached result");
+    assert.equal(structured(noReplay).recovery_id, followUpError.error?.recovery_id, "same intent returns its existing cached result");
     assert.equal(counts.posts, 3, "same semantic intent does not dispatch a second POST");
 
     await runtime.linkService.revoke(runtime.authBinding, ATTEMPT);
@@ -324,15 +349,15 @@ test("genuine SDK exposes only a typed observed bot error and keeps its recovery
     const track = (structured(inputs).tracks as Array<{ track_handle: string; model_id: string }>)[0];
     assert.ok(track); assert.equal(track.model_id, "V6");
     const request = { link_attempt_id: ATTEMPT, model_id: "V6", track_handle: track.track_handle,
-      prompt: "Extend с наблюдаемой ошибкой", is_custom_mode: true, is_instrumental: false,
-      negative_tags: "", styles: "ambient", title: "Не повторять", continue_at: 8.4 };
-    const foreignModel = await client.callTool({ name: SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME,
+      prompt: "Cover с наблюдаемой ошибкой", is_custom_mode: true, is_instrumental: false,
+      negative_tags: "", styles: "ambient", title: "Не повторять" };
+    const foreignModel = await client.callTool({ name: SYNTX_OWNER_COVER_SUNO_AUDIO_TOOL_NAME,
       arguments: { ...request, model_id: "V6_wild" } });
     assert.equal(foreignModel.isError, true);
     assert.equal(counts.posts, 1, "foreign-model row is rejected before paid dispatch");
 
     nextOperationError = true;
-    const observed = await client.callTool({ name: SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME, arguments: request });
+    const observed = await client.callTool({ name: SYNTX_OWNER_COVER_SUNO_AUDIO_TOOL_NAME, arguments: request });
     assert.equal(observed.isError, true);
     const observedText = (observed.content as Array<{ text?: string }>).find((item) => item.text)?.text ?? "{}";
     const errorPayload = JSON.parse(observedText) as { error?: { code?: string; message?: string; recovery_id?: string; diagnostic?: { gaps?: string[]; owner_ack_status?: string } } };
@@ -374,7 +399,7 @@ test("genuine SDK exposes only a typed observed bot error and keeps its recovery
     assert.ok(counts.history > historyBeforePage, "reconcile may refresh same-chat history by GET");
     assert.equal(counts.results, resultsBeforePage);
 
-    const replay = await client.callTool({ name: SYNTX_OWNER_EXTEND_SUNO_AUDIO_TOOL_NAME, arguments: request });
+    const replay = await client.callTool({ name: SYNTX_OWNER_COVER_SUNO_AUDIO_TOOL_NAME, arguments: request });
     assert.equal(replay.isError, true);
     assert.match((replay.content as Array<{ text?: string }>).find((item) => item.text)?.text ?? "", /UPSTREAM_OPERATION_ERROR/u);
     assert.equal(counts.posts, 2, "same intent keeps the observed error non-retryable");

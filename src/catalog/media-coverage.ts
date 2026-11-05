@@ -4,7 +4,7 @@ import type { DiscoveryCatalogRepository, DiscoveryModelRecord } from "./discove
 import type { RuntimeCapabilityCatalog, RuntimeCapabilityRecord } from "./runtime-capability-catalog.js";
 import { z } from "zod/v4";
 
-export const MEDIA_COVERAGE_VERSION = "3.0.0" as const;
+export const MEDIA_COVERAGE_VERSION = "5.0.0" as const;
 
 export interface MediaCoverageRecord {
   readonly model_id: string;
@@ -51,14 +51,18 @@ const nativeAliasBindingSchema = z.object({
 }).strict();
 
 const routeSnapshotSchema = z.object({
-  schema_version: z.literal("3.0.0"),
+  schema_version: z.literal("5.0.0"),
   captured_date: z.iso.date(),
   public_catalog_version: z.string().min(1),
   public_source_hashes: z.object({ ai: z.string().min(1), llm_models: z.string().min(1), models: z.string().min(1) }).strict(),
   owner_tool_schema_profile_catalog_version: z.string().min(1),
   owner_tool_count: z.null(),
   owner_tool_count_status: z.literal("UNVERIFIED_FOR_ROUTE_EXTENSION"),
-  route_method: z.literal("OWNER_STDIO_TOOLS_LIST_MODEL_ID_ENUMS_AND_CONSTS_PLUS_EXACT_NATIVE_ALIAS_BINDINGS"),
+  route_method: z.literal("REUSED_V4_CODE_BINDINGS_PLUS_SUNO_UPLOAD_NO_PROVIDER_PROOF"),
+  route_provenance: z.object({ source_v4: z.literal("catalog/media-coverage/owner-tool-routes-v4.json"),
+    source_v4_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+    suno_upload: z.literal("SOURCE_CODE_INSPECTION_REQUIRES_SUNO_FFPROBE_AND_OWNER_GENERATION_OPT_IN"),
+    limitations: z.literal("NO_NEW_TOOLS_LIST_CAPTURE_OR_PROVIDER_ACCEPTANCE_OR_FULL_SETTINGS_PROOF") }).strict(),
   routes: z.record(z.string().min(1), z.array(z.string().min(1)).min(1)),
   native_alias_bindings: z.array(nativeAliasBindingSchema).min(1)
 }).strict();
@@ -133,7 +137,7 @@ const GENERATOR_FLAGS: Readonly<Record<string, string>> = Object.freeze({
 });
 
 function loadReviewedOwnerRoutes(discovery: DiscoveryCatalogRepository) {
-  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v3.json", import.meta.url));
+  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v5.json", import.meta.url));
   const raw: unknown = JSON.parse(readFileSync(routePath, "utf8"));
   const snapshot = routeSnapshotSchema.parse(raw);
   if (JSON.stringify(snapshot.public_source_hashes) !== JSON.stringify(discovery.source_hashes)) {
@@ -202,7 +206,7 @@ export class MediaCoverageCatalog {
       source_hashes: this.#sourceHashes, total: records.length, offset, limit,
       next_offset: offset + items.length < records.length ? offset + items.length : null,
       census: census(records),
-      interpretation_notes: ["Hailuo Minimax is a selector root, not a generator profile.", "Seedance Editor is an operation attached to seedance-2.5; it is not a separate public model ID."],
+      interpretation_notes: ["Route bindings are reused from v4 with a Suno upload code mapping; no new tools/list or provider result is asserted.", "Suno audio upload registration requires the Suno owner opt-in and a configured ffprobe path.", "Hailuo Minimax is a selector root, not a generator profile.", "Seedance Editor is an operation attached to seedance-2.5; it is not a separate public model ID."],
       items
     };
   }

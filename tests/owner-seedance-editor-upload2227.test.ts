@@ -18,7 +18,7 @@ const SAFE_URL = "https://r2.syntx.ai/seedance-editor/source.mp4";
 const MP4 = Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0,
   0x69, 0x73, 0x6f, 0x6d, 0x6d, 0x70, 0x34, 0x31]);
 const PROBE_JSON = JSON.stringify({ streams: [
-  { codec_type: "video", codec_name: "mpeg4", width: 320, height: 240, start_time: "0", duration: "4.25",
+  { codec_type: "video", codec_name: "mpeg4", width: 1280, height: 720, avg_frame_rate: "25/1", start_time: "0", duration: "4.25",
     duration_ts: 4250, time_base: "1/1000" }
 ], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "4.25" } });
 

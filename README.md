@@ -12,11 +12,16 @@ linking и некоторых явно описанных image, video и audio 
 моделей с доступными группами инструментов; сама запись каталога не разрешает
 вызов или не подтверждает приёмку провайдера. У каждой группы остаются свои
 ограничения и доказательства. Полный список незакрытых или неизвестных ветвей
-читайте через карту и специализированные документы ниже. Версионированная
-карта маршрутов v3 включает общий read-only reader существующих K4 Keyframes/Omni
-результатов только без reference handles; он не создаёт generation route. Реестр
-не хранит общее число stdio-инструментов (`owner_tool_count=null`). Для текущего
-состава инструментов запрашивайте `tools/list` у работающего сервера.
+читайте через карту и специализированные документы ниже. Текущая
+версионированная карта маршрутов — v4:
+`catalog/media-coverage/owner-tool-routes-v4.json`. Она связана с публичным
+снимком от 5 ноября 2026 года и переносит route code bindings из неизменённой
+v3 карты без новой runtime-attestation или provider-доказательств. Native
+профили, включая E551, не переключались. Как и v3, карта включает общий
+read-only reader существующих K4 Keyframes/Omni результатов только без reference
+handles; он не создаёт generation route. Реестр не хранит общее число
+stdio-инструментов (`owner_tool_count=null`). Для текущего состава запрашивайте
+`tools/list` у работающего сервера.
 
 Для source-установки нужны Git и Node.js 22.13 или новее; рекомендуем Node.js 24:
 
@@ -293,6 +298,18 @@ durable-generation режимом.
 Для новых операций в `gaps` сохраняются безопасные HTTP/transport-коды без тела
 ответа и секретов, в том числе при последующем GET-only восстановлении.
 
+#### Seedance Editor: проверенный случай — 2026-11-05
+
+В одном отдельном live-запуске через canonical MCP отправлен один запрос
+Seedance Editor для
+исходного видео 1280×720, 25 fps, 5 секунд, без frame references, с выбранным
+`720p` и `generate_audio=true`; поле `n` отсутствовало. Получен один MP4,
+`gaps=0`, размер 4 515 882 байта. Фактический файл содержал H.264 1280×720 при
+24 fps и AAC длительностью 4,736 секунды; строгая проверка ffmpeg завершилась
+успешно, визуальная проверка пройдена. Это один конкретный tuple и результат;
+он не подтверждает остальные разрешения, параметры, режимы или всю группу. Это
+Editor-кейс, не Seedance 2.5 T2V-профиль с другим входом и длительностью.
+
 
 ### Новый каталог и текущая ветка разработки
 
@@ -319,6 +336,19 @@ durable-generation режимом.
 Строгие схемы совместимо принимают необязательный LLM `default` и
 типизированную карту `max_total_file_size_by_type`; неизвестные поля отклоняются.
 Это изменение обработки metadata, а не подтверждение новых генераторов.
+
+### Актуализация media coverage — 2026-11-05
+
+Публичный снимок `sha256-bca24244ca2a2ffc79e6788621993335181f0a44958d3b0ff0fac724326fd41b.json`
+содержит 212 model rows (`runtime_usable=false`); media census включает 125
+non-text rows, из них 120 active и 119 `CODE_MAPPED`. Такая отметка означает
+связь записи с кодом, не provider acceptance или готовность каждого режима.
+
+Карта v4 переносит существующие bindings из неизменённой карты v3; `route_provenance`
+фиксирует повторное использование v3 (SHA-256
+`209e4c7a6a7d9dcd1639e29da83e542892afddfed2ef0cbd5d366e958a06297c`). В v4 нет
+нового tools/list подтверждения или свежих provider-доказательств. Native
+профили, включая E551, остаются прежними. Историческая карта v3 сохранена.
 
 ### WAN 2.7 Video Edit: отдельная owner-группа
 
@@ -2035,9 +2065,11 @@ Current UI admission for Track Operations permits only `is_instrumental=false`;
 an upstream final result for this flow remains unconfirmed. UI admission does
 not establish provider acceptance or explain upstream errors.
 
-При том же `SYNTX_OWNER_SUNO_GENERATION=1` доступны шесть новых команд:
+При том же `SYNTX_OWNER_SUNO_GENERATION=1` доступны owner-команды Track
+Operations и одна команда загрузки исходного аудио:
 
 - `syntx_get_suno_track_operation_parameters`;
+- `syntx_owner_upload_suno_audio_reference` — загрузить собственный исходный WAV/MP3;
 - `syntx_owner_cover_suno_audio`;
 - `syntx_owner_extend_suno_audio`;
 - `syntx_owner_reconcile_suno_track_operation`;
@@ -2046,18 +2078,38 @@ not establish provider acceptance or explain upstream errors.
 
 Получите `track_handle` из результата текущей генерации через
 `syntx_owner_list_suno_track_inputs` либо из проверенного готового трека через
-`syntx_owner_list_existing_suno_tracks`. Cover и Extend
-принимают `link_attempt_id`, `model_id` (`V6`/`V6_wild`),
+`syntx_owner_list_existing_suno_tracks` для Cover. Для Extend используйте
+uploaded-audio путь ниже. В обоих инструментах передаются `link_attempt_id`,
+`model_id` (`V6`/`V6_wild`),
 `track_handle`, `prompt`, `is_custom_mode`, `is_instrumental`,
 `negative_tags`, `styles` и `title`. Extend дополнительно требует
-`continue_at` в секундах с шагом 0.1; Cover это поле отклоняет.
+`continue_at` строго больше нуля в секундах с шагом 0,1; для uploaded audio
+верхняя граница — измеренная длительность плюс одна секунда. Cover это поле
+отклоняет.
 Операцию задаёт имя инструмента, поле `mode` передавать не нужно.
 Модель должна совпадать с моделью исходного трека. Provider clip/task IDs,
 URL, стоимость и source-пины во входе не принимаются.
 
+Для актуального Extend-вызова сначала загрузите собственное исходное аудио
+через `syntx_owner_upload_suno_audio_reference`, затем передайте возвращённый
+owner/model-bound `track_handle` в `syntx_owner_extend_suno_audio`. Extend
+принимает только handle с `source_kind=UPLOADED_AUDIO`; handle результата
+предыдущей Suno-генерации будет отклонён до quote/cost, создания чата и POST с
+`AUDIO_REFERENCE_REQUIRED`. Cover сохраняет прежний путь с owner-owned track.
+
+Upload-tool принимает только `link_attempt_id`, `model_id` (`V6`/`V6_wild`),
+`filename`, `mime_type` (`audio/wav`, `audio/mpeg` или `audio/mp3`) и
+`content_base64`; произвольный URL не принимается. Файл проверяется локальным
+`ffprobe`, сохраняется в виде opaque handle с измеренной длительностью и без
+URL в публичном receipt. Пределы — 25 MiB и 480 секунд. Для upload-tool нужен
+абсолютный `ffprobe` через `SYNTX_OWNER_SUNO_FFPROBE_PATH` или общий
+`SYNTX_MEDIA_FFPROBE_PATH`; отдельный новый Suno opt-in flag не нужен.
+Не повторяйте неопределённую загрузку.
+
 Сохраняются TTL исходной ссылки, свежая проверка собственного доступа/тарифа,
-одноразовый POST и GET-only recovery. Верхнюю границу `continue_at` по
-длительности исходного файла сервис пока самостоятельно не проверяет.
+одноразовый POST и GET-only recovery. Для uploaded audio `continue_at` проверяется
+по длительности, измеренной ffprobe; абсолютные верхние ограничения для других
+источников не заявляются, а generated-track source для Extend отклоняется.
 После UNKNOWN запрос не повторяйте. `UPSTREAM_OPERATION_ERROR` означает
 наблюдавшийся объект ошибки SYNTX, а не подтверждение статуса провайдера,
 списания или возврата. Смешанные ответы сохраняют доступное аудио как
@@ -2072,12 +2124,41 @@ URL, стоимость и source-пины во входе не принимаю
 два объекта ошибки SYNTX без аудио; причина не подтверждена, запрос не повторяли.
 Поэтому группа экспериментальная; полнота всех моделей и настроек не заявляется.
 
-17 октября новый отдельный MCP Extend на свежем собственном существующем V6
-треке (`continue_at=0`) прошёл account/access/affordability. Отправлены один чат
-и один POST, без upload или новой генерации основы. После `OUTCOME_UNKNOWN`
-один GET-only reconcile вернул `UPSTREAM_OPERATION_ERROR`, аудио не получено.
-Причина, provider terminal и списание/возврат неизвестны; запрос не повторялся.
-Этот случай не подтверждает готовность Extend и не отменяет Cover MP3-кейсы.
+17 октября был отдельный исторический MCP Extend на generated-track source с
+`continue_at=0`; после `OUTCOME_UNKNOWN` точный GET-only reconcile не вернул
+аудио. Этот источник больше не допускается текущей Extend-схемой; повторять
+старый intent нельзя.
+
+#### Suno input/current evidence update — 2026-11-05
+
+В текущей owner-схеме `prompt` необязателен; если его не передать, отправляется
+пустая строка. `title` и `styles` требуют хотя бы один символ и не обрезаются.
+Для Extend `continue_at` должен быть больше нуля с шагом 0,1; проверка верхнего
+предела по длительности исходного трека отсутствует.
+
+Архивный Extend-запрос на V6_wild завершился `BOT_ERROR`. Последующий GET
+подтвердил только общий код `API_ERRORS.AI.FALLBACK`; подробная причина не
+установлена. Код не является диагнозом причины или provider availability;
+старый intent не повторялся.
+
+#### Реальный Extend с uploaded audio — 2026-11-05
+
+В отдельном canonical MCP stdio-процессе собственный WAV длительностью 24 секунды
+и размером 2 116 844 байта был загружен и привязан к текущей модели. Для
+`V6_wild` передан его opaque `track_handle`, `continue_at=12`,
+`is_custom_mode=true`, `is_instrumental=false`. Один upload POST и один Extend
+generation POST дали два аудиофайла; gaps — 0. Получены MP3 длительностью
+30,024 секунды (531 078 байт) и 76,944 секунды (1 729 782 байта); оба прошли
+полное локальное декодирование.
+
+В отдельной canonical SDK stdio-проверке стандартной модели `V6` с теми же
+настройками (`continue_at=12`, custom mode, instrumental=false) выполнены один
+upload POST и один Extend POST с одним owned audio reference и пустыми source IDs.
+GET-only чтение завершилось с `gaps=0`; получены два MP3 длительностью 61,992 и
+49,2 секунды, оба полностью декодированы. Это два конкретных uploaded-source
+tuple для `V6` и `V6_wild`, не подтверждение всех моделей и настроек. Старые
+ошибки на generated-track inputs не доказывают недоступность provider Extend и
+не устанавливают их причину.
 
 В текущем наборе есть отдельные opt-in группы для выбранных image workflows
 (references, edit/inpaint и upscale), а также отдельных WAN/Luma/Hailuo video и

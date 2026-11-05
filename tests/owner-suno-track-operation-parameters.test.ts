@@ -20,8 +20,8 @@ function explicitInput(mode: "cover" | "extend" = "cover", overrides: Record<str
     is_custom_mode: false,
     is_instrumental: false,
     negative_tags: "",
-    styles: "",
-    title: "",
+    styles: "ambient",
+    title: "Track fixture",
     ...(mode === "extend" ? { continue_at: 12.3 } : {})
   };
   return { ...base, ...overrides };
@@ -47,15 +47,32 @@ test("reports exact current cover/extend pins and source limits without enabling
     modes: ["cover", "extend"],
     is_instrumental: { allowed_values: [false], policy_reason: "TRACK_MODES_RESET_FALSE_AND_CONTROL_HAS_NO_TRUE_BINDING" }
   });
+  assert.equal(source.current_source_policy.source_build_id, "1793711938");
+  assert.equal(source.current_source_policy.form_sha256,
+    "sha256:ca2c8ab95884e991fe5f2569e49ff996713f4d2c642415852e32ddf5da25e7ec");
+  assert.equal(source.current_source_policy.prompt_required, false);
+  assert.equal(source.current_source_policy.title_required, true);
+  assert.equal(source.current_source_policy.styles_required, true);
+  assert.equal(source.current_source_policy.required_when, "COVER_OR_EXTEND_REGARDLESS_OF_CUSTOM_MODE");
+  assert.equal(source.current_source_policy.model_selector, "settings.model_type");
+  assert.equal(source.current_source_policy.source_duration_available, false);
+  assert.equal(source.current_source_policy.extend_action_producer, "UNPROVEN");
+  assert.equal(source.controls.prompt.nonblank, false);
   assert.deepEqual(source.cost_projection.query_keys, ["ai_name", "model_type"]);
   assert.equal(source.cost_projection.model_type_source, "settings_candidate.model_type");
   assert.deepEqual(source.controls.continue_at, {
     measure: "SECONDS",
     minimum: 0,
+    exclusive_minimum: true,
     step: 0.1,
-    maximum: "SOURCE_DURATION_NOT_AVAILABLE_TO_SERVICE",
+    maximum: "SOURCE_KIND_DEPENDENT",
+    uploaded_audio_maximum: "MEASURED_DURATION_SECONDS_PLUS_ONE",
+    generated_track_maximum: "UNKNOWN_NOT_ADMITTED_FOR_EXTEND",
     ui_default: 0
   });
+  assert.deepEqual(source.source_kind_admission.extend_source_kinds, ["UPLOADED_AUDIO"]);
+  assert.equal(source.source_kind_admission.recommended_upload_tool, "syntx_owner_upload_suno_audio_reference");
+  assert.equal(source.source_kind_admission.generated_track_extend_error, "AUDIO_REFERENCE_REQUIRED");
   assert.equal(source.runtime_usable, false);
   assert.equal(source.dispatch_allowed, false);
   assert.equal(source.backend_acceptance, "UNPROVEN");
@@ -110,13 +127,43 @@ test("rejects invalid mode-specific fields, raw IDs, unknown keys, and unsafe co
 });
 
 test("preserves caller input and deep-freezes the normalized projection", () => {
-  const input = explicitInput("extend", { prompt: " preserve spaces ", continue_at: 0 });
+  const input = explicitInput("extend", { prompt: " preserve spaces ", continue_at: 0.1 });
   const before = structuredClone(input);
   const result = normalize(input);
   assert.deepEqual(input, before);
   assert.equal(result.prompt, " preserve spaces ");
   assert.throws(() => { result.settings_candidate.title = "mutated"; }, TypeError);
-  assert.equal(result.settings_candidate.title, "");
+  assert.equal(result.settings_candidate.title, "Track fixture");
+});
+
+test("current track modes accept empty or omitted prompt and retain the explicit custom-mode state", () => {
+  for (const mode of ["cover", "extend"] as const) {
+    for (const is_custom_mode of [false, true]) {
+      const empty = normalize(explicitInput(mode, { prompt: "", is_custom_mode }));
+      assert.equal(empty.prompt, "");
+      assert.equal(empty.settings_candidate.is_custom_mode, is_custom_mode);
+      const { prompt: _prompt, ...omitted } = explicitInput(mode, { is_custom_mode });
+      assert.equal(normalize(omitted).prompt, "");
+    }
+  }
+});
+
+test("current track modes require title and styles for both retained custom-mode states", () => {
+  for (const mode of ["cover", "extend"] as const) {
+    for (const is_custom_mode of [false, true]) {
+      for (const field of ["title", "styles"]) {
+        assert.throws(() => normalize(explicitInput(mode, { [field]: "", is_custom_mode })), isInvalidParameters);
+        // Source uses required:true, with no trim/whitespace validator.
+        assert.equal(normalize(explicitInput(mode, { [field]: " ", is_custom_mode })).settings_candidate[field], " ");
+      }
+    }
+  }
+});
+
+test("extend rejects zero continuation without guessing a source-duration bound", () => {
+  assert.throws(() => normalize(explicitInput("extend", { continue_at: 0 })), isInvalidParameters);
+  assert.throws(() => normalize(explicitInput("extend", { continue_at: -0 })), isInvalidParameters);
+  assert.equal(normalize(explicitInput("extend", { continue_at: 0.1 })).settings_candidate.continue_at, 0.1);
 });
 
 function isInvalidParameters(error: unknown): boolean {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -21,20 +22,20 @@ test("current media coverage pages the complete non-text census including inacti
     if (page.next_offset === null) break;
     offset = page.next_offset;
   }
-  assert.equal(pages.length, 124);
-  assert.equal(new Set(pages.map((row) => row.model_id)).size, 124);
-  assert.equal(pages.filter((row) => row.active).length, 121);
-  assert.equal(pages.filter((row) => row.active && row.runtime_status === "CODE_MAPPED").length, 120);
+  assert.equal(pages.length, 125);
+  assert.equal(new Set(pages.map((row) => row.model_id)).size, 125);
+  assert.equal(pages.filter((row) => row.active).length, 120);
+  assert.equal(pages.filter((row) => row.active && row.runtime_status === "CODE_MAPPED").length, 119);
   assert.equal(pages.filter((row) => row.runtime_status === "CODE_MAPPED").every((row) => row.mcp_tool_names.some((name) => /^syntx_owner_(?:generate|cover|extend)_/u.test(name))), true);
   const tupleOnlyIds = pages.filter((row) => row.settings_status === "LIMITED_RUNTIME_TUPLE_ONLY").map((row) => row.model_id).sort();
   assert.deepEqual(tupleOnlyIds, []);
   const mixedIds = pages.filter((row) => row.settings_status === "MIXED_LIMITED_AND_NATIVE").map((row) => row.model_id).sort();
   assert.deepEqual(mixedIds, ["banana", "banana-2.1", "flux-1", "flux3_t2v", "gpt-image-1", "gpt-image-1.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "grok_imagine_2", "grok_imagine_quality", "grok_t2i", "grok_t2i_pro", "happy_horse_t2v", "ideogram", "kling_text2video", "ray-3.14", "runway_frames", "seedance-1.5-pro", "seedance-2.0", "seedance_pro", "seedance_pro-fast", "seedream-4", "seedream-4.5", "seedream-5", "seedream-5.0-pro", "text2video-4.5", "uni-1", "wan_26_t2i", "wan_26_t2v", "wan_27_t2v"]);
-  assert.deepEqual(pages.filter((row) => row.runtime_status !== "CODE_MAPPED").map((row) => row.model_id).sort(), ["hailuo-minimax", "wan_30", "wan_30_prime"]);
+  assert.deepEqual(pages.filter((row) => row.runtime_status !== "CODE_MAPPED").map((row) => row.model_id).sort(), ["hailuo-minimax", "higgsfield-soul-train", "wan_30", "wan_30_prime"]);
   assert.deepEqual(pages.reduce((counts, row) => {
     for (const modality of row.modalities) counts[modality] = (counts[modality] ?? 0) + 1;
     return counts;
-  }, {} as Record<string, number>), { image: 45, video: 71, audio: 8 });
+  }, {} as Record<string, number>), { image: 46, video: 71, audio: 8 });
   assert.equal(pages.some((row) => row.model_id === "wan_30" && !row.active), true);
   assert.equal(pages.some((row) => row.model_id === "wan_30_prime" && !row.active), true);
   assert.equal(pages.find((row) => row.model_id === "hailuo-minimax")?.operation_role, "SELECTOR");
@@ -64,6 +65,15 @@ test("current media coverage pages the complete non-text census including inacti
     assert.ok(row?.mcp_tool_names.includes("syntx_owner_generate_seedream_editor_image"), modelId);
     assert.ok(row?.operator_flags?.includes("SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES"), modelId);
   }
+  const soulTrain = pages.find((row) => row.model_id === "higgsfield-soul-train");
+  assert.equal(soulTrain?.active, false);
+  assert.deepEqual(soulTrain?.mcp_tool_names, []);
+  assert.notEqual(soulTrain?.runtime_status, "CODE_MAPPED");
+  assert.equal(pages.find((row) => row.model_id === "grok_imagine_quality")?.active, false);
+  assert.equal(pages.filter((row) => row.active && row.operation_role === "MODEL_OPERATION").length, 119);
+  assert.deepEqual(pages.find((row) => row.model_id === "happy_horse_edit")?.settings?.max_file_size,
+    { images: 10485760, videos: 104857600 });
+  assert.ok(pages.find((row) => row.model_id === "seedance-2.5")?.settings?.accepted_file_types?.includes("audio/mpeg"));
   const seedanceEditor = pages.find((item) => item.model_id === "seedance-2.5");
   assert.ok(seedanceEditor?.mcp_tool_names.includes("syntx_owner_generate_seedance_editor_video"));
   assert.equal(seedanceEditor?.mcp_tool_names.includes("seedance-2.5-editor"), false);
@@ -124,8 +134,8 @@ test("MCP media coverage tool exposes a read-only page with source version and n
     const result = await client.callTool({ name: SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME, arguments: { limit: 2 } });
     assert.equal(result.isError, undefined);
     const value = result.structuredContent as Record<string, unknown>;
-    assert.equal(value.coverage_version, "3.0.0");
-    assert.equal(value.total, 121);
+    assert.equal(value.coverage_version, "5.0.0");
+    assert.equal(value.total, 120);
     assert.equal(value.next_offset, 2);
     assert.equal(value.runtime_usable, false);
   } finally {
@@ -138,8 +148,40 @@ test("media coverage preserves unknowns and rejects invalid paging bounds", () =
   const selected = loadCurrentDiscoveryReadCatalog();
   const catalog = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
   const first = catalog.page({ limit: 3, include_inactive: true });
-  assert.equal(first.total, 124);
+  assert.equal(first.total, 125);
   assert.equal(first.next_offset, 3);
   assert.throws(() => catalog.page({ offset: -1 }), /MEDIA_COVERAGE_PAGE_INVALID/);
   assert.throws(() => catalog.page({ limit: 101 }), /MEDIA_COVERAGE_PAGE_INVALID/);
+});
+
+
+test("v4 binds current public source and carries forward v3 route bytes without new evidence", () => {
+  const v3Bytes = readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v3.json"));
+  const v3 = JSON.parse(v3Bytes.toString());
+  const v4 = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v4.json"), "utf8"));
+  assert.equal(v4.public_catalog_version, "sha256-bca24244ca2a2ffc79e6788621993335181f0a44958d3b0ff0fac724326fd41b.json");
+  assert.equal(v4.route_provenance.sha256, "sha256:" + createHash("sha256").update(v3Bytes).digest("hex"));
+  assert.equal(v4.route_provenance.status, "REUSED_CODE_BINDINGS_NOT_NEW_RUNTIME_OR_PROVIDER_EVIDENCE");
+  assert.deepEqual(v4.routes, v3.routes);
+  assert.deepEqual(v4.native_alias_bindings, v3.native_alias_bindings);
+});
+
+test("v5 extends only the two Suno routes and pins immutable v4 bytes", () => {
+  const v4Bytes = readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v4.json"));
+  const v4 = JSON.parse(v4Bytes.toString());
+  const v5 = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v5.json"), "utf8"));
+  assert.equal("sha256:" + createHash("sha256").update(v4Bytes).digest("hex"), "sha256:2847eb6ca45ac5c820a8b51dfa6d622b382097e25310346588979c4fe94897e7");
+  assert.equal(v5.route_provenance.source_v4_sha256, "sha256:" + createHash("sha256").update(v4Bytes).digest("hex"));
+  assert.equal(v5.public_catalog_version, v4.public_catalog_version);
+  assert.deepEqual(v5.public_source_hashes, v4.public_source_hashes);
+  assert.deepEqual(v5.native_alias_bindings, v4.native_alias_bindings);
+  const expected = structuredClone(v4.routes);
+  for (const id of ["V6", "V6_wild"]) expected[id] = [...expected[id], "syntx_owner_upload_suno_audio_reference"].sort();
+  assert.deepEqual(v5.routes, expected);
+  const selected = loadCurrentDiscoveryReadCatalog();
+  const catalog = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
+  const page = catalog.page({ limit: 100, include_inactive: true });
+  const rows = [...page.items, ...catalog.page({ offset: 100, limit: 100, include_inactive: true }).items];
+  for (const id of ["V6", "V6_wild"]) assert.ok(rows.find(row => row.model_id === id)?.mcp_tool_names.includes("syntx_owner_upload_suno_audio_reference"));
+  assert.ok(page.interpretation_notes.some(note => note.includes("configured ffprobe")));
 });

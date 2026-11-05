@@ -472,6 +472,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
     process.env.SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION
   );
   const ownerSunoGenerationEnabled = readOwnerSunoGenerationFlag(reviewedMediaFlagValue("SYNTX_OWNER_SUNO_GENERATION"));
+  const ownerSunoFfprobePath = ownerSunoGenerationEnabled
+    ? resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_SUNO_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH) : undefined;
   const ownerTopazAstraEnabled = readOwnerTopazAstraFlag(reviewedMediaFlagValue("SYNTX_OWNER_TOPAZ_ASTRA"));
   const ownerTopazAstraOperatorConfiguration = readOwnerTopazAstraOperatorConfiguration(
     ownerTopazAstraEnabled,
@@ -678,6 +680,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         ownerElevenLabsStsUploadDestination: ownerElevenLabsStsOperatorConfiguration.destination
       }),
       ownerSunoGenerationEnabled,
+      ...(ownerSunoFfprobePath === undefined ? {} : { ownerSunoFfprobePath }),
       ownerTopazAstraEnabled,
       ...(ownerTopazAstraOperatorConfiguration === undefined ? {} : {
         ownerTopazAstraFfprobePath: ownerTopazAstraOperatorConfiguration.ffprobePath,

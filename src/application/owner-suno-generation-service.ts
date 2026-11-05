@@ -1,3 +1,5 @@
+import { isSunoAudioProbeRunner, releaseSunoAudioProbe, OwnerSunoAudioUploadError,
+  type SunoAudioProbeRunner, type SunoAudioProbeResult } from "./owner-suno-audio-reference-probe.js";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { isDeepStrictEqual } from "node:util";
@@ -96,6 +98,7 @@ const CHAT_CREATE = NATIVE_SUNO_CLIENT[CHAT_CREATE_METHOD_NAME] as NativeClient[
 const GENERATION_START = NATIVE_SUNO_CLIENT[GENERATION_METHOD_NAME] as NativeClient["startSunoWithOwnedCandidate"] | undefined;
 const HISTORY_LIST = NATIVE_SUNO_CLIENT[HISTORY_METHOD_NAME] as NativeClient["listOwnedSunoGenerationCandidates"] | undefined;
 const AUDIO_RESULT = NATIVE_SUNO_CLIENT[RESULT_METHOD_NAME] as NativeClient["getOwnedSunoGenerationResult"] | undefined;
+const SUNO_AUDIO_UPLOAD = SyntxChatHttpClient.prototype.uploadOwnedSunoAudio;
 const TRACK_METADATA = NATIVE_SUNO_CLIENT[TRACK_METADATA_METHOD_NAME] as NativeClient["getOwnedSunoGenerationTrackMetadata"] | undefined;
 const SERVICE_INSTANCES = new WeakSet<object>();
 
@@ -187,6 +190,18 @@ export class OwnerSunoGenerationServiceError extends Error {
   }
 }
 
+export interface OwnerSunoAudioUploadReceipt {
+  readonly status: "uploaded";
+  readonly source_kind: "UPLOADED_AUDIO";
+  readonly track_handle: string;
+  readonly model_id: "V6" | "V6_wild";
+  readonly mime_type: "audio/mpeg" | "audio/wav";
+  readonly size: number;
+  readonly sha256: string;
+  readonly duration_seconds: number;
+  readonly expires_in_seconds: number;
+  readonly provider_acceptance: "UNPROVEN";
+}
 export interface OwnerSunoGenerationServiceOptions {
   readonly binding: AuthBinding;
   readonly linkService: Pick<PerUserLinkService, "getStatus">;
@@ -199,6 +214,7 @@ export interface OwnerSunoGenerationServiceOptions {
   readonly timeoutMs?: number;
   readonly pollDelayMs?: number;
   readonly maxPollAttempts?: number;
+  readonly audioProbe?: SunoAudioProbeRunner;
 }
 export interface OwnerSunoGenerateInput { readonly attemptId: string; readonly request: OwnerSunoGenerationRequest; }
 export interface OwnerSunoReconcileInput { readonly attemptId: string; readonly recovery_id: string; }
@@ -268,6 +284,8 @@ export class OwnerSunoGenerationService {
   readonly #preparer: OwnerSunoGenerationRequestPreparer;
   readonly #oneShotPolicy: OwnerSunoGenerationOneShotPolicy;
   readonly #trackContextStore: OwnerSunoTrackContextStore;
+  readonly #audioProbe: SunoAudioProbeRunner | undefined;
+  readonly #audioUploadClaims = new Map<string, Readonly<{ receipt: OwnerSunoAudioUploadReceipt; expiresAt: number }> | null>();
   readonly #trackOperationService: OwnerSunoTrackOperationGenerationService;
   readonly #existingTrackService: OwnerSunoExistingTrackService;
   readonly #recoveries = new Map<string, Recovery>();
@@ -285,12 +303,14 @@ export class OwnerSunoGenerationService {
 
   constructor(optionsInput: OwnerSunoGenerationServiceOptions | unknown) {
     const options = exactRecord(optionsInput, ["binding", "linkService", "catalog", "catalog_version", "resolveChatClient",
-      "createAccountStatusService", "createModelAccessService"], ["now", "timeoutMs", "pollDelayMs", "maxPollAttempts"]);
+      "createAccountStatusService", "createModelAccessService"], ["now", "timeoutMs", "pollDelayMs", "maxPollAttempts", "audioProbe"]);
     if (new.target !== OwnerSunoGenerationService || !isExactInstance(options.catalog, DiscoveryCatalogRepository) ||
         !isExactPerUserLinkService(options.linkService) ||
         typeof options.resolveChatClient !== "function" || types.isProxy(options.resolveChatClient) ||
         typeof options.createAccountStatusService !== "function" || types.isProxy(options.createAccountStatusService) ||
         typeof options.createModelAccessService !== "function" || types.isProxy(options.createModelAccessService)) invalid();
+    if (options.audioProbe !== undefined && !isSunoAudioProbeRunner(options.audioProbe)) invalid();
+    this.#audioProbe = options.audioProbe as SunoAudioProbeRunner | undefined;
     this.#binding = snapshotBinding(options.binding);
     this.#linkService = options.linkService as Pick<PerUserLinkService, "getStatus">;
     this.#catalog = options.catalog;
@@ -382,6 +402,52 @@ export class OwnerSunoGenerationService {
     signal?: AbortSignal): Promise<OwnerSunoExistingTrackInputList> {
     this.#assertOpen();
     return await this.#existingTrackService.listExistingTracks(input, signal);
+  }
+
+  /** One current as-is upload; the only public reference is an owner/model-bound opaque track handle. */
+  async uploadAudioReference(input: unknown, signal?: AbortSignal): Promise<OwnerSunoAudioUploadReceipt> {
+    const fields = exactRecord(input, ["attemptId", "request"]), attemptId = readAttemptForAudioUpload(fields.attemptId);
+    if (!this.#audioProbe) throw new OwnerSunoAudioUploadError("UPLOAD_DISABLED");
+    return this.#run(attemptId, signal, async (runSignal) => {
+      const principal = await this.#resolvePrincipal(attemptId);
+      let probe: Readonly<SunoAudioProbeResult> | undefined;
+      let invoked = false;
+      try {
+        probe = await this.#audioProbe!.probe(fields.request, runSignal);
+        this.#validateModelBinding(probe.model_id, this.#assertSourceBinding());
+        const key = JSON.stringify([principal.tenant_id, principal.subject_id, principal.connection_id, probe.model_id, probe.sha256]);
+        if (this.#audioUploadClaims.has(key)) {
+          const previous = this.#audioUploadClaims.get(key);
+          if (!previous) throw new OwnerSunoAudioUploadError("UPLOAD_INTENT_ALREADY_CLAIMED");
+          const remaining = Math.floor((previous.expiresAt - this.#readNow()) / 1_000);
+          if (remaining < 1) throw new OwnerSunoAudioUploadError("REFERENCE_UNAVAILABLE");
+          return Object.freeze({ ...previous.receipt, expires_in_seconds: remaining });
+        }
+        if (this.#audioUploadClaims.size >= 128) fail("SERVICE_BUSY");
+        if (runSignal.aborted || this.#invalidatingAttempts.has(attemptId)) fail("PRINCIPAL_NOT_LINKED");
+        const client = this.#resolveNativeClient(attemptId);
+        const issuedAt = this.#readNow();
+        this.#audioUploadClaims.set(key, null); invoked = true;
+        const context = await Reflect.apply(SUNO_AUDIO_UPLOAD, client, [{ attemptId, principal, probe }, runSignal]);
+        const currentPrincipal = await this.#resolvePrincipal(attemptId);
+        if (runSignal.aborted || this.#invalidatingAttempts.has(attemptId) || !sameGenerationPrincipal(principal, currentPrincipal)) {
+          throw new OwnerSunoAudioUploadError("UPLOAD_OUTCOME_UNKNOWN");
+        }
+        const trackHandle = this.#trackContextStore.issueUploadedAudio({ binding: this.#binding, attemptId, principal, client, uploadContext: context });
+        const expiresAt = Math.min(issuedAt + 900_000, this.#trackContextStore.resolve({
+          binding: this.#binding, attemptId, principal, trackHandle }).expires_at);
+        const remaining = Math.floor((expiresAt - this.#readNow()) / 1_000);
+        if (remaining < 1) throw new OwnerSunoAudioUploadError("UPLOAD_OUTCOME_UNKNOWN");
+        const receipt: OwnerSunoAudioUploadReceipt = Object.freeze({ status: "uploaded", source_kind: "UPLOADED_AUDIO",
+          track_handle: trackHandle, model_id: context.model_id, mime_type: context.mime_type, size: context.size,
+          sha256: context.sha256, duration_seconds: context.duration_seconds, expires_in_seconds: remaining, provider_acceptance: "UNPROVEN" });
+        this.#audioUploadClaims.set(key, Object.freeze({ receipt, expiresAt }));
+        return receipt;
+      } catch (error) {
+        if (invoked) throw new OwnerSunoAudioUploadError("UPLOAD_OUTCOME_UNKNOWN");
+        throw error;
+      } finally { releaseSunoAudioProbe(probe); }
+    });
   }
 
   getTrackOperationParametersSource(): OwnerSunoTrackOperationParameterSource {
@@ -1128,4 +1194,9 @@ function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) abort();
   });
+}
+
+function readAttemptForAudioUpload(value: unknown): string {
+  if (typeof value !== "string" || !ATTEMPT.test(value)) throw new OwnerSunoAudioUploadError("INVALID_REQUEST");
+  return value;
 }

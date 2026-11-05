@@ -205,6 +205,38 @@ async function seededTrack(f: Awaited<ReturnType<typeof fixture>>) {
   return { source, track: first };
 }
 
+test("empty prompt track operations preserve owner/model binding and complete from exact empty-text ACK", async () => {
+  const f = await fixture();
+  try {
+    const { track } = await seededTrack(f);
+    for (const is_custom_mode of [false, true]) {
+      const result = await f.service.generateTrackOperation({ attemptId: ATTEMPT_A,
+        request: operationRequest(track.track_handle, { prompt: "", is_custom_mode }) });
+      assert.equal(result.status, "completed");
+      assert.equal(result.observed_artifact_count, 1);
+    }
+    assert.equal(f.counts.operationPosts, 2);
+    const operationBodies = f.events.filter((event) => event.method === "POST" &&
+      event.url.pathname === "/api/v1/audio/generate").slice(1).map((event) => event.body as {
+        prompt: string; settings: { is_custom_mode: boolean; model_type: string; source_clip_id: string; source_task_id: string }
+      });
+    assert.deepEqual(operationBodies.map((body) => body.prompt), ["", ""]);
+    assert.deepEqual(operationBodies.map((body) => body.settings.is_custom_mode), [false, true]);
+  } finally { await f.close(); }
+});
+
+test("zero continuation is rejected before resolving an unlinked principal or issuing any API call", async () => {
+  const f = await fixture();
+  try {
+    await assert.rejects(f.service.generateTrackOperation({ attemptId: "link_suno_unlinked_current_0123456789",
+      request: operationRequest("track_00000000-0000-4000-8000-000000000001", { mode: "extend", continue_at: 0 }) }),
+    (error: unknown) => errorCode(error) === "INVALID_REQUEST");
+    assert.equal(f.events.length, 0);
+    assert.equal(f.counts.chats, 0);
+    assert.equal(f.counts.operationPosts, 0);
+  } finally { await f.close(); }
+});
+
 test("rejects instrumental=true cover and extend before principal, quote, chat, or operation POST", async () => {
   const f = await fixture();
   try {
@@ -221,7 +253,7 @@ test("rejects instrumental=true cover and extend before principal, quote, chat, 
   } finally { await f.close(); }
 });
 
-test("cover and extend use the genuine source-owned track binding and return only bounded safe result DTOs", async () => {
+test("generated-track Cover keeps its binding and Extend is refused before any upstream request", async () => {
   const f = await fixture();
   try {
     const { track } = await seededTrack(f);
@@ -243,16 +275,13 @@ test("cover and extend use the genuine source-owned track binding and return onl
     assert.equal(result.backend_acceptance, "UNPROVEN");
     assert.equal(result.provider_terminal_status, "UNPROVEN");
 
-    const modelReadsBeforeExtend = f.counts.modelAccessReads;
-    const extend = await f.service.generateTrackOperation({ attemptId: ATTEMPT_A,
-      request: operationRequest(track.track_handle, { mode: "extend", continue_at: 12.3, title: "Extend fixture" }) });
-    assert.equal(f.counts.modelAccessReads - modelReadsBeforeExtend, 2);
-    assert.equal(extend.mode, "extend");
-    assert.equal(f.counts.operationPosts, 2);
-    const operationPosts = f.events.filter((event) => event.method === "POST" && event.url.pathname === "/api/v1/audio/generate" &&
-      (event.body as { settings: { mode: string } }).settings.mode !== "generate");
-    assert.equal(operationPosts.length, 2);
-    assert.equal((operationPosts[1]!.body as { settings: { continue_at: number } }).settings.continue_at, 12.3);
+    const countsBeforeExtend = { ...f.counts }, eventsBeforeExtend = f.events.length;
+    await assert.rejects(f.service.generateTrackOperation({ attemptId: ATTEMPT_A,
+      request: operationRequest(track.track_handle, { mode: "extend", continue_at: 12.3, title: "Extend fixture" }) }),
+      (error: unknown) => errorCode(error) === "AUDIO_REFERENCE_REQUIRED");
+    assert.deepEqual(f.counts, countsBeforeExtend, "source-kind refusal precedes quote, chat and generation");
+    assert.equal(f.events.length, eventsBeforeExtend, "source-kind refusal performs no upstream call");
+    assert.equal(f.counts.operationPosts, 1, "working generated-track Cover remains the only operation POST");
     assert.deepEqual(f.service.getTrackOperationParametersSource().model_ids, ["V6", "V6_wild"]);
   } finally { await f.close(); }
 });

@@ -54,7 +54,7 @@ test("default MCP read catalog is current while owner-native catalog remains pin
     };
     const runtime = createObservedOwnerRuntime({ fetchImpl });
     const app = runtime.application;
-    const currentVersion = "2026-10-29T10:17:30.221Z.9ad757694b65";
+    const currentVersion = "2026-11-05T09:49:54.476Z.2768b248ee54";
 
     const kimi = app.searchModels({ query: "kimi-k3", include_inactive: true, limit: 10 });
     assert.equal(kimi.catalog_version, currentVersion);
@@ -101,11 +101,11 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
     await withClient(createMcpServer(createDefaultApplication()), async (client) => {
       const search = await call(client, "syntx_search_models", { include_inactive: true, limit: 100 });
       const metadata = search.structuredContent?.catalog_metadata as Record<string, unknown>;
-      assert.equal(metadata.fetched_at, "2026-10-29T10:17:30.221Z");
+      assert.equal(metadata.fetched_at, "2026-11-05T09:49:54.476Z");
       const summary = metadata.summary as Record<string, unknown>;
-      assert.equal(summary.model_total, 211);
-      assert.equal(summary.model_active, 173);
-      assert.equal(summary.model_inactive, 38);
+      assert.equal(summary.model_total, 212);
+      assert.equal(summary.model_active, 172);
+      assert.equal(summary.model_inactive, 40);
       assert.equal(summary.llm_model_total, 46);
       assert.equal(metadata.public_settings_coverage, "ALLOWLISTED_PUBLIC_API_FIELDS");
       const sources = metadata.sources as Record<string, { url: string; canonical_sha256: string }>;
@@ -120,8 +120,8 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
       assert.equal(typeof finalCursor, "string");
       const final = await call(client, "syntx_search_models", { include_inactive: true, limit: 100, cursor: finalCursor as string });
       const thirdPage = final.structuredContent?.models as Array<Record<string, unknown>>;
-      assert.equal(firstPage.length + secondPage.length + thirdPage.length, 217);
-      assert.equal([...firstPage, ...secondPage, ...thirdPage].filter((model) => model.active === true).length, 179);
+      assert.equal(firstPage.length + secondPage.length + thirdPage.length, 218);
+      assert.equal([...firstPage, ...secondPage, ...thirdPage].filter((model) => model.active === true).length, 178);
 
       const kimi = await call(client, "syntx_search_models", { query: "kimi-k3", include_inactive: true, limit: 10 });
       assert.deepEqual((kimi.structuredContent?.models as Array<Record<string, unknown>>).map((model) => model.id),
@@ -134,14 +134,23 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
       assert.deepEqual(detail.structuredContent?.catalog_metadata, metadata);
       const model = detail.structuredContent?.model as Record<string, unknown>;
       const settings = model.settings as Record<string, unknown>;
-      assert.deepEqual(settings.allowed_media_types, ["images", "audios", "videos", "documents"]);
+      assert.deepEqual(settings.allowed_media_types, ["images", "videos", "audios", "documents"]); // Preserve bca source order.
       assert.deepEqual(settings.accepted_file_types instanceof Array, true);
       assert.equal(settings.max_file_size, 5_242_880);
       assert.equal(detail.structuredContent?.runtime_usable, false);
 
+      const happy = await call(client, "syntx_get_model", { model_id: "happy_horse_edit" });
+      assert.deepEqual((happy.structuredContent?.model as { settings: Record<string, unknown> }).settings.max_file_size,
+        { images: 10485760, videos: 104857600 });
+      const seedance = await call(client, "syntx_get_model", { model_id: "seedance-2.5" });
+      assert.ok(((seedance.structuredContent?.model as { settings: { accepted_file_types: string[] } }).settings.accepted_file_types).includes("audio/mpeg"));
+      const soul = await call(client, "syntx_get_model", { model_id: "higgsfield-soul-train" });
+      assert.equal((soul.structuredContent?.model as { active: boolean }).active, false);
+      const grok = await call(client, "syntx_get_model", { model_id: "grok_imagine_quality" });
+      assert.equal((grok.structuredContent?.model as { active: boolean }).active, false);
       const retired = await call(client, "syntx_get_model", { model_id: "gpt-image-1" });
       const retiredModel = retired.structuredContent?.model as Record<string, unknown>;
-      assert.equal(retired.structuredContent?.catalog_version, "2026-10-29T10:17:30.221Z.9ad757694b65");
+      assert.equal(retired.structuredContent?.catalog_version, "2026-11-05T09:49:54.476Z.2768b248ee54");
       assert.equal(retiredModel.active, false);
       assert.equal(retiredModel.default, false);
       assert.equal((retiredModel.settings as Record<string, unknown>).uploadable, true);
@@ -151,7 +160,7 @@ test("MCP discovery includes public snapshot provenance, counts, and full observ
       const schema = await call(client, "syntx_get_generation_schema", {
         model_id: "gpt-image-1", operation_id: "generate-image"
       });
-      assert.equal(schema.structuredContent?.catalog_version, "2026-10-29T10:17:30.221Z.9ad757694b65");
+      assert.equal(schema.structuredContent?.catalog_version, "2026-11-05T09:49:54.476Z.2768b248ee54");
       assert.equal(schema.structuredContent?.schema_status, "BLOCKED");
       assert.deepEqual(schema.structuredContent?.blocked_reasons, ["MODEL_INACTIVE"]);
       assert.equal(schema.structuredContent?.runtime_usable, false);

@@ -23,12 +23,12 @@ function syntheticMp4(majorBrand = "isom"): Buffer {
   return bytes;
 }
 
-function ffprobeJson(options: { width?: number; height?: number; start?: string; duration?: string }): string {
+function ffprobeJson(options: { width?: number; height?: number; fps?: string; start?: string; duration?: string }): string {
   const start = options.start ?? "0";
   const duration = options.duration ?? "4";
   return JSON.stringify({
-    streams: [{ codec_type: "video", codec_name: "unrestricted-fixture-codec", width: options.width ?? 640,
-      height: options.height ?? 360, start_time: start, start_pts: Math.round(Number(start) * 1000),
+    streams: [{ codec_type: "video", codec_name: "unrestricted-fixture-codec", width: options.width ?? 1280,
+      height: options.height ?? 720, avg_frame_rate: options.fps ?? "25/1", start_time: start, start_pts: Math.round(Number(start) * 1000),
       duration, duration_ts: Math.round(Number(duration) * 1000), time_base: "1/1000" }],
     format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "999" }
   });
@@ -63,14 +63,14 @@ async function expectPolicyError(request: unknown, code: string): Promise<void> 
 test("probes bounded ffprobe metadata and mints a model-bound receipt without decode claims", async () => {
   const directory = await mkdtemp(join(tmpdir(), "syntx-editor-video2223-marker-"));
   const markerPath = join(directory, "probe.json");
-  const probe = await makeFfprobe(ffprobeJson({ width: 127, height: 1, duration: "4.25" }), markerPath);
+  const probe = await makeFfprobe(ffprobeJson({ width: 1280, height: 720, duration: "4.25" }), markerPath);
   const bytes = syntheticMp4();
   try {
     const receipt = await validateOwnerSeedanceEditorVideo(input(probe.executable, { bytes }));
     assert.equal(isValidatedOwnerSeedanceEditorVideo(receipt), true);
     assert.equal(receipt.model_id, "seedance-2.5-editor");
-    assert.equal(receipt.width, 127);
-    assert.equal(receipt.height, 1);
+    assert.equal(receipt.width, 1280);
+    assert.equal(receipt.height, 720);
     assert.equal(receipt.duration_seconds, 4.25);
     assert.equal(receipt.metadata_confidence, "TRUSTED_FFPROBE_METADATA_NOT_PIXEL_DECODED");
     assert.equal(receipt.pixel_decode, false);
@@ -162,4 +162,16 @@ test("accepts a QuickTime container as a distinct MIME and extension pair", asyn
     assert.equal(receipt.model_id, "seedance-2.5-editor");
     releaseValidatedOwnerSeedanceEditorVideo(receipt);
   } finally { await rm(probe.directory, { recursive: true, force: true }); }
+});
+
+
+test("rejects source-bound pixel and fps limits before upload", async () => {
+  for (const options of [{ width: 640, height: 360 }, { fps: "22/1" }, { fps: "61/1" }]) {
+    const probe = await makeFfprobe(ffprobeJson(options));
+    try { await expectPolicyError(input(probe.executable), "SOURCE_LIMIT_EXCEEDED"); }
+    finally { await rm(probe.directory, { recursive: true, force: true }); }
+  }
+  const probe = await makeFfprobe(ffprobeJson({ width: 1280, height: 720, fps: "25/1", duration: "5" }));
+  try { const receipt = await validateOwnerSeedanceEditorVideo(input(probe.executable)); assert.equal(receipt.width, 1280); releaseValidatedOwnerSeedanceEditorVideo(receipt); }
+  finally { await rm(probe.directory, { recursive: true, force: true }); }
 });

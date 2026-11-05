@@ -1,3 +1,4 @@
+import { registerSyntxOwnerSunoAudioUploadTool } from "./owner-suno-audio-upload-tool.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpSelfUpdateService } from "../application/mcp-self-update-service.js";
 import { registerMcpSelfUpdateTools } from "./self-update-tools.js";
@@ -467,6 +468,7 @@ export interface OwnerTopazAstraComposition extends OwnerTopazAstraServiceCompos
 /** Explicit owner-local Suno generate and recovery tools; omitted from default and HTTP servers. */
 export interface OwnerSunoGenerationServiceComposition extends RegisterSyntxOwnerSunoGenerationToolsOptions {
   readonly generationService: OwnerSunoGenerationService;
+  readonly audioUploadEnabled?: boolean;
 }
 
 /** Optional owner-local reviewed Luma T2V contract tools; omitted from default and HTTP servers. */
@@ -1355,10 +1357,11 @@ export function createMcpServer(
     registerSyntxOwnerTopazEnhanceTools(server, options.ownerTopazEnhance);
   }
   if (options.ownerSunoGeneration) {
-    registerSyntxOwnerSunoGenerationTools(server, options.ownerSunoGeneration);
+    registerSyntxOwnerSunoGenerationTools(server, { generationService: options.ownerSunoGeneration.generationService });
     registerSyntxOwnerSunoTrackTools(server, { generationService: options.ownerSunoGeneration.generationService });
     registerSyntxOwnerSunoTrackOperationTools(server, { generationService: options.ownerSunoGeneration.generationService });
     registerSyntxOwnerSunoExistingTrackTools(server, { generationService: options.ownerSunoGeneration.generationService });
+    if (options.ownerSunoGeneration.audioUploadEnabled === true) registerSyntxOwnerSunoAudioUploadTool(server, options.ownerSunoGeneration.generationService);
   }
   if (options.ownerLumaT2v) {
     registerSyntxOwnerLumaT2vTools(server, { service: options.ownerLumaT2v.generationService });

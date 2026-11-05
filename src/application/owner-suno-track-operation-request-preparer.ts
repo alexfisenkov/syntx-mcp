@@ -1,3 +1,4 @@
+import type { OwnerSunoAudioUploadContext } from "../adapter/syntx/chat-http-client.js";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { types } from "node:util";
@@ -55,6 +56,7 @@ export interface OwnerSunoTrackOperationPrivateRequest {
   readonly settings: OwnerSunoTrackOperationSettingsCandidate & Readonly<{
     source_clip_id: string;
     source_task_id: string;
+    file_urls?: readonly [Readonly<{ type: "audio"; url: string }>];
   }>;
 }
 
@@ -70,6 +72,7 @@ export interface OwnerSunoTrackOperationCandidateBinding {
   readonly intent_fingerprint: string;
   readonly private_request_hash: string;
   readonly track_context_fingerprint: string;
+  readonly uploaded_audio_context?: OwnerSunoAudioUploadContext;
 }
 
 export interface OwnerSunoTrackOperationRequestPreparerOptions {
@@ -113,6 +116,7 @@ interface CandidateState {
   readonly principal: Readonly<GenerationPrincipalRef>;
   readonly trackHandle: string;
   readonly trackContextFingerprint: string;
+  readonly uploadedAudioContext?: OwnerSunoAudioUploadContext;
   readonly sourceProfileSchemaHash: string;
   readonly expiresAt: number;
   readonly intentFingerprint: string;
@@ -175,6 +179,8 @@ export class OwnerSunoTrackOperationRequestPreparer {
       fail("TRACK_CONTEXT_UNAVAILABLE");
     }
     if (trackContext.model_id !== normalized.model_id) fail("TRACK_MODEL_MISMATCH");
+    if (trackContext.source_kind === "UPLOADED_AUDIO" && normalized.mode === "extend" &&
+        normalized.settings_candidate.continue_at > trackContext.uploaded_audio.duration_seconds + 1) fail("NORMALIZED_CANDIDATE_INVALID");
 
     const now = this.#readNow();
     if (this.#active.size >= MAX_CANDIDATES) {
@@ -209,6 +215,7 @@ export class OwnerSunoTrackOperationRequestPreparer {
     const state: CandidateState = {
       candidate, owner: this.#owner, attemptId, principal, trackHandle: normalized.track_handle,
       trackContextFingerprint, sourceProfileSchemaHash, expiresAt, intentFingerprint,
+      ...(trackContext.source_kind === "UPLOADED_AUDIO" ? { uploadedAudioContext: trackContext.upload_context } : {}),
       privateRequest, privateRequestHash, lastNow: now
     };
     CANDIDATES.set(candidate, state);
@@ -451,7 +458,10 @@ function buildPrivateRequest(
     settings: Object.freeze({
       ...normalized.settings_candidate,
       source_clip_id: track.clip_id,
-      source_task_id: track.task_id
+      source_task_id: track.task_id,
+      ...(track.source_kind === "UPLOADED_AUDIO" ? {
+        file_urls: Object.freeze([Object.freeze({ type: "audio" as const, url: track.uploaded_audio.url })]) as readonly [Readonly<{ type: "audio"; url: string }>]
+      } : {})
     })
   });
 }
@@ -485,11 +495,16 @@ function fingerprintIntent(
     track.model_id,
     track.clip_id,
     track.task_id,
+    ...(track.source_kind === "UPLOADED_AUDIO" ? [track.source_kind, track.uploaded_audio] : []),
     track.source_profile_schema_hash
   ]), "utf8").digest("hex");
 }
 
 function fingerprintTrackContext(track: Readonly<OwnerSunoTrackContextProjection>): string {
+  if (track.source_kind === "UPLOADED_AUDIO") return schemaHash({
+    attempt_id: track.attempt_id, principal: track.principal, model_id: track.model_id, source_kind: track.source_kind,
+    uploaded_audio: track.uploaded_audio, source_profile_schema_hash: track.source_profile_schema_hash, expires_at: track.expires_at
+  });
   return schemaHash({
     attempt_id: track.attempt_id,
     principal: track.principal,
@@ -523,7 +538,8 @@ function bindingOf(state: CandidateState): OwnerSunoTrackOperationCandidateBindi
     expires_at: state.expiresAt,
     intent_fingerprint: state.intentFingerprint,
     private_request_hash: state.privateRequestHash,
-    track_context_fingerprint: state.trackContextFingerprint
+    track_context_fingerprint: state.trackContextFingerprint,
+    ...(state.uploadedAudioContext === undefined ? {} : { uploaded_audio_context: state.uploadedAudioContext })
   });
 }
 

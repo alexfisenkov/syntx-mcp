@@ -151,7 +151,7 @@ export interface OwnerSunoTrackOperationRecoveryListItem {
 export type OwnerSunoTrackOperationServiceErrorCode =
   | "INVALID_REQUEST" | "SERVICE_CLOSED" | "SERVICE_BUSY" | "PRINCIPAL_NOT_LINKED" | "MODEL_BINDING_MISMATCH"
   | "PREFLIGHT_FAILED" | "INTENT_ALREADY_CLAIMED" | "PRE_DISPATCH_FAILED" | "OUTCOME_UNKNOWN"
-  | "UPSTREAM_OPERATION_ERROR" | "RECOVERY_NOT_FOUND";
+  | "UPSTREAM_OPERATION_ERROR" | "RECOVERY_NOT_FOUND" | "AUDIO_REFERENCE_REQUIRED";
 
 export class OwnerSunoTrackOperationServiceError extends Error {
   readonly diagnostic?: OwnerSunoTrackOperationDiagnostic;
@@ -381,6 +381,16 @@ export class OwnerSunoTrackOperationGenerationService {
         if (existing.status === "outcome_unknown") throw unknownError(existing);
         if (existing.status === "upstream_error_observed") throw upstreamError(existing);
         return pageResult(existing, 0);
+      }
+      // Public application admission follows the current uploaded-audio Extend route.
+      // Legacy low-level SDK serialization and generated-track Cover remain separate contracts.
+      if (normalized.mode === "extend") {
+        let track;
+        try { track = this.#trackContextStore.resolve({ binding: this.#binding, attemptId: request.attemptId,
+          principal, trackHandle: normalized.track_handle }); }
+        catch { return invalid(); }
+        if (track.model_id !== normalized.model_id) invalid();
+        if (track.source_kind !== "UPLOADED_AUDIO") fail("AUDIO_REFERENCE_REQUIRED");
       }
       if (this.#reservedIntentKeys.has(semanticKey) || this.#recoveries.size + this.#reservedIntentKeys.size >= MAX_RECOVERIES) fail("SERVICE_BUSY");
       this.#reservedIntentKeys.add(semanticKey);

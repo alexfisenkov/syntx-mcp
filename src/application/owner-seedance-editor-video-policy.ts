@@ -33,6 +33,10 @@ export const OWNER_SEEDANCE_EDITOR_VIDEO_POLICY = Object.freeze({
   source_mime_types: MIME_TYPES,
   local_max_file_size_bytes: MAX_FILE_BYTES,
   local_file_size_bound: "LOCAL_CONSERVATIVE_BOUND",
+  min_width: 300, min_height: 300, min_pixel_count: 409600, max_width: 6000, max_height: 6000,
+  max_pixel_count: 8295044, min_aspect_ratio: 0.4, max_aspect_ratio: 2.5, min_fps: 23, max_fps: 60,
+  limits_source: "PUBLIC_SETTINGS_2026_11_05_NOT_PROVIDER_RECEIPT",
+  fps_source: "FFPROBE_AVG_FRAME_RATE_NOT_PER_FRAME_PROOF",
   min_duration_seconds: MIN_DURATION_SECONDS,
   max_duration_seconds: MAX_DURATION_SECONDS,
   duration_source: "BOUNDED_FFPROBE_METADATA_ONLY",
@@ -98,7 +102,7 @@ interface ParsedInput {
   readonly maxFileBytes: number;
 }
 
-interface Metadata { readonly width: number; readonly height: number; readonly durationSeconds: number }
+interface Metadata { readonly width: number; readonly height: number; readonly fps: number; readonly durationSeconds: number }
 interface ReceiptState {
   readonly bytes: Buffer;
   readonly sourceSha256: string;
@@ -157,7 +161,10 @@ export async function validateOwnerSeedanceEditorVideo(
     const probeOutput = await runFfprobe(request.ffprobePath, inputPath, actualSignal);
     if (isAborted(actualSignal)) aborted();
     const metadata = parseFfprobe(probeOutput);
-    if (metadata.durationSeconds < MIN_DURATION_SECONDS || metadata.durationSeconds > MAX_DURATION_SECONDS) sourceLimit();
+    const { width, height, fps } = metadata;
+    if (metadata.durationSeconds < MIN_DURATION_SECONDS || metadata.durationSeconds > MAX_DURATION_SECONDS ||
+        width < 300 || height < 300 || width > 6000 || height > 6000 || width * height < 409600 ||
+        width * height > 8295044 || width / height < 0.4 || width / height > 2.5 || fps < 23 || fps > 60) sourceLimit();
 
     const afterProbe = await lstat(inputPath);
     if (!afterProbe.isFile() || afterProbe.isSymbolicLink() || afterProbe.size !== source.byteLength ||
@@ -396,9 +403,11 @@ function parseFfprobe(stdout: string): Metadata {
   const video = videoStreams[0]!;
   const width = positiveInteger(video.width), height = positiveInteger(video.height);
   if (width === undefined || height === undefined) return unsupported();
+  const fps = parseTimeBase(video.avg_frame_rate);
+  if (fps === undefined || fps <= 0) return unsupported();
   const durationSeconds = Math.max(...trackEnds);
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return unsupported();
-  return { width, height, durationSeconds };
+  return { width, height, fps, durationSeconds };
 }
 
 function finalTrackEndSeconds(stream: Record<string, unknown>): number | undefined {
@@ -453,7 +462,7 @@ function positiveInteger(value: unknown): number | undefined {
 
 async function runFfprobe(ffprobePath: string, inputPath: string, signal?: AbortSignal): Promise<string> {
   const args = ["-v", "error", "-protocol_whitelist", "file,pipe", "-show_entries",
-    "stream=codec_type,width,height,start_time,start_pts,duration,duration_ts,time_base:stream_disposition=attached_pic", "-of", "json", inputPath];
+    "stream=codec_type,width,height,avg_frame_rate,start_time,start_pts,duration,duration_ts,time_base:stream_disposition=attached_pic", "-of", "json", inputPath];
   const options: ExecFileOptionsWithStringEncoding = {
     encoding: "utf8", timeout: PROBE_TIMEOUT_MS, killSignal: "SIGKILL", maxBuffer: MAX_STDOUT_BYTES,
     windowsHide: true, shell: false, ...(signal === undefined ? {} : { signal }),

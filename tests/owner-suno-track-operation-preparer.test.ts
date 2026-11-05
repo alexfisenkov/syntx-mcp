@@ -223,6 +223,30 @@ test("extend preserves explicit seconds while cover cannot carry continuation", 
   } finally { oneShot.close(); preparer.close(); await f.close(); }
 });
 
+test("preparer preserves optional empty prompt and source IDs without adding a model version", async () => {
+  const f = await fixture();
+  const preparer = f.createTrackOperationPreparer();
+  const oneShot = new oneShotModule.OwnerSunoTrackOperationOneShotPolicy({ preparer, now: () => f.now });
+  try {
+    const input = operationParameters(f.trackHandles[0]!, "extend", { prompt: "", is_custom_mode: true });
+    const normalized = normalizeOwnerSunoTrackOperationParameters(input);
+    const candidate = await preparer.prepare({ attemptId: ATTEMPT_A, normalized });
+    const principal = await f.linkedPrincipal(ATTEMPT_A, BINDING_A);
+    const context = { candidate, attemptId: ATTEMPT_A, principal };
+    const permit = oneShot.createPermit(context);
+    oneShot.revalidate({ ...context, permit });
+    const consumed = oneShot.consume({ ...context, permit });
+    assert.equal(consumed.private_request?.prompt, "");
+    assert.deepEqual(consumed.private_request?.settings, {
+      model_type: "V6", mode: "extend", is_custom_mode: true, is_instrumental: false,
+      negative_tags: "", styles: "warm strings", title: "Cover fixture", continue_at: 12.3,
+      source_clip_id: "synthetic-cover-clip-1299", source_task_id: "synthetic-task-1299"
+    });
+    assert.throws(() => oneShot.consume({ ...context, permit }),
+      (error: unknown) => errorCode(error) === "PERMIT_ALREADY_CONSUMED");
+  } finally { oneShot.close(); preparer.close(); await f.close(); }
+});
+
 test("same-mode intent fingerprint is stable across opaque handles but binds source metadata", async () => {
   const f = await fixture();
   const preparer = f.createTrackOperationPreparer();

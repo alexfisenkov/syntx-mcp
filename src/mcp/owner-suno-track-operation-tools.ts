@@ -61,19 +61,19 @@ const commonShape = {
   link_attempt_id: attemptSchema,
   model_id: modelSchema,
   track_handle: trackHandleSchema,
-  prompt: textSchema(SOURCE.controls.prompt.custom_max, true),
+  prompt: textSchema(SOURCE.controls.prompt.custom_max).default(""),
   is_custom_mode: z.boolean(),
-  is_instrumental: z.literal(false).describe("Current Suno cover/extend UI admission: false only; form build 1793202992, suno.js SHA-256 7861b84e849dafd787bd484dd99b1dd6383d115d1398071b853fc6ee2bd609ae. This is a local UI policy, not a claim that the provider rejects true."),
+  is_instrumental: z.literal(false).describe("Current Suno cover/extend UI admission: false only; current form build 1793711938, suno.js SHA-256 ca2c8ab95884e991fe5f2569e49ff996713f4d2c642415852e32ddf5da25e7ec. This is a local UI policy, not a claim that the provider rejects true."),
   negative_tags: textSchema(SOURCE.controls.negative_tags.local_max),
-  styles: textSchema(SOURCE.controls.styles.max),
-  title: textSchema(SOURCE.controls.title.max)
+  styles: textSchema(SOURCE.controls.styles.max).min(1),
+  title: textSchema(SOURCE.controls.title.max).min(1)
 };
 const coverInputSchema = z.object(commonShape).strict().superRefine((input, context) => {
   const normalized = normalizeRequest(toNormalizedInput(input, "cover"));
   if (!normalized.success) context.addIssue({ code: "custom", message: "The explicit Suno cover request is invalid." });
 });
 const extendInputSchema = z.object({ ...commonShape,
-  continue_at: z.number().finite().min(0).multipleOf(0.1)
+  continue_at: z.number().finite().positive().multipleOf(0.1)
 }).strict().superRefine((input, context) => {
   const normalized = normalizeRequest(toNormalizedInput(input, "extend"));
   if (!normalized.success) context.addIssue({ code: "custom", message: "The explicit Suno extend request is invalid." });
@@ -115,17 +115,42 @@ const parameterSourceSchema = z.object({
     is_instrumental: z.object({ allowed_values: z.tuple([z.literal(false)]),
       policy_reason: z.literal(SOURCE.current_ui_admission.is_instrumental.policy_reason) }).strict()
   }).strict(),
+  uploaded_audio_branch: z.object({
+    policy_id: z.literal(SOURCE.uploaded_audio_branch.policy_id), build_id: z.literal(SOURCE.uploaded_audio_branch.build_id),
+    public_catalog_version: z.literal(SOURCE.uploaded_audio_branch.public_catalog_version),
+    settings_inventory_version: z.literal(SOURCE.uploaded_audio_branch.settings_inventory_version),
+    form_sha256: z.literal(SOURCE.uploaded_audio_branch.form_sha256), max_file_bytes: z.literal(26_214_400), max_duration_seconds: z.literal(480),
+    upload_destination: z.literal("uploaded"), convert_field: z.literal("OMITTED_AS_IS"), source_ids: z.literal("EMPTY_STRINGS"),
+    file_urls: z.literal("ONE_OWNED_AUDIO_UPLOAD"), provider_acceptance: z.literal("UNPROVEN")
+  }).strict(),
+  source_kind_admission: z.object({
+    status: z.literal("APPLICATION_ADMISSION_NOT_PROVIDER_POLICY"), extend_source_kinds: z.tuple([z.literal("UPLOADED_AUDIO")]),
+    cover_source_kinds: z.tuple([z.literal("OWNER_GENERATION"), z.literal("EXISTING_OWNER_TRACK"), z.literal("UPLOADED_AUDIO")]),
+    recommended_upload_tool: z.literal("syntx_owner_upload_suno_audio_reference"), generated_track_extend_error: z.literal("AUDIO_REFERENCE_REQUIRED")
+  }).strict(),
+  current_source_policy: z.object({
+    status: z.literal(SOURCE.current_source_policy.status), source_build_id: z.literal(SOURCE.current_source_policy.source_build_id),
+    public_catalog_version: z.literal(SOURCE.current_source_policy.public_catalog_version),
+    settings_inventory_version: z.literal(SOURCE.current_source_policy.settings_inventory_version),
+    form_sha256: z.literal(SOURCE.current_source_policy.form_sha256),
+    prompt_required: z.literal(false), title_required: z.literal(true), styles_required: z.literal(true),
+    required_when: z.literal(SOURCE.current_source_policy.required_when),
+    is_custom_mode: z.literal(SOURCE.current_source_policy.is_custom_mode), model_selector: z.literal("settings.model_type"),
+    continuation_upper_bound: z.literal("SOURCE_DURATION_PLUS_ONE_WHEN_AVAILABLE"), source_duration_available: z.literal(false),
+    extend_action_producer: z.literal("UNPROVEN")
+  }).strict(),
   model_ids: z.tuple([z.literal("V6"), z.literal("V6_wild")]), modes: z.tuple([z.literal("cover"), z.literal("extend")]),
   models: z.object({ V6: modelSourceSchema("V6"), V6_wild: modelSourceSchema("V6_wild") }).strict(),
   controls: z.object({
     prompt: z.object({ measure: z.literal("UTF16_CODE_UNITS"), simple_max: z.literal(500), custom_max: z.literal(5_000),
-      nonblank: z.literal(true), bound_label: z.literal("PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE") }).strict(),
+      nonblank: z.literal(false), bound_label: z.literal("PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE") }).strict(),
     negative_tags: z.object({ local_max: z.literal(5_000), measure: z.literal("UTF16_CODE_UNITS"),
       bound_label: z.literal("LOCAL_RESOURCE_BOUND_NOT_UI_LIMIT"), source_ui_limit: z.literal("UNKNOWN") }).strict(),
-    styles: z.object({ max: z.literal(1_000), bound_label: z.literal("PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE") }).strict(),
-    title: z.object({ max: z.literal(80), bound_label: z.literal("PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE") }).strict(),
-    continue_at: z.object({ measure: z.literal("SECONDS"), minimum: z.literal(0), step: z.literal(0.1),
-      maximum: z.literal("SOURCE_DURATION_NOT_AVAILABLE_TO_SERVICE"), ui_default: z.literal(0) }).strict()
+    styles: z.object({ max: z.literal(1_000), required: z.literal(true), bound_label: z.literal("PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE") }).strict(),
+    title: z.object({ max: z.literal(80), required: z.literal(true), bound_label: z.literal("PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE") }).strict(),
+    continue_at: z.object({ measure: z.literal("SECONDS"), minimum: z.literal(0), exclusive_minimum: z.literal(true), step: z.literal(0.1),
+      maximum: z.literal("SOURCE_KIND_DEPENDENT"), uploaded_audio_maximum: z.literal("MEASURED_DURATION_SECONDS_PLUS_ONE"),
+      generated_track_maximum: z.literal("UNKNOWN_NOT_ADMITTED_FOR_EXTEND"), ui_default: z.literal(0) }).strict()
   }).strict(),
   track_binding: z.object({ public_input: z.literal("OPAQUE_TRACK_HANDLE_ONLY"),
     resolved_model_policy: z.literal("MUST_MATCH_REQUEST_MODEL_ID"), default_ttl_seconds: z.literal(900), maximum_ttl_seconds: z.literal(1_800) }).strict(),
@@ -179,7 +204,7 @@ export function registerSyntxOwnerSunoTrackOperationTools(server: McpServer, opt
   const options = snapshotOptions(optionsInput);
   server.registerTool(SYNTX_GET_SUNO_TRACK_OPERATION_PARAMETERS_TOOL_NAME, {
     title: "Get Suno cover and extend parameters",
-    description: "Returns historical native source pins separately from current UI admission for cover/extend (form build 1793202992). The current UI admits is_instrumental=false for these track-operation modes; this does not establish a provider-side rejection rule. Runtime availability, dispatch permission, and provider acceptance remain unproven.",
+    description: "Returns immutable native pins and earlier UI admission separately from current cover/extend validation (build 1793711938): optional prompt, required title/styles in either custom-mode state, and positive continuation. For Extend, first call syntx_owner_upload_suno_audio_reference and pass its track_handle; continuation must be >0 and <= its measured duration_seconds + 1. Generated-track Extend is refused before preflight or dispatch. The current UI admits is_instrumental=false for these track-operation modes; this does not establish a provider-side rejection rule. Runtime availability, dispatch permission, and provider acceptance remain unproven.",
     inputSchema: parametersInputSchema, outputSchema: parameterSourceSchema,
     annotations: { title: "Suno track-operation parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async () => {
@@ -192,7 +217,7 @@ export function registerSyntxOwnerSunoTrackOperationTools(server: McpServer, opt
     const inputSchema = mode === "cover" ? coverInputSchema : extendInputSchema;
     server.registerTool(toolName, {
       title: mode === "cover" ? "Create Suno cover" : "Extend Suno audio",
-      description: `Submits one explicit Suno ${mode} request for a current owner-bound track handle. Current UI admission is is_instrumental=false only (build 1793202992, suno.js SHA-256 7861b84e849dafd787bd484dd99b1dd6383d115d1398071b853fc6ee2bd609ae); this is not a provider rejection claim. An uncertain outcome must be reconciled and never replayed.`,
+      description: (mode === "extend" ? "First call syntx_owner_upload_suno_audio_reference, then pass its owner/model-bound UPLOADED_AUDIO track_handle to Extend. continue_at must be >0 and <= the uploaded receipt duration_seconds + 1. Generated-track handles are refused before preflight, chat creation or generation. " : "") + `Submits one explicit Suno ${mode} request for a current owner-bound track handle. Current UI admission is is_instrumental=false only (build 1793711938, suno.js SHA-256 ca2c8ab95884e991fe5f2569e49ff996713f4d2c642415852e32ddf5da25e7ec); prompt is optional, title/styles are required, and Extend continuation must be positive; this is not a provider rejection claim. An uncertain outcome must be reconciled and never replayed.`,
       inputSchema, outputSchema: resultSchema,
       annotations: { title: mode === "cover" ? "Suno cover" : "Suno extend", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
     }, async (rawInput, { signal }) => {
@@ -249,6 +274,7 @@ export function registerSyntxOwnerSunoTrackOperationTools(server: McpServer, opt
 }
 
 const ERROR_MESSAGES = Object.freeze({
+  AUDIO_REFERENCE_REQUIRED: "First upload the audio with syntx_owner_upload_suno_audio_reference, then pass its track_handle to Extend. Generated-track handles are not accepted for Extend.",
   INVALID_REQUEST: "The Suno track-operation request is invalid.", SERVICE_CLOSED: "The owner Suno service is closed.",
   SERVICE_BUSY: "The owner Suno service is busy.", PRINCIPAL_NOT_LINKED: "A currently linked owner attempt is required.",
   MODEL_BINDING_MISMATCH: "The selected Suno model profile is unavailable.", PREFLIGHT_FAILED: "Current account or model access could not be verified.",

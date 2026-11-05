@@ -1,3 +1,5 @@
+import { schemaHash } from "../domain/generation-contract.js";
+import { SUNO_AUDIO_UPLOAD_SOURCE } from "./owner-suno-audio-reference-probe.js";
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import {
@@ -5,6 +7,7 @@ import {
   isOwnerSunoGenerationResultMessageContext,
   SyntxChatHttpClient,
   type OwnerSunoExistingTrackResultMessageContext,
+  type OwnerSunoAudioUploadContext,
   type OwnerSunoGenerationResultMessageContext
 } from "../adapter/syntx/chat-http-client.js";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
@@ -25,6 +28,7 @@ const DEFAULT_MAX_RECORDS = 128;
 const ABSOLUTE_MAX_RECORDS = 128;
 const CONTEXT_KEYS = ["chat_uuid", "message_id", "model_id", "provider_chat_id", "message_object_ids",
   "owner_echo_message_id", "attempt_id", "principal", "intent_fingerprint", "source_profile_schema_hash", "source_pins"];
+const NATIVE_UPLOAD_METADATA = SyntxChatHttpClient.prototype.getOwnedSunoAudioUploadMetadata;
 const NATIVE_TRACK_METADATA = SyntxChatHttpClient.prototype.getOwnedSunoGenerationTrackMetadata;
 const NATIVE_EXISTING_TRACK_METADATA = SyntxChatHttpClient.prototype.getOwnedSunoExistingTrackMetadata;
 const MIME_BY_EXTENSION = new Map<string, "audio/mpeg" | "audio/wav" | "audio/mp4">([
@@ -71,23 +75,25 @@ export interface OwnerSunoTrackContextResolveInput {
 }
 
 /** Internal-only resolved projection. MCP/public response builders must not return this object. */
-export interface OwnerSunoTrackContextProjection {
+interface SunoTrackContextCommon {
   readonly track_handle: string;
   readonly attempt_id: string;
   readonly principal: Readonly<GenerationPrincipalRef>;
   readonly model_id: "V6" | "V6_wild";
-  readonly chat_uuid: string;
-  readonly message_id: string;
-  readonly message_object_id: string;
-  readonly owner_echo_message_id: string;
   readonly intent_fingerprint: string;
   readonly source_profile_schema_hash: string;
-  readonly source_kind: "OWNER_GENERATION" | "EXISTING_OWNER_TRACK";
   readonly clip_id: string;
   readonly task_id: string;
   readonly expires_at: number;
   readonly artifact?: Readonly<{ url: string; mime_type: "audio/mpeg" | "audio/wav" | "audio/mp4" | null }>;
 }
+export type OwnerSunoTrackContextProjection = SunoTrackContextCommon & (
+  { readonly source_kind: "OWNER_GENERATION" | "EXISTING_OWNER_TRACK";
+    readonly chat_uuid: string; readonly message_id: string; readonly message_object_id: string; readonly owner_echo_message_id: string }
+  | { readonly source_kind: "UPLOADED_AUDIO";
+      readonly upload_context: OwnerSunoAudioUploadContext;
+      readonly uploaded_audio: Readonly<{ url: string; duration_seconds: number; size: number; sha256: string }> }
+);
 
 export type OwnerSunoTrackContextStoreErrorCode =
   | "INVALID_REQUEST" | "TRACK_CONTEXT_UNAVAILABLE" | "TRACK_CONTEXT_EXPIRED" | "CAPACITY_EXCEEDED"
@@ -100,10 +106,7 @@ export class OwnerSunoTrackContextStoreError extends Error {
   }
 }
 
-interface StoredContext extends OwnerSunoTrackContextProjection {
-  readonly tenant_id: string;
-  readonly subject: string;
-}
+type StoredContext = OwnerSunoTrackContextProjection & Readonly<{ tenant_id: string; subject: string }>;
 
 /** Bounded, read-only process-local store. Expired or invalidated handles fail closed. */
 export class OwnerSunoTrackContextStore {
@@ -191,6 +194,33 @@ export class OwnerSunoTrackContextStore {
       artifact: Object.freeze({ url: match.object_url, mime_type: mimeTypeFromUrl(match.object_url) }) });
   }
 
+  /** Mints the same opaque handle only from a genuine same-client Suno upload, never a caller URL. */
+  issueUploadedAudio(input: unknown): string {
+    this.#assertOpen();
+    const fields = exactRecord(input, ["binding", "attemptId", "principal", "client", "uploadContext"]);
+    const binding = snapshotBinding(fields.binding), attemptId = validateAttempt(fields.attemptId), principal = snapshotPrincipal(fields.principal);
+    if (principal.tenant_id !== binding.tenant_id || principal.subject_id !== binding.subject || principal.connection_id !== attemptId ||
+        !fields.client || typeof fields.client !== "object" || types.isProxy(fields.client) ||
+        Object.getPrototypeOf(fields.client) !== SyntxChatHttpClient.prototype) fail("TRACK_CONTEXT_UNAVAILABLE");
+    let upload: Readonly<OwnerSunoAudioUploadContext & { url: string }>;
+    try { upload = Reflect.apply(NATIVE_UPLOAD_METADATA, fields.client, [fields.uploadContext]); }
+    catch { return fail("TRACK_CONTEXT_UNAVAILABLE"); }
+    if (upload.attempt_id !== attemptId || !sameGenerationPrincipal(upload.principal, principal) ||
+        !isModel(upload.model_id) || !isSafeUploadReferenceUrl(upload.url)) fail("TRACK_CONTEXT_UNAVAILABLE");
+    const now = this.#readNow(); this.#prune(now);
+    if (this.#records.size >= this.#maxRecords) fail("CAPACITY_EXCEEDED");
+    if (now > Number.MAX_SAFE_INTEGER - this.#ttlMs) fail("CLOCK_INVALID");
+    const handle = `track_${randomUUID()}`;
+    this.#records.set(handle, Object.freeze({ track_handle: handle, tenant_id: binding.tenant_id, subject: binding.subject,
+      attempt_id: attemptId, principal, model_id: upload.model_id, source_kind: "UPLOADED_AUDIO" as const,
+      clip_id: "", task_id: "", expires_at: now + this.#ttlMs,
+      source_profile_schema_hash: schemaHash(SUNO_AUDIO_UPLOAD_SOURCE),
+      intent_fingerprint: schemaHash([upload.model_id, upload.sha256, upload.url, upload.duration_seconds]),
+      upload_context: fields.uploadContext as OwnerSunoAudioUploadContext,
+      uploaded_audio: Object.freeze({ url: upload.url, duration_seconds: upload.duration_seconds, size: upload.size, sha256: upload.sha256 }) }));
+    return handle;
+  }
+
   /** Resolves only for the exact tenant, authenticated subject, link attempt, and server principal. */
   resolve(input: OwnerSunoTrackContextResolveInput | unknown): Readonly<OwnerSunoTrackContextProjection> {
     this.#assertOpen();
@@ -237,7 +267,7 @@ export class OwnerSunoTrackContextStore {
 
   #issueContext(input: Readonly<{ binding: Readonly<AuthBinding>; attemptId: string;
     principal: Readonly<GenerationPrincipalRef>; context: NativeContextSnapshot; messageObjectId: string;
-    clipId: string; taskId: string; sourceKind: OwnerSunoTrackContextProjection["source_kind"];
+    clipId: string; taskId: string; sourceKind: "OWNER_GENERATION" | "EXISTING_OWNER_TRACK";
     artifact?: OwnerSunoTrackContextProjection["artifact"] }>): string {
     const now = this.#readNow();
     this.#prune(now);

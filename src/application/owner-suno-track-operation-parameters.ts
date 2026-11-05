@@ -1,3 +1,4 @@
+import { SUNO_AUDIO_UPLOAD_SOURCE } from "./owner-suno-audio-reference-probe.js";
 import { types } from "node:util";
 
 export const OWNER_SUNO_TRACK_OPERATION_PUBLIC_VERSION =
@@ -30,6 +31,30 @@ const CURRENT_UI_ADMISSION = Object.freeze({
     allowed_values: Object.freeze([false] as const),
     policy_reason: "TRACK_MODES_RESET_FALSE_AND_CONTROL_HAS_NO_TRUE_BINDING" as const
   })
+});
+// Current validation evidence is separate from immutable native pins and the earlier UI observation.
+const CURRENT_SOURCE_POLICY = Object.freeze({
+  status: "CURRENT_FORM_VALIDATION_NOT_PROVIDER_ACCEPTANCE" as const,
+  source_build_id: "1793711938" as const,
+  public_catalog_version: "sha256-bca24244ca2a2ffc79e6788621993335181f0a44958d3b0ff0fac724326fd41b.json" as const,
+  settings_inventory_version: "sha256-f8012eea6e0f7017604df399f6d5e1e5dc1f41dec5e813ec353588de746866b2.json" as const,
+  form_sha256: "sha256:ca2c8ab95884e991fe5f2569e49ff996713f4d2c642415852e32ddf5da25e7ec" as const,
+  prompt_required: false as const,
+  title_required: true as const,
+  styles_required: true as const,
+  required_when: "COVER_OR_EXTEND_REGARDLESS_OF_CUSTOM_MODE" as const,
+  is_custom_mode: "RETAIN_CALLER_STATE" as const,
+  model_selector: "settings.model_type" as const,
+  continuation_upper_bound: "SOURCE_DURATION_PLUS_ONE_WHEN_AVAILABLE" as const,
+  source_duration_available: false as const,
+  extend_action_producer: "UNPROVEN" as const
+});
+const SOURCE_KIND_ADMISSION = Object.freeze({
+  status: "APPLICATION_ADMISSION_NOT_PROVIDER_POLICY" as const,
+  extend_source_kinds: Object.freeze(["UPLOADED_AUDIO"] as const),
+  cover_source_kinds: Object.freeze(["OWNER_GENERATION", "EXISTING_OWNER_TRACK", "UPLOADED_AUDIO"] as const),
+  recommended_upload_tool: "syntx_owner_upload_suno_audio_reference" as const,
+  generated_track_extend_error: "AUDIO_REFERENCE_REQUIRED" as const
 });
 const SIMPLE_PROMPT_MAX = 500;
 const CUSTOM_PROMPT_MAX = 5_000;
@@ -73,6 +98,9 @@ export interface OwnerSunoTrackOperationParameterSource {
   readonly profile_id: "owner-suno-track-operation-parameters-source-v1";
   readonly status: "CURRENT_FORM_WITH_PINNED_PUBLIC_CATALOG_RESOURCE_LIMITS";
   readonly current_ui_admission: typeof CURRENT_UI_ADMISSION;
+  readonly current_source_policy: typeof CURRENT_SOURCE_POLICY;
+  readonly uploaded_audio_branch: typeof SUNO_AUDIO_UPLOAD_SOURCE;
+  readonly source_kind_admission: typeof SOURCE_KIND_ADMISSION;
   readonly source_pins: OwnerSunoTrackOperationSourcePins;
   readonly model_ids: readonly OwnerSunoTrackOperationModel[];
   readonly modes: readonly OwnerSunoTrackOperationMode[];
@@ -82,7 +110,7 @@ export interface OwnerSunoTrackOperationParameterSource {
       measure: "UTF16_CODE_UNITS";
       simple_max: 500;
       custom_max: 5_000;
-      nonblank: true;
+      nonblank: false;
       bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE";
     }>;
     negative_tags: Readonly<{
@@ -91,13 +119,16 @@ export interface OwnerSunoTrackOperationParameterSource {
       bound_label: "LOCAL_RESOURCE_BOUND_NOT_UI_LIMIT";
       source_ui_limit: "UNKNOWN";
     }>;
-    styles: Readonly<{ max: 1_000; bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" }>;
-    title: Readonly<{ max: 80; bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" }>;
+    styles: Readonly<{ max: 1_000; required: true; bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" }>;
+    title: Readonly<{ max: 80; required: true; bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" }>;
     continue_at: Readonly<{
       measure: "SECONDS";
       minimum: 0;
+      exclusive_minimum: true;
       step: 0.1;
-      maximum: "SOURCE_DURATION_NOT_AVAILABLE_TO_SERVICE";
+      maximum: "SOURCE_KIND_DEPENDENT";
+      uploaded_audio_maximum: "MEASURED_DURATION_SECONDS_PLUS_ONE";
+      generated_track_maximum: "UNKNOWN_NOT_ADMITTED_FOR_EXTEND";
       ui_default: 0;
     }>;
   }>;
@@ -122,7 +153,7 @@ export interface OwnerSunoTrackOperationParameterSource {
 interface OwnerSunoTrackOperationRequestBase {
   readonly model_id: OwnerSunoTrackOperationModel;
   readonly track_handle: string;
-  readonly prompt: string;
+  readonly prompt?: string;
   readonly is_custom_mode: boolean;
   readonly is_instrumental: false;
   readonly negative_tags: string;
@@ -204,6 +235,9 @@ export function getOwnerSunoTrackOperationParameterSource(): DeepReadonly<OwnerS
     profile_id: "owner-suno-track-operation-parameters-source-v1" as const,
     status: "CURRENT_FORM_WITH_PINNED_PUBLIC_CATALOG_RESOURCE_LIMITS" as const,
     current_ui_admission: CURRENT_UI_ADMISSION,
+    current_source_policy: CURRENT_SOURCE_POLICY,
+    uploaded_audio_branch: SUNO_AUDIO_UPLOAD_SOURCE,
+    source_kind_admission: SOURCE_KIND_ADMISSION,
     source_pins: SOURCE_PINS,
     model_ids: OWNER_SUNO_TRACK_OPERATION_MODEL_IDS,
     modes: OWNER_SUNO_TRACK_OPERATION_MODES,
@@ -213,7 +247,7 @@ export function getOwnerSunoTrackOperationParameterSource(): DeepReadonly<OwnerS
         measure: "UTF16_CODE_UNITS" as const,
         simple_max: SIMPLE_PROMPT_MAX as 500,
         custom_max: CUSTOM_PROMPT_MAX as 5_000,
-        nonblank: true as const,
+        nonblank: false as const,
         bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" as const
       },
       negative_tags: {
@@ -222,13 +256,16 @@ export function getOwnerSunoTrackOperationParameterSource(): DeepReadonly<OwnerS
         bound_label: "LOCAL_RESOURCE_BOUND_NOT_UI_LIMIT" as const,
         source_ui_limit: "UNKNOWN" as const
       },
-      styles: { max: STYLE_MAX as 1_000, bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" as const },
-      title: { max: TITLE_MAX as 80, bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" as const },
+      styles: { max: STYLE_MAX as 1_000, required: true as const, bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" as const },
+      title: { max: TITLE_MAX as 80, required: true as const, bound_label: "PINNED_PUBLIC_CATALOG_RESOURCE_LIMIT_NOT_CURRENT_UI_QUOTE" as const },
       continue_at: {
         measure: "SECONDS" as const,
         minimum: 0 as const,
+        exclusive_minimum: true as const,
         step: 0.1 as const,
-        maximum: "SOURCE_DURATION_NOT_AVAILABLE_TO_SERVICE" as const,
+        maximum: "SOURCE_KIND_DEPENDENT" as const,
+        uploaded_audio_maximum: "MEASURED_DURATION_SECONDS_PLUS_ONE" as const,
+        generated_track_maximum: "UNKNOWN_NOT_ADMITTED_FOR_EXTEND" as const,
         ui_default: 0 as const
       }
     },
@@ -263,10 +300,13 @@ export function normalizeOwnerSunoTrackOperationParameters(
   const mode = fields.mode;
   const handle = fields.track_handle;
   if (typeof handle !== "string" || !TRACK_HANDLE.test(handle)) invalid();
-  const prompt = readBoundedText(fields.prompt, fields.is_custom_mode ? CUSTOM_PROMPT_MAX : SIMPLE_PROMPT_MAX, true);
+  const prompt = readBoundedText(fields.prompt === undefined ? "" : fields.prompt,
+    fields.is_custom_mode ? CUSTOM_PROMPT_MAX : SIMPLE_PROMPT_MAX, false);
   const negativeTags = readBoundedText(fields.negative_tags, NEGATIVE_TAGS_LOCAL_MAX, false);
   const styles = readBoundedText(fields.styles, STYLE_MAX, false);
   const title = readBoundedText(fields.title, TITLE_MAX, false);
+  // The current form uses required:true for both track modes, without a whitespace validator.
+  if (styles.length === 0 || title.length === 0) invalid();
   const source = getOwnerSunoTrackOperationParameterSource();
   if (!source.models[modelId]) invalid();
 
@@ -326,13 +366,15 @@ function readRequest(input: unknown): Record<string, unknown> {
 
   const mode = modeDescriptor?.value;
   const expected = mode === "extend" ? [...BASE_KEYS, "continue_at"] : [...BASE_KEYS];
-  if (keys.length !== expected.length || expected.some((key) => !Object.hasOwn(values, key))) invalid();
+  if (keys.length < expected.length - 1 || keys.length > expected.length ||
+      expected.some((key) => key !== "prompt" && !Object.hasOwn(values, key)) ||
+      keys.some((key) => !expected.includes(key as typeof BASE_KEYS[number]))) invalid();
   if (mode !== "cover" && mode !== "extend") invalid();
   return values;
 }
 
 function readContinueAt(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) invalid();
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) invalid();
   const tenths = Math.round(value * 10);
   if (!Number.isSafeInteger(tenths) || Math.abs(value * 10 - tenths) > 1e-9) invalid();
   return tenths / 10;

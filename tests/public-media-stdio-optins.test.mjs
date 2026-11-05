@@ -16,6 +16,7 @@ const EXPANDED_TOOLS = ["syntx_owner_get_expanded_t2v_parameters", "syntx_owner_
 const UPDATE_TOOLS = ["syntx_update_check", "syntx_update_apply", "syntx_update_rollback"];
 const EXISTING_VIDEO_READER = "syntx_owner_get_existing_video_recovery";
 const MEDIA_COVERAGE_TOOL = "syntx_get_media_coverage";
+const SUNO_UPLOAD = "syntx_owner_upload_suno_audio_reference";
 const TIMEOUT_MS = 20_000;
 
 function withTimeout(promise, timeoutMs, code) {
@@ -64,7 +65,7 @@ test("all-supported plus self-update generated config registers update and exist
     await withTimeout(client.connect(transport), TIMEOUT_MS, "PUBLIC_MEDIA_STDIO_INITIALIZE_TIMEOUT");
     const listed = await withTimeout(client.listTools(), TIMEOUT_MS, "PUBLIC_MEDIA_STDIO_TOOLS_LIST_TIMEOUT");
     const names = new Set(listed.tools.map((tool) => tool.name));
-    for (const name of [...UPDATE_TOOLS, EXISTING_VIDEO_READER, MEDIA_COVERAGE_TOOL, ...EXPANDED_TOOLS]) {
+    for (const name of [...UPDATE_TOOLS, EXISTING_VIDEO_READER, MEDIA_COVERAGE_TOOL, SUNO_UPLOAD, ...EXPANDED_TOOLS]) {
       assert.equal(names.has(name), true, `missing required offline tool: ${name}`);
     }
 
@@ -74,16 +75,18 @@ test("all-supported plus self-update generated config registers update and exist
         arguments: { offset, limit: 100, include_inactive: true } }), TIMEOUT_MS, "PUBLIC_MEDIA_STDIO_COVERAGE_TIMEOUT");
       assert.equal(coverageResult.isError, undefined);
       const page = coverageResult.structuredContent;
-      assert.equal(page.total, 124);
+      assert.equal(page.total, 125);
       coverageRows.push(...page.items);
     }
     const existingReaderModels = coverageRows.filter((row) => row.mcp_tool_names.includes(EXISTING_VIDEO_READER));
+    const sunoUploadModels = coverageRows.filter((row) => row.mcp_tool_names.includes(SUNO_UPLOAD));
+    assert.deepEqual(sunoUploadModels.map((row) => row.model_id).sort(), ["V6", "V6_wild"].sort());
     assert.equal(existingReaderModels.length, 14);
     assert.equal(existingReaderModels.every((row) => names.has(EXISTING_VIDEO_READER)), true);
     const existingKling4Rows = coverageRows.filter((row) => row.model_id === "kling_4_keyframes" || row.model_id === "kling_4_omni");
     assert.deepEqual(existingKling4Rows.map((row) => row.model_id).sort(), ["kling_4_keyframes", "kling_4_omni"]);
     assert.equal(existingKling4Rows.every((row) => row.mcp_tool_names.includes(EXISTING_VIDEO_READER)), true);
-    const routeSnapshot = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v3.json"), "utf8"));
+    const routeSnapshot = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v5.json"), "utf8"));
     const kling4ReaderBinding = routeSnapshot.native_alias_bindings.find((binding) =>
       binding.operator_flag === "SYNTX_OWNER_EXISTING_VIDEO_RECOVERY" &&
       binding.public_model_ids.includes("kling_4_keyframes") && binding.public_model_ids.includes("kling_4_omni"));

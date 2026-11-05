@@ -45,7 +45,10 @@ $ProgressPreference = 'SilentlyContinue'
 $script:nativePhase = 'IDENTITY'
 try {
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-$paths = @($env:SYNTX_LOCAL_MEDIA_ACL_PATHS | ConvertFrom-Json)
+$script:nativePhase = 'INPUT_PATHS'
+$decoded = ConvertFrom-Json -InputObject $env:SYNTX_LOCAL_MEDIA_ACL_PATHS
+$paths = @($decoded | ForEach-Object { if ($_ -isnot [string]) { throw 'INPUT_PATH_KIND' }; $_ })
+if ($paths.Count -lt 1 -or $paths.Count -gt 8) { throw 'INPUT_PATH_COUNT' }
 $action = $env:SYNTX_LOCAL_MEDIA_ACL_ACTION
 $path = $paths[0]
 function Read-Descriptor($target) {

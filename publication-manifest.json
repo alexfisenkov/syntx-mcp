@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "134d6b64e19e76255bc4be519fd3e4a91a902970",
+  "source_commit": "0946736dca69af369de7e5a8cb0245cdcffc7e90",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2164,7 +2164,7 @@
   ],
   "file_sha256": {
     ".gitattributes": "e6a761bace28c69308bf1c43ab5f2f398d01de3cfbae6e2cb316ea86226b0fbe",
-    ".github/workflows/verify.yml": "cfd5a17e02cd0e07f15382aca1a283bfc8cf93df21883786d98f0d93dfab9928",
+    ".github/workflows/verify.yml": "834d0e81aa5130bd4229de3af029db37a4c61a55a4c5257793584c23c470f86c",
     ".gitignore": "d69b6e3b1799372e2e768fd634e2171f918155cb202498225e7eafadb90db99b",
     ".gitleaks.toml": "649d0cd3ee28612d2dd429e42a17953e7e19c35223e5affb1cc97e477fd584f1",
     "AGENTS.md": "b20a2ce6807b20f90a8d7817c885a047d85da19576983bf2b3cb29fcac36b06e",
@@ -2587,7 +2587,7 @@
     "src/application/generation-contract-validator-v2.ts": "081df17ff07ab9c780ae7748964df8d8405330d470690c782996d1917cf75885",
     "src/application/generation-contract-validator.ts": "382bb63d8f49aa96bb4e9226f1bad999d774cca93bd7c93adf800ad474d2bfbd",
     "src/application/generation-request.ts": "3052ea1b41085e7d9ad6bd31011090dd1de36256e4c4caa212524fa9fc3c168a",
-    "src/application/local-media-native-permissions.ts": "1ea5113017cc68dc43ee2ec55a1671287466f085b9d80417cd65cdcfe9ab37e5",
+    "src/application/local-media-native-permissions.ts": "b8747968443fb3fe399771581d94a94b9c3cffea9a6db042c645ace1260ef43b",
     "src/application/mcp-self-update-service.ts": "71d71921cdde732ec92c00545463d06b487a25627bd80db005cfd5e8bab2270f",
     "src/application/model-access.ts": "047d3b7eee50f276570211e4af2f2a6e66dd08953f2e3f5cbc37d52b6dfec223",
     "src/application/observed-generation-estimate.ts": "72df8d02c000fac66233012c17da7c30533b5b097a9dc978b51e26c83f67c5b9",

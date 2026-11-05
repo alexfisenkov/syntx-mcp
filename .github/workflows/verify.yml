@@ -16,6 +16,7 @@ on:
           - catalog-update
           - media-update
           - media-cloud-final
+          - windows-native-fix
           - full
 
 permissions:
@@ -158,7 +159,7 @@ jobs:
 
   windows-native-media:
     name: Native media acceptance / Windows 2025 / Node 24.21.0
-    if: inputs.scope == 'media-cloud-final'
+    if: inputs.scope == 'media-cloud-final' || inputs.scope == 'windows-native-fix'
     runs-on: windows-2025
     timeout-minutes: 25
     defaults:

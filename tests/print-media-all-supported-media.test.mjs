@@ -28,6 +28,7 @@ test("all-supported-media CLI output enables its generic and pinned Grok routes 
   assert.equal(code, 0);
   assert.equal(stderr.join(""), "");
   const env = JSON.parse(stdout.join("")).mcpServers.syntx.env;
+  assert.equal(env.SYNTX_STDIO_MAX_BUFFER_BYTES, "201326592");
   assert.equal(env.SYNTX_OWNER_GENERATE_IMAGE, "1");
   assert.equal(env.SYNTX_OWNER_GENERATE_VIDEO, "1");
   assert.equal(env.SYNTX_OWNER_GROK_IMAGE_REFERENCES, "1");
@@ -37,6 +38,7 @@ test("all-supported-media CLI output enables its generic and pinned Grok routes 
 
 test("self-update environment opt-in stays separate and off by default", () => {
   const defaultConfig = buildMediaMcpConfig(entry, process.execPath);
+  assert.equal(defaultConfig.mcpServers.syntx.env.SYNTX_STDIO_MAX_BUFFER_BYTES, undefined);
   assert.equal(defaultConfig.mcpServers.syntx.env.SYNTX_SELF_UPDATE, undefined);
   assert.equal(defaultConfig.mcpServers.syntx.env.SYNTX_OWNER_GENERATE_VIDEO, "0");
   assert.equal(defaultConfig.mcpServers.syntx.env.SYNTX_OWNER_GROK_IMAGE_REFERENCES, "0");

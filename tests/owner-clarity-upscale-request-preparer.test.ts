@@ -191,8 +191,8 @@ test("all caller-controlled settings are explicit, closed and bounded", async ()
     { professional_mode: false, scale_factor: 1.5, strength: 0.5, cfg: 1, denoise: 0.3 },
     { professional_mode: false, scale_factor: 1.5, strength: 0.5, cfg: 9.5, denoise: 0.3 },
     { professional_mode: false, scale_factor: 1.5, strength: 0.5, cfg: 4, denoise: 0.71 },
-    { professional_mode: false, scale_factor: 1.5, strength: 0.505, cfg: 4, denoise: 0.3 },
-    { professional_mode: false, scale_factor: 1.5, strength: 0.5, cfg: 4, denoise: 0.305 },
+    { professional_mode: false, scale_factor: 1.5, strength: NaN, cfg: 4, denoise: 0.3 },
+    { professional_mode: false, scale_factor: 1.5, strength: 0.5, cfg: 4, denoise: Infinity },
     { professional_mode: false, scale_factor: 1.5, strength: 0.5, cfg: 4, denoise: 0.3, model_type: "banana-2.1" },
     { professional_mode: false, scale_factor: 1.5, strength: 0.5, cfg: 4 }
   ];

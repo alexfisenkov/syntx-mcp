@@ -1,3 +1,5 @@
+import { isKlingFiniteDuration, isKlingFractionalDuration, OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } from "./owner-kling-duration-current-source.js";
+import { OWNER_KLING_CURRENT_MANUAL_CONTROLS } from "./owner-kling-current-controls.js";
 import { types } from "node:util";
 
 const MODEL_ID = "kling_image2video" as const;
@@ -184,7 +186,7 @@ const SOURCE = Object.freeze({
   backend_acceptance: "UNPROVEN" as const
 });
 
-export type OwnerKlingI2vVersion = typeof VERSIONS[number];
+export type OwnerKlingI2vVersion = typeof VERSIONS[number] | "2.5";
 export type OwnerKlingI2vMode = typeof MODES[number];
 
 export interface OwnerKlingI2vParametersSource {
@@ -206,6 +208,8 @@ export interface OwnerKlingI2vParametersSource {
 
 export interface OwnerKlingI2vNormalizedParameters {
   readonly status: "SOURCE_REVIEWED_EXPLICIT_INTENT";
+  readonly current_duration_source?: typeof OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE;
+  readonly current_source_controls?: typeof OWNER_KLING_CURRENT_MANUAL_CONTROLS;
   readonly source_pins: typeof OWNER_KLING_I2V_SOURCE_PINS;
   readonly intent: Readonly<{
     model_id: typeof MODEL_ID;
@@ -257,9 +261,9 @@ export function normalizeOwnerKlingI2vParameters(input: unknown): OwnerKlingI2vN
   const fields = exactRecord(input);
   if (fields.model_id !== MODEL_ID || fields.reference_count !== 1 || typeof fields.prompt !== "string" ||
       !isWellFormedUnicode(fields.prompt) || PROMPT_CONTROL.test(fields.prompt) ||
-      typeof fields.version !== "string" || !VERSIONS.includes(fields.version as OwnerKlingI2vVersion) ||
+      typeof fields.version !== "string" || (!(VERSIONS as readonly string[]).includes(fields.version) && fields.version !== "2.5") ||
       typeof fields.mode !== "string" || !MODES.includes(fields.mode as OwnerKlingI2vMode) ||
-      !Number.isSafeInteger(fields.video_duration) || typeof fields.native_audio !== "boolean") invalid();
+      !isKlingFiniteDuration(fields.video_duration, 3, 15) || typeof fields.native_audio !== "boolean") invalid();
 
   const version = fields.version as OwnerKlingI2vVersion;
   const mode = fields.mode as OwnerKlingI2vMode;
@@ -270,7 +274,7 @@ export function normalizeOwnerKlingI2vParameters(input: unknown): OwnerKlingI2vN
       (version === "2.1-master" && mode === "standart") ||
       (mode === "4K" && version !== "3.0") ||
       (version === "3.0" || version === "3.0-turbo"
-        ? !LONG_DURATIONS.includes(videoDuration)
+        ? !isKlingFiniteDuration(videoDuration, 3, 15)
         : !STANDARD_DURATIONS.some((value) => value === videoDuration)) ||
       (fields.native_audio === true && !AUDIO_VERSIONS.includes(version as typeof AUDIO_VERSIONS[number])) ||
       (fields.native_audio === true && version === "2.6" && mode !== "hd")) invalid();
@@ -278,6 +282,8 @@ export function normalizeOwnerKlingI2vParameters(input: unknown): OwnerKlingI2vN
   return Object.freeze({
     status: "SOURCE_REVIEWED_EXPLICIT_INTENT" as const,
     source_pins: OWNER_KLING_I2V_SOURCE_PINS,
+    ...(isKlingFractionalDuration(videoDuration) ? { current_duration_source: OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } : {}),
+    ...(version === "2.5" ? { current_source_controls: OWNER_KLING_CURRENT_MANUAL_CONTROLS } : {}),
     intent: Object.freeze({
       model_id: MODEL_ID,
       prompt: promptOptional ? prompt : fields.prompt,

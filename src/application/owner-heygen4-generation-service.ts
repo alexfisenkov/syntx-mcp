@@ -7,7 +7,7 @@ import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
 import { sameGenerationPrincipal } from "../domain/generation-principal.js";
 import type { SyntxChatHttpClient } from "../adapter/syntx/chat-http-client.js";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
-import type { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
+import { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 import { AccountStatusService } from "./account-status.js";
 import { ModelAccessService } from "./model-access.js";
 import { getOwnerHeygen4Parameters, OWNER_HEYGEN4_SOURCE_PROFILE, normalizeOwnerHeygen4Intent } from "./owner-heygen4-parameters.js";
@@ -16,7 +16,8 @@ import { isOwnerHeygen4ReferenceService, type OwnerHeygen4ReferenceService, type
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u; const RECOVERY = /^heygen4_recovery_[0-9a-f-]{36}$/u;
 const FRESH_MS = 30_000; const MAX_CLAIMS = 8_192; const SERVICES = new WeakSet<object>(); const CLAIMS = new Set<string>();
 export interface OwnerHeygen4GenerationOptions { readonly binding: AuthBinding; readonly linkService: Pick<PerUserLinkService, "getStatus">;
-  readonly catalog: DiscoveryCatalogRepository; readonly catalog_version: string; readonly referenceService: OwnerHeygen4ReferenceService;
+  readonly catalog: DiscoveryCatalogRepository; readonly catalog_version: string; readonly current_catalog: DiscoveryCatalogRepository;
+  readonly createCurrentModelAccessService: (attemptId: string) => ModelAccessService; readonly referenceService: OwnerHeygen4ReferenceService;
   readonly resolveChatClient: (attemptId: string) => SyntxChatHttpClient; readonly createAccountStatusService: (attemptId: string) => AccountStatusService;
   readonly createModelAccessService: (attemptId: string) => ModelAccessService; readonly now: () => number; }
 export interface OwnerHeygen4GenerationResult { readonly status: "completed" | "outcome_unknown"; readonly recovery_id: string;
@@ -39,10 +40,12 @@ export class OwnerHeygen4GenerationService {
   readonly #options: OwnerHeygen4GenerationOptions; readonly #records = new Map<string, Operation>(); readonly #busy = new Set<string>(); #closed = false;
   constructor(options: OwnerHeygen4GenerationOptions | unknown) {
     const row = exact(options, ["binding", "linkService", "catalog", "catalog_version", "referenceService", "resolveChatClient",
-      "createAccountStatusService", "createModelAccessService", "now"]);
+      "createAccountStatusService", "createModelAccessService", "createCurrentModelAccessService", "current_catalog", "now"]);
     if (!isOwnerHeygen4ReferenceService(row.referenceService) || typeof row.resolveChatClient !== "function" ||
         typeof row.createAccountStatusService !== "function" || typeof row.createModelAccessService !== "function" ||
         typeof row.now !== "function" || types.isProxy(row.now) || typeof row.catalog_version !== "string" || !row.catalog_version) fail("INVALID_REQUEST");
+    if (!(row.current_catalog instanceof DiscoveryCatalogRepository) || row.current_catalog.source_hashes.models !== "sha256:11f085ad9b0dd97435d6ebece623fa85bce2870e714e876e6fbb041c562fb438" ||
+        typeof row.createCurrentModelAccessService !== "function" || types.isProxy(row.createCurrentModelAccessService)) fail("MODEL_BINDING_MISMATCH");
     this.#options = Object.freeze({ ...row, binding: snapshotBinding(row.binding) }) as OwnerHeygen4GenerationOptions;
     SERVICES.add(this); Object.freeze(this);
   }
@@ -50,13 +53,14 @@ export class OwnerHeygen4GenerationService {
   getParameters(): Readonly<Record<string, unknown>> { return getOwnerHeygen4Parameters(); }
   async generate(input: unknown, signal?: AbortSignal): Promise<OwnerHeygen4GenerationResult> {
     if (this.#closed) fail("SERVICE_CLOSED");
-    const row = exact(input, ["attemptId", "prompt", "image_handle", "audio_handle"]);
+    const row = exact(input, ["attemptId", "prompt", "image_handle", "audio_handle"], ["aspect_ratio"]);
     const refs = this.#options.referenceService.resolvePair({ attemptId: row.attemptId, image_handle: row.image_handle, audio_handle: row.audio_handle });
     if (!this.#options.referenceService.isOwned(refs.image) || !this.#options.referenceService.isOwned(refs.audio) ||
         refs.image.client !== refs.audio.client || typeof refs.audio.duration_seconds !== "number") fail("REFERENCE_NOT_FOUND");
     const normalized = normalizeOwnerHeygen4Intent({ attemptId: row.attemptId, prompt: row.prompt,
       image_sha256: refs.image.sha256, image_file_id: refs.image.file_id, audio_sha256: refs.audio.sha256,
-      audio_file_id: refs.audio.file_id, duration: refs.audio.duration_seconds });
+      audio_file_id: refs.audio.file_id, duration: refs.audio.duration_seconds,
+      ...(row.aspect_ratio === undefined ? {} : { aspect_ratio: row.aspect_ratio }) });
     if (this.#busy.has(normalized.attemptId)) fail("SERVICE_BUSY"); this.#busy.add(normalized.attemptId);
     try {
       const options = this.#options; const principal = await resolveOwnerReferencePrincipal({ binding: options.binding,
@@ -80,7 +84,7 @@ export class OwnerHeygen4GenerationService {
       await this.#current(operation, signal);
       operation.posted = true;
       try { const ack = await client.startOwnerHeygen4Video({ chat_id: operation.chatId, prompt: normalized.prompt,
-          duration: normalized.duration, image: refs.image.context, audio: refs.audio.context }, signal);
+          duration: normalized.duration, aspect_ratio: normalized.aspect_ratio, image: refs.image.context, audio: refs.audio.context }, signal);
         operation.ackId = ack.message_id; }
       catch { operation.result = result("outcome_unknown", recovery, "GENERATION_POST_OUTCOME_UNKNOWN", true, 0, 0, ["GENERATION_POST_OUTCOME_UNKNOWN"]); return operation.result; }
       return await this.#collect(operation, signal);
@@ -102,10 +106,11 @@ export class OwnerHeygen4GenerationService {
   async close(): Promise<void> { this.#closed = true; this.#records.clear(); }
   async #preflight(input: NormalizedIntent, signal?: AbortSignal): Promise<void> {
     const account = await this.#options.createAccountStatusService(input.attemptId).getAccountStatus(signal);
-    const access = await this.#options.createModelAccessService(input.attemptId).getModelAccess({ model_id: "heygen4",
+    const current = input.aspect_ratio === "9:16", catalog = current ? this.#options.current_catalog : this.#options.catalog;
+    const access = await (current ? this.#options.createCurrentModelAccessService : this.#options.createModelAccessService)(input.attemptId).getModelAccess({ model_id: "heygen4",
       cost_parameters: { duration: String(input.duration) } }, signal);
     const time = safeNow(this.#options.now), accountAt = Date.parse(account.observed_at), accessAt = Date.parse(access.observed_at);
-    const expectedVersion = `${this.#options.catalog.fetched_at}.${this.#options.catalog.source_hashes.models.slice(7, 19)}`;
+    const expectedVersion = `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`;
     const price = access.discount_cost ?? access.cost;
     const balance = account.balance.available;
     if (access.access !== true || access.model_id !== "heygen4" || access.ai_name !== "heygen" || access.model_type !== "heygen4" ||
@@ -177,9 +182,9 @@ function result(status: OwnerHeygen4GenerationResult["status"], recovery_id: str
     generation_post_started, history_get_calls, result_get_calls, gaps: Object.freeze([...gaps]) }) }); }
 function mime(url: string): string | null { const path = new URL(url).pathname.toLowerCase(); return path.endsWith(".mp4") ? "video/mp4" : path.endsWith(".mov") ? "video/quicktime" : null; }
 function record(value: unknown): Record<string, any> | undefined { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : undefined; }
-function exact(value: unknown, keys: readonly string[]): Record<string, any> { const row = record(value); if (!row || types.isProxy(value)) fail("INVALID_REQUEST");
+function exact(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, any> { const row = record(value); if (!row || types.isProxy(value)) fail("INVALID_REQUEST");
   const descriptors = Object.getOwnPropertyDescriptors(value); if ((Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) ||
-    Reflect.ownKeys(descriptors).length !== keys.length || Reflect.ownKeys(descriptors).some(key => typeof key !== "string" || !keys.includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) fail("INVALID_REQUEST");
+    keys.some(key => !Object.hasOwn(descriptors, key)) || Reflect.ownKeys(descriptors).some(key => typeof key !== "string" || ![...keys, ...optional].includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) fail("INVALID_REQUEST");
   return row; }
 function snapshotBinding(value: unknown): Readonly<AuthBinding> { const row = exact(value, ["tenant_id", "subject"]); if (typeof row.tenant_id !== "string" || !row.tenant_id ||
     typeof row.subject !== "string" || !row.subject) fail("INVALID_REQUEST"); return Object.freeze({ tenant_id: row.tenant_id, subject: row.subject }); }

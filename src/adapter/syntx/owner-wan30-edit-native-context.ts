@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import {WAN30_EDIT_CURRENT_PROFILE_ID} from "../../application/owner-wan30-current-form-source.js";
 import type { GenerationPrincipalRef } from "../../domain/generation-operation.js";
 import {
   normalizeOwnerWan30EditGenerationIntent,
@@ -7,6 +8,7 @@ import {
 } from "../../application/owner-wan30-edit-generation-parameters.js";
 import {
   copyTrustedOwnerWan30EditOriginalBytes,
+  isTrustedOwnerWan30EditCurrentOriginalProbeResult,
   isTrustedOwnerWan30EditOriginalProbeResult,
   releaseTrustedOwnerWan30EditOriginalProbeResult,
   type TrustedOwnerWan30EditOriginalProbeResult
@@ -54,14 +56,14 @@ export interface OwnerWan30EditUploadedVideo {
   readonly duration_seconds: number;
   readonly fps: number;
   readonly frame_count: number | null;
-  readonly upload_profile_confidence: "UI_MULTIPART_FIELDS_OBSERVED_1918";
+  readonly upload_profile_confidence: "UI_MULTIPART_FIELDS_OBSERVED_1918" | "CURRENT_FORM_SOURCE_NOT_PROVIDER_OBSERVED";
   readonly owner_upload_binding: "SAME_CLIENT_NATIVE_UPLOAD";
 }
 
 export interface OwnerWan30EditGenerationContext {
   readonly status: "ready";
   readonly model_id: typeof MODEL_ID;
-  readonly profile_id: typeof PROFILE_ID;
+  readonly profile_id: typeof PROFILE_ID | typeof WAN30_EDIT_CURRENT_PROFILE_ID;
   readonly reference_types: readonly ["video"];
   readonly dispatch_state: "READY" | "RESERVED";
   readonly backend_acceptance: "UNPROVEN";
@@ -91,6 +93,7 @@ export class OwnerWan30EditNativeContextError extends Error {
 }
 
 interface LocalVideoState {
+  readonly current: boolean;
   readonly bytes: Buffer;
   readonly filename: string;
   readonly size: number;
@@ -105,6 +108,7 @@ interface LocalVideoState {
 interface UploadState {
   readonly client: SyntxChatHttpClientInstance;
   readonly metadata: OwnerWan30EditUploadedVideo;
+  readonly current: boolean;
   url: string | null;
   released: boolean;
 }
@@ -122,17 +126,28 @@ interface GenerationState {
 
 /** Copies only bytes held by a genuine local ffprobe receipt for the observed input case. */
 export function validateOwnerWan30EditVideoInput(input: unknown): OwnerWan30EditValidatedVideo {
+  return validateVideoInput(input, false);
+}
+
+/** Current form requires its separately branded local probe receipt. */
+export function validateOwnerWan30EditCurrentVideoInput(input: unknown): OwnerWan30EditValidatedVideo {
+  return validateVideoInput(input, true);
+}
+
+function validateVideoInput(input: unknown, current: boolean): OwnerWan30EditValidatedVideo {
   if (!isTrustedOwnerWan30EditOriginalProbeResult(input)) fail("INVALID_INPUT");
+  if (current !== isTrustedOwnerWan30EditCurrentOriginalProbeResult(input)) fail("INVALID_INPUT");
   let bytes: Uint8Array | undefined;
   try {
     const metadata = readTrustedProbeMetadata(input);
-    if (!metadata || !trustedInputMetadata(metadata)) fail("INVALID_INPUT");
+    if (!metadata || !trustedInputMetadata(metadata, current)) fail("INVALID_INPUT");
     bytes = copyTrustedOwnerWan30EditOriginalBytes(input);
     if (bytes.byteLength !== metadata.size || createHash("sha256").update(bytes).digest("hex") !== metadata.sha256) {
       fail("INVALID_INPUT");
     }
     const owned = Buffer.from(bytes);
     const state: LocalVideoState = {
+      current,
       bytes: owned,
       filename: metadata.filename,
       size: owned.byteLength,
@@ -206,9 +221,9 @@ export async function uploadOwnerWan30EditVideo(
       status: "uploaded", model_id: MODEL_ID, reference_type: "video", mime_type: "video/mp4",
       size: receipt.size, sha256: receipt.sha256, width: receipt.width, height: receipt.height,
       duration_seconds: receipt.durationSeconds, fps: receipt.fps, frame_count: receipt.frameCount,
-      upload_profile_confidence: "UI_MULTIPART_FIELDS_OBSERVED_1918", owner_upload_binding: "SAME_CLIENT_NATIVE_UPLOAD"
+      upload_profile_confidence: receipt.current ? "CURRENT_FORM_SOURCE_NOT_PROVIDER_OBSERVED" : "UI_MULTIPART_FIELDS_OBSERVED_1918", owner_upload_binding: "SAME_CLIENT_NATIVE_UPLOAD"
     });
-    UPLOADS.set(metadata, { client: clientInput, metadata, url: reference.url, released: false });
+    UPLOADS.set(metadata, { client: clientInput, metadata, current: receipt.current, url: reference.url, released: false });
     return metadata;
   } finally { bytes.fill(0); }
 }
@@ -228,15 +243,17 @@ export function createOwnerWan30EditGenerationContext(
   if (intent.model_id !== MODEL_ID) fail("INVALID_CONTEXT");
   const normalized = normalizeOwnerWan30EditGenerationIntent({ prompt: intent.prompt, parameters: intent.parameters });
   if (normalized.dispatch_allowed !== false || normalized.runtime_usable !== false ||
-      normalized.source_profile_id !== PROFILE_ID || normalized.intent.model_id !== MODEL_ID) fail("INVALID_CONTEXT");
-  readUploaded(clientInput, fields.reference_video);
+      ![PROFILE_ID,WAN30_EDIT_CURRENT_PROFILE_ID].includes(normalized.source_profile_id) || normalized.intent.model_id !== MODEL_ID) fail("INVALID_CONTEXT");
+  const reference = readUploaded(clientInput, fields.reference_video);
+  if (reference.current && (normalized.intent.parameters.duration !== Math.round(reference.metadata.duration_seconds * 100) / 100 ||
+      normalized.intent.parameters.video_duration > Math.max(2, Math.floor(Math.round(reference.metadata.duration_seconds * 100) / 100)))) fail("INVALID_CONTEXT");
   const parameters = normalized.intent.parameters;
   const settings = Object.freeze({
     model_type: MODEL_ID,
     ...parameters
   });
   const context: OwnerWan30EditGenerationContext = Object.freeze({
-    status: "ready", model_id: MODEL_ID, profile_id: PROFILE_ID,
+    status: "ready", model_id: MODEL_ID, profile_id: reference.current ? WAN30_EDIT_CURRENT_PROFILE_ID : normalized.source_profile_id,
     reference_types: Object.freeze(["video"] as const), dispatch_state: "READY", backend_acceptance: "UNPROVEN"
   });
   GENERATIONS.set(context, {
@@ -383,12 +400,12 @@ function readTrustedProbeMetadata(input: TrustedOwnerWan30EditOriginalProbeResul
   } catch { return null; }
 }
 
-function trustedInputMetadata(value: TrustedOwnerWan30EditOriginalProbeResult): boolean {
+function trustedInputMetadata(value: TrustedOwnerWan30EditOriginalProbeResult, current: boolean): boolean {
   return value.model_id === MODEL_ID && value.mime_type === "video/mp4" &&
     typeof value.filename === "string" && value.filename.toLowerCase().endsWith(".mp4") &&
     Number.isSafeInteger(value.size) && value.size >= 1 && value.size <= MAX_BYTES && /^[a-f0-9]{64}$/u.test(value.sha256) &&
     Number.isSafeInteger(value.width) && value.width > 0 && Number.isSafeInteger(value.height) && value.height > 0 &&
-    Math.abs(value.duration_seconds - 2) <= 0.001 && Number.isFinite(value.fps) && value.fps > 0 &&
+    Number.isFinite(value.duration_seconds) && (current ? value.duration_seconds >= 1 && value.duration_seconds <= 15 : Math.abs(value.duration_seconds - 2) <= 0.001) && Number.isFinite(value.fps) && value.fps > 0 &&
     (value.frame_count === null || (Number.isSafeInteger(value.frame_count) && value.frame_count > 0)) &&
     value.container_confidence === "LOCAL_FFPROBE_METADATA_ONLY" && value.generation_permit === false;
 }

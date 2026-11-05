@@ -100,7 +100,7 @@ test("invalid local MP4, out-of-profile settings, and malformed recovery IDs ret
     } });
     const badGeneration = await fixture.client.callTool({ name: SYNTX_OWNER_GENERATE_WAN30_EDIT_VIDEO_TOOL_NAME, arguments: {
       link_attempt_id: "link_wan30_edit_1924_000000000001", prompt: "synthetic local validation only",
-      parameters: { aspect_ratio: "16:9", resolution: "720P", video_duration: 2, prompt_extend: true,
+      parameters: { aspect_ratio: "16:9", resolution: "4K", video_duration: 2, prompt_extend: true,
         shot_type: "single", audio_setting: "auto", seed: null, native_audio: true, duration: 2, rendering_speed: "basic" },
       video_handle: "wan30_edit_video_00000000-0000-4000-8000-000000000001"
     } });

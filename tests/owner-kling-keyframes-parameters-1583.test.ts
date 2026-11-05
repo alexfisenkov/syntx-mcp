@@ -93,7 +93,7 @@ test("projects only explicit settings, omits a null aspect ratio, and validates 
   });
   assert.equal(v3.settings_template.multi_shots, true);
   assert.equal(v3.settings_template.native_audio, true);
-  assert.throws(() => buildOwnerKlingKeyframesWireSettingsTemplate({ parameters: PARAMETERS, controls: { temperature: 0.55 } }), OwnerKlingKeyframesWireSourceError);
+  assert.equal(buildOwnerKlingKeyframesWireSettingsTemplate({ parameters: PARAMETERS, controls: { temperature: 0.55 } }).settings_template.temperature, 0.55);
   assert.throws(() => buildOwnerKlingKeyframesWireSettingsTemplate({
     parameters: { ...PARAMETERS, version: "3.0" }, controls: { temperature: 0.5 }
   }), OwnerKlingKeyframesWireSourceError);

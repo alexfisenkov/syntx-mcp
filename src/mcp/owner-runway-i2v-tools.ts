@@ -65,8 +65,8 @@ const uploadInput = z.object({
   mime_type: mimeType,
   content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS))
 }).strict().superRefine((value, context) => {
-  if (value.model_id === "gen4.5i2v" && value.aspect_ratio !== "16:9") {
-    context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Gen4.5 I2V initial slice requires explicit 16:9." });
+  if (value.model_id === "gen4.5i2v" && value.aspect_ratio === "21:9") {
+    context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Current Gen4.5 I2V supports16:9/4:3/1:1/3:4/9:16;21:9 is not source-listed." });
   }
   const extension = value.filename.slice(value.filename.lastIndexOf(".")).toLowerCase();
   const validExtension = value.mime_type === "image/jpeg" ? [".jpg", ".jpeg"].includes(extension)
@@ -79,12 +79,12 @@ const generateInput = z.object({
   prompt: z.string().min(1).max(1_000).refine(isWellFormedUnicode),
   aspect_ratio: aspectRatio,
   video_duration: z.union([z.literal(5), z.literal(8), z.literal(10)]),
-  seed: z.null(),
+  seed: z.number().int().min(0).max(2147483647).nullable().describe("Current RandomSeed control: null selects random; explicit integer 0..2147483647 is preserved."),
   reference_handle: handle
 }).strict().superRefine((value, context) => {
   if (value.prompt.trim().length === 0) context.addIssue({ code: "custom", path: ["prompt"], message: "Prompt must not be blank." });
   if (value.model_id === "gen4.5i2v") {
-    if (value.aspect_ratio !== "16:9") context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Gen4.5 I2V initial slice requires explicit 16:9." });
+    if (value.aspect_ratio === "21:9") context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Current Gen4.5 I2V supports16:9/4:3/1:1/3:4/9:16;21:9 is not source-listed." });
   } else if (value.video_duration !== 5 && value.video_duration !== 10) {
     context.addIssue({ code: "custom", path: ["video_duration"], message: "The legacy Runway I2V models support only 5 or 10 seconds in this slice." });
   }

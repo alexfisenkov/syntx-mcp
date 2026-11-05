@@ -3,6 +3,10 @@ import { chmod, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { registerSyntxOwnerTopazEnhanceTools } from "../src/mcp/owner-topaz-enhance-tools.js";
 import { SyntxChatHttpClient } from "../src/adapter/syntx/chat-http-client.js";
 import { SyntxHttpClient, type SyntxCredentialBroker } from "../src/adapter/syntx/http-client.js";
 import { AccountStatusService } from "../src/application/account-status.js";
@@ -51,7 +55,9 @@ test("Topaz Enhance generation preflights exact quote twice, dispatches once, an
       genCalls++; assert.equal(url.search, "?ai_name=topaz_ai"); const body = JSON.parse(String(init.body)) as Record<string, any>;
       assert.equal(body.chat_id, CHAT); assert.equal(Object.hasOwn(body, "prompt"), false); assert.equal(body.settings.model_type, "topaz_enhance");
       assert.equal(body.settings.video_duration, 3); assert.equal(body.settings.resolution, "1"); assert.equal(body.settings.width, 640); assert.equal(body.settings.height, 360);
-      assert.deepEqual(body.settings.file_urls, [{ type: "video", url: SOURCE_URL }]); assert.equal(body.settings.parameters.upscale, 1); return response({ id: ACK });
+      assert.deepEqual(body.settings.file_urls, [{ type: "video", url: SOURCE_URL }]); assert.equal(body.settings.parameters.upscale, 1);
+      for (const field of ["blur", "halo", "noise", "details", "preblur", "compression"]) assert.equal(body.settings.parameters[field], -0.375);
+      assert.equal(body.settings.parameters.prenoise, 0.375); return response({ id: ACK });
     }
     if (url.pathname.endsWith(`/chats/${CHAT}/messages`) && method === "GET") { historyCalls++; if (historyCalls === 1) throw new Error("synthetic interrupted history read"); return response({ messages: [
       { id: ACK, chat_id: 77201, author_id: 17, message_object: [] }, { id: MESSAGE, chat_id: 77201, author_id: -1,
@@ -68,14 +74,21 @@ test("Topaz Enhance generation preflights exact quote twice, dispatches once, an
     preparer, originalReferenceService: original, resolveChatClient: () => chat, now: () => clock,
     createAccountStatusService: () => new AccountStatusService(new SyntxHttpClient({ credentialBroker: broker, fetchImpl }), () => clock),
     createModelAccessService: () => new ModelAccessService(CATALOG, new SyntxHttpClient({ credentialBroker: broker, fetchImpl }), () => clock) });
+  const server = new McpServer({ name: "topaz-current-controls", version: "1" });
+  registerSyntxOwnerTopazEnhanceTools(server, { generationService: service, originalReferenceService: original });
+  const client = new Client({ name: "topaz-current-controls", version: "1" }), [caller, host] = InMemoryTransport.createLinkedPair();
   try {
+    await server.connect(host); await client.connect(caller);
     const uploaded = await original.uploadOriginal({ attemptId: ATTEMPT, model_id: "topaz_enhance", filename: "source.mp4", mime_type: "video/mp4", bytes: SOURCE });
     const request = { attemptId: ATTEMPT, request: { model_id: "topaz_enhance" as const, topaz_original_handle: uploaded.topaz_original_handle,
-      parameters: { blur: 0, halo: 0, focus: "off", grain: "off", model: "rhea-1", noise: 0, details: 0, preblur: 0, upscale: 1, prenoise: 0, compression: 0, interpolation: 60 } } };
+      parameters: { blur: -0.375, halo: -0.375, focus: "off", grain: "off", model: "rhea-1", noise: -0.375, details: -0.375,
+        preblur: -0.375, upscale: 1, prenoise: 0.375, compression: -0.375, interpolation: 60 } } };
     await assert.rejects(service.generate(request), (error: unknown) => error instanceof OwnerTopazEnhanceGenerationServiceError && error.code === "PREFLIGHT_FAILED");
     assert.equal(chatCalls, 0); assert.equal(genCalls, 0, "quote 2 must not pass a balance of 1.00");
-    const unknown = await service.generate(request).then(() => null, (error: unknown) => error);
-    assert.ok(unknown instanceof OwnerTopazEnhanceGenerationServiceError); assert.equal(unknown.code, "OUTCOME_UNKNOWN");
+    const sdkResult = await client.callTool({ name: "syntx_owner_generate_topaz_enhance", arguments: { link_attempt_id: ATTEMPT, ...request.request } });
+    assert.equal(sdkResult.isError, true);
+    const unknown = (JSON.parse((sdkResult.content as Array<{ text: string }>)[0]!.text) as { error: { code: string; recovery_id: string } }).error;
+    assert.equal(unknown.code, "OUTCOME_UNKNOWN");
     assert.ok(unknown.recovery_id); assert.equal(quotes, 3); assert.equal(chatCalls, 1); assert.equal(genCalls, 1);
     await assert.rejects(service.generate(request),
       (error: unknown) => error instanceof OwnerTopazEnhanceGenerationServiceError && error.code === "INTENT_ALREADY_CLAIMED");
@@ -84,7 +97,7 @@ test("Topaz Enhance generation preflights exact quote twice, dispatches once, an
     const result = await service.reconcile({ attemptId: ATTEMPT, recovery_id: unknown.recovery_id! });
     assert.equal(result.status, "completed"); assert.equal(result.backend_acceptance, "UNPROVEN"); assert.equal(result.cost_cap_enforced, false);
     assert.equal(result.artifacts[0]?.object_url, RESULT_URL); assert.equal(historyCalls, 2); assert.equal(resultCalls, 1); assert.equal(quotes, 3);
-  } finally { await service.close(); await original.close(); await rm(directory, { recursive: true, force: true }); }
+  } finally { await client.close(); await server.close(); await service.close(); await original.close(); await rm(directory, { recursive: true, force: true }); }
 });
 
 test("Topaz Enhance accepts a fresh active subscription with unknown expiry but blocks an expired one before chat", async () => {

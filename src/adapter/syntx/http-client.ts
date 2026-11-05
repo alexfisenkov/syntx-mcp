@@ -1,4 +1,4 @@
-import { TextDecoder } from "node:util";
+import { TextDecoder, types } from "node:util";
 import { z } from "zod/v4";
 import {
   decodeAccountBalance,
@@ -29,6 +29,7 @@ const RESERVED_PARAMETER_KEYS = new Set([
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const DEFAULT_MAX_RESPONSE_BYTES = 64 * 1024;
 const DEFAULT_UPLOADED_FILES_MAX_RESPONSE_BYTES = 256 * 1024;
+const DEFAULT_ELEVENLABS_VOICES_MAX_RESPONSE_BYTES = 256 * 1024;
 const SAFE_UPLOAD_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/u;
 const UPLOAD_MIME_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp",
@@ -47,8 +48,6 @@ const modelInfoSchema = z
   })
   .strip();
 
-const ELEVENLABS_VOICE_PAGE = 1 as const;
-const ELEVENLABS_VOICE_PAGE_SIZE = 10 as const;
 const MAX_ELEVENLABS_VOICE_ROWS = 100;
 const elevenLabsVoiceRowSchema = z.object({
   voice_id: z.string().min(1).max(160).regex(SAFE_IDENTIFIER),
@@ -71,10 +70,14 @@ const elevenLabsVoicePageSchema = z.object({
   facets: z.unknown().optional()
 }).strip().refine((value) => Object.hasOwn(value, "facets") &&
   (value.total === null || value.total >= value.results.length));
+const voiceFilter = (max: number) => z.string().max(max).refine(value => value.trim().length > 0 && !/[\u0000-\u001f\u007f]/u.test(value));
 const elevenLabsVoiceListRequestSchema = z.strictObject({
-  page: z.literal(ELEVENLABS_VOICE_PAGE),
-  page_size: z.literal(ELEVENLABS_VOICE_PAGE_SIZE)
+  page: z.number().int().min(1).max(1000), page_size: z.union([z.literal(10), z.literal(20)]),
+  search: voiceFilter(500).optional(), gender: voiceFilter(256).optional(), age: voiceFilter(256).optional(),
+  use_case: voiceFilter(256).optional(), accent: voiceFilter(256).optional(), language: voiceFilter(256).optional(),
+  sort_by: voiceFilter(256).optional(), sort_direction: voiceFilter(256).optional()
 });
+export type SyntxElevenLabsVoiceListRequest = z.infer<typeof elevenLabsVoiceListRequestSchema>;
 
 const uploadedFileText = z.string().max(256).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value));
 const uploadedFileMetadataSchema = z.object({
@@ -162,11 +165,12 @@ export interface SyntxElevenLabsVoice {
   name: string;
 }
 export interface SyntxElevenLabsVoicePage {
-  page: typeof ELEVENLABS_VOICE_PAGE;
-  page_size: typeof ELEVENLABS_VOICE_PAGE_SIZE;
+  page: number;
+  page_size: 10 | 20;
   total: number | null;
   has_more: boolean | null;
   voices: SyntxElevenLabsVoice[];
+  filter_options?: Partial<Record<"gender" | "age" | "use_case" | "accent" | "language" | "sort_by" | "sort_direction", readonly string[]>>;
 }
 export interface SyntxHiggsfieldDopMotion {
   readonly id: string | number;
@@ -252,6 +256,7 @@ export class SyntxHttpClient {
   readonly #requestTimeoutMs: number;
   readonly #maxResponseBytes: number;
   readonly #uploadedFilesMaxResponseBytes: number;
+  readonly #elevenLabsVoiceMaxResponseBytes: number;
 
   constructor(options: SyntxHttpClientOptions) {
     this.#credentialBroker = options.credentialBroker;
@@ -259,6 +264,7 @@ export class SyntxHttpClient {
     this.#requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
     this.#maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
     this.#uploadedFilesMaxResponseBytes = options.maxResponseBytes ?? DEFAULT_UPLOADED_FILES_MAX_RESPONSE_BYTES;
+    this.#elevenLabsVoiceMaxResponseBytes = options.maxResponseBytes ?? DEFAULT_ELEVENLABS_VOICES_MAX_RESPONSE_BYTES;
 
     if (
       !Number.isInteger(this.#requestTimeoutMs) ||
@@ -335,35 +341,42 @@ export class SyntxHttpClient {
   }
 
   async listElevenLabsVoices(
-    request: { readonly page: 1; readonly page_size: 10 },
+    request: SyntxElevenLabsVoiceListRequest,
     signal?: AbortSignal
   ): Promise<SyntxElevenLabsVoicePage> {
     const requestParsed = elevenLabsVoiceListRequestSchema.safeParse(request);
     if (!requestParsed.success) throw invalidRequest();
     const url = new URL("audio/elevenlabs/voice_examples", V1_BASE_URL);
-    url.searchParams.set("page", String(ELEVENLABS_VOICE_PAGE));
-    url.searchParams.set("page_size", String(ELEVENLABS_VOICE_PAGE_SIZE));
+    const input = requestParsed.data;
+    url.searchParams.set("page", String(input.page));
+    url.searchParams.set("page_size", String(input.page_size));
+    for (const key of ["search", "gender", "age", "use_case", "accent", "language", "sort_by", "sort_direction"] as const) {
+      if (input[key] !== undefined) url.searchParams.set(key, input[key]);
+    }
     return this.#withCredential(url, (raw) => {
       const parsed = z.union([elevenLabsVoiceRowsSchema, elevenLabsVoicePageSchema]).safeParse(raw);
       if (!parsed.success) throw protocolError();
       if (Array.isArray(parsed.data)) {
         return {
-          page: ELEVENLABS_VOICE_PAGE,
-          page_size: ELEVENLABS_VOICE_PAGE_SIZE,
+          page: input.page,
+          page_size: input.page_size,
           total: null,
           has_more: null,
           voices: parsed.data.map((voice) => ({ voice_id: voice.voice_id, name: voice.name }))
         };
       }
-      if (parsed.data.page !== ELEVENLABS_VOICE_PAGE) throw protocolError();
+      if (parsed.data.page !== input.page || parsed.data.results.length > input.page_size ||
+          (parsed.data.total !== null && parsed.data.results.length > 0 && (input.page - 1) * input.page_size + parsed.data.results.length > parsed.data.total)) throw protocolError();
       return {
-        page: ELEVENLABS_VOICE_PAGE,
-        page_size: ELEVENLABS_VOICE_PAGE_SIZE,
+        page: input.page,
+        page_size: input.page_size,
         total: parsed.data.total,
-        has_more: parsed.data.total === null ? null : parsed.data.total > parsed.data.results.length,
-        voices: parsed.data.results.map((voice) => ({ voice_id: voice.voice_id, name: voice.name }))
+        has_more: parsed.data.total === null ? null : input.page * input.page_size < parsed.data.total,
+        voices: parsed.data.results.map((voice) => ({ voice_id: voice.voice_id, name: voice.name })),
+        ...(() => { const filter_options = projectElevenLabsVoiceFacets(parsed.data.facets);
+          return Object.keys(filter_options).length ? { filter_options } : {}; })()
       };
-    }, signal);
+    }, signal, JSON.parse, this.#elevenLabsVoiceMaxResponseBytes);
   }
 
   /** Fixed authenticated source catalogue read; preview URIs are deliberately discarded. */
@@ -723,9 +736,43 @@ function assertReadUrl(url: URL): void {
       (url.pathname === "/api/v1/user/subscription" && url.search === "?ref=false") ||
       (url.pathname === "/api/v1/higgsfield/motions" && url.search === "") ||
       (url.pathname === "/api/v1/files/uploaded" && /^\?scope=(?:all|uploaded|hidden)&page=\d{1,4}&page_size=\d{1,3}$/u.test(url.search)) ||
-      (url.pathname === "/api/v1/audio/elevenlabs/voice_examples" && url.search === "?page=1&page_size=10")
+      (url.pathname === "/api/v1/audio/elevenlabs/voice_examples" && isSafeElevenLabsVoiceQuery(url))
     )
   ) throw invalidRequest();
+}
+
+function isSafeElevenLabsVoiceQuery(url: URL): boolean {
+  const allowed = new Set(["page", "page_size", "search", "gender", "age", "use_case", "accent", "language", "sort_by", "sort_direction"]);
+  const keys = [...url.searchParams.keys()];
+  if (keys.some(key => !allowed.has(key)) || new Set(keys).size !== keys.length) return false;
+  const page = url.searchParams.get("page"), pageSize = url.searchParams.get("page_size");
+  if (!page || !/^[1-9]\d{0,3}$/u.test(page) || (pageSize !== "10" && pageSize !== "20")) return false;
+  const request: Record<string, unknown> = { page: Number(page), page_size: Number(pageSize) };
+  for (const key of keys) if (key !== "page" && key !== "page_size") request[key] = url.searchParams.get(key);
+  return elevenLabsVoiceListRequestSchema.safeParse(request).success;
+}
+
+function projectElevenLabsVoiceFacets(input: unknown): NonNullable<SyntxElevenLabsVoicePage["filter_options"]> {
+  const output: NonNullable<SyntxElevenLabsVoicePage["filter_options"]> = {};
+  if (!input || typeof input !== "object" || Array.isArray(input) || types.isProxy(input) ||
+      (Object.getPrototypeOf(input) !== Object.prototype && Object.getPrototypeOf(input) !== null)) return output;
+  const fields = Object.getOwnPropertyDescriptors(input);
+  for (const key of ["gender", "age", "use_case", "accent", "language", "sort_by", "sort_direction"] as const) {
+    const descriptor = fields[key]; if (!descriptor || !("value" in descriptor) || !Array.isArray(descriptor.value) ||
+        types.isProxy(descriptor.value) || descriptor.value.length > 100) continue;
+    const values: string[] = []; let safe = true;
+    for (const entry of descriptor.value as unknown[]) {
+      let candidate = entry;
+      if (candidate && typeof candidate === "object" && !Array.isArray(candidate) && !types.isProxy(candidate) &&
+          (Object.getPrototypeOf(candidate) === Object.prototype || Object.getPrototypeOf(candidate) === null)) {
+        const field = Object.getOwnPropertyDescriptor(candidate, "value"); candidate = field && "value" in field ? field.value : undefined;
+      }
+      if (typeof candidate !== "string" || candidate.length > 256 || !candidate.trim() || /[\u0000-\u001f\u007f]/u.test(candidate) || /:\/\/|^www\./iu.test(candidate)) { safe = false; break; }
+      if (!values.includes(candidate)) values.push(candidate);
+    }
+    if (safe && values.length) output[key] = Object.freeze(values);
+  }
+  return output;
 }
 
 function validateUploadedFilesRequest(request: ListUploadedFilesRequest): void {

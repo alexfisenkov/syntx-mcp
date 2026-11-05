@@ -40,6 +40,7 @@ import {
 } from "./owner-wan30-first-last-generation-parameters.js";
 import type { OwnerWanT2vGenerationDiagnostic, OwnerWanT2vVideoArtifact } from "./owner-wan-t2v-generation-service.js";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
+import { WAN30_CURRENT_FORM_SOURCE, WAN30_FIRST_LAST_CURRENT_PROFILE_ID } from "./owner-wan30-current-form-source.js";
 
 const MODEL_ID = "wan_30_first_last_frame" as const;
 const PUBLIC_CATALOG_VERSION = "sha256-19c882601bb8ecdba994adf819544ebf06fd2db30374335631bb6078a66e5a76.json" as const;
@@ -116,7 +117,7 @@ export interface OwnerWan30FirstLastGenerateInput {
   readonly attemptId: string;
   readonly input: OwnerWan30FirstLastGenerationIntent;
   readonly first_frame_handle: string;
-  readonly last_frame_handle: string;
+  readonly last_frame_handle?: string;
 }
 
 export interface OwnerWan30FirstLastReconcileInput { readonly attemptId: string; readonly recovery_id: string }
@@ -130,7 +131,7 @@ export interface OwnerWan30FirstLastGenerationResult {
   readonly provider_terminal_status: "UNPROVEN";
   readonly model_id: typeof MODEL_ID;
   readonly parameters: OwnerWan30FirstLastGenerationParameters;
-  readonly cost_inputs: typeof COST_PARAMETERS;
+  readonly cost_inputs: Readonly<{resolution:string;video_duration:number;duration:0;rendering_speed:string}>;
   readonly cost_input_confidence: "CATALOG_KEYS_NOT_UI_CALLER_JOINED";
   readonly recovery_id: string;
   readonly observed_artifact_count: number;
@@ -202,7 +203,7 @@ interface Recovery {
   readonly chat_uuid: string;
   readonly created_at: string;
   readonly first_frame_sha256: string;
-  readonly last_frame_sha256: string;
+  readonly last_frame_sha256: string | null;
   owner_echo_message_id: string | null;
   status: "outcome_unknown" | "partial_results" | "completed";
   artifacts: readonly OwnerWan30FirstLastVideoArtifact[];
@@ -239,6 +240,7 @@ export class OwnerWan30FirstLastGenerationService {
   readonly #catalogVersion: string;
   readonly #catalogDirectory: string | undefined;
   #firstLastCatalog: DiscoveryCatalogRepository | undefined;
+  #currentCatalog: DiscoveryCatalogRepository | undefined;
   readonly #resolveClient: OwnerWan30FirstLastGenerationServiceOptions["resolveClient"];
   readonly #createAccountStatusService: OwnerWan30FirstLastGenerationServiceOptions["createAccountStatusService"];
   readonly #createModelAccessService: OwnerWan30FirstLastGenerationServiceOptions["createModelAccessService"];
@@ -414,7 +416,7 @@ export class OwnerWan30FirstLastGenerationService {
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       const recovery = this.#recoveries.get(request.recovery_id);
       if (!recovery || recovery.attemptId !== request.attemptId || !sameGenerationPrincipal(recovery.principal, principal)) fail("RECOVERY_NOT_FOUND");
-      const source = this.#assertSource();
+      const source = this.#assertGenerationSource(recovery.profile_id);
       if (recovery.profile_id !== source.profile_id || !sameSourcePins(recovery.source_pins, source.source_pins)) throw unknownError(recovery);
       if (recovery.status === "outcome_unknown") throw unknownError(recovery);
       return pageResult(recovery, request.offset);
@@ -460,10 +462,13 @@ export class OwnerWan30FirstLastGenerationService {
     let context: OwnerWan30FirstLastGenerationContext | undefined;
     const normalized = normalizeOwnerWan30FirstLastGenerationIntent({ prompt: request.input.prompt, parameters: request.input.parameters });
     const intent = normalized.intent;
-    const source = this.#assertSource();
+    this.#assertSource();
+    const source = this.#assertGenerationSource(request.last_frame_handle ? normalized.source_profile_id : WAN30_FIRST_LAST_CURRENT_PROFILE_ID);
     const initialPrincipal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
     const client = this.#resolveNativeClient(request.attemptId);
     const frames = this.#resolveFramePair(request, initialPrincipal, client);
+    if (source.profile_id === WAN30_FIRST_LAST_CURRENT_PROFILE_ID && frames.some(frame => frame && (frame.context.width < 240 ||
+        frame.context.height < 240 || frame.context.width > 8000 || frame.context.height > 8000))) fail("REFERENCE_UNAVAILABLE");
     const semanticKey = generationSemanticKey(initialPrincipal, intent, frames[0], frames[1], source);
     const existingClaim = this.#semanticClaims.get(semanticKey);
     if (existingClaim !== undefined) {
@@ -481,7 +486,7 @@ export class OwnerWan30FirstLastGenerationService {
     this.#semanticClaims.set(semanticKey, Object.freeze({ attemptId: request.attemptId, recovery_id: null }));
     try {
       deadline.throwIfAborted();
-      await this.#runPreflight(request.attemptId, deadline);
+      await this.#runPreflight(request.attemptId, deadline, intent.parameters, source.profile_id===WAN30_FIRST_LAST_CURRENT_PROFILE_ID);
       const principalBeforeChat = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(initialPrincipal, principalBeforeChat) || this.#resolveNativeClient(request.attemptId) !== client) {
         fail("PRINCIPAL_NOT_LINKED");
@@ -494,7 +499,7 @@ export class OwnerWan30FirstLastGenerationService {
       const clientAfterChat = this.#resolveNativeClient(request.attemptId);
       if (!sameGenerationPrincipal(initialPrincipal, principalAfterChat) || clientAfterChat !== client) fail("PRINCIPAL_NOT_LINKED");
       this.#assertFramePairLive(request, frames, principalAfterChat, client);
-      await this.#runPreflight(request.attemptId, deadline);
+      await this.#runPreflight(request.attemptId, deadline, intent.parameters, source.profile_id===WAN30_FIRST_LAST_CURRENT_PROFILE_ID);
       const principalBeforePost = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(initialPrincipal, principalBeforePost) || this.#invalidating.has(request.attemptId) ||
           this.#resolveNativeClient(request.attemptId) !== client) fail("PRINCIPAL_NOT_LINKED");
@@ -502,13 +507,13 @@ export class OwnerWan30FirstLastGenerationService {
 
       const generationContext = createOwnerWan30FirstLastGenerationContext(client, Object.freeze({
         attempt_id: request.attemptId, principal: initialPrincipal, chat_id: chat.chat_uuid,
-        intent, first_frame: frames[0].context, last_frame: frames[1].context
+        intent, first_frame: frames[0].context, last_frame: frames[1]?.context ?? null
       }));
       context = generationContext;
       const now = this.#readNow();
       recovery = createRecovery({ attemptId: request.attemptId, principal: initialPrincipal, intent, profileId: source.profile_id,
         sourcePins: source.source_pins, chatUuid: chat.chat_uuid, createdAt: now, semanticKey,
-        firstHash: frames[0].context.sha256, lastHash: frames[1].context.sha256 });
+        firstHash: frames[0].context.sha256, lastHash: frames[1]?.context.sha256 ?? null });
       if (this.#recoveries.size >= MAX_RECOVERIES) fail("SERVICE_BUSY");
       this.#recoveries.set(recovery.recovery_id, recovery);
       this.#semanticClaims.set(semanticKey, Object.freeze({ attemptId: request.attemptId, recovery_id: recovery.recovery_id }));
@@ -548,7 +553,7 @@ export class OwnerWan30FirstLastGenerationService {
       if (!recovery || recovery.attemptId !== request.attemptId) fail("RECOVERY_NOT_FOUND");
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, recovery.principal) || this.#invalidating.has(request.attemptId)) throw unknownError(recovery);
-      const source = this.#assertSource();
+      const source = this.#assertGenerationSource(recovery.profile_id);
       if (recovery.profile_id !== source.profile_id || !sameSourcePins(recovery.source_pins, source.source_pins)) throw unknownError(recovery);
       if (recovery.status === "completed") return pageResult(recovery, 0);
       return await this.#observe(recovery, this.#resolveNativeClient(request.attemptId), deadline);
@@ -681,10 +686,10 @@ export class OwnerWan30FirstLastGenerationService {
     throw unknownError(recovery);
   }
 
-  async #runPreflight(attemptId: string, deadline: AbsoluteRequestDeadline): Promise<void> {
+  async #runPreflight(attemptId: string, deadline: AbsoluteRequestDeadline, parameters:OwnerWan30FirstLastGenerationParameters, current:boolean): Promise<void> {
     deadline.throwIfAborted();
     let accountService: AccountStatusService, accessService: ModelAccessService;
-    const catalog = this.#getFirstLastCatalog();
+    const catalog = current?this.#getCurrentCatalog():this.#getFirstLastCatalog();
     try {
       accountService = Reflect.apply(this.#createAccountStatusService, undefined, [attemptId]) as AccountStatusService;
       accessService = Reflect.apply(this.#createModelAccessService, undefined, [attemptId, catalog]) as ModelAccessService;
@@ -696,7 +701,7 @@ export class OwnerWan30FirstLastGenerationService {
     try {
       account = await this.#await(deadline, () => Reflect.apply(ACCOUNT_METHOD, accountService, [deadline.signal]) as Promise<AccountStatusResult>);
       access = await this.#await(deadline, () => Reflect.apply(ACCESS_METHOD, accessService, [Object.freeze({
-        model_id: MODEL_ID, cost_parameters: COST_PARAMETERS
+        model_id: MODEL_ID, cost_parameters: costParameters(parameters)
       }), deadline.signal]) as Promise<ModelAccessResult>);
     } catch { fail("PREFLIGHT_FAILED"); }
     const now = this.#readNow();
@@ -728,6 +733,23 @@ export class OwnerWan30FirstLastGenerationService {
     return catalog;
   }
 
+  #getCurrentCatalog(): DiscoveryCatalogRepository {
+    if(this.#currentCatalog)return this.#currentCatalog;
+    let catalog:DiscoveryCatalogRepository;try{catalog=new DiscoveryCatalogRepository(loadPublicCatalogVersion(WAN30_CURRENT_FORM_SOURCE.public_catalog_version,this.#catalogDirectory));}catch{fail("MODEL_BINDING_MISMATCH");}
+    const model=catalog.getModel(MODEL_ID);
+    const count=model.settings?.file_count_limit,maxFiles=model.settings?.max_file_size;
+    if(catalog.source_hashes.models!==WAN30_CURRENT_FORM_SOURCE.public_models_sha256||!model.active||model.id!==MODEL_ID||model.upstream_id!==MODEL_ID||model.ai_name!=="wan_video"||
+      model.settings?.min_side!==240||model.settings?.max_side!==8000||!count||typeof count!=="object"||(count as Record<string,unknown>).images!==2||
+      !maxFiles||typeof maxFiles!=="object"||(maxFiles as Record<string,unknown>).images!==20971520||
+      !sameStrings(model.settings?.get_cost_params,Object.keys(COST_PARAMETERS)))fail("MODEL_BINDING_MISMATCH");
+    this.#currentCatalog=catalog;return catalog;
+  }
+
+  #assertGenerationSource(id:string):Readonly<{profile_id:string;source_pins:object}>{
+    if(id===WAN30_FIRST_LAST_CURRENT_PROFILE_ID){this.#getCurrentCatalog();return Object.freeze({profile_id:id,source_pins:WAN30_CURRENT_FORM_SOURCE});}
+    const old=this.#assertSource();if(id!==old.profile_id)fail("MODEL_BINDING_MISMATCH");return old;
+  }
+
   #resolveNativeClient(attemptId: string): SyntxChatHttpClient {
     let client: unknown;
     try { client = Reflect.apply(this.#resolveClient, undefined, [attemptId]); } catch { fail("MODEL_BINDING_MISMATCH"); }
@@ -749,18 +771,18 @@ export class OwnerWan30FirstLastGenerationService {
   }
 
   #resolveFramePair(request: Readonly<OwnerWan30FirstLastGenerateInput>, principal: Readonly<GenerationPrincipalRef>,
-    client: SyntxChatHttpClient): readonly [FrameRecord, FrameRecord] {
-    const first = this.#getFrame(request.first_frame_handle), last = this.#getFrame(request.last_frame_handle);
-    if (first === last || first.role !== "first_frame" || last.role !== "last_frame") fail("REFERENCE_ROLE_MISMATCH");
-    if (first.attemptId !== request.attemptId || last.attemptId !== request.attemptId || first.client !== client || last.client !== client ||
-        !sameGenerationPrincipal(first.principal, principal) || !sameGenerationPrincipal(last.principal, principal)) fail("REFERENCE_UNAVAILABLE");
+    client: SyntxChatHttpClient): readonly [FrameRecord, FrameRecord | undefined] {
+    const first = this.#getFrame(request.first_frame_handle), last = request.last_frame_handle ? this.#getFrame(request.last_frame_handle) : undefined;
+    if (first === last || first.role !== "first_frame" || (last && last.role !== "last_frame")) fail("REFERENCE_ROLE_MISMATCH");
+    if (first.attemptId !== request.attemptId || first.client !== client || !sameGenerationPrincipal(first.principal, principal) ||
+        (last && (last.attemptId !== request.attemptId || last.client !== client || !sameGenerationPrincipal(last.principal, principal)))) fail("REFERENCE_UNAVAILABLE");
     return Object.freeze([first, last]);
   }
 
-  #assertFramePairLive(request: Readonly<OwnerWan30FirstLastGenerateInput>, frames: readonly [FrameRecord, FrameRecord],
+  #assertFramePairLive(request: Readonly<OwnerWan30FirstLastGenerateInput>, frames: readonly [FrameRecord, FrameRecord | undefined],
     principal: Readonly<GenerationPrincipalRef>, client: SyntxChatHttpClient): void {
     if (!this.#frameIsCurrent(frames[0], request.attemptId, "first_frame", principal, client) ||
-        !this.#frameIsCurrent(frames[1], request.attemptId, "last_frame", principal, client)) fail("REFERENCE_UNAVAILABLE");
+        (frames[1] && !this.#frameIsCurrent(frames[1], request.attemptId, "last_frame", principal, client))) fail("REFERENCE_UNAVAILABLE");
   }
 
   #assertSource() {
@@ -801,8 +823,8 @@ export class OwnerWan30FirstLastGenerationService {
       upload_binding_confidence: "IMPLEMENTATION_INFERENCE_NOT_UI_MULTIPART_OBSERVED" });
   }
 
-  #removeFramePair(frames: readonly [FrameRecord, FrameRecord]): void {
-    this.#releaseFrame(frames[0], true); this.#releaseFrame(frames[1], true);
+  #removeFramePair(frames: readonly [FrameRecord, FrameRecord | undefined]): void {
+    this.#releaseFrame(frames[0], true); if(frames[1])this.#releaseFrame(frames[1], true);
   }
   #releaseFrame(record: FrameRecord, preserveMetadata = false): void {
     releaseOwnerWan30FirstLastUploadedFrame(record.client, record.context);
@@ -908,16 +930,16 @@ function snapshotUploadInput(input: unknown, signal?: AbortSignal): Readonly<Upl
 
 function snapshotGenerateInput(input: unknown, signal?: AbortSignal): Readonly<OwnerWan30FirstLastGenerateInput> {
   if (signal !== undefined && (!(signal instanceof AbortSignal) || types.isProxy(signal))) invalid();
-  const fields = readExactRecord(input, ["attemptId", "input", "first_frame_handle", "last_frame_handle"]);
+  const fields = readExactRecord(input, ["attemptId", "input", "first_frame_handle"], ["last_frame_handle"]);
   const attemptId = safeAttempt(fields.attemptId);
   const intentFields = readExactRecord(fields.input, ["model_id", "prompt", "parameters"]);
   if (intentFields.model_id !== MODEL_ID) invalid();
   const normalized = normalizeOwnerWan30FirstLastGenerationIntent({ prompt: intentFields.prompt, parameters: intentFields.parameters });
   if (typeof fields.first_frame_handle !== "string" || !FRAME_HANDLE.test(fields.first_frame_handle) ||
-      typeof fields.last_frame_handle !== "string" || !FRAME_HANDLE.test(fields.last_frame_handle) ||
+      (fields.last_frame_handle !== undefined && (typeof fields.last_frame_handle !== "string" || !FRAME_HANDLE.test(fields.last_frame_handle))) ||
       fields.first_frame_handle === fields.last_frame_handle) invalid();
   return Object.freeze({ attemptId, input: normalized.intent, first_frame_handle: fields.first_frame_handle,
-    last_frame_handle: fields.last_frame_handle });
+    ...(fields.last_frame_handle === undefined ? {} : {last_frame_handle: fields.last_frame_handle as string}) });
 }
 
 function snapshotReconcileInput(input: unknown, signal?: AbortSignal): Readonly<OwnerWan30FirstLastReconcileInput> {
@@ -941,7 +963,7 @@ function createRecovery(input: {
   readonly attemptId: string; readonly principal: Readonly<GenerationPrincipalRef>; readonly intent: OwnerWan30FirstLastGenerationIntent;
   readonly profileId: string; readonly sourcePins: object;
   readonly chatUuid: string; readonly createdAt: number; readonly semanticKey: string;
-  readonly firstHash: string; readonly lastHash: string;
+  readonly firstHash: string; readonly lastHash: string | null;
 }): Recovery {
   return {
     recovery_id: `wan_t2v_recovery_${randomUUID()}`,
@@ -995,7 +1017,7 @@ function bindFirstLastHistory(snapshotInput: unknown, recovery: Recovery):
       messageIds.add(row.message_id);
       if (row.author_role === "other" && recovery.owner_echo_message_id !== null) return { status: "INVALID", reason: "OTHER_AUTHOR_PRESENT" };
       if (row.objects.length > 64) return { status: "INVALID", reason: "RESULT_OBJECT_LIMIT_EXCEEDED" };
-      if (row.author_role === "owner" && row.objects.length !== 3) return { status: "INVALID", reason: "OWNER_ACK_MISMATCH" };
+      if (row.author_role === "owner" && row.objects.length !== (recovery.last_frame_sha256 === null ? 2 : 3)) return { status: "INVALID", reason: "OWNER_ACK_MISMATCH" };
       const safeObjects: Array<{ message_object_id: string; object_type: string; model_type: string | null }> = [];
       for (let objectIndex = 0; objectIndex < (row.objects as unknown[]).length; objectIndex += 1) {
         const item = (row.objects as unknown[])[objectIndex];
@@ -1036,7 +1058,7 @@ function pageResult(recovery: Recovery, offset: number): OwnerWan30FirstLastGene
   const next = offset + artifacts.length;
   return Object.freeze({ status: recovery.status as "completed" | "partial_results", status_semantics: "LOCAL_OBSERVED_AVAILABILITY_ONLY",
     backend_acceptance: "UNPROVEN", provider_terminal_status: "UNPROVEN", model_id: MODEL_ID,
-    parameters: recovery.intent.parameters, cost_inputs: COST_PARAMETERS,
+    parameters: recovery.intent.parameters, cost_inputs: costParameters(recovery.intent.parameters),
     cost_input_confidence: "CATALOG_KEYS_NOT_UI_CALLER_JOINED", recovery_id: recovery.recovery_id,
     observed_artifact_count: recovery.artifacts.length, offset, page_size: RESULT_PAGE_SIZE, artifacts,
     has_more: next < recovery.artifacts.length, next_offset: next < recovery.artifacts.length ? next : null,
@@ -1139,10 +1161,14 @@ function semanticFrameKey(principal: Readonly<GenerationPrincipalRef>, attemptId
 }
 
 function generationSemanticKey(principal: Readonly<GenerationPrincipalRef>, intent: OwnerWan30FirstLastGenerationIntent,
-  first: FrameRecord, last: FrameRecord, source: ReturnType<typeof getOwnerWan30FirstLastGenerationSourceContract>): string {
+  first: FrameRecord, last: FrameRecord | undefined, source: Readonly<{profile_id:string;source_pins:object}>): string {
   return createHash("sha256").update(JSON.stringify({ principal: { tenant_id: principal.tenant_id, subject_id: principal.subject_id },
     source: { profile_id: source.profile_id, source_pins: source.source_pins }, intent,
-    references: [{ role: "first_frame", sha256: first.context.sha256 }, { role: "last_frame", sha256: last.context.sha256 }] })).digest("hex");
+    references: [{ role: "first_frame", sha256: first.context.sha256 }, ...(last ? [{ role: "last_frame", sha256: last.context.sha256 }] : [])] })).digest("hex");
+}
+
+function costParameters(p:OwnerWan30FirstLastGenerationParameters):Readonly<{resolution:string;video_duration:number;duration:0;rendering_speed:string}>{
+  return Object.freeze({resolution:p.resolution,video_duration:p.video_duration,duration:0,rendering_speed:p.rendering_speed});
 }
 
 function validAck(value: unknown, chatUuid: string): value is MediaGenerationReceipt {

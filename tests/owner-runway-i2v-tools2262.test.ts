@@ -116,7 +116,7 @@ test("strict upload and generation schemas reject wrong model/format/ratio/durat
       assert.equal(result.isError, true);
     }
     for (const overrides of [
-      { model_id: "runway_frames" }, { aspect_ratio: "2:1" }, { video_duration: 8 }, { seed: 0 }, { url: URL }
+      { model_id: "runway_frames" }, { aspect_ratio: "2:1" }, { video_duration: 8 }, { seed: -1 }, { url: URL }
     ]) {
       const result = await client.callTool({ name: OWNER_RUNWAY_I2V_TOOL_NAMES[1], arguments: {
         link_attempt_id: ATTEMPT, model_id: MODELS[0], prompt: "move", aspect_ratio: "1:1", video_duration: 5,

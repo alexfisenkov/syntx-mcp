@@ -133,15 +133,15 @@ test("Switchx SDK uploads one measured video, sends the exact cost-bound GEN, th
     assert.equal(source.isError, undefined, JSON.stringify(source));
     const outsideInitialSlice = await client.callTool({ name: OWNER_SWITCHX_VIDEO_TOOL_NAMES[1], arguments: {
       link_attempt_id: ATTEMPT, prompt: "A synthetic square clip must be rejected before any upstream request.",
-      filename: "neutral-square-1024.mp4", mime_type: "video/mp4", content_base64: Buffer.from(clip.squareBytes).toString("base64")
+      filename: "neutral-square-1024.mp4", mime_type: "video/mp4", content_base64: Buffer.from(clip.squareBytes).toString("base64"), resolution: "1080P"
     } });
     assert.equal(outsideInitialSlice.isError, true);
     const rejectionContent = (outsideInitialSlice as unknown as { content: Array<{ type: string; text?: string }> }).content
       .find((item) => item.type === "text");
     assert.ok(rejectionContent?.text);
     const rejection = JSON.parse(rejectionContent.text) as { error: { code: string; message: string } };
-    assert.equal(rejection.error.code, "INVALID_VIDEO");
-    assert.match(rejection.error.message, /1280×720.*5 seconds.*24 fps/u);
+    assert.equal(rejection.error.code, "PREFLIGHT_FAILED");
+    assert.match(rejection.error.message, /could not be completed safely/u);
     assert.deepEqual({ uploadCount, chatCount, generationCount, indexReads, historyReads, resultReads, balanceReads, subscriptionReads, quoteReads },
       { uploadCount: 0, chatCount: 0, generationCount: 0, indexReads: 0, historyReads: 0, resultReads: 0, balanceReads: 0, subscriptionReads: 0, quoteReads: 0 },
       "an out-of-slice input must fail before every upstream call");

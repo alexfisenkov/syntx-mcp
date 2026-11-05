@@ -1,3 +1,4 @@
+import { ownerImageManualCurrentProfileHash } from "./owner-image-manual-current-controls.js";
 import { isProxy } from "node:util/types";
 import type { AuthBinding } from "../auth/types.js";
 import type { PerUserLinkService } from "../auth/link-service.js";
@@ -228,15 +229,16 @@ export class OwnerSoulImageRequestPreparer {
         style: Object.freeze(normalized.style.kind === "selected" ? { kind: "selected" as const, strength: normalized.style.strength } : { kind: "none" as const }),
         character: Object.freeze(normalized.character.kind === "selected" ? { kind: "selected" as const } : { kind: "none" as const }) });
       const selection = Object.freeze({ style: normalized.style.kind, character: normalized.character.kind });
+      const currentProfileHash = ownerImageManualCurrentProfileHash("soul", profile.profile_schema_hash, safeParameters);
       const intentFingerprint = schemaHash({ tenant_id: principal.tenant_id, subject_id: principal.subject_id, model_id: MODEL_ID,
-        profile_schema_hash: profile.profile_schema_hash,
+        profile_schema_hash: currentProfileHash,
         intent: { prompt: normalized.prompt, parameters: safeParameters, private_source_ids: { style_id: styleId, character_id: characterId } } });
       const requestFingerprint = schemaHash({ tenant_id: principal.tenant_id, subject_id: principal.subject_id,
-        connection_id: principal.connection_id, attempt_id: request.attemptId, profile_schema_hash: profile.profile_schema_hash,
+        connection_id: principal.connection_id, attempt_id: request.attemptId, profile_schema_hash: currentProfileHash,
         request: nativeRequest, expires_at_ms: expiresAt });
       const candidateRecord: Record<string, unknown> = {
         status: "PREPARED_SOURCE_SHAPED", dispatch_allowed: false, backend_acceptance: "UNPROVEN", provider_execution: false,
-        profile_id: profile.profile_id, profile_schema_hash: profile.profile_schema_hash, source_binding: profile.source_binding,
+        profile_id: profile.profile_id, profile_schema_hash: currentProfileHash, source_binding: profile.source_binding,
         model_id: MODEL_ID, ai_name: profile.ai_name, model_type: profile.model_type, catalog_version: profile.public_catalog_version,
         parameters: safeParameters, selection, cost_routing: cost.routing, cost_inputs: cost.cost_inputs,
         cost_confidence: cost.cost_inputs_confidence,
@@ -275,7 +277,7 @@ export class OwnerSoulImageRequestPreparer {
       if (state.character && !this.#characterGuard(state.character.value, state.character.context)) return false;
       const value = candidate as OwnerSoulImagePreparedCandidate;
       return value.dispatch_allowed === false && value.request_fingerprint === state.requestFingerprint &&
-        value.profile_schema_hash === state.profile.profile_schema_hash && Object.isFrozen(value) && Object.isFrozen(value.request);
+        value.profile_schema_hash === ownerImageManualCurrentProfileHash("soul", state.profile.profile_schema_hash, value.parameters) && Object.isFrozen(value) && Object.isFrozen(value.request);
     } catch { return false; }
   }
 

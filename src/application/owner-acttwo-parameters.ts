@@ -1,5 +1,6 @@
 import { types } from "node:util";
 import { schemaHash } from "../domain/generation-contract.js";
+import { isOwnerActTwoCurrentDuration, ownerActTwoCurrentExpression, ownerActTwoCurrentSeed } from "./owner-actor-current-controls.js";
 
 const MODEL_ID = "acttwo" as const;
 const ASPECT_RATIO = "1:1" as const;
@@ -48,9 +49,9 @@ const SOURCE_PROFILE = Object.freeze({ ...SOURCE_FACTS, source_sha256: schemaHas
 export interface OwnerActTwoParametersInput {
   readonly model_id: typeof MODEL_ID;
   readonly aspect_ratio: typeof ASPECT_RATIO;
-  readonly video_duration: typeof VIDEO_DURATION_SECONDS;
-  readonly seed: null;
-  readonly expression: typeof EXPRESSION;
+  readonly video_duration: number;
+  readonly seed?: number | null;
+  readonly expression?: number;
 }
 
 export interface OwnerActTwoNormalizedParameters {
@@ -59,9 +60,9 @@ export interface OwnerActTwoNormalizedParameters {
   readonly source_parameters: Readonly<{
     model_type: typeof MODEL_ID;
     aspect_ratio: typeof ASPECT_SOURCE_CODE;
-    video_duration: typeof VIDEO_DURATION_SECONDS;
-    seed: null;
-    expression: typeof EXPRESSION;
+    video_duration: number;
+    seed: number | null;
+    expression: number;
   }>;
   readonly profile_sha256: string;
   readonly prompt_policy: "DISABLED_OMIT_CALLER_PROMPT";
@@ -81,40 +82,41 @@ export function getOwnerActTwoSourceProfile(): Readonly<typeof SOURCE_PROFILE> {
   return SOURCE_PROFILE;
 }
 
-/** Exact initial ActTwo slice. Duration is an upload-measured value, not a caller override. */
+/** Current expression/range admission. Historical source profile remains an initial-tuple proof, not new-value acceptance. */
 export function normalizeOwnerActTwoParameters(input: unknown): Readonly<OwnerActTwoNormalizedParameters> {
-  const fields = exactRecord(input, ["model_id", "aspect_ratio", "video_duration", "seed", "expression"]);
-  if (fields.model_id !== MODEL_ID || fields.aspect_ratio !== ASPECT_RATIO || fields.video_duration !== VIDEO_DURATION_SECONDS ||
-      fields.seed !== null || fields.expression !== EXPRESSION) invalidParameters();
+  const fields = exactRecord(input, ["model_id", "aspect_ratio", "video_duration"], ["expression", "seed"]);
+  if (fields.model_id !== MODEL_ID || fields.aspect_ratio !== ASPECT_RATIO || !isOwnerActTwoCurrentDuration(fields.video_duration)) invalidParameters();
+  let expression: number, seed: number | null;
+  try { expression = ownerActTwoCurrentExpression(fields.expression); seed = ownerActTwoCurrentSeed(fields.seed); } catch { return invalidParameters(); }
 
   const intent = Object.freeze({
     model_id: MODEL_ID,
     aspect_ratio: ASPECT_RATIO,
-    video_duration: VIDEO_DURATION_SECONDS,
-    seed: null,
-    expression: EXPRESSION
+    video_duration: fields.video_duration,
+    seed,
+    expression
   });
   const source_parameters = Object.freeze({
     model_type: MODEL_ID,
     aspect_ratio: ASPECT_SOURCE_CODE,
-    video_duration: VIDEO_DURATION_SECONDS,
-    seed: null,
-    expression: EXPRESSION
+    video_duration: fields.video_duration,
+    seed,
+    expression
   });
   return Object.freeze({ status: "SOURCE_PARAMETERS_ONLY_NOT_DISPATCH_AUTHORITY" as const, intent, source_parameters,
     profile_sha256: SOURCE_PROFILE.source_sha256, prompt_policy: "DISABLED_OMIT_CALLER_PROMPT" as const,
     measured_duration_required: true as const, dispatch_allowed: false as const, provider_acceptance: "UNPROVEN" as const });
 }
 
-function exactRecord(value: unknown, required: readonly string[]): Record<string, unknown> {
+function exactRecord(value: unknown, required: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) invalidParameters();
   try {
     const prototype = Object.getPrototypeOf(value);
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const keys = Reflect.ownKeys(descriptors);
-    if ((prototype !== Object.prototype && prototype !== null) || keys.length !== required.length ||
+    if ((prototype !== Object.prototype && prototype !== null) ||
         required.some(key => !Object.hasOwn(descriptors, key)) || keys.some(key =>
-          typeof key !== "string" || !required.includes(key) || !Object.hasOwn(descriptors[key]!, "value") ||
+          typeof key !== "string" || ![...required, ...optional].includes(key) || !Object.hasOwn(descriptors[key]!, "value") ||
           descriptors[key]!.enumerable !== true)) invalidParameters();
     const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
     for (const key of keys as string[]) result[key] = descriptors[key]!.value;

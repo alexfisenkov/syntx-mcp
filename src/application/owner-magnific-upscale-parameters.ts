@@ -211,10 +211,10 @@ function snapshotParameters(raw: Record<string, unknown>): OwnerMagnificUpscaleP
   if (!isOneOf(raw.scale_factor, SCALE_FACTORS) || !isOneOf(raw.optimized_for, OPTIMIZED_FOR) ||
       !isOneOf(raw.engine, ENGINES) || !isOneOf(raw.flavor, FLAVORS)) invalid();
   for (const key of ["creativity", "hdr", "resemblance", "fractality"] as const) {
-    if (!Number.isInteger(raw[key]) || (raw[key] as number) < -10 || (raw[key] as number) > 10) invalid();
+    if (typeof raw[key] !== "number" || !Number.isFinite(raw[key]) || (raw[key] as number) < -10 || (raw[key] as number) > 10) invalid();
   }
   for (const key of ["sharpen", "smart_grain", "ultra_detail"] as const) {
-    if (!Number.isInteger(raw[key]) || (raw[key] as number) < 0 || (raw[key] as number) > 100) invalid();
+    if (typeof raw[key] !== "number" || !Number.isFinite(raw[key]) || (raw[key] as number) < 0 || (raw[key] as number) > 100) invalid();
   }
   return {
     scale_factor: raw.scale_factor,

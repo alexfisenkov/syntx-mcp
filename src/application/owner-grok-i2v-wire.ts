@@ -8,6 +8,7 @@ import {
   type OwnerGrokI2vModelId
 } from "./owner-grok-i2v-parameters.js";
 import { OWNER_GROK_I2V_IMAGE_POLICY } from "./owner-grok-i2v-image-policy.js";
+import { ownerGrokI2vWireProfile } from "./owner-grok-i2v-current-controls.js";
 
 const SHA256 = /^[a-f0-9]{64}$/u;
 
@@ -61,10 +62,10 @@ export function buildOwnerGrokI2vWire(input: unknown, capturedInput: unknown): R
   if (!isSafeUploadReferenceUrl(captured.url) || !SHA256.test(captured.sha256) ||
       !Number.isSafeInteger(captured.width) || captured.width < 1 || captured.width > OWNER_GROK_I2V_IMAGE_POLICY.max_dimension ||
       !Number.isSafeInteger(captured.height) || captured.height < 1 || captured.height > OWNER_GROK_I2V_IMAGE_POLICY.max_dimension ||
-      captured.width * captured.height > OWNER_GROK_I2V_IMAGE_POLICY.max_pixels ||
-      (normalized.intent.model_id === "grok_i2v" && captured.width * 9 !== captured.height * 16)) invalidWire();
+      captured.width * captured.height > OWNER_GROK_I2V_IMAGE_POLICY.max_pixels) invalidWire();
 
-  const profileSha256 = getOwnerGrokI2vSourceProfile().source_sha256;
+  const profileSha256 = ownerGrokI2vWireProfile(getOwnerGrokI2vSourceProfile().source_sha256,
+    normalized.intent.model_id, captured.width, captured.height, normalized.intent.video_duration);
   const file_urls = Object.freeze([Object.freeze({ type: "image" as const, url: captured.url })]);
   const settings = Object.freeze({
     model_type: normalized.source_parameters.model_type,

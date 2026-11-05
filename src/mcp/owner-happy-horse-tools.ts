@@ -5,13 +5,14 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { isOwnerHappyHorseGenerationService, type OwnerHappyHorseGenerationService } from "../application/owner-happy-horse-generation-service.js";
 import { isOwnerHappyHorseImageReferenceService, type OwnerHappyHorseImageReferenceService } from "../application/owner-happy-horse-image-reference-service.js";
 import { isOwnerHappyHorseEditVideoReferenceService, type OwnerHappyHorseEditVideoReferenceService } from "../application/owner-happy-horse-edit-video-reference-service.js";
+import { OWNER_HAPPY_HORSE_CURRENT_CONTROLS } from "../application/owner-happy-horse-current-controls.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const RECOVERY = /^happy_horse_recovery_[0-9a-f-]{36}$/u;
 const HANDLE = /^happy_horse_image_[0-9a-f-]{36}$/u;
 const VIDEO_HANDLE = /^happy_horse_video_[0-9a-f-]{36}$/u;
 const MODELS = ["happy_horse_first_frame", "happy_horse_references", "happy_horse_edit"] as const;
-const IMAGE_MODELS = ["happy_horse_first_frame", "happy_horse_references"] as const;
+const IMAGE_MODELS = ["happy_horse_first_frame", "happy_horse_references", "happy_horse_edit"] as const;
 const IMAGE_MIMES = ["image/jpeg", "image/jpg", "image/png", "image/webp"] as const;
 const VIDEO_MIMES = ["video/mp4", "video/quicktime"] as const;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -23,9 +24,15 @@ const uploadInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), model
   mime_type: z.enum(IMAGE_MIMES), content_base64: z.string().min(4).max(MAX_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64)) }).strict();
 const editVideoUploadInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), filename: z.string().min(1).max(255),
   mime_type: z.enum(VIDEO_MIMES), content_base64: z.string().min(4).max(MAX_VIDEO_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_VIDEO_BASE64)) }).strict();
-const generateInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.enum(MODELS), prompt: z.string().min(1).max(1_000),
-  aspect_ratio: z.literal("16:9"), resolution: z.literal("720P"), video_duration: z.literal(5), seed: z.null(),
-  reference_handle: z.string().regex(/^(?:happy_horse_image|happy_horse_video)_[0-9a-f-]{36}$/u) }).strict();
+const generateInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.enum(MODELS), prompt: z.string().min(1).max(5_000),
+  aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4"]).optional().describe("Five ratios are selectable for references; first_frame/edit retain16:9 compatibility state because their ratio widget is hidden."),
+  resolution: z.enum(["720P", "1080P"]).optional(),
+  video_duration: z.number().min(3).max(15).optional().describe("First_frame/references finite3..15, including manual fractions; omission keeps5. For edit omit: clamp(round(genuine input duration),3,15) is derived; supplied value must equal it."),
+  seed: z.number().int().min(0).max(2147483647).nullable().optional().describe("RandomSeed null or explicit integer0..2147483647; explicit0 remains wire0, omission retains null."),
+  native_audio: z.boolean().optional().describe("Edit-only toggle. Omission preserves historical omitted wire field, not a claimed provider default."),
+  reference_handle: z.string().regex(/^(?:happy_horse_image|happy_horse_video)_[0-9a-f-]{36}$/u).optional().describe("Legacy single image handle; for edit this is the required measured video handle."),
+  image_handles: z.array(z.string().regex(HANDLE)).max(9).optional().describe("Alternative first_frame array of1, references1..9; edit optional0..5 images in addition to required video reference_handle. Do not combine image single-handle and image_handles.")
+}).strict();
 const resultInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), recovery_id: z.string().regex(RECOVERY) }).strict();
 const listInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT) }).strict();
 const uploadOutput = z.object({ status: z.literal("uploaded"), reference_handle: z.string().regex(HANDLE), model_id: z.enum(IMAGE_MODELS),
@@ -60,7 +67,7 @@ export interface OwnerHappyHorseToolOptions { readonly referenceService: OwnerHa
 export function registerSyntxOwnerHappyHorseTools(server: McpServer, input: unknown): void {
   const options = readOptions(input);
   server.registerTool(OWNER_HAPPY_HORSE_TOOL_NAMES[0], { title: "Upload an owner HappyHorse image",
-    description: "Uploads one validated original image for the selected HappyHorse mode. Destination is trusted runtime configuration and the provider URL is never returned.",
+    description: "Uploads one validated original image for first_frame/references or an edit-mode auxiliary image. Upload separately for each selected model; owner/model-bound handles are not interchangeable. Destination is trusted runtime configuration; provider URLs are not returned.",
     inputSchema: uploadInput, outputSchema: uploadOutput,
     annotations: { title: "Upload HappyHorse image", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
   }, async (raw, { signal }) => {
@@ -71,7 +78,7 @@ export function registerSyntxOwnerHappyHorseTools(server: McpServer, input: unkn
     catch (error) { return safeError(error); } finally { bytes?.fill(0); }
   });
   server.registerTool(OWNER_HAPPY_HORSE_TOOL_NAMES[1], { title: "Upload an owner HappyHorse edit video",
-    description: "Measures one local MP4/MOV with trusted ffprobe and uploads the original bytes for the edit mode; the 30-second probe ceiling is local-only.",
+    description: "Measures one MP4/MOV with trusted ffprobe and uploads original bytes for edit mode under current3..60second input bounds. Edit output duration is later derived as clamp(round(input duration),3,15), not supplied arbitrarily.",
     inputSchema: editVideoUploadInput, outputSchema: editVideoUploadOutput,
     annotations: { title: "Upload HappyHorse edit video", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
   }, async (raw, { signal }) => {
@@ -82,13 +89,15 @@ export function registerSyntxOwnerHappyHorseTools(server: McpServer, input: unkn
     catch (error) { return safeError(error); } finally { bytes?.fill(0); }
   });
   server.registerTool(OWNER_HAPPY_HORSE_TOOL_NAMES[2], { title: "Generate one owner HappyHorse video",
-    description: "Submits the explicitly selected initial image or measured edit-video tuple. Unknown POST outcomes remain GET-only; quotes do not cap provider cost.",
+    description: "Current source branches: first_frame1image, references1..9images with5 selectable ratios, edit1 measured video plus0..5images and optional native_audio. Both resolutions720P/1080P and nullable seed are exposed; omit old fields to retain compatibility where specified. Source-reviewed new combinations have no transferred provider proof. Unknown POST outcomes remain GET-only; quotes are not a spending cap.",
     inputSchema: generateInput, outputSchema: resultOutput,
+    _meta: { "syntx/currentSourceControls": OWNER_HAPPY_HORSE_CURRENT_CONTROLS },
     annotations: { title: "Generate HappyHorse video", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
   }, async (raw, { signal }) => {
     try { const data = generateInput.parse(snapshot(raw)); const out = await options.generationService.generate({ attemptId: data.link_attempt_id,
       model_id: data.model_id, prompt: data.prompt, aspect_ratio: data.aspect_ratio, resolution: data.resolution,
-      video_duration: data.video_duration, seed: data.seed, reference_handle: data.reference_handle }, signal); return success(resultOutput, out); }
+      video_duration: data.video_duration, seed: data.seed, reference_handle: data.reference_handle, image_handles: data.image_handles,
+      native_audio: data.native_audio }, signal); return success(resultOutput, out); }
     catch (error) { return safeError(error); }
   });
   server.registerTool(OWNER_HAPPY_HORSE_TOOL_NAMES[3], { title: "Read a HappyHorse result",

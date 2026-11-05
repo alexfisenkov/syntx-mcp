@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
+import { isAbsolute } from "node:path";
 import type { AuthBinding } from "../auth/types.js";
 import { PerUserLinkService } from "../auth/link-service.js";
 import { OwnerReferencePrincipalError, resolveOwnerReferencePrincipal } from "../auth/owner-reference-principal.js";
@@ -12,6 +13,9 @@ import { SyntxChatHttpClient, isExactOwnerElevenLabsStsUploadClient,
 import type { OwnerElevenLabsStsOriginalUploadReference } from "../adapter/syntx/owner-elevenlabs-sts-original-upload.js";
 import { createOwnerElevenLabsStsOriginalProbe, isTrustedOwnerElevenLabsStsOriginalProbeResult,
   releaseTrustedOwnerElevenLabsStsOriginalProbeResult, type OwnerElevenLabsStsOriginalProbeResult } from "./owner-elevenlabs-sts-original-probe.js";
+
+import { prepareOwnerElevenLabsStsWav, copyPreparedOwnerElevenLabsStsAudio, releasePreparedOwnerElevenLabsStsAudio,
+  type PreparedOwnerElevenLabsStsAudio } from "./owner-elevenlabs-sts-wav-preparation.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const HANDLE = /^elevenlabs_sts_original_[0-9a-f-]{36}$/u;
@@ -27,6 +31,7 @@ const RESOLUTIONS = new WeakMap<object, { readonly service: OwnerElevenLabsStsOr
 export interface OwnerElevenLabsStsOriginalReferenceServiceOptions {
   /** Trusted absolute server configuration; never accept this path from a tool caller. */
   readonly ffprobePath: string;
+  readonly ffmpegPath?: string;
   /** Explicit trusted server destination; the web receipt proves no default. */
   readonly destination: "uploaded" | "hidden";
   readonly binding: AuthBinding;
@@ -37,7 +42,7 @@ export interface OwnerElevenLabsStsOriginalReferenceServiceOptions {
 export interface OwnerElevenLabsStsOriginalUploadInput {
   readonly attemptId: string;
   readonly filename: string;
-  readonly mime_type: "audio/mpeg";
+  readonly mime_type: "audio/mpeg" | "audio/mp3" | "audio/wav";
   readonly bytes: Uint8Array;
 }
 export interface OwnerElevenLabsStsOriginalUploadReceipt {
@@ -48,6 +53,7 @@ export interface OwnerElevenLabsStsOriginalUploadReceipt {
   readonly mime_type: "audio/mpeg";
   readonly duration_seconds: number;
   readonly expires_in_seconds: number;
+  readonly preparation?: PreparedOwnerElevenLabsStsAudio["preparation"];
 }
 export interface OwnerElevenLabsStsOriginalResolveInput {
   readonly attempt_id: string;
@@ -103,6 +109,7 @@ interface PendingOperation {
 /** Process-local current-owner STS uploads. It creates no generation permit. */
 export class OwnerElevenLabsStsOriginalReferenceService {
   readonly #probe: ReturnType<typeof createOwnerElevenLabsStsOriginalProbe>;
+  readonly #preparationConfig: Readonly<{ ffprobePath: string; ffmpegPath: string }> | undefined;
   readonly #destination: "uploaded" | "hidden";
   readonly #binding: Readonly<AuthBinding>;
   readonly #linkService: PerUserLinkService;
@@ -124,11 +131,13 @@ export class OwnerElevenLabsStsOriginalReferenceService {
   #closing: Promise<void> | undefined;
 
   constructor(optionsInput: OwnerElevenLabsStsOriginalReferenceServiceOptions | unknown) {
-    const fields = exactRecord(optionsInput, ["ffprobePath", "destination", "binding", "linkService", "resolveClient"], ["now"]);
+    const fields = exactRecord(optionsInput, ["ffprobePath", "destination", "binding", "linkService", "resolveClient"], ["now", "ffmpegPath"]);
     if (typeof fields.ffprobePath !== "string" || !isGenuineLinkService(fields.linkService) ||
         (fields.destination !== "uploaded" && fields.destination !== "hidden") || typeof fields.resolveClient !== "function" ||
         types.isProxy(fields.resolveClient) || (fields.now !== undefined && (typeof fields.now !== "function" || types.isProxy(fields.now)))) fail("INVALID_REQUEST");
     this.#probe = createOwnerElevenLabsStsOriginalProbe({ ffprobePath: fields.ffprobePath });
+    if (fields.ffmpegPath !== undefined && (typeof fields.ffmpegPath !== "string" || !isAbsolute(fields.ffmpegPath) || fields.ffmpegPath !== fields.ffmpegPath.trim() || /[\u0000-\u001f\u007f]/u.test(fields.ffmpegPath))) fail("INVALID_REQUEST");
+    this.#preparationConfig = fields.ffmpegPath === undefined ? undefined : Object.freeze({ ffprobePath: fields.ffprobePath, ffmpegPath: fields.ffmpegPath as string });
     this.#destination = fields.destination;
     this.#binding = snapshotBinding(fields.binding);
     this.#linkService = fields.linkService as PerUserLinkService;
@@ -142,6 +151,7 @@ export class OwnerElevenLabsStsOriginalReferenceService {
     const request = snapshotUpload(input, signal);
     const operation = this.#begin(request.attemptId, signal);
     let probeResult: Readonly<OwnerElevenLabsStsOriginalProbeResult> | undefined;
+    let prepared: Readonly<PreparedOwnerElevenLabsStsAudio> | undefined, preparedBytes: Buffer | undefined;
     let semanticKey: string | undefined;
     let nativeInvoked = false;
     let unknownOutcome = false;
@@ -150,7 +160,13 @@ export class OwnerElevenLabsStsOriginalReferenceService {
       this.#throwIfStopped(operation);
       if (!this.#rememberPrincipal(request.attemptId, principal)) fail("PRINCIPAL_NOT_LINKED");
       const client = snapshotNativeClient(this.#resolveClient(request.attemptId));
-      probeResult = await this.#probe.probe({ filename: request.filename, mime_type: request.mime_type, bytes: request.bytes },
+      if (request.mime_type === "audio/wav") {
+        if (!this.#preparationConfig) fail("PROBE_REJECTED");
+        prepared = await prepareOwnerElevenLabsStsWav({ filename: request.filename, bytes: request.bytes }, this.#preparationConfig, operation.controller.signal);
+        preparedBytes = copyPreparedOwnerElevenLabsStsAudio(prepared);
+      }
+      probeResult = await this.#probe.probe({ filename: prepared?.filename ?? request.filename, mime_type: "audio/mpeg", bytes: preparedBytes ?? request.bytes,
+        ...(prepared === undefined ? {} : { prepared_audio: prepared }) },
         { signal: operation.controller.signal });
       this.#throwIfStopped(operation);
       if (!isTrustedOwnerElevenLabsStsOriginalProbeResult(probeResult)) fail("PROBE_REJECTED");
@@ -201,7 +217,7 @@ export class OwnerElevenLabsStsOriginalReferenceService {
       handles.add(handle); this.#handlesByAttempt.set(request.attemptId, handles);
       return Object.freeze({ status: "uploaded", audio_original_handle: handle, sha256: record.sourceSha256,
         size: record.size, mime_type: "audio/mpeg", duration_seconds: record.durationSeconds,
-        expires_in_seconds: Math.floor((expiresAt - acknowledgedAt) / 1_000) });
+        expires_in_seconds: Math.floor((expiresAt - acknowledgedAt) / 1_000), ...(prepared === undefined ? {} : { preparation: prepared.preparation }) });
     } catch (error) {
       if (error instanceof OwnerElevenLabsStsOriginalReferenceServiceError) {
         if (nativeInvoked && error.code !== "UPLOAD_REJECTED" && error.code !== "UPLOAD_OUTCOME_UNKNOWN") {
@@ -225,6 +241,7 @@ export class OwnerElevenLabsStsOriginalReferenceService {
       if (probeResult && isTrustedOwnerElevenLabsStsOriginalProbeResult(probeResult)) {
         try { releaseTrustedOwnerElevenLabsStsOriginalProbeResult(probeResult); } catch { /* wipe after operation drains */ }
       }
+      preparedBytes?.fill(0); if (prepared) releasePreparedOwnerElevenLabsStsAudio(prepared);
       this.#finish(request.attemptId, operation);
     }
   }
@@ -370,9 +387,9 @@ export class OwnerElevenLabsStsOriginalReferenceService {
 function snapshotUpload(input: unknown, signal?: AbortSignal): Readonly<OwnerElevenLabsStsOriginalUploadInput> {
   const f = exactRecord(input, ["attemptId", "filename", "mime_type", "bytes"]);
   if (typeof f.attemptId !== "string" || !ATTEMPT.test(f.attemptId) || typeof f.filename !== "string" ||
-      f.mime_type !== "audio/mpeg" || !(f.bytes instanceof Uint8Array) || types.isProxy(f.bytes) ||
+      !["audio/mpeg", "audio/mp3", "audio/wav"].includes(f.mime_type as string) || !(f.bytes instanceof Uint8Array) || types.isProxy(f.bytes) ||
       (signal !== undefined && (!signal || typeof signal !== "object" || types.isProxy(signal)))) fail("INVALID_REQUEST");
-  return Object.freeze({ attemptId: f.attemptId, filename: f.filename, mime_type: "audio/mpeg", bytes: f.bytes });
+  return Object.freeze({ attemptId: f.attemptId, filename: f.filename, mime_type: f.mime_type as OwnerElevenLabsStsOriginalUploadInput["mime_type"], bytes: f.bytes });
 }
 function snapshotResolve(input: unknown): Readonly<{ attempt_id: string; audio_original_handle: string }> {
   const f = exactRecord(input, ["attempt_id", "audio_original_handle"]);

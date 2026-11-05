@@ -58,12 +58,13 @@ test("normalizer accepts only the explicit captured settings tuple and preserves
   rejects({ ...VALID, model_id: "wan_30_t2v" });
   rejects({ ...VALID, file_urls: [] });
   rejects({ ...VALID, parameters: { ...VALID.parameters, aspect_ratio: "9:16" } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, resolution: "720P" } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, video_duration: 3 } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, prompt_extend: false } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, seed: 0 } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, native_audio: true } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, rendering_speed: "prime" } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, resolution: "4K" } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, video_duration: 1 } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, video_duration: 31 } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, prompt_extend: "true" } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, seed: -1 } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, native_audio: "true" } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, rendering_speed: "fast" } });
   rejects({ ...VALID, parameters: { ...VALID.parameters, unknown_setting: true } });
 });
 

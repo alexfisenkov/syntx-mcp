@@ -72,7 +72,7 @@ test("source contract records only the observed Edit request, tuple, quote and A
   assert.equal(source.backend_acceptance, "UNPROVEN");
 });
 
-test("normalizer preserves the exact plain prompt and accepts only the observed tuple", () => {
+test("normalizer preserves the exact plain prompt and the observed tuple", () => {
   const prompt = "  Keep this exact text, including https://example.invalid and <<<literal text>>>  ";
   const result = normalizeOwnerWan30EditGenerationIntent({ ...VALID, prompt });
   assert.equal(result.intent.model_id, "wan_30_edit");
@@ -87,9 +87,9 @@ test("normalizer preserves the exact plain prompt and accepts only the observed 
   rejects({ ...VALID, prompt: "   " });
   rejects({ ...VALID, prompt: "invalid-\ud800" });
   rejects({ ...VALID, prompt: `${"x".repeat(20_000)}x` });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, native_audio: false } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, native_audio: "false" } });
   rejects({ ...VALID, parameters: { ...VALID.parameters, duration: 0 } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, resolution: "720P" } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, resolution: "4K" } });
   rejects({ ...VALID, parameters: { ...VALID.parameters, unknown_setting: true } });
 });
 

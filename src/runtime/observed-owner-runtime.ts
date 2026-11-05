@@ -142,7 +142,7 @@ import { OwnerWan30FirstLastGenerationService } from "../application/owner-wan30
 import { createOwnerWan30ReferenceGenerationService } from "../application/owner-wan30-reference-generation-service.js";
 import { createOwnerWan30OmniGenerationService } from "../application/owner-wan30-omni-generation-service.js";
 import { createOwnerWan30EditGenerationService } from "../application/owner-wan30-edit-generation-service.js";
-import { createOwnerWan30EditOriginalProbe } from "../adapter/syntx/owner-wan30-edit-original-probe.js";
+import { createOwnerWan30EditCompatibleOriginalProbe } from "../adapter/syntx/owner-wan30-edit-original-probe.js";
 import { OwnerElevenLabsVoiceReferenceService } from "../application/owner-elevenlabs-voice-reference-service.js";
 import { OwnerElevenLabsTtsGenerationService } from "../application/owner-elevenlabs-tts-generation-service.js";
 import { OwnerElevenLabsDialogueGenerationService } from "../application/owner-elevenlabs-dialogue-generation-service.js";
@@ -158,6 +158,7 @@ import { OwnerReviewedNoReferenceT2vService } from "../application/owner-reviewe
 import { createOwnerHailuo01T2vProfile } from "../application/owner-hailuo01-t2v-profile.js";
 import { OwnerExpandedT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerExpandedT2vProfiles } from "../application/owner-expanded-t2v-profile.js";
+import { createOwnerExpandedT2vCurrentSeedProfile } from "../application/owner-expanded-t2v-current-seed-profile.js";
 import { OwnerHailuo01DirectorT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerHailuo01DirectorT2vProfile } from "../application/owner-hailuo01-director-t2v-profile.js";
 import { OwnerHailuo23T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -166,10 +167,14 @@ import { OwnerHailuo02T2vGenerationService } from "../application/owner-reviewed
 import { createOwnerHailuo02T2vProfile } from "../application/owner-hailuo02-t2v-profile.js";
 import { OwnerSeedance20T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerSeedance20T2vProfile } from "../application/owner-seedance20-t2v-profile.js";
+import { createOwnerSeedance20CurrentProfile } from "../application/owner-seedance20-t2v-current-profile.js";
 import { OwnerSeedance25T2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerSeedance25T2vProfile } from "../application/owner-seedance25-t2v-profile.js";
+import { createOwnerSeedance25CurrentProfile } from "../application/owner-seedance25-t2v-current-profile.js";
+import { createWanT2vAudioProbe } from "../application/owner-wan-t2v-audio-probe.js";
 import { OwnerKlingT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerKlingT2vProfile } from "../application/owner-kling-t2v-profile.js";
+import { createOwnerKlingT2vCurrentProfile } from "../application/owner-kling-t2v-current-profile.js";
 import { OwnerVeoT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerVeoT2vProfile } from "../application/owner-veo-t2v-profile.js";
 import { OwnerGrokT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
@@ -177,6 +182,15 @@ import { createOwnerGrokT2vProfile } from "../application/owner-grok-t2v-profile
 import { OwnerHailuoLiveT2vGenerationService } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { createOwnerHailuoLiveT2vProfile } from "../application/owner-hailuo-live-t2v-profile.js";
 import { createOwnerVideo2AudioSourceProfile } from "../application/owner-video2audio-source-profile.js";
+import { OwnerCurrentVideoReferenceStore } from "../application/owner-current-video-reference-store.js";
+import { OwnerCurrentVideoNativeService } from "../adapter/syntx/owner-current-video-reference-native.js";
+import { OwnerCurrentVideoGenerationService } from "../application/owner-current-video-generation-service.js";
+import { getOwnerHailuo3CurrentFamilyDefinition } from "../application/owner-hailuo3-current-intent.js";
+import { getOwnerLumaCurrentFamilyDefinition } from "../application/owner-luma-current-intent.js";
+import { getOwnerVeo3CurrentFamilyDefinition } from "../application/owner-veo3-current-intent.js";
+import { getOwnerWanCurrentFamilyDefinition } from "../application/owner-wan-current-intent.js";
+import { getOwnerSeedanceCurrentFamilyDefinition } from "../application/owner-seedance-current-intent.js";
+import { getOwnerFlux3CurrentFamilyDefinition } from "../application/owner-flux3-current-intent.js";
 import { OwnerVideo2AudioOriginalReferenceService } from "../application/owner-video2audio-original-reference-service.js";
 import { createOwnerVideo2AudioRequestPreparer } from "../application/owner-video2audio-request-preparer.js";
 import { OwnerVideo2AudioGenerationService } from "../application/owner-video2audio-generation-service.js";
@@ -249,6 +263,8 @@ export interface ObservedOwnerRuntimeOptions {
   ownerWanT2iImageEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the pinned private B066 WAN T2V tools. */
   ownerWanT2vVideosEnabled?: boolean;
+  /** Optional trusted local ffprobe; enables the WAN T2V audio-reference tool. */
+  ownerWanT2vAudioFfprobePath?: string;
   /** Explicit owner-stdio opt-in for the exact C19 WAN 3.0 First/Last Frame profile. */
   ownerWan30FirstLastVideosEnabled?: boolean;
   /** Explicit owner-stdio opt-in for the exact C19 WAN 3.0 Reference profile. */
@@ -278,6 +294,7 @@ export interface ObservedOwnerRuntimeOptions {
   ownerElevenLabsStsEnabled?: boolean;
   /** Trusted absolute local ffprobe path, required only when STS is enabled. */
   ownerElevenLabsStsFfprobePath?: string;
+  ownerElevenLabsStsFfmpegPath?: string;
   /** Trusted upload destination, required only when STS is enabled. */
   ownerElevenLabsStsUploadDestination?: "uploaded" | "hidden";
   /** Explicit owner-stdio opt-in for private Suno generation and recovery tools. */
@@ -377,6 +394,7 @@ export interface ObservedOwnerRuntimeOptions {
   ownerSwitchxVideoEnabled?:boolean;
   ownerSwitchxVideoUploadDestination?:"uploaded"|"hidden";
   ownerSwitchxVideoFfprobePath?:string;
+  ownerSwitchxVideoFfmpegPath?:string;
   ownerActTwoEnabled?: boolean;
   ownerActTwoUploadDestination?: "uploaded" | "hidden";
   ownerActTwoFfprobePath?: string;
@@ -392,6 +410,10 @@ export interface ObservedOwnerRuntimeOptions {
   ownerHailuoLiveT2vEnabled?: boolean;
   /** Explicit owner-stdio opt-in for Video2Audio upload, generation, and GET-only recovery. */
   ownerVideo2AudioEnabled?: boolean;
+  ownerCurrentVideoReferencesEnabled?: boolean;
+  ownerCurrentVideoFfprobePath?: string;
+  ownerCurrentVideoFfmpegPath?: string;
+  ownerVideo2AudioFfprobePath?: string;
   /** Explicit owner-stdio opt-in for private Banana Inpaint uploads and generation. */
   ownerBananaInpaintImageReferencesEnabled?: boolean;
   /** Explicit owner-stdio opt-in for private Uni image-reference generation. */
@@ -1337,6 +1359,7 @@ export function createObservedOwnerRuntime(
             createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
             createModelAccessService: (attemptId: string, catalog: DiscoveryCatalogRepository = wanCatalog) =>
               new ModelAccessService(catalog, createReadClient(attemptId), now),
+            ...(options.ownerWanT2vAudioFfprobePath === undefined ? {} : { audioProbe: createWanT2vAudioProbe(options.ownerWanT2vAudioFfprobePath) }),
             now
           });
         } catch (error) {
@@ -1501,7 +1524,7 @@ export function createObservedOwnerRuntime(
           clientsByAttempt.set(attemptId, client);
           return client;
         };
-        const originalProbe = createOwnerWan30EditOriginalProbe({ ffprobePath: options.ownerWan30EditFfprobePath });
+        const originalProbe = createOwnerWan30EditCompatibleOriginalProbe({ ffprobePath: options.ownerWan30EditFfprobePath });
         let generationService: ReturnType<typeof createOwnerWan30EditGenerationService> | undefined;
         try {
           generationService = createOwnerWan30EditGenerationService({
@@ -1586,7 +1609,8 @@ export function createObservedOwnerRuntime(
           });
           if (options.ownerElevenLabsStsEnabled === true) {
             if (typeof options.ownerElevenLabsStsFfprobePath !== "string" || !isAbsolute(options.ownerElevenLabsStsFfprobePath) ||
-                (options.ownerElevenLabsStsUploadDestination !== "uploaded" && options.ownerElevenLabsStsUploadDestination !== "hidden")) {
+                (options.ownerElevenLabsStsUploadDestination !== "uploaded" && options.ownerElevenLabsStsUploadDestination !== "hidden") ||
+                (options.ownerElevenLabsStsFfmpegPath!==undefined && (!isAbsolute(options.ownerElevenLabsStsFfmpegPath) || options.ownerElevenLabsStsFfmpegPath!==options.ownerElevenLabsStsFfmpegPath.trim() || /[\u0000-\u001f\u007f]/u.test(options.ownerElevenLabsStsFfmpegPath)))) {
               throw new Error("OWNER_ELEVENLABS_STS_OPERATOR_CONFIGURATION_REQUIRED");
             }
             const stsCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(
@@ -1601,6 +1625,7 @@ export function createObservedOwnerRuntime(
             });
             originalReferenceService = new OwnerElevenLabsStsOriginalReferenceService({
               ffprobePath: options.ownerElevenLabsStsFfprobePath,
+              ...(options.ownerElevenLabsStsFfmpegPath===undefined?{}:{ffmpegPath:options.ownerElevenLabsStsFfmpegPath}),
               destination: options.ownerElevenLabsStsUploadDestination,
               binding: authBinding,
               linkService,
@@ -2480,6 +2505,7 @@ export function createObservedOwnerRuntime(
         };
         const profile = profiles.values().next().value;
         if (profile === undefined) throw new Error("OWNER_EXPANDED_T2V_PROFILES_EMPTY");
+        const currentProfile = createOwnerExpandedT2vCurrentSeedProfile("happy_horse_t2v", options.catalogDirectory);
         let generationService: OwnerExpandedT2vGenerationService;
         try {
           generationService = new OwnerExpandedT2vGenerationService({
@@ -2492,6 +2518,9 @@ export function createObservedOwnerRuntime(
                 model_id: modelId,
                 cost_parameters: costParameters
               }, signal),
+            ...(options.catalogDirectory === undefined ? {} : { currentCatalogDirectory: options.catalogDirectory }),
+            resolveCurrentModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(currentProfile.catalog, createReadClient(attemptId), now).getModelAccess({ model_id: modelId, cost_parameters: costParameters }, signal),
             resolveChatClient: resolveExpandedT2vChatClient,
             now
           });
@@ -2633,6 +2662,7 @@ export function createObservedOwnerRuntime(
   const ownerSeedance20T2v = options.ownerSeedance20T2vEnabled === true
     ? (() => {
         const profile = createOwnerSeedance20T2vProfile(options.catalogDirectory);
+        const currentProfile = createOwnerSeedance20CurrentProfile(options.catalogDirectory);
         const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
         const resolveSeedance20ChatClient = (attemptId: string): SyntxChatHttpClient => {
           const existing = clientsByAttempt.get(attemptId);
@@ -2651,6 +2681,11 @@ export function createObservedOwnerRuntime(
               new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
                 model_id: modelId, cost_parameters: costParameters
               }, signal),
+            resolveCurrentModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(currentProfile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            ...(options.catalogDirectory === undefined ? {} : {currentCatalogDirectory:options.catalogDirectory}),
             resolveChatClient: resolveSeedance20ChatClient, now
           });
         } catch (error) { clientsByAttempt.clear(); throw error; }
@@ -2670,6 +2705,7 @@ export function createObservedOwnerRuntime(
   const ownerSeedance25T2v = options.ownerSeedance25T2vEnabled === true
     ? (() => {
         const profile = createOwnerSeedance25T2vProfile(options.catalogDirectory);
+        const currentProfile = createOwnerSeedance25CurrentProfile(options.catalogDirectory);
         const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
         const resolveSeedance25ChatClient = (attemptId: string): SyntxChatHttpClient => {
           const existing = clientsByAttempt.get(attemptId);
@@ -2688,6 +2724,11 @@ export function createObservedOwnerRuntime(
               new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
                 model_id: modelId, cost_parameters: costParameters
               }, signal),
+            resolveCurrentModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(currentProfile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            ...(options.catalogDirectory === undefined ? {} : { currentCatalogDirectory: options.catalogDirectory }),
             resolveChatClient: resolveSeedance25ChatClient, now
           });
         } catch (error) { clientsByAttempt.clear(); throw error; }
@@ -2707,6 +2748,7 @@ export function createObservedOwnerRuntime(
   const ownerKlingT2v = options.ownerKlingT2vEnabled === true
     ? (() => {
         const profile = createOwnerKlingT2vProfile("kling_text2video", options.catalogDirectory);
+        const currentProfile = createOwnerKlingT2vCurrentProfile(options.catalogDirectory);
         const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
         const resolveKlingChatClient = (attemptId: string): SyntxChatHttpClient => {
           const existing = clientsByAttempt.get(attemptId);
@@ -2725,6 +2767,10 @@ export function createObservedOwnerRuntime(
             resolveSubscription: (attemptId, signal) => createReadClient(attemptId).getSubscription(signal),
             resolveModelAccess: (attemptId, modelId, costParameters, signal) =>
               new ModelAccessService(profile.catalog, createReadClient(attemptId), now).getModelAccess({
+                model_id: modelId, cost_parameters: costParameters
+              }, signal),
+            resolveCurrentModelAccess: (attemptId, modelId, costParameters, signal) =>
+              new ModelAccessService(currentProfile.catalog, createReadClient(attemptId), now).getModelAccess({
                 model_id: modelId, cost_parameters: costParameters
               }, signal),
             resolveChatClient: resolveKlingChatClient,
@@ -2778,7 +2824,8 @@ export function createObservedOwnerRuntime(
             referenceService,
             resolveChatClient: resolveKlingI2vChatClient,
             createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
-            createModelAccessService: (attemptId: string) => new ModelAccessService(klingI2vCatalog, createReadClient(attemptId), now),
+            createModelAccessService: (attemptId: string, catalogOverride?:DiscoveryCatalogRepository) => new ModelAccessService(catalogOverride??klingI2vCatalog, createReadClient(attemptId), now),
+            ...(options.catalogDirectory===undefined?{}:{catalogDirectory:options.catalogDirectory}),
             now
           });
         } catch (error) {
@@ -2835,7 +2882,8 @@ export function createObservedOwnerRuntime(
             catalog_version: OWNER_KLING_KEYFRAMES_GENERATION_CATALOG_VERSION, preparer,
             resolveChatClient: resolveKlingKeyframesChatClient,
             createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
-            createModelAccessService: (attemptId: string) => new ModelAccessService(catalog, createReadClient(attemptId), now), now });
+            createModelAccessService: (attemptId: string, catalogOverride?:DiscoveryCatalogRepository) => new ModelAccessService(catalogOverride??catalog, createReadClient(attemptId), now),
+            ...(options.catalogDirectory===undefined?{}:{catalogDirectory:options.catalogDirectory}),now });
         } catch (error) {
           const cleanup = (async () => {
             const errors: unknown[] = [];
@@ -3131,7 +3179,7 @@ export function createObservedOwnerRuntime(
     const uploadDestination=options.ownerSwitchxVideoUploadDestination;
     if(uploadDestination!=="uploaded"&&uploadDestination!=="hidden")throw new Error("OWNER_SWITCHX_VIDEO_UPLOAD_DESTINATION_REQUIRED");
     try{return createOwnerSwitchxVideoRuntime({binding:authBinding,linkService,createReadClient,createChatClient,now,uploadDestination,
-      ffprobePath:options.ownerSwitchxVideoFfprobePath??"",...(options.catalogDirectory===undefined?{}:{catalogDirectory:options.catalogDirectory})});}
+      ffprobePath:options.ownerSwitchxVideoFfprobePath??"",...(options.ownerSwitchxVideoFfmpegPath===undefined?{}:{ffmpegPath:options.ownerSwitchxVideoFfmpegPath}),...(options.catalogDirectory===undefined?{}:{catalogDirectory:options.catalogDirectory})});}
     catch(error){const cleanup=getOwnerSwitchxVideoStartupCleanup(error);
       if(cleanup&&error&&typeof error==="object")OWNER_RUNTIME_STARTUP_CLEANUPS.set(error,cleanup);throw error;}
   })():undefined;
@@ -3305,9 +3353,38 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ profile, generationService, lifecycle });
       })()
     : undefined;
+  const ownerCurrentVideo = options.ownerCurrentVideoReferencesEnabled === true ? (()=>{
+    const ffprobe=options.ownerCurrentVideoFfprobePath,ffmpeg=options.ownerCurrentVideoFfmpegPath;
+    if(typeof ffprobe!=="string"||!isAbsolute(ffprobe)||ffprobe!==ffprobe.trim()||/[\u0000-\u001f\u007f]/u.test(ffprobe)||
+      ffmpeg!==undefined&&(!isAbsolute(ffmpeg)||ffmpeg!==ffmpeg.trim()||/[\u0000-\u001f\u007f]/u.test(ffmpeg)))throw new Error("OWNER_CURRENT_VIDEO_OPERATOR_CONFIGURATION_INVALID");
+    const clients=new Map<string,SyntxChatHttpClient>();const resolveClient=(attemptId:string)=>{let client=clients.get(attemptId);if(!client){if(clients.size>=128)throw new Error("OWNER_CURRENT_VIDEO_CLIENT_CAPACITY");client=createChatClient(attemptId);clients.set(attemptId,client);}return client;};
+    const references=new OwnerCurrentVideoReferenceStore({binding:authBinding,linkService,resolveClient,ffprobePath:ffprobe,...(ffmpeg===undefined?{}:{ffmpegPath:ffmpeg}),now});
+    const native=new OwnerCurrentVideoNativeService({binding:authBinding,linkService,references,resolveClient});
+    const base={binding:authBinding,linkService,references,native,createReadClient,now,...(options.catalogDirectory===undefined?{}:{catalogDirectory:options.catalogDirectory})};
+    let hailuo:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerHailuo3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerHailuo3CurrentFamilyDefinition>["compile"]>>;
+    let luma:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerLumaCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerLumaCurrentFamilyDefinition>["compile"]>>;
+    let veo:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerVeo3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerVeo3CurrentFamilyDefinition>["compile"]>>;
+    let wan:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerWanCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerWanCurrentFamilyDefinition>["compile"]>>;
+    let seedance:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerSeedanceCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerSeedanceCurrentFamilyDefinition>["compile"]>>;
+    let flux:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerFlux3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerFlux3CurrentFamilyDefinition>["compile"]>>;
+    const created:Array<{close():Promise<void>}>=[];
+    try{hailuo=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerHailuo3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerHailuo3CurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerHailuo3CurrentFamilyDefinition()});created.push(hailuo);
+      luma=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerLumaCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerLumaCurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerLumaCurrentFamilyDefinition()});created.push(luma);
+      veo=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerVeo3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerVeo3CurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerVeo3CurrentFamilyDefinition()});created.push(veo);
+      wan=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerWanCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerWanCurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerWanCurrentFamilyDefinition()});created.push(wan);
+      seedance=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerSeedanceCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerSeedanceCurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerSeedanceCurrentFamilyDefinition()});created.push(seedance);
+      flux=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerFlux3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerFlux3CurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerFlux3CurrentFamilyDefinition()});created.push(flux);}
+    catch(error){const cleanup=Promise.allSettled(created.map(service=>service.close())).then(()=>Promise.allSettled([native.close(),references.close()])).then(()=>{clients.clear();});
+      if(error&&typeof error==="object")OWNER_RUNTIME_STARTUP_CLEANUPS.set(error,cleanup);void cleanup.catch(()=>{});throw error;}
+    const lifecycle=Object.freeze({async invalidateAttempt(attemptId:string){try{await Promise.all([hailuo.invalidateAttempt(attemptId),luma.invalidateAttempt(attemptId),veo.invalidateAttempt(attemptId),wan.invalidateAttempt(attemptId),seedance.invalidateAttempt(attemptId),flux.invalidateAttempt(attemptId)]);await native.invalidateAttempt(attemptId);await references.invalidateAttempt(attemptId);}finally{clients.delete(attemptId);}},
+      async close(){try{await Promise.all([hailuo.close(),luma.close(),veo.close(),wan.close(),seedance.close(),flux.close()]);await native.close();await references.close();}finally{clients.clear();}}});
+    return Object.freeze({references,native,resolveClient,hailuo,luma,veo,wan,seedance,flux,lifecycle});
+  })():undefined;
+
   const ownerVideo2Audio = options.ownerVideo2AudioEnabled === true
     ? (() => {
-        const profile = createOwnerVideo2AudioSourceProfile(options.catalogDirectory);
+        if(options.ownerVideo2AudioFfprobePath!==undefined && (!isAbsolute(options.ownerVideo2AudioFfprobePath) || options.ownerVideo2AudioFfprobePath!==options.ownerVideo2AudioFfprobePath.trim() || /[\u0000-\u001f\u007f]/u.test(options.ownerVideo2AudioFfprobePath))) throw new Error("OWNER_VIDEO2AUDIO_FFPROBE_CONFIGURATION_INVALID");
+        const profile = createOwnerVideo2AudioSourceProfile(options.catalogDirectory, options.ownerVideo2AudioFfprobePath===undefined?undefined:"CURRENT");
         const clientsByAttempt = new Map<string, SyntxChatHttpClient>();
         const resolveVideo2AudioChatClient = (attemptId: string): SyntxChatHttpClient => {
           const existing = clientsByAttempt.get(attemptId);
@@ -3322,7 +3399,7 @@ export function createObservedOwnerRuntime(
         let generationService: OwnerVideo2AudioGenerationService | undefined;
         try {
           originalReferenceService = new OwnerVideo2AudioOriginalReferenceService({ profile, binding: authBinding, linkService,
-            resolveClient: resolveVideo2AudioChatClient, now });
+            ...(options.ownerVideo2AudioFfprobePath===undefined?{}:{ffprobePath:options.ownerVideo2AudioFfprobePath}),resolveClient: resolveVideo2AudioChatClient, now });
           preparer = createOwnerVideo2AudioRequestPreparer({ profile, originalReferenceService, now });
           generationService = new OwnerVideo2AudioGenerationService({ profile, preparer, binding: authBinding, linkService,
             resolveCurrentAccountLimits: (attemptId: string, signal?: AbortSignal) => new AccountStatusService(createReadClient(attemptId), now).getAccountStatus(signal),
@@ -3387,7 +3464,7 @@ export function createObservedOwnerRuntime(
       ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined && ownerRunwayI2v === undefined && ownerGrokI2v === undefined && ownerWan25T2v === undefined && ownerHiggsfieldDop === undefined && ownerHailuoInitial === undefined && ownerHappyHorse === undefined && ownerWan27I2v === undefined && ownerKlingMedia === undefined && ownerSwitchxVideo === undefined && ownerActTwo === undefined && ownerHeygen4 === undefined && ownerExistingVideoRecovery === undefined &&
       ownerGrokT2v === undefined &&
       ownerHailuoLiveT2v === undefined &&
-      ownerVideo2Audio === undefined &&
+      ownerCurrentVideo === undefined && ownerVideo2Audio === undefined &&
       ownerUniImageReferences === undefined && ownerWanImageReferences === undefined && ownerStandardImageReferences === undefined &&
       ownerRunwayImageReferences === undefined && ownerSeedreamImageReferences === undefined &&
       ownerSeedreamEditorImageReferences === undefined &&
@@ -3565,6 +3642,7 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerHailuoLiveT2v.lifecycle.invalidateAttempt(attemptId);
             }
+            if (ownerCurrentVideo !== undefined) {await linkService.getStatus(binding,attemptId);await ownerCurrentVideo.lifecycle.invalidateAttempt(attemptId);}
             if (ownerVideo2Audio !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerVideo2Audio.lifecycle.invalidateAttempt(attemptId);
@@ -3609,7 +3687,7 @@ export function createObservedOwnerRuntime(
         ownerVeoOmniReferences === undefined && ownerKling4 === undefined && ownerWan27VideoEdit === undefined && ownerSeedanceEditor === undefined && ownerRunwayI2v === undefined && ownerGrokI2v === undefined && ownerWan25T2v === undefined && ownerHiggsfieldDop === undefined && ownerHailuoInitial === undefined && ownerHappyHorse === undefined && ownerWan27I2v === undefined && ownerKlingMedia === undefined && ownerSwitchxVideo === undefined && ownerActTwo === undefined && ownerHeygen4 === undefined && ownerExistingVideoRecovery === undefined &&
         ownerGrokT2v === undefined &&
         ownerHailuoLiveT2v === undefined &&
-        ownerVideo2Audio === undefined &&
+        ownerCurrentVideo === undefined && ownerVideo2Audio === undefined &&
         ownerWan30FirstLastVideos === undefined && ownerWan30ReferenceVideos === undefined && ownerWan30OmniVideos === undefined && ownerWan30EditVideos === undefined && ownerFlux3Videos === undefined && ownerGrokV2v === undefined && ownerWan27R2v === undefined && ownerWan26I2v === undefined && ownerWan26R2v === undefined && ownerWan25I2vPreview === undefined &&
         ownerTopazAstra === undefined && ownerTopazEnhance === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
@@ -3753,6 +3831,7 @@ export function createObservedOwnerRuntime(
           if (ownerHailuoLiveT2v !== undefined) {
             try { await ownerHailuoLiveT2v.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
+          if (ownerCurrentVideo !== undefined) {try{await ownerCurrentVideo.lifecycle.invalidateAttempt(attemptId);}catch(error){errors.push(error);}}
           if (ownerVideo2Audio !== undefined) {
             try { await ownerVideo2Audio.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
@@ -3938,6 +4017,8 @@ export function createObservedOwnerRuntime(
     ...(ownerExistingVideoRecovery === undefined ? {} : { ownerExistingVideoRecovery: { recoveryService: ownerExistingVideoRecovery.recoveryService } }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
+    ...(ownerCurrentVideo === undefined ? {} : { ownerCurrentVideoReferences: ownerCurrentVideo.references }),
+    ...(ownerCurrentVideo === undefined ? {} : { ownerHailuo3Current:{service:ownerCurrentVideo.hailuo},ownerLumaCurrent:{service:ownerCurrentVideo.luma},ownerVeo3Current:{service:ownerCurrentVideo.veo},ownerWanCurrent:{service:ownerCurrentVideo.wan},ownerSeedanceCurrent:{service:ownerCurrentVideo.seedance},ownerFlux3Current:{service:ownerCurrentVideo.flux} }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
     ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2v: { referenceUploadService: ownerWan27R2v.uploadService, generationService: ownerWan27R2v.generationService } }),
     ...(ownerWan26I2v === undefined ? {} : { ownerWan26I2v: { referenceService: ownerWan26I2v.referenceService, generationService: ownerWan26I2v.generationService } }),
@@ -4033,6 +4114,7 @@ export function createObservedOwnerRuntime(
     ...(ownerExistingVideoRecovery === undefined ? {} : { ownerExistingVideoRecoveryLifecycle: ownerExistingVideoRecovery.lifecycle }),
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2vLifecycle: ownerGrokT2v.lifecycle }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2vLifecycle: ownerHailuoLiveT2v.lifecycle }),
+    ...(ownerCurrentVideo === undefined ? {} : { ownerCurrentVideoLifecycle: ownerCurrentVideo.lifecycle }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2AudioLifecycle: ownerVideo2Audio.lifecycle }),
     ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2vLifecycle: ownerWan27R2v.lifecycle }),
     ...(ownerWan26I2v === undefined ? {} : { ownerWan26I2vLifecycle: ownerWan26I2v.lifecycle }),

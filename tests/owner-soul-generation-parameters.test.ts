@@ -117,7 +117,7 @@ test("none and selected style/Character branches are explicit and type-closed", 
   assert.equal(selected.intent.character.kind, "selected");
   for (const badStyle of [
     { kind: "selected", style_handle: "raw-provider-style-id", strength: 0.5 },
-    { kind: "selected", style_handle: STYLE_HANDLE, strength: 0.55 },
+    { kind: "selected", style_handle: STYLE_HANDLE, strength: NaN },
     { kind: "selected", style_handle: STYLE_HANDLE, strength: 1.1 },
     { kind: "none", style_handle: STYLE_HANDLE }
   ]) {

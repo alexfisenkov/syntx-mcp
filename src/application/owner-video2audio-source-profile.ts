@@ -11,6 +11,12 @@ export const OWNER_VIDEO2AUDIO_AI_NAME = "video2audio" as const;
 export const OWNER_VIDEO2AUDIO_OPERATION_ID = "generate-audio" as const;
 export const OWNER_VIDEO2AUDIO_FORM_SHA256 = "sha256:46f99867fa2ed84c1784bfcf00ca62e32b9b481f2eea661bc6e7870218d84e12" as const;
 
+export const OWNER_VIDEO2AUDIO_CURRENT_PUBLIC_CATALOG_VERSION = "sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json" as const;
+export const OWNER_VIDEO2AUDIO_CURRENT_SETTINGS_INVENTORY_VERSION = "sha256-4da7d12483291bb632aa21e0deb220142994fe061999d2f246318276964fa187.json" as const;
+export const OWNER_VIDEO2AUDIO_CURRENT_FORM_SHA256 = "sha256:24a75b336847f0c81d4a161b8b4b967e8cbe4d63f31662a80380b34280726943" as const;
+export type OwnerVideo2AudioMimeType = "video/mp4" | "video/webm" | "video/quicktime" | "video/mov";
+const CURRENT_PUBLIC_MODELS_SHA256 = "sha256:11f085ad9b0dd97435d6ebece623fa85bce2870e714e876e6fbb041c562fb438" as const;
+
 const PUBLIC_MODELS_SHA256 = "sha256:7ffbeff2ef1efa9d617d6e26e3e1c11e1d355cc45b34a2a427159f7e91fa4667" as const;
 const BUILD_ID = "1791811899" as const;
 const FORM_BYTES = 4_350;
@@ -20,15 +26,15 @@ const UI_VIDEO_DURATION_HINT_SECONDS = 20;
 const PROFILE_BRAND = new WeakSet<object>();
 
 export interface OwnerVideo2AudioSourceContract {
-  readonly status: "CURRENT_B066_1B48_STATIC_SOURCE_CONTRACT_WITH_ONE_UI_WIRE_OBSERVATION";
+  readonly status: "CURRENT_B066_1B48_STATIC_SOURCE_CONTRACT_WITH_ONE_UI_WIRE_OBSERVATION" | "CURRENT_A829_4DA7_FORM_SOURCE_REVIEWED_PROVIDER_UNPROVEN";
   readonly source_pins: Readonly<{
-    public_catalog_version: typeof OWNER_VIDEO2AUDIO_PUBLIC_CATALOG_VERSION;
-    public_models_sha256: typeof PUBLIC_MODELS_SHA256;
-    settings_inventory_version: typeof OWNER_VIDEO2AUDIO_SETTINGS_INVENTORY_VERSION;
-    build_id: typeof BUILD_ID;
+    public_catalog_version: typeof OWNER_VIDEO2AUDIO_PUBLIC_CATALOG_VERSION | typeof OWNER_VIDEO2AUDIO_CURRENT_PUBLIC_CATALOG_VERSION;
+    public_models_sha256: typeof PUBLIC_MODELS_SHA256 | typeof CURRENT_PUBLIC_MODELS_SHA256;
+    settings_inventory_version: typeof OWNER_VIDEO2AUDIO_SETTINGS_INVENTORY_VERSION | typeof OWNER_VIDEO2AUDIO_CURRENT_SETTINGS_INVENTORY_VERSION;
+    build_id: typeof BUILD_ID | "1793890358";
     form_module: "video-2-audio.js";
-    form_bytes: typeof FORM_BYTES;
-    form_sha256: typeof OWNER_VIDEO2AUDIO_FORM_SHA256;
+    form_bytes: typeof FORM_BYTES | 4382;
+    form_sha256: typeof OWNER_VIDEO2AUDIO_FORM_SHA256 | typeof OWNER_VIDEO2AUDIO_CURRENT_FORM_SHA256;
   }>;
   readonly identity: Readonly<{
     model_id: typeof OWNER_VIDEO2AUDIO_MODEL_ID;
@@ -38,7 +44,7 @@ export interface OwnerVideo2AudioSourceContract {
     modality: "audio";
   }>;
   readonly wire_observation: Readonly<{
-    source: "ROOT1128_CURRENT_CHROME_UI_OBSERVATION";
+    source: "ROOT1128_CURRENT_CHROME_UI_OBSERVATION" | "HISTORICAL_ROOT1128_ABI_WITH_CURRENT_FORM_SOURCE_REVIEW";
     method: "POST";
     path: "/api/v1/audio/generate";
     query: Readonly<{ ai_name: typeof OWNER_VIDEO2AUDIO_AI_NAME }>;
@@ -51,7 +57,7 @@ export interface OwnerVideo2AudioSourceContract {
     duration_source: "SAME_OWNED_UPLOAD_RECEIPT";
   }>;
   readonly model_access_observation: Readonly<{
-    source: "ROOT1128_CURRENT_CHROME_UI_OBSERVATION";
+    source: "ROOT1128_CURRENT_CHROME_UI_OBSERVATION" | "HISTORICAL_ROOT1128_ABI_WITH_CURRENT_FORM_SOURCE_REVIEW";
     account_scope: "HISTORICAL_OWNER_UI_OBSERVATION_NOT_CURRENT_USER_ENTITLEMENT";
     current_user_access: "NOT_READ";
     query_keys: readonly ["ai_name", "model_type"];
@@ -63,15 +69,15 @@ export interface OwnerVideo2AudioSourceContract {
     prompt: Readonly<{ source_max_length: "UNKNOWN"; local_bound_utf16: typeof LOCAL_PROMPT_UTF16_LIMIT }>;
     original_video: Readonly<{
       source_accepts: readonly ["video/mp4", "video/webm", "video/quicktime", "video/mov"];
-      profile_accepts: readonly ["video/mp4"];
-      local_size_bound_bytes: typeof LOCAL_VIDEO_BYTES_LIMIT;
+      profile_accepts: readonly ["video/mp4"] | readonly ["video/mp4", "video/webm", "video/quicktime", "video/mov"];
+      local_size_bound_bytes: typeof LOCAL_VIDEO_BYTES_LIMIT | 104857600;
       size_bound_kind: "LOCAL_NATIVE_RESOURCE_BOUND_NOT_PROVIDER_LIMIT";
     }>;
     duration: Readonly<{
-      source: "TRUSTED_UPLOAD_METADATA_REQUIRED";
+      source: "TRUSTED_UPLOAD_METADATA_REQUIRED" | "TRUSTED_LOCAL_FFPROBE_BOUND_TO_SAME_UPLOAD_BYTES";
       finite_min_exclusive: 0;
       ui_hint_max_inclusive_seconds: typeof UI_VIDEO_DURATION_HINT_SECONDS;
-      max_semantics: "UI_HINT_ONLY_NOT_BACKEND_LIMIT";
+      max_semantics: "UI_HINT_ONLY_NOT_BACKEND_LIMIT" | "INITIALIZER_FALLBACK_ONLY_NOT_DURATION_MAXIMUM";
       caller_supplied: false;
     }>;
     random_seed: Readonly<{ ui_observed_enabled: true; observed_wire_value: 0; general_semantics: "UNKNOWN" }>;
@@ -92,7 +98,7 @@ export interface OwnerVideo2AudioSourceProfile {
   readonly source: OwnerVideo2AudioSourceContract;
   readonly catalog: DiscoveryCatalogRepository;
   readonly settingsInventory: MaplessSettingsInventory;
-  readonly profileId: "owner-video2audio-exact-ui-wire-v1";
+  readonly profileId: "owner-video2audio-exact-ui-wire-v1" | "owner-video2audio-current-source-v2";
   readonly profileSchemaHash: string;
 }
 
@@ -169,14 +175,28 @@ const SOURCE: OwnerVideo2AudioSourceContract = Object.freeze({
   backend_acceptance: "UNPROVEN"
 });
 
+const CURRENT_SOURCE: OwnerVideo2AudioSourceContract = Object.freeze({ ...SOURCE,
+  status: "CURRENT_A829_4DA7_FORM_SOURCE_REVIEWED_PROVIDER_UNPROVEN",
+  source_pins: Object.freeze({ public_catalog_version: OWNER_VIDEO2AUDIO_CURRENT_PUBLIC_CATALOG_VERSION, public_models_sha256: CURRENT_PUBLIC_MODELS_SHA256,
+    settings_inventory_version: OWNER_VIDEO2AUDIO_CURRENT_SETTINGS_INVENTORY_VERSION, build_id: "1793890358", form_module: "video-2-audio.js", form_bytes: 4382,
+    form_sha256: OWNER_VIDEO2AUDIO_CURRENT_FORM_SHA256 }),
+  wire_observation: Object.freeze({ ...SOURCE.wire_observation, source: "HISTORICAL_ROOT1128_ABI_WITH_CURRENT_FORM_SOURCE_REVIEW" }),
+  model_access_observation: Object.freeze({ ...SOURCE.model_access_observation, source: "HISTORICAL_ROOT1128_ABI_WITH_CURRENT_FORM_SOURCE_REVIEW" }),
+  controls: Object.freeze({ ...SOURCE.controls, original_video: Object.freeze({ ...SOURCE.controls.original_video,
+    profile_accepts: Object.freeze(["video/mp4", "video/webm", "video/quicktime", "video/mov"] as const), local_size_bound_bytes: 104857600 }),
+    duration: Object.freeze({ ...SOURCE.controls.duration, source: "TRUSTED_LOCAL_FFPROBE_BOUND_TO_SAME_UPLOAD_BYTES", max_semantics: "INITIALIZER_FALLBACK_ONLY_NOT_DURATION_MAXIMUM" }) })
+});
+
 /** Loads and seals the exact B066/1b48 source binding; it is not a generation permit. */
-export function createOwnerVideo2AudioSourceProfile(catalogDirectory?: string): OwnerVideo2AudioSourceProfile {
-  const catalog = loadSelectedDiscoveryCatalog(OWNER_VIDEO2AUDIO_PUBLIC_CATALOG_VERSION, catalogDirectory).discoveryCatalog;
-  const settingsInventory = loadMaplessSettingsInventoryVersion(OWNER_VIDEO2AUDIO_SETTINGS_INVENTORY_VERSION, catalogDirectory);
-  assertSourceBinding(catalog, settingsInventory);
-  const profileId = "owner-video2audio-exact-ui-wire-v1" as const;
-  const profileSchemaHash = `sha256:${createHash("sha256").update(stableJson(SOURCE)).digest("hex")}`;
-  const profile = Object.freeze({ source: SOURCE, catalog, settingsInventory, profileId, profileSchemaHash });
+export function createOwnerVideo2AudioSourceProfile(catalogDirectory?: string, revision?: "CURRENT"): OwnerVideo2AudioSourceProfile {
+  if (revision !== undefined && revision !== "CURRENT") throw new Error("OWNER_VIDEO2AUDIO_SOURCE_REVISION_INVALID");
+  const source = revision === "CURRENT" ? CURRENT_SOURCE : SOURCE;
+  const catalog = loadSelectedDiscoveryCatalog(source.source_pins.public_catalog_version, catalogDirectory).discoveryCatalog;
+  const settingsInventory = loadMaplessSettingsInventoryVersion(source.source_pins.settings_inventory_version, catalogDirectory);
+  assertSourceBinding(catalog, settingsInventory, source);
+  const profileId = revision === "CURRENT" ? "owner-video2audio-current-source-v2" as const : "owner-video2audio-exact-ui-wire-v1" as const;
+  const profileSchemaHash = `sha256:${createHash("sha256").update(stableJson(source)).digest("hex")}`;
+  const profile = Object.freeze({ source, catalog, settingsInventory, profileId, profileSchemaHash });
   PROFILE_BRAND.add(profile);
   return profile;
 }
@@ -185,13 +205,18 @@ export function isAuthenticOwnerVideo2AudioSourceProfile(value: unknown): value 
   return value !== null && typeof value === "object" && PROFILE_BRAND.has(value);
 }
 
-function assertSourceBinding(catalog: DiscoveryCatalogRepository, inventory: MaplessSettingsInventory): void {
+export function isCurrentOwnerVideo2AudioSourceProfile(value: unknown): boolean {
+  return isAuthenticOwnerVideo2AudioSourceProfile(value) && value.profileId === "owner-video2audio-current-source-v2";
+}
+
+function assertSourceBinding(catalog: DiscoveryCatalogRepository, inventory: MaplessSettingsInventory, source: OwnerVideo2AudioSourceContract): void {
+  const pins = source.source_pins;
   const model = catalog.getModel(OWNER_VIDEO2AUDIO_MODEL_ID);
   const modelRow = inventory.models.find((entry) => entry.model_id === OWNER_VIDEO2AUDIO_MODEL_ID);
   const form = inventory.forms.find((entry) => entry.form_id === "video-2-audio");
-  if (catalog.source_hashes.models !== PUBLIC_MODELS_SHA256 ||
-      inventory.public_catalog.version !== OWNER_VIDEO2AUDIO_PUBLIC_CATALOG_VERSION ||
-      inventory.public_catalog.models_sha256 !== PUBLIC_MODELS_SHA256 || inventory.build.id !== BUILD_ID ||
+  if (catalog.source_hashes.models !== pins.public_models_sha256 ||
+      inventory.public_catalog.version !== pins.public_catalog_version ||
+      inventory.public_catalog.models_sha256 !== pins.public_models_sha256 || inventory.build.id !== pins.build_id ||
       model.active !== true || model.default !== true || model.ai_name !== OWNER_VIDEO2AUDIO_AI_NAME ||
       model.upstream_id !== OWNER_VIDEO2AUDIO_MODEL_ID || model.scope !== "audio" ||
       !model.operations.some((operation) => operation.id === OWNER_VIDEO2AUDIO_OPERATION_ID && operation.output_modality === "audio") ||
@@ -199,12 +224,14 @@ function assertSourceBinding(catalog: DiscoveryCatalogRepository, inventory: Map
       !Array.isArray(model.settings?.accepted_file_types) || !model.settings.accepted_file_types.includes("video/mp4") ||
       !Array.isArray(model.settings?.allowed_media_types) || !model.settings.allowed_media_types.includes("videos") ||
       model.settings.file_count_limit !== 1 ||
+      pins.public_catalog_version === OWNER_VIDEO2AUDIO_CURRENT_PUBLIC_CATALOG_VERSION && (!isDeepStrictEqual(model.settings.accepted_file_types, ["video/mp4", "video/webm", "video/quicktime", "video/mov"]) ||
+        !isDeepStrictEqual(model.settings.max_file_size, { videos: 104857600 }) || model.settings.uploadable !== true) ||
       !modelRow || modelRow.active !== true || modelRow.default !== true || modelRow.ai_name !== OWNER_VIDEO2AUDIO_AI_NAME ||
       modelRow.form_id !== "video-2-audio" || modelRow.form_binding_status !== "STRUCTURAL_MATCH" ||
       modelRow.settings_status !== "PUBLIC_SETTINGS_KNOWN" || modelRow.defaults_status !== "UNKNOWN" ||
       modelRow.runtime_usable !== false || !Array.isArray(modelRow.settings?.get_cost_params) || modelRow.settings.get_cost_params.length !== 0 ||
-      !form || form.module_name !== "video-2-audio.js" || form.javascript.bytes !== FORM_BYTES ||
-      form.javascript.sha256 !== OWNER_VIDEO2AUDIO_FORM_SHA256 || form.javascript.parse_diagnostics !== 0 ||
+      !form || form.module_name !== "video-2-audio.js" || form.javascript.bytes !== pins.form_bytes ||
+      form.javascript.sha256 !== pins.form_sha256 || form.javascript.parse_diagnostics !== 0 ||
       !isDeepStrictEqual(modelRow.model_value_settings_keys, ["model_type", "negative_prompt", "seed"])) {
     throw new Error("OWNER_VIDEO2AUDIO_SOURCE_BINDING_UNAVAILABLE");
   }

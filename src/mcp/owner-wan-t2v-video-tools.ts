@@ -1,4 +1,6 @@
 import { types } from "node:util";
+import { WAN30_CURRENT_ADAPTIVE_SOURCE } from "../application/owner-wan30-t2v-current-adaptive.js";
+import { WAN_T2V_AUDIO_UPLOAD_SOURCE } from "../application/owner-wan-t2v-audio-probe.js";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -44,6 +46,8 @@ export const SYNTX_OWNER_GENERATE_WAN_T2V_VIDEO_TOOL_NAME = "syntx_owner_generat
 export const SYNTX_OWNER_RECONCILE_WAN_T2V_VIDEO_TOOL_NAME = "syntx_owner_reconcile_wan_t2v_video" as const;
 export const SYNTX_OWNER_LIST_WAN_T2V_RECOVERIES_TOOL_NAME = "syntx_owner_list_wan_t2v_recoveries" as const;
 export const SYNTX_OWNER_GET_WAN_T2V_RESULT_PAGE_TOOL_NAME = "syntx_owner_get_wan_t2v_result_page" as const;
+export const SYNTX_OWNER_UPLOAD_WAN_T2V_AUDIO_TOOL_NAME = "syntx_owner_upload_wan_t2v_audio" as const;
+const audioHandleSchema = z.string().regex(/^wan_t2v_audio_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u);
 export const OWNER_WAN_T2V_TOOL_NAMES = Object.freeze([
   SYNTX_GET_WAN_T2V_PARAMETERS_TOOL_NAME,
   SYNTX_OWNER_GENERATE_WAN_T2V_VIDEO_TOOL_NAME,
@@ -66,7 +70,7 @@ const parameterCommonSchema = z.object({
 const parameter26Schema = parameterCommonSchema.extend({ shot_type: z.enum(["single", "multi"]) }).strict();
 const parameter27Schema = parameterCommonSchema.extend({ native_audio: z.literal(false) }).strict();
 const parameter30Schema = z.object({
-  aspect_ratio: z.enum(WAN30_SOURCE.controls.aspect_ratio.values),
+  aspect_ratio: z.enum([...WAN30_SOURCE.controls.aspect_ratio.values, "adaptive"]),
   resolution: z.enum(WAN30_SOURCE.controls.resolution.values),
   video_duration: z.number().int().min(WAN30_SOURCE.controls.video_duration.minimum).max(WAN30_SOURCE.controls.video_duration.maximum),
   prompt_extend: z.boolean(),
@@ -80,9 +84,9 @@ const promptSchema = z.string().min(1).max(MAX_PROMPT_UTF8_BYTES).refine((prompt
 "Prompt must be nonblank and within the local UTF-8 resource bound; its original text is preserved.");
 const generateVariantSchema = z.discriminatedUnion("model_id", [
   z.object({ link_attempt_id: attemptSchema, model_id: z.literal("wan_26_t2v"), prompt: promptSchema,
-    parameters: parameter26Schema }).strict(),
+    parameters: parameter26Schema, audio_handle: audioHandleSchema.optional() }).strict(),
   z.object({ link_attempt_id: attemptSchema, model_id: z.literal("wan_27_t2v"), prompt: promptSchema,
-    parameters: parameter27Schema }).strict(),
+    parameters: parameter27Schema, audio_handle: audioHandleSchema.optional() }).strict(),
   z.object({ link_attempt_id: attemptSchema, model_id: z.literal("wan_30_t2v"), prompt: promptSchema,
     parameters: parameter30Schema }).strict()
 ]).superRefine((input, context) => {
@@ -100,9 +104,10 @@ const generateInputSchema = z.object({
   link_attempt_id: attemptSchema,
   model_id: modelSchema,
   prompt: promptSchema,
+  audio_handle: audioHandleSchema.optional(),
   parameters: z.object({
     resolution: z.enum(["480P", "720P", "1080P"]),
-    aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4"]),
+    aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "adaptive"]),
     video_duration: z.number().int().min(2).max(30),
     prompt_extend: z.boolean(),
     seed: z.number().int().min(0).max(2_147_483_647).nullable(),
@@ -166,7 +171,13 @@ const legacyParameterSourceOutputSchema = z.object({
   caller_gaps: z.tuple([z.literal("CUSTOM_PAYLOAD_TO_VIDEO_SENDER_ARGUMENT_NOT_JOINED"),
     z.literal("PROMPT_STRING_REPLACE_TRANSFORM_NOT_JOINED"), z.literal("CHAT_ID_IS_BOUND_ONLY_BY_A_FUTURE_PRIVATE_OWNER_CONTEXT")]),
   effective_defaults: z.literal("UNKNOWN"), runtime_usable: z.literal(false), dispatch_allowed: z.literal(false),
-  backend_acceptance: z.literal("UNPROVEN")
+  backend_acceptance: z.literal("UNPROVEN"),
+  current_audio_reference_source: z.object({ policy_id:z.literal(WAN_T2V_AUDIO_UPLOAD_SOURCE.policy_id),build_id:z.literal("1793890358"),
+    public_catalog_version:z.literal(WAN_T2V_AUDIO_UPLOAD_SOURCE.public_catalog_version),settings_inventory_version:z.literal(WAN_T2V_AUDIO_UPLOAD_SOURCE.settings_inventory_version),
+    form_sha256:z.literal(WAN_T2V_AUDIO_UPLOAD_SOURCE.form_sha256),reference_sha256:z.literal(WAN_T2V_AUDIO_UPLOAD_SOURCE.reference_sha256),
+    sender_sha256:z.literal(WAN_T2V_AUDIO_UPLOAD_SOURCE.sender_sha256),max_file_bytes:z.literal(15_728_640),max_duration_seconds:z.literal(30),
+    min_duration_seconds:z.object({wan_26_t2v:z.literal(3),wan_27_t2v:z.literal(2)}).strict(),upload_destination:z.literal("uploaded"),
+    convert_field:z.literal("OMITTED_AS_IS"),file_urls:z.literal("ONE_OWNED_AUDIO_UPLOAD"),provider_acceptance:z.literal("UNPROVEN") }).strict().optional()
 }).strict();
 const wan30ParameterSourceOutputSchema = z.object({
   profile_id: z.literal(WAN30_SOURCE.profile_id), status: z.literal("WEB_REQUEST_OBSERVED"),
@@ -199,7 +210,17 @@ const wan30ParameterSourceOutputSchema = z.object({
   prompt_limit: z.object({ maximum_utf16_length: z.literal(1_500), source: z.literal("LOCAL_OPERATOR_LIMIT_NOT_PROVIDER_ACCEPTANCE") }).strict(),
   cost_query_candidate: z.object({ keys: z.tuple([z.literal("resolution"), z.literal("video_duration"), z.literal("duration"), z.literal("rendering_speed")]),
     values: z.literal(WAN30_SOURCE.cost_query_candidate.values), current_quote: z.literal("UNKNOWN") }).strict(),
-  effective_defaults: z.literal("UNKNOWN"), dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN")
+  effective_defaults: z.literal("UNKNOWN"), dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN"),
+  current_adaptive_source: z.object({ profile_id: z.literal(WAN30_CURRENT_ADAPTIVE_SOURCE.profile_id),
+    status: z.literal("FORM_SOURCE_REVIEWED_NOT_UI_OR_PROVIDER_OBSERVED"),
+    source_pins: z.object({ public_catalog_version: z.literal(WAN30_CURRENT_ADAPTIVE_SOURCE.source_pins.public_catalog_version),
+      form_build_id: z.literal("1793890358"), form_module: z.literal("wan-video.js"), form_module_bytes: z.literal(26108),
+      form_module_sha256: z.literal(WAN30_CURRENT_ADAPTIVE_SOURCE.source_pins.form_module_sha256),
+      video_sender_module: z.literal("video.js"), video_sender_module_bytes: z.literal(9343),
+      video_sender_module_sha256: z.literal(WAN30_CURRENT_ADAPTIVE_SOURCE.source_pins.video_sender_module_sha256) }).strict(),
+    setting: z.literal("aspect_ratio"), value: z.literal("adaptive"), sender_mapping: z.literal("LITERAL_SETTING_COPIED_TO_VIDEO_GENERATE"),
+    model_id: z.literal("wan_30_t2v"), effective_default: z.literal("UNKNOWN"), runtime_usable: z.literal(false),
+    dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN") }).strict().optional()
 }).strict();
 const parameterSourceBranches = [
   z.toJSONSchema(legacyParameterSourceOutputSchema, { target: "draft-7", io: "output" }),
@@ -211,7 +232,8 @@ const parameterSourceOutputSchema = z.object({
   caller_gaps: z.unknown().optional(), effective_defaults: z.unknown().optional(), runtime_usable: z.unknown().optional(),
   dispatch_allowed: z.unknown().optional(), backend_acceptance: z.unknown().optional(), profile_id: z.unknown().optional(),
   model_id: z.unknown().optional(), ai_name: z.unknown().optional(), wire_observation: z.unknown().optional(),
-  fixed_settings: z.unknown().optional(), prompt_limit: z.unknown().optional(), cost_query_candidate: z.unknown().optional()
+  fixed_settings: z.unknown().optional(), prompt_limit: z.unknown().optional(), cost_query_candidate: z.unknown().optional(),
+  current_adaptive_source: z.unknown().optional(), current_audio_reference_source: z.unknown().optional()
 }).strict().superRefine((value, context) => {
   if (!legacyParameterSourceOutputSchema.safeParse(value).success && !wan30ParameterSourceOutputSchema.safeParse(value).success) {
     context.addIssue({ code: "custom", message: "The WAN T2V source profile must match one exact model-specific branch." });
@@ -278,11 +300,25 @@ export const OWNER_WAN_T2V_TOOL_OUTPUT_SCHEMAS = Object.freeze({ parameters: par
   reconcile: generationOutputSchema, list_recoveries: recoveryListOutputSchema, result_page: generationOutputSchema });
 
 export interface RegisterSyntxOwnerWanT2vVideoToolsOptions {
-  readonly generationService: Pick<OwnerWanT2vGenerationService, "generate" | "reconcile" | "listRecoveries" | "getResultPage">;
+  readonly generationService: Pick<OwnerWanT2vGenerationService, "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "isAudioUploadEnabled" | "uploadAudioReference">;
 }
 
 export function registerSyntxOwnerWanT2vVideoTools(server: McpServer, optionsInput: RegisterSyntxOwnerWanT2vVideoToolsOptions | unknown): void {
   const options = snapshotOptions(optionsInput);
+  if (options.generationService.isAudioUploadEnabled()) {
+    const uploadInput = z.object({ link_attempt_id:attemptSchema,model_id:z.enum(["wan_26_t2v","wan_27_t2v"]),
+      filename:z.string().min(1).max(255),mime_type:z.enum(["audio/mp3","audio/mpeg","audio/wav","audio/x-wav"]),
+      content_base64:z.string().min(24).max(Math.ceil(15_728_640/3)*4) }).strict();
+    const uploadOutput = z.object({ status:z.literal("uploaded"),audio_handle:audioHandleSchema,model_id:z.enum(["wan_26_t2v","wan_27_t2v"]),
+      mime_type:z.enum(["audio/mpeg","audio/wav"]),size:z.number().int().min(1).max(15_728_640),sha256:z.string().regex(/^[a-f0-9]{64}$/u),
+      duration_seconds:z.number().finite().min(2).max(30),expires_in_seconds:z.number().int().min(0).max(900),provider_acceptance:z.literal("UNPROVEN") }).strict();
+    server.registerTool(SYNTX_OWNER_UPLOAD_WAN_T2V_AUDIO_TOOL_NAME,{title:"Upload WAN T2V audio reference",
+      description:"Upload one WAV or MP3 as an owner/model-bound audio reference. Local ffprobe validates duration and structure; the URL is not exposed. Unknown uploads must not be repeated.",
+      inputSchema:uploadInput,outputSchema:uploadOutput,annotations:{title:"Upload WAN T2V audio reference",readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:true}},
+      async (input,{signal}) => {try {const data=uploadInput.parse(snapshotSafeInput(input));
+        const result=await options.generationService.uploadAudioReference({attemptId:data.link_attempt_id,request:{model_id:data.model_id,filename:data.filename,mime_type:data.mime_type,content_base64:data.content_base64}},signal);
+        return structured(parseSafeOutput(uploadOutput,result));}catch(error){return generationErrorResult(error,"INVALID_REQUEST");}});
+  }
   server.registerTool(SYNTX_GET_WAN_T2V_PARAMETERS_TOOL_NAME, {
     title: "Get WAN T2V parameters", description: "Returns the pinned source profile for a selected WAN text-to-video model. This is evidence only; it does not establish runtime availability or authorize generation.",
     inputSchema: parametersInputSchema, outputSchema: parameterSourceOutputSchema,
@@ -290,7 +326,8 @@ export function registerSyntxOwnerWanT2vVideoTools(server: McpServer, optionsInp
   }, async (input) => {
     const parsed = parametersInputSchema.safeParse(snapshotSafeInput(input));
     return structured(parseSafeOutput(parameterSourceOutputSchema,
-      parsed.success && parsed.data.model_id === "wan_30_t2v" ? WAN30_SOURCE : SOURCE));
+      parsed.success && parsed.data.model_id === "wan_30_t2v" ? { ...WAN30_SOURCE, current_adaptive_source: WAN30_CURRENT_ADAPTIVE_SOURCE }
+        : { ...SOURCE, current_audio_reference_source: WAN_T2V_AUDIO_UPLOAD_SOURCE }));
   });
 
   server.registerTool(SYNTX_OWNER_GENERATE_WAN_T2V_VIDEO_TOOL_NAME, {
@@ -307,7 +344,8 @@ export function registerSyntxOwnerWanT2vVideoTools(server: McpServer, optionsInp
         ? { model_id: "wan_27_t2v", prompt: parsed.data.prompt, parameters: parameter27Schema.parse(parsed.data.parameters) }
         : { model_id: "wan_30_t2v", prompt: parsed.data.prompt, parameters: parameter30Schema.parse(parsed.data.parameters) };
     try {
-      const result = await options.generationService.generate({ attemptId: parsed.data.link_attempt_id, input: intent }, signal);
+      const result = await options.generationService.generate({ attemptId: parsed.data.link_attempt_id, input: intent,
+        ...("audio_handle" in parsed.data && parsed.data.audio_handle ? {audio_handle:parsed.data.audio_handle} : {}) }, signal);
       return structured(parseSafeOutput(generationOutputSchema, result));
     } catch (error) { return generationErrorResult(error, "PRE_DISPATCH_FAILED"); }
   });
@@ -363,7 +401,8 @@ const ERROR_MESSAGES: Record<OwnerWanT2vGenerationServiceErrorCode, string> = {
   MODEL_BINDING_MISMATCH: "The selected WAN T2V model profile is unavailable.", PREFLIGHT_FAILED: "Current account or model access could not be verified.",
   INTENT_ALREADY_CLAIMED: "This WAN T2V intent has an unresolved outcome.", PRE_DISPATCH_FAILED: "The WAN T2V request was not safely dispatched.",
   OUTCOME_UNKNOWN: "The WAN T2V request may have been dispatched; reconcile its recovery and do not retry.",
-  RECOVERY_NOT_FOUND: "The WAN T2V recovery is unavailable or expired."
+  RECOVERY_NOT_FOUND: "The WAN T2V recovery is unavailable or expired.", UPLOAD_DISABLED:"The audio upload is unavailable.",
+  UPLOAD_OUTCOME_UNKNOWN:"The audio upload outcome is unknown; do not retry.", REFERENCE_UNAVAILABLE:"The audio reference is unavailable."
 };
 
 function generationErrorResult(error: unknown, fallback: OwnerWanT2vGenerationServiceErrorCode): CallToolResult {

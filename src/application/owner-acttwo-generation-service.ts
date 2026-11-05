@@ -25,6 +25,7 @@ import { buildOwnerActTwoCostParameters, loadOwnerActTwoRuntimeCatalog } from ".
 import { evaluateOwnerActTwoBudget, OwnerActTwoBudgetError } from "./owner-acttwo-budget.js";
 import { buildOwnerActTwoWire, type OwnerActTwoWireCandidate } from "./owner-acttwo-wire.js";
 import { getOwnerActTwoSourceProfile, normalizeOwnerActTwoParameters } from "./owner-acttwo-parameters.js";
+import { isOwnerActTwoCurrentDuration } from "./owner-actor-current-controls.js";
 
 const MODEL_ID = "acttwo" as const;
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
@@ -40,7 +41,7 @@ const RESULTS = new WeakMap<object, { readonly operation: Operation; readonly ro
 const SERVICES = new WeakSet<object>();
 
 const GENERATE = z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.literal(MODEL_ID), aspect_ratio: z.literal("1:1"),
-  seed: z.null(), expression: z.literal(3), character_image_handle: z.string().regex(/^acttwo_character_image_[0-9a-f-]{36}$/u),
+  seed: z.number().int().min(0).max(2147483647).nullable().default(null), expression: z.number().min(1).max(5).default(3), character_image_handle: z.string().regex(/^acttwo_character_image_[0-9a-f-]{36}$/u),
   performance_video_handle: z.string().regex(/^acttwo_performance_video_[0-9a-f-]{36}$/u) }).strict();
 const id = z.union([z.string().regex(SAFE_ID), z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).transform(String);
 const objectSchema = z.object({ id, message_id: id, object_type: z.string().max(128), object_text: z.string().max(20_000).nullable().optional(),
@@ -123,7 +124,7 @@ export function loadOwnerActTwoGenerationCatalog(catalogDirectory?: string): Rea
 
 export class OwnerActTwoGenerationService {
   readonly #options: Readonly<OwnerActTwoGenerationOptions>;
-  readonly #catalog: DiscoveryCatalogRepository;
+  readonly #catalog: DiscoveryCatalogRepository; readonly #currentCatalog: DiscoveryCatalogRepository;
   readonly #records = new Map<string, Operation>();
   readonly #busy = new Set<string>();
   readonly #pending = new Map<Promise<unknown>, { readonly attemptId: string; readonly abort: AbortController }>();
@@ -142,14 +143,16 @@ export class OwnerActTwoGenerationService {
     if (options.catalog.fetched_at !== pinned.fetched_at ||
         schemaHash(options.catalog.getModel(MODEL_ID)) !== schemaHash(pinned.getModel(MODEL_ID)) ||
         schemaHash(options.catalog.source_hashes) !== schemaHash(pinned.source_hashes)) fail("MODEL_BINDING_MISMATCH");
-    this.#catalog = pinned;
+    this.#catalog = pinned; this.#currentCatalog = loadOwnerActTwoRuntimeCatalog(options.catalogDirectory, true).catalog;
     this.#options = Object.freeze({ ...options, binding: Object.freeze({ ...options.binding }) });
     this.#time(); SERVICES.add(this); Object.freeze(this);
   }
 
   generate(input: unknown, signalInput?: AbortSignal): Promise<OwnerActTwoGenerationResult> {
     let fields: Record<string, unknown>;
-    try { fields = exact(input, ["attemptId", "model_id", "aspect_ratio", "seed", "expression", "character_image_handle", "performance_video_handle"]); }
+    try { const record = input && typeof input === "object" && !types.isProxy(input) ? input as Record<string, unknown> : undefined;
+      fields = exact(input, ["attemptId", "model_id", "aspect_ratio", "character_image_handle", "performance_video_handle",
+        ...(record && Object.hasOwn(record, "seed") ? ["seed"] : []), ...(record && Object.hasOwn(record, "expression") ? ["expression"] : [])]); }
     catch (error) { return Promise.reject(error); }
     const parsed = GENERATE.safeParse(fields);
     if (!parsed.success) return Promise.reject(new OwnerActTwoGenerationError("INVALID_REQUEST"));
@@ -237,7 +240,7 @@ export class OwnerActTwoGenerationService {
     const video = await deadline.waitFor(this.#options.videoReferenceService.resolvePerformanceVideo({ attemptId: request.attemptId,
       reference_handle: request.performance_video_handle }, deadline.signal));
     if (!sameGenerationPrincipal(principal, image.principal) || !sameGenerationPrincipal(principal, video.principal) ||
-        video.performance_video.measured_duration_seconds !== 5) fail("PRINCIPAL_NOT_LINKED");
+        !isOwnerActTwoCurrentDuration(video.performance_video.measured_duration_seconds)) fail("PRINCIPAL_NOT_LINKED");
     const parameters = Object.freeze({ model_id: request.model_id, aspect_ratio: request.aspect_ratio,
       video_duration: video.performance_video.measured_duration_seconds, seed: request.seed, expression: request.expression });
     normalizeOwnerActTwoParameters(parameters);
@@ -314,10 +317,11 @@ export class OwnerActTwoGenerationService {
     if (!genuine(readClient, SyntxHttpClient, ["getAccountBalance", "getSubscription", "getModelInfo"])) fail("PREFLIGHT_FAILED");
     const account = await deadline.waitFor(new AccountStatusService(readClient, () => this.#time()).getAccountStatus(deadline.signal));
     const costParameters = buildOwnerActTwoCostParameters({ model_id: "acttwo", video_duration: operation.video.performance_video.measured_duration_seconds });
-    const access = await deadline.waitFor(new ModelAccessService(this.#catalog, readClient, () => this.#time()).getModelAccess({
+    const catalog = operation.video.performance_video.measured_duration_seconds === 5 && operation.request.expression === 3 && operation.request.seed === null ? this.#catalog : this.#currentCatalog;
+    const access = await deadline.waitFor(new ModelAccessService(catalog, readClient, () => this.#time()).getModelAccess({
       model_id: "acttwo", cost_parameters: { ...costParameters }
     }, deadline.signal));
-    const catalogVersion = `${this.#catalog.fetched_at}.${this.#catalog.source_hashes.models.slice(7, 19)}`;
+    const catalogVersion = `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`;
     evaluateOwnerActTwoBudget({ expected_catalog_version: catalogVersion, now: this.#time(), cost_parameters: costParameters, access, account });
     operation.quoteAt = Math.min(Date.parse((account as AccountStatusResult).observed_at), Date.parse((access as ModelAccessResult).observed_at));
     await this.#current(operation, deadline); operation.validate(true);

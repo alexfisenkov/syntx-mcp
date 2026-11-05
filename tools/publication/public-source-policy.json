@@ -31,7 +31,15 @@
     "package.json",
     "scripts/print-chatgpt-tunnel-config.mjs",
     "tsconfig.json",
-    "tsconfig.source-backed-build.json"
+    "tsconfig.source-backed-build.json",
+    "deploy/README.md",
+    "deploy/private-owner-plan.mjs",
+    "deploy/private-owner-preflight.mjs",
+    "deploy/private-owner-install.mjs",
+    "deploy/private-owner.test.mjs",
+    "deploy/templates/syntx-mcp-https.service.tpl",
+    "deploy/templates/syntx-ai.nginx.conf.tpl",
+    "docs/интеграция/История-публичного-runtime-C07.md"
   ],
   "bootstrap_paths": [
     ".github/workflows/verify.yml",

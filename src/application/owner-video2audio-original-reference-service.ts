@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
+import { isAbsolute } from "node:path";
 import type { AuthBinding } from "../auth/types.js";
 import type { PerUserLinkService } from "../auth/link-service.js";
 import { OwnerReferencePrincipalError, resolveOwnerReferencePrincipal } from "../auth/owner-reference-principal.js";
@@ -18,9 +19,11 @@ import {
 } from "./owner-video2audio-input-parameters.js";
 import { validateOwnerVideo2AudioOriginalUploadRequest } from "../adapter/syntx/video2audio-original-codec.js";
 import {
-  isAuthenticOwnerVideo2AudioSourceProfile,
+  isAuthenticOwnerVideo2AudioSourceProfile, isCurrentOwnerVideo2AudioSourceProfile, type OwnerVideo2AudioMimeType,
   type OwnerVideo2AudioSourceProfile
 } from "./owner-video2audio-source-profile.js";
+
+import { probeOwnerVideo2AudioCurrentOriginal, releaseOwnerVideo2AudioCurrentOriginal, type OwnerVideo2AudioCurrentOriginalProbe } from "./owner-video2audio-current-original-probe.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const HANDLE = /^video2audio_original_[0-9a-f-]{36}$/u;
@@ -35,6 +38,7 @@ const RESOLUTIONS = new WeakMap<object, { readonly service: OwnerVideo2AudioOrig
 
 export interface OwnerVideo2AudioOriginalReferenceServiceOptions {
   readonly profile: OwnerVideo2AudioSourceProfile;
+  readonly ffprobePath?: string;
   readonly binding: AuthBinding;
   readonly linkService: Pick<PerUserLinkService, "getStatus">;
   readonly resolveClient: (attemptId: string) => unknown;
@@ -44,14 +48,14 @@ export interface OwnerVideo2AudioOriginalReferenceServiceOptions {
 export interface OwnerVideo2AudioOriginalUploadInput {
   readonly attemptId: string;
   readonly filename: string;
-  readonly mime_type: "video/mp4";
+  readonly mime_type: OwnerVideo2AudioMimeType;
   readonly bytes: Uint8Array;
 }
 
 export interface OwnerVideo2AudioOriginalUploadReceipt {
   readonly status: "uploaded";
   readonly video_original_handle: string;
-  readonly mime_type: "video/mp4";
+  readonly mime_type: OwnerVideo2AudioMimeType;
   readonly size: number;
   readonly sha256: string;
   readonly duration_seconds: number;
@@ -73,7 +77,7 @@ export interface OwnerVideo2AudioOriginalResolution {
   readonly profile_schema_hash: string;
   readonly video_original_handle: string;
   readonly sha256: string;
-  readonly mime_type: "video/mp4";
+  readonly mime_type: OwnerVideo2AudioMimeType;
   readonly size: number;
   readonly duration_seconds: number;
   readonly expires_at: number;
@@ -97,7 +101,7 @@ interface RecordEntry {
   readonly handle: string;
   readonly attemptId: string;
   readonly principal: Readonly<GenerationPrincipalRef>;
-  readonly profileHash: string;
+  readonly profileHash: string; readonly mimeType: OwnerVideo2AudioMimeType;
   readonly sha256: string;
   readonly size: number;
   readonly durationSeconds: number;
@@ -123,7 +127,7 @@ interface PendingOperation {
 /** Process-local owner-bound MP4 handles. Upload receipts never grant generation authority. */
 export class OwnerVideo2AudioOriginalReferenceService {
   readonly #profile: OwnerVideo2AudioSourceProfile;
-  readonly #profileHash: string;
+  readonly #profileHash: string; readonly #ffprobePath: string | undefined;
   readonly #binding: Readonly<AuthBinding>;
   readonly #linkService: Pick<PerUserLinkService, "getStatus">;
   readonly #resolveClient: OwnerVideo2AudioOriginalReferenceServiceOptions["resolveClient"];
@@ -144,11 +148,14 @@ export class OwnerVideo2AudioOriginalReferenceService {
   #closing: Promise<void> | undefined;
 
   constructor(optionsInput: OwnerVideo2AudioOriginalReferenceServiceOptions | unknown) {
-    const fields = exactRecord(optionsInput, ["profile", "binding", "linkService", "resolveClient"], ["now"]);
+    const fields = exactRecord(optionsInput, ["profile", "binding", "linkService", "resolveClient"], ["now", "ffprobePath"]);
     if (!isAuthenticOwnerVideo2AudioSourceProfile(fields.profile) || !PROFILE_HASH.test(fields.profile.profileSchemaHash) ||
         !isObjectPort(fields.linkService) || typeof getDataMethod(fields.linkService, "getStatus") !== "function" ||
         typeof fields.resolveClient !== "function" || types.isProxy(fields.resolveClient) ||
         (fields.now !== undefined && (typeof fields.now !== "function" || types.isProxy(fields.now)))) fail("PROFILE_BINDING_MISMATCH");
+    if (fields.ffprobePath !== undefined && (typeof fields.ffprobePath !== "string" || !isAbsolute(fields.ffprobePath) || fields.ffprobePath !== fields.ffprobePath.trim() || /[\u0000-\u001f\u007f]/u.test(fields.ffprobePath)) ||
+        isCurrentOwnerVideo2AudioSourceProfile(fields.profile) && fields.ffprobePath === undefined) fail("PROFILE_BINDING_MISMATCH");
+    this.#ffprobePath = fields.ffprobePath as string | undefined;
     this.#profile = fields.profile;
     this.#profileHash = fields.profile.profileSchemaHash;
     this.#binding = snapshotBinding(fields.binding);
@@ -164,21 +171,27 @@ export class OwnerVideo2AudioOriginalReferenceService {
     const request = snapshotUpload(input, signal);
     const operation = this.#begin(request.attemptId, signal, true);
     let validated: ReturnType<typeof validateOwnerVideo2AudioOriginalUploadRequest> | undefined;
-    let uploadBytes: Uint8Array | undefined;
+    let uploadBytes: Uint8Array | undefined; let currentProbe: Readonly<OwnerVideo2AudioCurrentOriginalProbe> | undefined;
     let semanticKey: string | undefined;
     let nativeInvoked = false;
     let unknownOutcome = false;
     try {
-      try {
-        validated = validateOwnerVideo2AudioOriginalUploadRequest({ bytes: request.bytes, filename: request.filename, mime_type: request.mime_type }, this.#profile);
-      } catch {
-        fail("INVALID_REQUEST");
+      if (!isCurrentOwnerVideo2AudioSourceProfile(this.#profile)) {
+        try { validated = validateOwnerVideo2AudioOriginalUploadRequest({ bytes: request.bytes, filename: request.filename, mime_type: request.mime_type }, this.#profile); }
+        catch { fail("INVALID_REQUEST"); }
       }
       this.#assertProfile();
       const principal = await this.#resolvePrincipal(request.attemptId, operation.controller.signal);
       this.#throwIfClosedOrAborted(operation.controller);
       if (!this.#rememberPrincipal(request.attemptId, principal)) fail("PRINCIPAL_NOT_LINKED");
-      const semantic = getSemanticKey(principal, this.#profileHash, validated.sha256, validated.size);
+      try {
+        if (isCurrentOwnerVideo2AudioSourceProfile(this.#profile)) currentProbe = await probeOwnerVideo2AudioCurrentOriginal({ bytes: request.bytes,
+          filename: request.filename, mime_type: request.mime_type }, this.#profile, this.#ffprobePath!, operation.controller.signal);
+        validated ??= validateOwnerVideo2AudioOriginalUploadRequest({ bytes: request.bytes, filename: request.filename, mime_type: currentProbe?.mime_type ?? request.mime_type,
+          ...(currentProbe === undefined ? {} : { current_probe: currentProbe }) }, this.#profile);
+      } catch { fail("INVALID_REQUEST"); }
+      this.#throwIfClosedOrAborted(operation.controller);
+      const semantic = getSemanticKey(principal, this.#profileHash, validated.sha256, validated.size, validated.mime_type);
       semanticKey = semantic;
       if (this.#unknownSemantics.has(semantic)) fail("UPLOAD_OUTCOME_UNKNOWN");
       if (this.#pendingSemantics.has(semantic)) fail("SERVICE_BUSY");
@@ -193,16 +206,21 @@ export class OwnerVideo2AudioOriginalReferenceService {
       this.#throwIfClosedOrAborted(operation.controller);
       if (this.#invalidating.has(request.attemptId)) fail("REQUEST_ABORTED");
 
+      if (currentProbe !== undefined) {
+        const beforeUpload = await this.#resolvePrincipal(request.attemptId, operation.controller.signal);
+        if (!sameGenerationPrincipal(beforeUpload, principal) || snapshotNativeClient(this.#resolveClient(request.attemptId)).client !== native.client) fail("PRINCIPAL_NOT_LINKED");
+      }
+      this.#throwIfClosedOrAborted(operation.controller);
       nativeInvoked = true;
       const nativeReference = await Reflect.apply(native.upload, native.client, [{ bytes: uploadBytes,
-        filename: validated.filename, mime_type: validated.mime_type }, operation.controller.signal]);
+        filename: validated.filename, mime_type: validated.mime_type, ...(currentProbe === undefined ? {} : { current_probe: currentProbe }) }, operation.controller.signal]);
       this.#throwIfClosedOrAborted(operation.controller);
       if (!isOwnerVideo2AudioOriginalReferenceForClient(native.client, this.#profile, nativeReference)) {
         unknownOutcome = true; fail("UPLOAD_OUTCOME_UNKNOWN");
       }
       const details = readOwnerVideo2AudioOriginalReferenceForClient(native.client, this.#profile, nativeReference);
       if (!details || details.profile_schema_hash !== this.#profileHash || details.sha256 !== validated.sha256 ||
-          details.mime_type !== validated.mime_type || details.size !== validated.size) {
+          details.mime_type !== validated.mime_type || details.size !== validated.size || currentProbe !== undefined && details.duration_seconds !== currentProbe.duration_seconds) {
         unknownOutcome = true; fail("UPLOAD_OUTCOME_UNKNOWN");
       }
       const duration = validateOwnerVideo2AudioTrustedUploadDuration(details.duration_seconds, this.#profile);
@@ -223,12 +241,12 @@ export class OwnerVideo2AudioOriginalReferenceService {
       this.#assertProfile();
       const handle = `video2audio_original_${randomUUID()}`;
       const record: RecordEntry = Object.freeze({ handle, attemptId: request.attemptId, principal,
-        profileHash: this.#profileHash, sha256: validated.sha256, size: validated.size, durationSeconds: duration,
+        profileHash: this.#profileHash, sha256: validated.sha256, mimeType: validated.mime_type, size: validated.size, durationSeconds: duration,
         expiresAt, epoch: operation.epoch, client: native.client, nativeReference });
       this.#records.set(handle, record);
       const handles = this.#handlesByAttempt.get(request.attemptId) ?? new Set<string>();
       handles.add(handle); this.#handlesByAttempt.set(request.attemptId, handles);
-      return Object.freeze({ status: "uploaded", video_original_handle: handle, mime_type: "video/mp4", size: record.size,
+      return Object.freeze({ status: "uploaded", video_original_handle: handle, mime_type: record.mimeType, size: record.size,
         sha256: record.sha256, duration_seconds: record.durationSeconds, expires_in_seconds: Math.floor((expiresAt - acknowledgedAt) / 1000) });
     } catch (error) {
       if (error instanceof OwnerVideo2AudioOriginalReferenceServiceError) {
@@ -251,6 +269,7 @@ export class OwnerVideo2AudioOriginalReferenceService {
         this.#pendingSemantics.delete(semanticKey);
       }
       uploadBytes?.fill(0);
+      if (currentProbe) releaseOwnerVideo2AudioCurrentOriginal(currentProbe);
       this.#finish(request.attemptId, operation);
     }
   }
@@ -273,7 +292,7 @@ export class OwnerVideo2AudioOriginalReferenceService {
           !sameGenerationPrincipal(record.principal, principal) ||
           !isOwnerVideo2AudioOriginalReferenceForClient(record.client, this.#profile, record.nativeReference)) fail("REFERENCE_UNAVAILABLE");
       const details = readOwnerVideo2AudioOriginalReferenceForClient(record.client, this.#profile, record.nativeReference);
-      if (!details || details.sha256 !== record.sha256 || details.mime_type !== "video/mp4" || details.size !== record.size ||
+      if (!details || details.sha256 !== record.sha256 || details.mime_type !== record.mimeType || details.size !== record.size ||
           details.duration_seconds !== record.durationSeconds) fail("REFERENCE_UNAVAILABLE");
       await this.#resolvePrincipal(request.attemptId, operation.controller.signal).then((latest) => {
         this.#throwIfClosedOrAborted(operation.controller);
@@ -288,7 +307,7 @@ export class OwnerVideo2AudioOriginalReferenceService {
       const resolution: OwnerVideo2AudioOriginalResolution = Object.freeze({ role: "video2audio_original", wire_type: "video",
         principal: record.principal, attempt_id: record.attemptId, source_profile_id: this.#profile.profileId,
         profile_schema_hash: record.profileHash, video_original_handle: record.handle, sha256: record.sha256,
-        mime_type: "video/mp4", size: record.size, duration_seconds: record.durationSeconds, expires_at: record.expiresAt,
+        mime_type: record.mimeType, size: record.size, duration_seconds: record.durationSeconds, expires_at: record.expiresAt,
         epoch: record.epoch, generation_permit: false });
       RESOLUTIONS.set(resolution, { service: this, record });
       return resolution;
@@ -477,9 +496,9 @@ export class OwnerVideo2AudioOriginalReferenceService {
 function snapshotUpload(input: unknown, signal?: AbortSignal): Readonly<OwnerVideo2AudioOriginalUploadInput> {
   const fields = exactRecord(input, ["attemptId", "filename", "mime_type", "bytes"]);
   if (typeof fields.attemptId !== "string" || !ATTEMPT.test(fields.attemptId) || typeof fields.filename !== "string" ||
-      fields.mime_type !== "video/mp4" || !(fields.bytes instanceof Uint8Array) || types.isProxy(fields.bytes) ||
+      !["video/mp4", "video/webm", "video/quicktime", "video/mov"].includes(fields.mime_type as string) || !(fields.bytes instanceof Uint8Array) || types.isProxy(fields.bytes) ||
       (signal !== undefined && (types.isProxy(signal) || !(signal instanceof AbortSignal)))) fail("INVALID_REQUEST");
-  return Object.freeze({ attemptId: fields.attemptId, filename: fields.filename, mime_type: "video/mp4", bytes: fields.bytes });
+  return Object.freeze({ attemptId: fields.attemptId, filename: fields.filename, mime_type: fields.mime_type as OwnerVideo2AudioMimeType, bytes: fields.bytes });
 }
 
 function snapshotResolve(input: unknown, signal?: AbortSignal): Readonly<{ attemptId: string; handle: string }> {
@@ -503,7 +522,7 @@ function exactResolutionMatches(value: object, record: RecordEntry, profile: Own
     "video_original_handle", "sha256", "mime_type", "size", "duration_seconds", "expires_at", "epoch", "generation_permit"]);
   return f.role === "video2audio_original" && f.wire_type === "video" && f.attempt_id === record.attemptId &&
     f.source_profile_id === profile.profileId && f.profile_schema_hash === record.profileHash && f.video_original_handle === record.handle &&
-    f.sha256 === record.sha256 && f.mime_type === "video/mp4" && f.size === record.size &&
+    f.sha256 === record.sha256 && f.mime_type === record.mimeType && f.size === record.size &&
     f.duration_seconds === record.durationSeconds && f.expires_at === record.expiresAt && f.epoch === record.epoch && f.generation_permit === false &&
     isSamePrincipal(f.principal, record.principal);
 }
@@ -512,9 +531,9 @@ function isSamePrincipal(value: unknown, expected: Readonly<GenerationPrincipalR
   try { return sameGenerationPrincipal(snapshotGenerationPrincipal(value as GenerationPrincipalRef), expected); } catch { return false; }
 }
 
-function getSemanticKey(principal: Readonly<GenerationPrincipalRef>, profileHash: string, sha256: string, size: number): string {
+function getSemanticKey(principal: Readonly<GenerationPrincipalRef>, profileHash: string, sha256: string, size: number, mime_type: OwnerVideo2AudioMimeType): string {
   return schemaHash({ owner: { tenant_id: principal.tenant_id, subject_id: principal.subject_id }, model_id: "video2audio",
-    profile_schema_hash: profileHash, sha256, mime_type: "video/mp4", size });
+    profile_schema_hash: profileHash, sha256, mime_type, size });
 }
 
 function snapshotBinding(input: unknown): Readonly<AuthBinding> {

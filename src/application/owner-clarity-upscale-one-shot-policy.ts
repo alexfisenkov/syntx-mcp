@@ -1,3 +1,4 @@
+import { ownerImageManualCurrentProfileHash } from "./owner-image-manual-current-controls.js";
 import { isDeepStrictEqual, types } from "node:util";
 import { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION } from "../catalog/selected-discovery-catalog.js";
@@ -113,7 +114,8 @@ export function createOwnerClarityUpscaleOneShotPermit(
   const issuedAt = readClock(now);
   const profile = getOwnerClarityUpscaleSourceProfile();
   if (profile.source_binding.public_catalog_version !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION) fail("CATALOG_BINDING_MISMATCH");
-  const profileSchemaHash = schemaHash(profile);
+  if (!isOwnerClarityUpscalePreparedCandidateForPrincipal(fields.candidate, principal, attemptId)) fail("CANDIDATE_UNBOUND");
+  const profileSchemaHash = ownerImageManualCurrentProfileHash("clarity", schemaHash(profile), (fields.candidate as OwnerClarityUpscalePreparedCandidate).request.settings);
   const catalogVersion = validateCatalog(fields.catalog, profile.source_binding.public_models_sha256);
   const candidateValue = fields.candidate;
   const candidateFingerprint = validateCandidate(candidateValue, principal, attemptId, profile, profileSchemaHash);

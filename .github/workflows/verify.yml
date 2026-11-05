@@ -15,6 +15,7 @@ on:
           - image-file-fix
           - catalog-update
           - media-update
+          - media-cloud-final
           - full
 
 permissions:
@@ -23,7 +24,7 @@ permissions:
 jobs:
   changed-media:
     name: Scoped checks / Ubuntu 24.04 / Node 24.21.0
-    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -41,12 +42,16 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Audit runtime dependencies for the HTTPS release
+        if: inputs.scope == 'media-cloud-final'
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Build
-        if: inputs.scope == 'changed-media' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final'
         run: npm run build
 
       - name: Install media probe tools for changed video checks
-        if: inputs.scope == 'changed-media' || inputs.scope == 'media-update' || inputs.scope == 'image-file-fix'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'media-update' || inputs.scope == 'image-file-fix' || inputs.scope == 'media-cloud-final'
         shell: bash
         run: |
           set -euo pipefail
@@ -126,7 +131,7 @@ jobs:
         run: npm run test:catalog:update
 
       - name: Verify current media, updater, and package changes
-        if: inputs.scope == 'media-update'
+        if: inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final'
         env:
           SYNTX_MEDIA_FFMPEG_PATH: /usr/bin/ffmpeg
           SYNTX_MEDIA_FFPROBE_PATH: /usr/bin/ffprobe
@@ -135,7 +140,72 @@ jobs:
           SYNTX_MCV_TEST_FFPROBE: /usr/bin/ffprobe
           SYNTX_KLING_MEDIA_TEST_FFMPEG: /usr/bin/ffmpeg
           SYNTX_KLING_MEDIA_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_ACTTWO_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_ACTTWO_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_ELEVENLABS_STS_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_ELEVENLABS_STS_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_VIDEO2AUDIO_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_VIDEO2AUDIO_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_CURRENT_VIDEO_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_CURRENT_VIDEO_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_HAPPY_HORSE_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_HAPPY_HORSE_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_HEYGEN4_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_HEYGEN4_TEST_FFPROBE: /usr/bin/ffprobe
+          SYNTX_SWITCHX_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_SWITCHX_TEST_FFPROBE: /usr/bin/ffprobe
         run: npm run test:media:update
+
+  windows-native-media:
+    name: Native media acceptance / Windows 2025 / Node 24.21.0
+    if: inputs.scope == 'media-cloud-final'
+    runs-on: windows-2025
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: syntx Windows
+        shell: pwsh
+    steps:
+      - name: Checkout clean public source in a path with spaces
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          path: syntx Windows
+
+      - name: Set up pinned Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+
+      - name: Install locked public dependencies and build
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw 'public source build failed' }
+
+      - name: Install SHA256-pinned real FFmpeg and FFprobe executables
+        # FFmpeg links Gyan as a Windows build provider; builder checksum:
+        # https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip.sha256
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $mediaRoot = Join-Path $env:RUNNER_TEMP 'syntx media кодеки 🎞'
+          New-Item -ItemType Directory -Path $mediaRoot -Force | Out-Null
+          $archive = Join-Path $mediaRoot 'ffmpeg-9.0.2.zip'
+          Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip' -OutFile $archive -TimeoutSec 180
+          $expectedHash = '60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba'
+          if ((Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() -ne $expectedHash) { throw 'FFmpeg archive SHA256 mismatch' }
+          Expand-Archive -LiteralPath $archive -DestinationPath $mediaRoot
+          $codecRoot = Join-Path $mediaRoot 'ffmpeg-9.0.2-essentials_build/bin'
+          $ffmpegPath = Join-Path $codecRoot 'ffmpeg.exe'
+          $ffprobePath = Join-Path $codecRoot 'ffprobe.exe'
+          if (!(Test-Path -LiteralPath $ffmpegPath -PathType Leaf) -or !(Test-Path -LiteralPath $ffprobePath -PathType Leaf)) { throw 'real codec executables missing' }
+          "SYNTX_MEDIA_FFMPEG_PATH=$ffmpegPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SYNTX_MEDIA_FFPROBE_PATH=$ffprobePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify real Windows stdio, native codecs, Unicode files and mocked media lifecycles
+        run: node scripts/check-windows-media-acceptance.mjs
 
   local-image-file-portability:
     name: Local file paths only / ${{ matrix.os }} / Node 24.21.0

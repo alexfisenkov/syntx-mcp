@@ -207,8 +207,7 @@ function normalizeStyleSelection(value: unknown): OwnerSoulGenerationStyleSelect
   if (fields.kind !== "selected") invalidParameters();
   assertExactKeys(fields, ["kind", "style_handle", "strength"]);
   if (typeof fields.style_handle !== "string" || !MAX_STYLE_HANDLE_PATTERN.test(fields.style_handle) ||
-      typeof fields.strength !== "number" || !Number.isFinite(fields.strength) || fields.strength < 0 || fields.strength > 1 ||
-      Math.abs(fields.strength * 10 - Math.round(fields.strength * 10)) > 1e-9) invalidParameters();
+      typeof fields.strength !== "number" || !Number.isFinite(fields.strength) || fields.strength < 0 || fields.strength > 1) invalidParameters();
   return Object.freeze({ kind: "selected", style_handle: fields.style_handle, strength: fields.strength });
 }
 

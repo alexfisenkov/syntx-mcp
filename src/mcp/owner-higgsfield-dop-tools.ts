@@ -42,9 +42,9 @@ const recoveryId = z.string().regex(RECOVERY);
 const modelId = z.enum(MODEL_IDS);
 const motionId = z.union([z.string().min(1).max(160).refine(value => !/[\u0000-\u001f\u007f]/u.test(value)),
   z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]);
-const motionSelection = z.object({ id: motionId, label: z.string().min(1).max(256), strength: z.literal(1) }).strict();
+const motionSelection = z.object({ id: motionId, label: z.string().min(1).max(256), strength: z.number().finite().min(0).max(1) }).strict();
 const motionInput = z.object({ link_attempt_id: attemptId }).strict();
-const motionOutput = z.object({ motions: z.array(motionSelection).min(1).max(256), source: z.object({
+const motionOutput = z.object({ motions: z.array(motionSelection.extend({ strength: z.literal(1) })).min(1).max(256), source: z.object({
   endpoint: z.literal("https://api.syntx.ai/api/v1/higgsfield/motions"), source_module: z.literal("app.js"),
   source_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
   response_shape: z.literal("array<{id:string|number,title:string,preview_uri:string}>"), preview_uri_exposed: z.literal(false)
@@ -57,7 +57,7 @@ const importInput = z.object({ link_attempt_id: attemptId, model_id: modelId, fi
   mime_type: imageMime, content_base64: z.string().min(4).max(MAX_BASE64).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64)),
   file_id: fileId, destination: z.literal("uploaded") }).strict();
 const generateInput = z.object({ link_attempt_id: attemptId, model_id: modelId, prompt: z.string().min(1).max(1_000),
-  enhance_prompt: z.literal(false), motions: z.array(motionSelection).min(1).max(2),
+  enhance_prompt: z.boolean(), motions: z.array(motionSelection).min(1).max(2),
   reference_handle: z.string().regex(/^higgsfield_dop_reference_[0-9a-f-]{36}$/u) }).strict();
 const resultInput = z.object({ link_attempt_id: attemptId, recovery_id: recoveryId }).strict();
 const listInput = z.object({ link_attempt_id: attemptId }).strict();
@@ -135,7 +135,7 @@ export function registerSyntxOwnerHiggsfieldDopTools(server: McpServer, optionsI
 
   server.registerTool(OWNER_HIGGSFIELD_DOP_TOOL_NAMES[3], {
     title: "Generate a Higgsfield DOP video",
-    description: "Submits one owner image with an explicit prompt using the initial Higgsfield DOP tuple. An uncertain generation is not retried.",
+    description: "Submits one owner image with an explicit prompt, enhance_prompt boolean, and one or two catalogue-bound motions with finite strength 0..1. Current controls are source-derived, not provider acceptance. An uncertain generation is not retried.",
     inputSchema: generateInput, outputSchema: generationOutput,
     annotations: { title: "Generate DOP video", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => {

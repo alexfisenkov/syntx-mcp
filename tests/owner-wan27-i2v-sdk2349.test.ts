@@ -118,6 +118,10 @@ test("2349 moving-clock MCP SDK flow uploads duplicate ACK metadata, dispatches 
   const [caller, host] = InMemoryTransport.createLinkedPair();
   try {
     await server.connect(host); await client.connect(caller);
+    const source = await client.callTool({ name: OWNER_WAN27_I2V_TOOL_NAMES[0], arguments: {} });
+    assert.equal(source.isError, undefined, JSON.stringify(source));
+    assert.match((source.structuredContent as {source_profile_sha256:string}).source_profile_sha256, /^sha256:[a-f0-9]{64}$/u);
+    assert.equal((source.structuredContent as {provider_acceptance:string}).provider_acceptance, "UNPROVEN");
     const upload = await client.callTool({ name: OWNER_WAN27_I2V_TOOL_NAMES[1], arguments: { link_attempt_id: ATTEMPT,
       model_id: "wan_27_i2v", filename: "first-frame.png", mime_type: "image/png", content_base64: bytes.toString("base64") } });
     assert.equal(upload.isError, undefined, JSON.stringify(upload));

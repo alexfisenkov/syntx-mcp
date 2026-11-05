@@ -1,14 +1,14 @@
 import { types } from "node:util";
 import { SyntxChatHttpClient } from "./chat-http-client.js";
 import { isSafeUploadReferenceUrl } from "./upload-reference-bridge.js";
-import type { OwnerHappyHorseImageModelId, OwnerHappyHorseModelId } from "../../application/owner-happy-horse-parameters.js";
+import type { OwnerHappyHorseImageReferenceModelId, OwnerHappyHorseModelId } from "../../application/owner-happy-horse-parameters.js";
 import type { OwnerHappyHorseImageMimeType } from "../../application/owner-happy-horse-image-policy.js";
 import type { OwnerHappyHorseChatContext } from "./owner-happy-horse-chat-context.js";
 
 export type OwnerHappyHorseUploadDestination = "uploaded" | "hidden";
 export interface OwnerHappyHorseImageUploadContext {
   readonly status: "uploaded";
-  readonly model_id: OwnerHappyHorseImageModelId;
+  readonly model_id: OwnerHappyHorseImageReferenceModelId;
   readonly destination: OwnerHappyHorseUploadDestination;
   readonly mime_type: OwnerHappyHorseImageMimeType;
   readonly size: number;
@@ -76,14 +76,14 @@ function exactMetadata(value: unknown): Omit<OwnerHappyHorseImageUploadContext, 
     if (keys.length !== expected.length || keys.some(key => typeof key !== "string" || !expected.includes(key) ||
       !Object.hasOwn(ds[key]!, "value") || ds[key]!.enumerable !== true)) return null;
     const f = Object.create(null) as Record<string, unknown>; for (const key of expected) f[key] = ds[key]!.value;
-    if ((f.model_id !== "happy_horse_first_frame" && f.model_id !== "happy_horse_references") ||
+    if ((f.model_id !== "happy_horse_first_frame" && f.model_id !== "happy_horse_references" && f.model_id !== "happy_horse_edit") ||
         (f.destination !== "uploaded" && f.destination !== "hidden") ||
         !( ["image/jpeg", "image/jpg", "image/png", "image/webp"] as readonly string[]).includes(String(f.mime_type)) ||
         !Number.isSafeInteger(f.size) || (f.size as number) < 1 || (f.size as number) > 10 * 1024 * 1024 ||
         typeof f.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(f.sha256) || !Number.isSafeInteger(f.width) ||
         !Number.isSafeInteger(f.height) || (f.width as number) < 400 || (f.height as number) < 400 ||
         (f.width as number) > 8_000 || (f.height as number) > 8_000 || (f.width as number) * (f.height as number) > 52_500_000) return null;
-    return Object.freeze({ model_id: f.model_id as OwnerHappyHorseImageModelId, destination: f.destination as OwnerHappyHorseUploadDestination,
+    return Object.freeze({ model_id: f.model_id as OwnerHappyHorseImageReferenceModelId, destination: f.destination as OwnerHappyHorseUploadDestination,
       mime_type: f.mime_type as OwnerHappyHorseImageMimeType, size: f.size as number, sha256: f.sha256,
       width: f.width as number, height: f.height as number });
   } catch { return null; }

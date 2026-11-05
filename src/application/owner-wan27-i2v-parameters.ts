@@ -120,17 +120,27 @@ const SOURCE_FACTS = Object.freeze({
   upload_authority: false
 });
 const SOURCE_PROFILE = Object.freeze({ ...SOURCE_FACTS, source_sha256: schemaHash(SOURCE_FACTS) });
+const CURRENT_FACTS = Object.freeze({ source_build_id: "1793890358", public_version: "sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json",
+  settings_version: "sha256-4da7d12483291bb632aa21e0deb220142994fe061999d2f246318276964fa187.json",
+  form_sha256: "sha256:2b5d64f6a1f9614987f1ec5efd4bdffee916865f34d87ddd32901db658d9a6e3",
+  seed_component_sha256: "sha256:c95fc355e29e33f6c3998cb62cc2da4d0879cc1ff4fb524e826e74bb24cd792b",
+  model_id: "wan_27_i2v", resolution: Object.freeze(["720P", "1080P"]), video_duration: Object.freeze({minimum:2,maximum:15}),
+  prompt_extend: Object.freeze([false,true]), seed: Object.freeze({random:null,minimum:0,maximum:2147483647}),
+  conditions: "FIRST_IMAGE_ONLY_NO_VIDEO_INPUT; ASPECT_RATIO_HIDDEN; SHOT_TYPE_AND_AUDIO_SETTING_NOT_RENDERED",
+  defaults: "UNKNOWN", provider_acceptance: "UNPROVEN", runtime_usable: false });
+const CURRENT_PROFILE = Object.freeze({ ...CURRENT_FACTS, source_sha256: schemaHash(CURRENT_FACTS) });
+export function getOwnerWan27I2vCurrentSource() { return CURRENT_PROFILE; }
 
 export interface OwnerWan27I2vInput {
   readonly model_id: typeof OWNER_WAN27_I2V_MODEL_ID;
   readonly prompt: string;
-  readonly resolution: "720P";
+  readonly resolution: "720P" | "1080P";
   readonly aspect_ratio: "1:1";
-  readonly video_duration: 5;
-  readonly prompt_extend: false;
+  readonly video_duration: number;
+  readonly prompt_extend: boolean;
   readonly shot_type: "single";
   readonly audio_setting: "auto";
-  readonly seed: null;
+  readonly seed: number | null;
   readonly native_audio: false;
   readonly rendering_speed: "basic";
 }
@@ -139,7 +149,7 @@ export interface OwnerWan27I2vNormalizedParameters {
   readonly intent: Readonly<OwnerWan27I2vInput>;
   readonly settings: Readonly<Omit<OwnerWan27I2vInput, "prompt" | "model_id"> & { readonly model_type: typeof OWNER_WAN27_I2V_MODEL_ID }>;
   readonly source_profile_sha256: string;
-  readonly cost_parameters: Readonly<{ resolution: "720P"; video_duration: 5 }>;
+  readonly cost_parameters: Readonly<{ resolution: "720P" | "1080P"; video_duration: number }>;
   readonly cost_confidence: "EXPLICIT_CURRENT_MODEL_ACCESS_KEYS_NOT_TARIFF_OR_PROVIDER_ACCEPTANCE";
   readonly dispatch_allowed: false;
   readonly provider_acceptance: "UNPROVEN";
@@ -154,21 +164,21 @@ export function normalizeOwnerWan27I2vParameters(input: unknown): Readonly<Owner
   const fields = exact(input, ["model_id", "prompt", "resolution", "aspect_ratio", "video_duration", "prompt_extend",
     "shot_type", "audio_setting", "seed", "native_audio", "rendering_speed"]);
   if (fields.model_id !== OWNER_WAN27_I2V_MODEL_ID || typeof fields.prompt !== "string" || fields.prompt.trim().length === 0 ||
-      fields.prompt.length > MAX_PROMPT_LENGTH || !wellFormed(fields.prompt) || fields.resolution !== "720P" ||
-      fields.aspect_ratio !== "1:1" || fields.video_duration !== 5 || fields.prompt_extend !== false ||
-      fields.shot_type !== "single" || fields.audio_setting !== "auto" || fields.seed !== null ||
+      fields.prompt.length > MAX_PROMPT_LENGTH || !wellFormed(fields.prompt) || (fields.resolution !== "720P" && fields.resolution !== "1080P") ||
+      fields.aspect_ratio !== "1:1" || !Number.isInteger(fields.video_duration) || (fields.video_duration as number) < 2 || (fields.video_duration as number) > 15 || typeof fields.prompt_extend !== "boolean" ||
+      fields.shot_type !== "single" || fields.audio_setting !== "auto" || !(fields.seed === null || Number.isInteger(fields.seed) && (fields.seed as number) >= 0 && (fields.seed as number) <= 2147483647) ||
       fields.native_audio !== false || fields.rendering_speed !== "basic") invalid();
   const intent = Object.freeze({ model_id: OWNER_WAN27_I2V_MODEL_ID, prompt: fields.prompt,
-    resolution: "720P" as const, aspect_ratio: "1:1" as const, video_duration: 5 as const, prompt_extend: false as const,
-    shot_type: "single" as const, audio_setting: "auto" as const, seed: null, native_audio: false as const,
+    resolution: fields.resolution as "720P" | "1080P", aspect_ratio: "1:1" as const, video_duration: fields.video_duration as number, prompt_extend: fields.prompt_extend as boolean,
+    shot_type: "single" as const, audio_setting: "auto" as const, seed: fields.seed as number | null, native_audio: false as const,
     rendering_speed: "basic" as const });
   const settings = Object.freeze({ model_type: OWNER_WAN27_I2V_MODEL_ID, resolution: intent.resolution,
-    aspect_ratio: intent.aspect_ratio, video_duration: intent.video_duration, prompt_extend: false as const,
-    shot_type: "single" as const, audio_setting: "auto" as const, seed: null, native_audio: false as const,
+    aspect_ratio: intent.aspect_ratio, video_duration: intent.video_duration, prompt_extend: intent.prompt_extend,
+    shot_type: "single" as const, audio_setting: "auto" as const, seed: intent.seed, native_audio: false as const,
     rendering_speed: "basic" as const });
   return Object.freeze({ status: "EXPLICIT_INITIAL_CANDIDATE_NOT_DISPATCH_AUTHORITY", intent, settings,
-    source_profile_sha256: SOURCE_PROFILE.source_sha256,
-    cost_parameters: Object.freeze({ resolution: "720P", video_duration: 5 }),
+    source_profile_sha256: intent.resolution === "720P" && intent.video_duration === 5 && intent.prompt_extend === false && intent.seed === null ? SOURCE_PROFILE.source_sha256 : CURRENT_PROFILE.source_sha256,
+    cost_parameters: Object.freeze({ resolution: intent.resolution, video_duration: intent.video_duration }),
     cost_confidence: "EXPLICIT_CURRENT_MODEL_ACCESS_KEYS_NOT_TARIFF_OR_PROVIDER_ACCEPTANCE",
     dispatch_allowed: false, provider_acceptance: "UNPROVEN" });
 }

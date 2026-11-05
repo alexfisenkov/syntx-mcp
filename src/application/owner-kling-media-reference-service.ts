@@ -1,3 +1,4 @@
+import { ownerKlingMediaCurrentProfileHash } from "./owner-kling-media-current-controls.js";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import type { AuthBinding } from "../auth/types.js";
@@ -29,7 +30,7 @@ type MediaType = "image" | "video";
 export type OwnerKlingMediaUploadDestination = "uploaded" | "hidden";
 type UploadMeta = Readonly<{ type: MediaType; model_id: OwnerKlingMediaModelId; filename: string; mime_type: string;
   size: number; sha256: string; width: number; height: number; duration_seconds: number | null }>;
-interface Entry extends UploadMeta { readonly handle: string; readonly attempt: string; readonly principal: Readonly<GenerationPrincipalRef>;
+interface Entry extends UploadMeta { readonly handle: string; readonly attempt: string; readonly principal: Readonly<GenerationPrincipalRef>; readonly profile_sha256: string;
   readonly client: SyntxChatHttpClient; readonly url: string; readonly expires_at: number; readonly epoch: number }
 export interface OwnerKlingMediaReferenceServiceOptions { readonly binding: AuthBinding; readonly linkService: Pick<PerUserLinkService, "getStatus">;
   readonly resolveClient: (attemptId: string) => unknown; readonly uploadDestination: OwnerKlingMediaUploadDestination; readonly ffprobePath: string; readonly now?: () => number }
@@ -81,7 +82,9 @@ export class OwnerKlingMediaReferenceService {
       const after = await resolveOwnerReferencePrincipal({ binding: this.#binding, attemptId: req.attempt, linkService: this.#links });
       if (!sameGenerationPrincipal(principal, after) || this.#client(req.attempt) !== client || this.#closed) { this.#unknown.add(semantic); fail("UPLOAD_OUTCOME_UNKNOWN"); }
       const handle = `kling_media_reference_${randomUUID()}`, expires_at = this.#time() + TTL_MS, epoch = this.#epochs.get(req.attempt) ?? 0;
-      const entry: Entry = Object.freeze({ ...meta, handle, attempt: req.attempt, principal, client, url: references[0]!.url, expires_at, epoch });
+      const profile_sha256 = req.model === "kling_o1_video2video" && meta.type === "image"
+        ? ownerKlingMediaCurrentProfileHash(getOwnerKlingMediaSourceProfile().source_sha256) : getOwnerKlingMediaSourceProfile().source_sha256;
+      const entry: Entry = Object.freeze({ ...meta, handle, attempt: req.attempt, principal, client, url: references[0]!.url, expires_at, epoch, profile_sha256 });
       this.#entries.set(handle, entry); this.#semantic.set(semantic, handle); return this.#receipt(entry);
     } catch (error) {
       if (uploadStarted && semanticKey) this.#unknown.add(semanticKey);
@@ -105,7 +108,7 @@ export class OwnerKlingMediaReferenceService {
     if (!sameGenerationPrincipal(principal, latest)) fail("PRINCIPAL_NOT_LINKED");
     const owned = Object.freeze({ type: entry.type, model_id: entry.model_id, filename: entry.filename, mime_type: entry.mime_type, size: entry.size,
       sha256: entry.sha256, width: entry.width, height: entry.height, duration_seconds: entry.duration_seconds,
-      attempt_id: entry.attempt, reference_handle: entry.handle, principal, profile_sha256: getOwnerKlingMediaSourceProfile().source_sha256,
+      attempt_id: entry.attempt, reference_handle: entry.handle, principal, profile_sha256: entry.profile_sha256,
       expires_at: entry.expires_at, generation_permit: false as const });
     OWNED.set(owned, { service: this, entry }); return owned;
   }
@@ -124,11 +127,12 @@ export class OwnerKlingMediaReferenceService {
   async close(): Promise<void> { this.#closed = true; this.#entries.clear(); this.#semantic.clear(); this.#unknown.clear(); }
 
   async #validate(req: UploadRequest, signal?: AbortSignal): Promise<UploadMeta> {
-    if (req.model === "kling_elements" || req.model === "kling_o1_image2video") {
+    if (req.mime.startsWith("image/") && (req.model === "kling_elements" || req.model === "kling_o1_image2video" || req.model === "kling_o1_video2video")) {
       if (typeof req.mime !== "string" || !(MIME_IMAGE as readonly string[]).includes(req.mime)) fail("VALIDATION_REJECTED");
+      if (req.model === "kling_o1_video2video" && !["image/jpeg", "image/png", "image/avif"].includes(req.mime)) fail("VALIDATION_REJECTED");
       const validated = validateOwnerKlingI2VImageBytes({ bytes: req.bytes, filename: req.filename, mime_type: req.mime });
       const image = readValidatedOwnerKlingI2VImageInput(validated); if (!image) fail("VALIDATION_REJECTED");
-      if (req.model === "kling_elements" && image.size > 10 * 1024 * 1024) { image.bytes.fill(0); fail("VALIDATION_REJECTED"); }
+      if (req.model !== "kling_o1_image2video" && image.size > 10 * 1024 * 1024) { image.bytes.fill(0); fail("VALIDATION_REJECTED"); }
       const result = Object.freeze({ type: "image" as const, model_id: req.model, filename: image.filename, mime_type: image.mime_type, size: image.size,
         sha256: image.sha256, width: image.width, height: image.height, duration_seconds: null });
       image.bytes.fill(0); return result;
@@ -165,7 +169,7 @@ function snapshotUpload(input: unknown): UploadRequest {
   const f = exact(input, ["attemptId", "model_id", "filename", "mime_type", "bytes"]);
   if (typeof f.attemptId !== "string" || !ATTEMPT.test(f.attemptId) || !isOwnerKlingMediaModelId(f.model_id) || typeof f.filename !== "string" ||
       f.filename.length < 1 || f.filename.length > 255 || typeof f.mime_type !== "string" || !(f.bytes instanceof Uint8Array) || types.isProxy(f.bytes) ||
-      ((f.model_id === "kling_o1_video2video") !== (f.mime_type.startsWith("video/")))) fail("INVALID_REQUEST");
+      (f.model_id !== "kling_o1_video2video" && !f.mime_type.startsWith("image/"))) fail("INVALID_REQUEST");
   return Object.freeze({ attempt: f.attemptId, model: f.model_id, filename: f.filename, mime: f.mime_type, bytes: copyBytes(f.bytes) });
 }
 function copyBytes(value: Uint8Array): Buffer {

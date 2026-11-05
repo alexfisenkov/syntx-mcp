@@ -162,7 +162,7 @@ function readMetadata(value: unknown): OwnerRunwayI2vImageUploadMetadata | null 
         !Number.isSafeInteger(fields.height) || (fields.height as number) < 1 || (fields.height as number) > 8_400 ||
         (fields.width as number) * (fields.height as number) > 52_500_000) return null;
     const [numerator, denominator] = RATIOS[aspect as OwnerRunwayI2vImageAspectRatio];
-    if (model === "gen4.5i2v" && aspect !== "16:9") return null;
+    if (model === "gen4.5i2v" && aspect === "21:9") return null;
     if ((fields.width as number) * denominator !== (fields.height as number) * numerator) return null;
     return Object.freeze({ model_id: model as OwnerRunwayI2vImageModelId, aspect_ratio: aspect as OwnerRunwayI2vImageAspectRatio,
       mime_type: mime as OwnerRunwayI2vImageMimeType, size: fields.size as number, sha256: fields.sha256,

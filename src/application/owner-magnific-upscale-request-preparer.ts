@@ -1,3 +1,4 @@
+import { ownerImageManualCurrentProfileHash } from "./owner-image-manual-current-controls.js";
 import { isProxy } from "node:util/types";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import { schemaHash } from "../domain/generation-contract.js";
@@ -407,8 +408,9 @@ export function prepareOwnerMagnificUpscaleRequest(
     ...(prompt === undefined ? {} : { prompt }),
     settings
   });
+  const profileSchemaHash = ownerImageManualCurrentProfileHash("magnific", profile.profile_schema_hash, settings);
   const requestFingerprint = schemaHash({
-    profile_schema_hash: profile.profile_schema_hash,
+    profile_schema_hash: profileSchemaHash,
     principal,
     attempt_id: request.attempt_id,
     variant: request.variant,
@@ -431,7 +433,7 @@ export function prepareOwnerMagnificUpscaleRequest(
     dispatch_allowed: false as const,
     backend_acceptance: "UNPROVEN" as const,
     profile_id: profile.profile_id,
-    profile_schema_hash: profile.profile_schema_hash,
+    profile_schema_hash: profileSchemaHash,
     source_binding: profile.source_binding,
     model_id: profile.model_id,
     ai_name: profile.ai_name,

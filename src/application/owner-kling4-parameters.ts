@@ -1,3 +1,4 @@
+import { isKlingFiniteDuration, isKlingFractionalDuration, klingCurrentDurationProfileHash, OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } from "./owner-kling-duration-current-source.js";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import type { OwnerKling4ModelId } from "./owner-kling4-image-policy.js";
@@ -237,6 +238,13 @@ export function getOwnerKling4SourceProfile(modelId: OwnerKling4ParametersModelI
   return PROFILES[modelId];
 }
 
+export function getOwnerKling4CurrentDurationProfileHash(modelId: OwnerKling4ParametersModelId): string {
+  return klingCurrentDurationProfileHash(getOwnerKling4SourceProfile(modelId).source_sha256, modelId, "4.0");
+}
+export function getOwnerKling4EffectiveProfileHash(modelId: OwnerKling4ParametersModelId, duration: unknown): string {
+  return isKlingFractionalDuration(duration) ? getOwnerKling4CurrentDurationProfileHash(modelId) : getOwnerKling4SourceProfile(modelId).source_sha256;
+}
+
 /** Creates a strict, immutable local semantic candidate. It grants no runtime or generation authority. */
 export function normalizeOwnerKling4Parameters(input: unknown): Readonly<NormalizedOwnerKling4Parameters> {
   const fields = exactInput(input);
@@ -246,7 +254,7 @@ export function normalizeOwnerKling4Parameters(input: unknown): Readonly<Normali
       fields.prompt.length > MAX_PROMPT_UTF16_UNITS || CONTROL_CHARACTERS.test(fields.prompt) ||
       fields.prompt.includes("<<<") || fields.prompt.includes(">>>") ||
       fields.version !== VERSION || !isOneOf(MODES, fields.mode) || !isOneOf(ASPECT_RATIOS, fields.aspect_ratio) ||
-      !Number.isSafeInteger(fields.video_duration) || fields.video_duration < MIN_DURATION || fields.video_duration > MAX_DURATION ||
+      !isKlingFiniteDuration(fields.video_duration, MIN_DURATION, MAX_DURATION) ||
       typeof fields.native_audio !== "boolean") invalid();
   if (modelId === "kling_4_keyframes" && fields.native_audio !== true) invalid();
 
@@ -278,7 +286,8 @@ export function normalizeOwnerKling4Parameters(input: unknown): Readonly<Normali
     native_audio: fields.native_audio,
     reference_handles: referenceHandles,
     profile_id: profile.profile_id,
-    profile_sha256: profile.source_sha256,
+    profile_sha256: getOwnerKling4EffectiveProfileHash(modelId, fields.video_duration),
+    ...(isKlingFractionalDuration(fields.video_duration) ? { current_source_controls: OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } : {}),
     semanticIntent,
     reference_mentions: referenceMentions,
     runtime_usable: false as const,

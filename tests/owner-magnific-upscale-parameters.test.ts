@@ -160,7 +160,7 @@ test("precision scale locks require explicit 2x and never silently replace calle
     (error: unknown) => error instanceof OwnerMagnificUpscaleParametersError && error.code === "INVALID_PARAMETERS");
 });
 
-test("every numeric UI boundary is inclusive and fractional or out-of-range values are rejected", () => {
+test("numeric boundaries are inclusive and nonfinite or out-of-range values are rejected", () => {
   for (const value of [-10, 10]) {
     const result = normalizeOwnerMagnificUpscaleParameters(request("creative", {
       creativity: value, hdr: value, resemblance: value, fractality: value
@@ -175,7 +175,7 @@ test("every numeric UI boundary is inclusive and fractional or out-of-range valu
     assert.deepEqual([result.parameters.sharpen, result.parameters.smart_grain, result.parameters.ultra_detail], [value, value, value]);
   }
   for (const bad of [
-    { creativity: -11 }, { hdr: 11 }, { resemblance: 1.5 }, { fractality: Number.NaN },
+    { creativity: -11 }, { hdr: 11 }, { resemblance: 10.001 }, { fractality: Number.NaN },
     { sharpen: -1 }, { smart_grain: 101 }, { ultra_detail: Number.POSITIVE_INFINITY }
   ]) {
     assert.throws(() => normalizeOwnerMagnificUpscaleParameters(request("creative", bad)),

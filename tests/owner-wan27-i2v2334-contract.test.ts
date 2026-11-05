@@ -54,18 +54,28 @@ test("2334 rejects neighboring model IDs, off-slice settings and incomplete expl
   for (const value of [
     input({ model_id: "wan_27_videoedit" }),
     input({ model_id: "wan_26_i2v" }),
-    input({ resolution: "1080P" }),
+    input({ resolution: "480P" }),
     input({ aspect_ratio: "16:9" }),
-    input({ video_duration: 6 }),
-    input({ prompt_extend: true }),
+    input({ video_duration: 1 }),
+    input({ video_duration: 16 }),
     input({ native_audio: true }),
     input({ rendering_speed: "fast" }),
     input({ shot_type: "multi" }),
     input({ audio_setting: "origin" }),
-    input({ seed: 42 }),
+    input({ seed: -1 }),
+    input({ seed: 2147483648 }),
     (() => { const row = input(); delete (row as Record<string, unknown>).rendering_speed; return row; })(),
     { ...input(), destination: "uploaded" }
   ]) assert.throws(() => normalizeOwnerWan27I2vParameters(value), { code: "INVALID_PARAMETERS" });
+});
+
+test("WAN27 current first-image controls accept bounded duration and seed endpoints", () => {
+  for (const video_duration of [2, 15]) for (const seed of [null, 0, 1, 2147483647]) {
+    const p = normalizeOwnerWan27I2vParameters(input({resolution:"1080P", video_duration, prompt_extend:true, seed}));
+    assert.equal(p.settings.video_duration, video_duration); assert.equal(p.settings.seed, seed);
+    assert.equal(p.cost_parameters.resolution, "1080P"); assert.equal(p.cost_parameters.video_duration, video_duration);
+    assert.notEqual(p.source_profile_sha256, getOwnerWan27I2vSourceProfile().source_sha256);
+  }
 });
 
 test("2334 image policy enforces current positive public image bounds and a one-image local slice", () => {

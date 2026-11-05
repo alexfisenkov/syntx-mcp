@@ -1,3 +1,4 @@
+import { isKlingFractionalDuration, OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } from "./owner-kling-duration-current-source.js";
 import { types } from "node:util";
 import { sameGenerationPrincipal } from "../domain/generation-principal.js";
 import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
@@ -230,9 +231,10 @@ export function createOwnerKlingKeyframesRequestPreparer(optionsInput: OwnerKlin
         if (expiresAt <= readNow()) fail("REFERENCE_EXPIRED");
         const images = Object.freeze(resolution!.images.map((image) => Object.freeze({ mime_type: image.mime_type, size: image.size,
           sha256: image.sha256, width: image.width, height: image.height }))) as unknown as readonly [Readonly<SafeImage>, Readonly<SafeImage>];
-        const profileHash = schemaHash({ source_pins: OWNER_KLING_KEYFRAMES_SOURCE_PINS, settings_keys: rawTemplate.source.settings_keys,
+        const currentDurationSource = isKlingFractionalDuration(settings.video_duration) ? { current_duration_source: OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } : {};
+        const profileHash = schemaHash({ ...currentDurationSource, source_pins: OWNER_KLING_KEYFRAMES_SOURCE_PINS, settings_keys: rawTemplate.source.settings_keys,
           file_urls: "ORDERED_TYPED_IMAGE_OBJECTS" });
-        const sourceBinding = deepFreeze({ source_pins: OWNER_KLING_KEYFRAMES_SOURCE_PINS,
+        const sourceBinding = deepFreeze({ ...currentDurationSource, source_pins: OWNER_KLING_KEYFRAMES_SOURCE_PINS,
           settings_keys: rawTemplate.source.settings_keys, typed_reference_projection: "ORDERED_IMAGE_URL_OBJECTS" as const,
           prompt_bounds_local: Object.freeze({ max_utf16_units: MAX_PROMPT_UTF16, max_utf8_bytes: MAX_PROMPT_UTF8, unicode: "WELL_FORMED_NO_NUL" as const }),
           dispatch_status: "SOURCE_REVIEWED_ONLY_BACKEND_UNPROVEN" as const });

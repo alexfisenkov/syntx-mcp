@@ -62,10 +62,10 @@ export function normalizeOwnerTopazEnhanceParameters(input: unknown): OwnerTopaz
     const request = exactRecord(input, ["model_id", "parameters"]);
     if (request.model_id !== OWNER_TOPAZ_ENHANCE_MODEL_ID) invalid();
     const values = exactRecord(request.parameters, PARAMETER_KEYS);
-    if (!isBoundedInteger(values.blur, -100, 100) || !isBoundedInteger(values.halo, -100, 100) ||
-        !isBoundedInteger(values.noise, -100, 100) || !isBoundedInteger(values.details, -100, 100) ||
-        !isBoundedInteger(values.preblur, -100, 100) || !isBoundedInteger(values.compression, -100, 100) ||
-        !isBoundedInteger(values.prenoise, 0, 100) || ![1, 2, 4].includes(values.upscale as number) ||
+    if (!isBoundedNumber(values.blur, -100, 100) || !isBoundedNumber(values.halo, -100, 100) ||
+        !isBoundedNumber(values.noise, -100, 100) || !isBoundedNumber(values.details, -100, 100) ||
+        !isBoundedNumber(values.preblur, -100, 100) || !isBoundedNumber(values.compression, -100, 100) ||
+        !isBoundedNumber(values.prenoise, 0, 100) || ![1, 2, 4].includes(values.upscale as number) ||
         ![24, 25, 30, 45, 50, 60].includes(values.interpolation as number) ||
         !(OWNER_TOPAZ_ENHANCE_ALGORITHM_IDS as readonly unknown[]).includes(values.model) ||
         !["off", "normal", "strong"].includes(values.focus as string) || !["off", "on"].includes(values.grain as string)) invalid();
@@ -148,8 +148,8 @@ function exactRecord(value: unknown, required: readonly string[]): Record<string
   return result;
 }
 
-function isBoundedInteger(value: unknown, min: number, max: number): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+function isBoundedNumber(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
 }
 function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;

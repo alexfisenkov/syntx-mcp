@@ -7,6 +7,7 @@ import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { buildMediaMcpConfig } from "../scripts/print-media-mcp-config.mjs";
+import { describeRemoteMediaFileTool } from "../dist/src/runtime/remote-owner-media-file-input.js";
 
 const OWNER_STDIO_PATH = fileURLToPath(new URL("../dist/src/transports/stdio-owner.js", import.meta.url));
 const CONFIG_SCRIPT_PATH = fileURLToPath(new URL("../scripts/print-media-mcp-config.mjs", import.meta.url));
@@ -65,6 +66,16 @@ test("all-supported plus self-update generated config registers update and exist
     await withTimeout(client.connect(transport), TIMEOUT_MS, "PUBLIC_MEDIA_STDIO_INITIALIZE_TIMEOUT");
     const listed = await withTimeout(client.listTools(), TIMEOUT_MS, "PUBLIC_MEDIA_STDIO_TOOLS_LIST_TIMEOUT");
     const names = new Set(listed.tools.map((tool) => tool.name));
+    // Every advertised generation input must remain discoverable after SDK conversion.
+    const emptyGenerationSchemas = listed.tools.filter(tool => /^syntx_owner_(?:generate|cover|extend)_/u.test(tool.name) &&
+      Object.keys(tool.inputSchema.properties ?? {}).length === 0).map(tool => tool.name);
+    assert.deepEqual(emptyGenerationSchemas, [], "unexplained empty generation schemas from a root Zod union");
+    // New byte intake tools require an explicit facade review, not a wildcard.
+    const reviewedFileExceptions = [];
+    const missingFileParams = listed.tools.filter(tool => Object.keys(tool.inputSchema.properties ?? {}).some(key => /base64$/iu.test(key)) &&
+      !describeRemoteMediaFileTool(tool)._meta?.["openai/fileParams"]?.includes("file") &&
+      !reviewedFileExceptions.includes(tool.name)).map(tool => tool.name);
+    assert.deepEqual(missingFileParams, [], "new canonical byte intake needs a reviewed remote file facade or a documented exception");
     for (const name of [...UPDATE_TOOLS, EXISTING_VIDEO_READER, MEDIA_COVERAGE_TOOL, SUNO_UPLOAD, ...EXPANDED_TOOLS]) {
       assert.equal(names.has(name), true, `missing required offline tool: ${name}`);
     }
@@ -75,7 +86,8 @@ test("all-supported plus self-update generated config registers update and exist
         arguments: { offset, limit: 100, include_inactive: true } }), TIMEOUT_MS, "PUBLIC_MEDIA_STDIO_COVERAGE_TIMEOUT");
       assert.equal(coverageResult.isError, undefined);
       const page = coverageResult.structuredContent;
-      assert.equal(page.total, 125);
+      assert.equal(page.total, 127);
+      assert.equal(page.coverage_version, "6.0.0");
       coverageRows.push(...page.items);
     }
     const existingReaderModels = coverageRows.filter((row) => row.mcp_tool_names.includes(EXISTING_VIDEO_READER));
@@ -86,11 +98,18 @@ test("all-supported plus self-update generated config registers update and exist
     const existingKling4Rows = coverageRows.filter((row) => row.model_id === "kling_4_keyframes" || row.model_id === "kling_4_omni");
     assert.deepEqual(existingKling4Rows.map((row) => row.model_id).sort(), ["kling_4_keyframes", "kling_4_omni"]);
     assert.equal(existingKling4Rows.every((row) => row.mcp_tool_names.includes(EXISTING_VIDEO_READER)), true);
-    const routeSnapshot = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v5.json"), "utf8"));
+    const routeSnapshot = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v6.json"), "utf8"));
     const kling4ReaderBinding = routeSnapshot.native_alias_bindings.find((binding) =>
       binding.operator_flag === "SYNTX_OWNER_EXISTING_VIDEO_RECOVERY" &&
       binding.public_model_ids.includes("kling_4_keyframes") && binding.public_model_ids.includes("kling_4_omni"));
     assert.match(kling4ReaderBinding?.operation_note ?? "", /^NO_REFERENCE_ONLY:/u);
+    assert.equal(names.has("syntx_owner_upload_seedance_editor_frame"), true);
+    for (const id of ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst"]) {
+      const row = coverageRows.find(item => item.model_id === id);
+      assert.equal(row.active, false);
+      assert.equal(row.runtime_status, "SOURCE_ONLY");
+      assert.deepEqual(row.mcp_tool_names, []);
+    }
 
     for (const modelId of EXPANDED_MODEL_IDS) {
       const sourceResult = await withTimeout(client.callTool({ name: EXPANDED_TOOLS[0], arguments: { model_id: modelId } }),

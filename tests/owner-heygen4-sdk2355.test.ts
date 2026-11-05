@@ -44,7 +44,8 @@ async function localAssets(t: { skip(message?: string): void }): Promise<{ root:
   return { root, image: new Uint8Array(await readFile(imagePath)), audio: new Uint8Array(await readFile(audioPath)) };
 }
 
-test("HeyGen 4 SDK requires one existing image plus one existing audio and imports exact bytes read-only", async (t) => {
+for (const selectedRatio of [undefined, "9:16"] as const) {
+test(`HeyGen 4 SDK imports owned image/audio and preserves ${selectedRatio ?? "legacy default16:9"} in native body`, async (t) => {
   const assets = await localAssets(t); if (!assets) return;
   let now = Date.parse("2026-10-19T16:30:00.000Z"), balanceReads = 0, subscriptionReads = 0, quoteReads = 0;
   let inventoryReads = 0, objectReads = 0, uploadPosts = 0, chatPosts = 0, generationPosts = 0, historyReads = 0, resultReads = 0;
@@ -140,9 +141,12 @@ test("HeyGen 4 SDK requires one existing image plus one existing audio and impor
     const audio = audioImport.structuredContent as { reference_handle: string; duration_seconds: number };
     assert.equal(audio.duration_seconds, 5);
     assert.equal(JSON.stringify(imageImport).includes(IMAGE_URL), false); assert.equal(JSON.stringify(audioImport).includes(AUDIO_URL), false);
+    const badRatio = await client.callTool({ name: OWNER_HEYGEN4_TOOL_NAMES[3], arguments: { link_attempt_id: ATTEMPT, prompt: "invalid ratio", image_handle: image.reference_handle,
+      audio_handle: audio.reference_handle, aspect_ratio: "4:3" } });
+    assert.equal(badRatio.isError, true); assert.equal(chatPosts, 0); assert.equal(quoteReads, 0);
     const generated = await client.callTool({ name: OWNER_HEYGEN4_TOOL_NAMES[3], arguments: {
       link_attempt_id: ATTEMPT, prompt: "Keep the supplied subject and audio timing; avoid new dialogue or identity changes.",
-      image_handle: image.reference_handle, audio_handle: audio.reference_handle
+      image_handle: image.reference_handle, audio_handle: audio.reference_handle, ...(selectedRatio === undefined ? {} : { aspect_ratio: selectedRatio })
     } });
     assert.equal(generated.isError, undefined, JSON.stringify(generated));
     const output = generated.structuredContent as { status: string; model_id: string; backend_acceptance: string;
@@ -156,7 +160,7 @@ test("HeyGen 4 SDK requires one existing image plus one existing audio and impor
     assert.deepEqual(costs, [{ ai_name: "heygen", model_type: "heygen4", duration: "5" },
       { ai_name: "heygen", model_type: "heygen4", duration: "5" }]);
     assert.deepEqual(generationBodies[0], { chat_id: CHAT, prompt: "Keep the supplied subject and audio timing; avoid new dialogue or identity changes.",
-      settings: { model_type: "heygen4", aspect_ratio: "16:9", duration: 5, file_urls: [
+      settings: { model_type: "heygen4", aspect_ratio: selectedRatio ?? "16:9", duration: 5, file_urls: [
         { type: "image", url: IMAGE_URL }, { type: "audio", url: AUDIO_URL }
       ] } });
     const wire = JSON.stringify(generated);
@@ -165,8 +169,9 @@ test("HeyGen 4 SDK requires one existing image plus one existing audio and impor
     assert.equal(Object.hasOwn(generationBodies[0]!.settings as Record<string, unknown>, "voice_id"), false);
     const replay = await client.callTool({ name: OWNER_HEYGEN4_TOOL_NAMES[3], arguments: { link_attempt_id: ATTEMPT,
       prompt: "Keep the supplied subject and audio timing; avoid new dialogue or identity changes.",
-      image_handle: image.reference_handle, audio_handle: audio.reference_handle } });
+      image_handle: image.reference_handle, audio_handle: audio.reference_handle, ...(selectedRatio === undefined ? {} : { aspect_ratio: selectedRatio }) } });
     assert.equal(replay.isError, true); assert.match(JSON.stringify(replay), /INTENT_ALREADY_CLAIMED/u);
     assert.equal(generationPosts, 1);
   } finally { await client.close(); await server.close(); await runtime.lifecycle.close(); await rm(assets.root, { recursive: true, force: true }); }
 });
+}

@@ -206,7 +206,7 @@ const INPUT_26 = Object.freeze({ model_id: "wan_26_t2v", prompt: "A green kite r
   resolution: "720P", aspect_ratio: "16:9", video_duration: 5, prompt_extend: true, seed: 0, shot_type: "multi"
 }) });
 const INPUT_27 = Object.freeze({ model_id: "wan_27_t2v", prompt: "A quiet train passes a snowy field.", parameters: Object.freeze({
-  resolution: "1080P", aspect_ratio: "3:4", video_duration: 15, prompt_extend: false, seed: null, native_audio: true
+  resolution: "1080P", aspect_ratio: "3:4", video_duration: 15, prompt_extend: false, seed: null, native_audio: false
 }) });
 
 test("dispatches each explicit T2V branch once through the actual chat client with two fresh live preflights", async () => {
@@ -243,7 +243,7 @@ test("dispatches each explicit T2V branch once through the actual chat client wi
     } });
     assert.deepEqual(posts[1]?.body, { chat_id: "wan-t2v-generation-chat-2", prompt: INPUT_27.prompt, settings: {
       model_type: "wan_27_t2v", resolution: "1080P", aspect_ratio: "3:4", video_duration: 15,
-      prompt_extend: false, seed: null, native_audio: true, file_urls: []
+      prompt_extend: false, seed: null, native_audio: false, file_urls: []
     } });
     const beforeDuplicate = { ...f.counts };
     const duplicate = await service.generate({ attemptId: ATTEMPT, input: INPUT_26 });

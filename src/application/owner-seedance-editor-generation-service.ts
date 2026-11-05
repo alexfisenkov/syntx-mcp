@@ -33,7 +33,8 @@ const OPERATIONS = new WeakMap<object, Operation>();
 const RESULTS = new WeakMap<object, { op: Operation; row: HistoryRow }>();
 const GENERATE = z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.literal(MODEL),
   prompt: z.string().min(1).max(5000), resolution: z.enum(["480p", "720p", "1080p"]),
-  reference_handle: z.string().regex(/^seedance_editor_reference_[0-9a-f-]{36}$/u) }).strict();
+  reference_handle: z.string().regex(/^seedance_editor_reference_[0-9a-f-]{36}$/u),
+  frame_handles: z.array(z.string().regex(/^seedance_editor_frame_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u)).max(30).optional() }).strict();
 const id = z.union([z.string().regex(ID), z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).transform(String);
 const objectSchema = z.object({ id, message_id: id, object_type: z.string().max(128),
   object_text: z.string().max(20000).nullable().optional(), object_url: z.string().max(4096).nullable().optional(),
@@ -103,10 +104,12 @@ export class OwnerSeedanceEditorGenerationService {
 
   generate(input: unknown, signal?: AbortSignal): Promise<OwnerSeedanceEditorGenerationResult> {
     let snapshot: Record<string, unknown>;
-    try { snapshot = exact(input, ["attemptId", "model_id", "prompt", "resolution", "reference_handle"]); }
+    try { snapshot = exact(input, ["attemptId", "model_id", "prompt", "resolution", "reference_handle"], ["frame_handles"]); }
+    catch (error) { return Promise.reject(error); }
+    try { if (Object.hasOwn(snapshot, "frame_handles")) snapshot.frame_handles = safeFrameHandles(snapshot.frame_handles); }
     catch (error) { return Promise.reject(error); }
     const parsed = GENERATE.safeParse(snapshot); if (!parsed.success) return Promise.reject(new OwnerSeedanceEditorGenerationError("INVALID_REQUEST"));
-    const request = Object.freeze(parsed.data);
+    const request = Object.freeze({ ...parsed.data, ...(parsed.data.frame_handles ? { frame_handles: Object.freeze([...parsed.data.frame_handles]) as unknown as string[] } : {}) });
     return this.#run(request.attemptId, signal, async deadline => {
       const o = this.#options, epoch = this.#epochs.get(request.attemptId) ?? 0;
       const principal = await deadline.waitFor(resolveOwnerReferencePrincipal({ binding: o.binding, attemptId: request.attemptId, linkService: o.linkService }));
@@ -114,8 +117,9 @@ export class OwnerSeedanceEditorGenerationService {
       if (!sameGenerationPrincipal(principal, refs.principal)) fail("PRINCIPAL_NOT_LINKED");
       const parameters = { model_id: MODEL, prompt: request.prompt, resolution: request.resolution };
       normalizeOwnerSeedanceEditorParameters(parameters);
-      const captured = o.referenceService.withCapturedReferences(refs, (client, rows) => ({ client, wire: buildOwnerSeedanceEditorWire(parameters, {
-        url: rows[0]!.url, sha256: rows[0]!.sha256, duration_seconds: rows[0]!.duration_seconds }) }));
+      const makeWire = () => o.referenceService.withCapturedReferences(refs, (client, rows) => o.referenceService.withCapturedFrames(refs, request.frame_handles ?? [], frames =>
+        ({ client, wire: buildOwnerSeedanceEditorWire(parameters, { url: rows[0]!.url, sha256: rows[0]!.sha256, duration_seconds: rows[0]!.duration_seconds }, frames) })));
+      const captured = makeWire();
       const semantic = schemaHash({ tenant: principal.tenant_id, subject: principal.subject_id, intent: captured.wire.intent_fingerprint });
       if (CLAIMS.has(semantic)) fail("INTENT_ALREADY_CLAIMED");
       if (IN_FLIGHT.has(semantic)) fail("SERVICE_BUSY");
@@ -131,7 +135,7 @@ export class OwnerSeedanceEditorGenerationService {
           if (dispatch && (!o.referenceService.isOwnedReferences(refs) || refs.expires_at <= this.#time() ||
               op.wire.profile_sha256 !== getOwnerSeedanceEditorSourceProfile().source_sha256 ||
               op.wire.current_ui_observation_sha256 !== getOwnerSeedanceEditorCurrentUiObservation().observation_sha256 ||
-              !isOwnerSeedanceEditorWireCurrentUiAligned(op.wire))) fail("REFERENCE_EXPIRED");
+              !isOwnerSeedanceEditorWireCurrentUiAligned(op.wire) || makeWire().wire.wire_fingerprint !== op.wire.wire_fingerprint)) fail("REFERENCE_EXPIRED");
           if (dispatch && op.phase === "READY" && (this.#time() < op.quoteAt || this.#time() - op.quoteAt > 15000)) fail("PREFLIGHT_EXPIRED");
         } };
       try {
@@ -232,7 +236,8 @@ export class OwnerSeedanceEditorGenerationService {
         row.message_object.filter(object => object.object_type === "text").length === 1 &&
         row.message_object.some(object => object.object_type === "text" && object.object_text === op.wire.wire.prompt) &&
         row.message_object.filter(object => object.object_type === "video").length === 1 &&
-        row.message_object.some(object => object.object_type === "video" && object.model_type === PUBLIC_MODEL && object.object_url === op.wire.wire.settings.file_urls[0]!.url));
+        row.message_object.some(object => object.object_type === "video" && object.model_type === PUBLIC_MODEL && object.object_url === op.wire.wire.settings.file_urls[0]!.url) &&
+        op.wire.wire.settings.file_urls.slice(1).every(frame => row.message_object.some(object => object.object_type === "image" && object.object_url === frame.url)));
       if (owners.length !== 1 || (op.ownerEcho && op.ownerEcho !== owners[0]!.id)) fail("OWNER_ECHO_UNVERIFIED");
       // Each operation creates a fresh private chat; any additional human request makes ancestry ambiguous.
       if (history.messages.filter(row => row.author_id > 0).length !== 1) fail("OWNER_ECHO_UNVERIFIED");
@@ -241,7 +246,7 @@ export class OwnerSeedanceEditorGenerationService {
       const artifacts: OwnerSeedanceEditorArtifact[] = [];
       for (const row of candidates) {
         if (!row.message_object.length || row.message_object.some(object => object.object_type !== "video" || object.model_type !== PUBLIC_MODEL ||
-            object.completed !== true || !object.object_url || !isSafeUploadReferenceUrl(object.object_url) || object.object_url === op.wire.wire.settings.file_urls[0]!.url)) fail("RESULT_UNVERIFIED");
+            object.completed !== true || !object.object_url || !isSafeUploadReferenceUrl(object.object_url) || op.wire.wire.settings.file_urls.some(input => input.url === object.object_url))) fail("RESULT_UNVERIFIED");
         const context = Object.freeze({ model_id: MODEL }); RESULTS.set(context, { op, row });
         await this.#current(op, deadline);
         const result = rowSchema.parse(await deadline.waitFor(SyntxChatHttpClient.prototype.readOwnerSeedanceEditorResult.call(op.client, context, deadline.signal)));
@@ -319,12 +324,21 @@ function genuine(value: unknown, ctor: { prototype: object }, methods: readonly 
   return !!value && typeof value === "object" && !types.isProxy(value) && Object.getPrototypeOf(value) === ctor.prototype &&
     methods.every(method => !Object.hasOwn(value, method) && typeof Reflect.get(ctor.prototype, method) === "function" && Reflect.get(value, method) === Reflect.get(ctor.prototype, method));
 }
-function exact(value: unknown, keys: readonly string[]): Record<string, unknown> {
+function exact(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) fail("INVALID_REQUEST");
   const descriptors = Object.getOwnPropertyDescriptors(value), found = Reflect.ownKeys(descriptors);
-  if (![Object.prototype, null].includes(Object.getPrototypeOf(value)) || found.length !== keys.length ||
+  if (![Object.prototype, null].includes(Object.getPrototypeOf(value)) || found.length < keys.length || found.length > keys.length + optional.length ||
       keys.some(key => !descriptors[key] || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true) ||
-      found.some(key => typeof key !== "string" || !keys.includes(key))) fail("INVALID_REQUEST");
-  return Object.fromEntries(keys.map(key => [key, descriptors[key]!.value]));
+      found.some(key => typeof key !== "string" || ![...keys, ...optional].includes(key) || !Object.hasOwn(descriptors[key]!, "value") || !descriptors[key]!.enumerable)) fail("INVALID_REQUEST");
+  return Object.fromEntries((found as string[]).map(key => [key, descriptors[key]!.value]));
+}
+function safeFrameHandles(value: unknown): readonly string[] {
+  if (!Array.isArray(value) || types.isProxy(value) || Object.getPrototypeOf(value) !== Array.prototype) fail("INVALID_REQUEST");
+  const d = Object.getOwnPropertyDescriptors(value) as unknown as PropertyDescriptorMap, n = d.length?.value;
+  if (!Number.isSafeInteger(n) || n < 0 || n > 30 || Reflect.ownKeys(d).length !== n + 1) fail("INVALID_REQUEST");
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) { const item = d[String(i)];
+    if (!item || !("value" in item) || !item.enumerable || typeof item.value !== "string") fail("INVALID_REQUEST"); out.push(item.value); }
+  return Object.freeze(out);
 }
 function fail(code: string): never { throw new OwnerSeedanceEditorGenerationError(code); }

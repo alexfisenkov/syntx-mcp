@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
+import { advertisedUnionInputSchema } from "./advertised-input-schema.js";
+import { KLING_T2V_CURRENT_VARIANT, KLING_O1_T2V_CURRENT_VARIANT } from "../application/owner-kling-t2v-current-profile.js";
 import {
   OWNER_KLING_T2V_CONTRACT_VARIANT_IDS,
   type OwnerKlingT2vModelId,
@@ -40,12 +42,14 @@ export const ownerKlingT2vSourceOutputSchema = z.object({
   no_reference_source: sourceRecordSchema,
   wire_observation: sourceRecordSchema,
   cost_projection: sourceRecordSchema,
-  defaults: z.literal("UNKNOWN"), runtime_usable: z.literal(false), dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN")
+  defaults: z.literal("UNKNOWN"), runtime_usable: z.literal(false), dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN"),
+  current_controls: z.json().optional()
 }).strict() as unknown as z.ZodType<OwnerKlingT2vSourceContract>;
 
 const variantIdSchema = z.enum([
   OWNER_KLING_T2V_CONTRACT_VARIANT_IDS.kling_text2video,
-  OWNER_KLING_T2V_CONTRACT_VARIANT_IDS.kling_o1_text2video
+  OWNER_KLING_T2V_CONTRACT_VARIANT_IDS.kling_o1_text2video,
+  KLING_T2V_CURRENT_VARIANT, KLING_O1_T2V_CURRENT_VARIANT
 ]);
 const ownerKlingT2vOutputSchema = z.object({ status: z.literal("reviewed"), confidence_scope: z.literal("exact_result_only"),
   model_id: modelIdSchema, operation_id: z.literal("generate-video"), modality: z.literal("video"),
@@ -63,7 +67,7 @@ const baseGenerationSchema = z.object({
   version: baseVersionSchema,
   mode: z.enum(["standart", "hd"]),
   aspect_ratio: z.enum(["16:9", "1:1", "9:16"]),
-  video_duration: z.number().int().min(1).max(15),
+  video_duration: z.number().finite().min(3).max(15),
   native_audio: z.boolean()
 }).strict().superRefine((input, context) => {
   const standardVersion = ["1.5", "1.6", "2.1-master", "2.5-turbo", "2.6"].includes(input.version);
@@ -83,9 +87,37 @@ const o1GenerationSchema = z.object({
   prompt: z.string().min(1).max(5_000),
   mode: z.literal("hd"),
   aspect_ratio: z.enum(["16:9", "1:1", "9:16"]),
-  video_duration: z.union([z.literal(5), z.literal(10)])
+  video_duration: z.number().finite().min(3).max(10)
 }).strict();
-const generationInputSchema = z.discriminatedUnion("model_id", [baseGenerationSchema, o1GenerationSchema]);
+const currentGenerationSchema = z.object({ ...baseGenerationSchema.shape,
+  version: z.enum(["2.5", "2.6", "3.0"]), mode: z.enum(["standart", "hd", "4K"]),
+  video_duration: z.number().finite().min(3).max(15), temperature: z.number().finite().min(0).max(1).optional(), multi_shots: z.boolean().optional()
+}).strict().superRefine((input, context) => {
+  const { temperature, multi_shots, ...legacyFields } = input;
+  const basic = baseGenerationSchema.safeParse({ ...legacyFields, version: input.version === "2.5" ? "2.5-turbo" : input.version, mode: input.mode === "4K" ? "hd" : input.mode });
+  if (!basic.success) for (const issue of basic.error.issues) context.addIssue({ ...issue });
+  if (input.version === "2.6" && input.native_audio && input.mode !== "hd") context.addIssue({ code: "custom", path: ["mode"], message: "Current2.6 native audio requires hd mode." });
+  if (input.mode === "4K" && input.version !== "3.0") context.addIssue({ code: "custom", path: ["mode"], message: "4K is source-enabled only for Kling 3.0." });
+  if (input.version === "3.0" ? typeof multi_shots !== "boolean" || Object.hasOwn(input, "temperature") :
+      typeof temperature !== "number" || Object.hasOwn(input, "multi_shots")) context.addIssue({ code: "custom", message: "Supply the applicable current control explicitly and omit the inactive control." });
+});
+const generationInputSchema = z.union([baseGenerationSchema, o1GenerationSchema, currentGenerationSchema]);
+const advertisedGenerationInput = advertisedUnionInputSchema(generationInputSchema, [
+  { if: { properties: { model_id: { const: "kling_text2video" }, version: { enum: ["1.5", "1.6", "2.1-master", "2.5-turbo", "2.5", "2.6"] } }, required: ["model_id", "version"] },
+    then: { properties: { video_duration: { enum: [5, 10] } } } },
+  { if: { properties: { model_id: { const: "kling_text2video" }, version: { const: "2.1-master" } }, required: ["model_id", "version"] },
+    then: { properties: { mode: { const: "hd" } } } },
+  { if: { properties: { model_id: { const: "kling_text2video" }, native_audio: { const: true } }, required: ["model_id", "native_audio"] },
+    then: { properties: { version: { enum: ["2.6", "3.0"] } } } },
+  { if: { properties: { mode: { const: "4K" } }, required: ["mode"] }, then: {
+    properties: { model_id: { const: "kling_text2video" }, version: { const: "3.0" } }, required: ["multi_shots"] } },
+  { if: { required: ["multi_shots"] }, then: { properties: { model_id: { const: "kling_text2video" }, version: { const: "3.0" },
+    video_duration: { minimum: 3, maximum: 15 } }, not: { required: ["temperature"] } } },
+  { if: { required: ["temperature"] }, then: { properties: { model_id: { const: "kling_text2video" },
+    version: { enum: ["2.5", "2.6"] } }, not: { required: ["multi_shots"] } } },
+  { if: { required: ["temperature", "version", "native_audio"], properties: { version: { const: "2.6" }, native_audio: { const: true } } },
+    then: { properties: { mode: { const: "hd" } } } }
+]);
 
 export interface RegisterSyntxOwnerKlingT2vToolsOptions {
   readonly service: Pick<OwnerKlingT2vGenerationService, "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
@@ -108,8 +140,8 @@ export function registerSyntxOwnerKlingT2vTools(server: McpServer, options: Regi
 
   server.registerTool(SYNTX_OWNER_GENERATE_KLING_T2V_TOOL_NAME, {
     title: "Generate one Kling T2V video",
-    description: "Runs one non-idempotent owner generation. Choose the exact model_id. Base Kling requires version, mode, ratio, duration, and native_audio; O1 accepts only hd mode, ratio, and 5 or 10 seconds and rejects version/native_audio. No references, file_urls, custom payload, or raw principal are accepted. The 5,000 UTF-16 code unit prompt bound is local. Price and backend acceptance are unknown. Unknown outcomes require GET-only reconciliation; never retry generation.",
-    inputSchema: generationInputSchema, outputSchema: ownerKlingT2vOutputSchema,
+    description: "Runs one non-idempotent owner generation. Base Kling requires version, mode, ratio, duration and native_audio. Current explicit controls: temperature 0..1 for current 2.5/2.6, or multi_shots for 3.0; current 3.0 also allows 4K; 3.0/3.0-turbo allow finite manual 3..15 seconds. Omit the inactive control. Current O1 accepts hd mode, ratio and finite manual 3..10 seconds and rejects version/audio/current controls. Legacy tuples remain accepted. Current controls are form-source reviewed, not observed-provider proof. No references, URLs or raw payload are accepted. Unknown outcomes require GET-only reconciliation; never retry generation.",
+    inputSchema: advertisedGenerationInput, outputSchema: ownerKlingT2vOutputSchema,
     annotations: { title: "Generate one Kling T2V video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {
     try {
@@ -139,7 +171,7 @@ export function registerSyntxOwnerKlingT2vTools(server: McpServer, options: Regi
   }, async ({ link_attempt_id, limit }): Promise<CallToolResult> => {
     try {
       const output = recoveryListOutputSchema.parse({ recoveries: service.listRecoveries(link_attempt_id, limit) });
-      if (output.recoveries.some((item) => item.variant_id !== OWNER_KLING_T2V_CONTRACT_VARIANT_IDS[item.model_id])) {
+      if (output.recoveries.some((item) => !validVariant(item.model_id, item.variant_id))) {
         throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
       }
       return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
@@ -150,12 +182,18 @@ export function registerSyntxOwnerKlingT2vTools(server: McpServer, options: Regi
 function structuredSuccess(value: unknown, recoveryId?: string): CallToolResult {
   try {
     const output = ownerKlingT2vOutputSchema.parse(value);
-    if (output.variant_id !== OWNER_KLING_T2V_CONTRACT_VARIANT_IDS[output.model_id]) {
+    if (!validVariant(output.model_id, output.variant_id)) {
       throw new OwnerReviewedNoReferenceT2vServiceError("OUTCOME_UNKNOWN", recoveryId);
     }
     return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output,
       ...(recoveryId === undefined ? {} : { _meta: { recovery_id: recoveryId } }) };
   } catch { return safeError(new OwnerReviewedNoReferenceT2vServiceError("OUTCOME_UNKNOWN", recoveryId)); }
+}
+
+function validVariant(modelId: keyof typeof OWNER_KLING_T2V_CONTRACT_VARIANT_IDS, variantId: string): boolean {
+  return variantId === OWNER_KLING_T2V_CONTRACT_VARIANT_IDS[modelId] ||
+    (modelId === "kling_text2video" && variantId === KLING_T2V_CURRENT_VARIANT) ||
+    (modelId === "kling_o1_text2video" && variantId === KLING_O1_T2V_CURRENT_VARIANT);
 }
 
 function safeError(error: unknown): CallToolResult {

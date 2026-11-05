@@ -1,3 +1,4 @@
+import { registerOwnerImageManualCurrentSource } from "./owner-image-manual-current-source.js";
 import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { z } from "zod/v4";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -51,13 +52,13 @@ const parametersSchema = z.object({
   scale_factor: z.enum(SCALE_FACTORS).describe("Explicit string scale selected for the requested variant."),
   optimized_for: z.enum(OPTIMIZED_FOR).describe("Explicit creative optimization target, required even when hidden by the selected branch."),
   engine: z.enum(ENGINES).describe("Explicit creative engine, required even when hidden by the selected branch."),
-  creativity: z.number().int().min(-10).max(10).describe("Explicit creative control; integer from -10 through 10."),
-  hdr: z.number().int().min(-10).max(10).describe("Explicit creative HDR control; integer from -10 through 10."),
-  resemblance: z.number().int().min(-10).max(10).describe("Explicit creative resemblance control; integer from -10 through 10."),
-  fractality: z.number().int().min(-10).max(10).describe("Explicit creative fractality control; integer from -10 through 10."),
-  sharpen: z.number().int().min(0).max(100).describe("Explicit precision sharpen control; integer from 0 through 100."),
-  smart_grain: z.number().int().min(0).max(100).describe("Explicit precision smart-grain control; integer from 0 through 100."),
-  ultra_detail: z.number().int().min(0).max(100).describe("Explicit precision ultra-detail control; integer from 0 through 100."),
+  creativity: z.number().finite().min(-10).max(10).describe("Explicit creative control; finite number from -10 through 10."),
+  hdr: z.number().finite().min(-10).max(10).describe("Explicit creative HDR control; finite number from -10 through 10."),
+  resemblance: z.number().finite().min(-10).max(10).describe("Explicit creative resemblance control; finite number from -10 through 10."),
+  fractality: z.number().finite().min(-10).max(10).describe("Explicit creative fractality control; finite number from -10 through 10."),
+  sharpen: z.number().finite().min(0).max(100).describe("Explicit precision sharpen control; finite number from 0 through 100."),
+  smart_grain: z.number().finite().min(0).max(100).describe("Explicit precision smart-grain control; finite number from 0 through 100."),
+  ultra_detail: z.number().finite().min(0).max(100).describe("Explicit precision ultra-detail control; finite number from 0 through 100."),
   flavor: z.enum(FLAVORS).describe("Explicit precision-v2 flavor, required even when hidden by the selected branch.")
 }).strict().describe(
   "Full explicit Magnific state: all eleven fields are required and validated, including inactive/hidden controls. No defaults, cache fill, model_type, n, dimensions, or file URL are accepted."
@@ -161,6 +162,7 @@ export function registerSyntxOwnerMagnificUpscaleTools(
   server: import("@modelcontextprotocol/sdk/server/mcp.js").McpServer,
   options: RegisterSyntxOwnerMagnificUpscaleToolsOptions
 ): void {
+  registerOwnerImageManualCurrentSource(server, "magnific");
   server.registerTool(SYNTX_UPLOAD_MAGNIFIC_UPSCALE_IMAGE_TOOL_NAME, {
     title: "Upload an image for Magnific upscaling",
     description: "Upload one owner-provided JPEG, PNG, AVIF, or WebP image as portable Base64 for an explicitly selected Magnific variant. The observed frontend fallback is a 10 MiB local check, not a provider limit; dimensions come from container metadata and do not prove decoded pixels or output geometry. The returned opaque handle is bound to this exact attempt and variant; no path, URL, chat ID, or account override is accepted.",

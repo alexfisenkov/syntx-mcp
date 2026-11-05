@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import { WAN30_FIRST_LAST_CURRENT_PROFILE_ID } from "../../application/owner-wan30-current-form-source.js";
 import type { GenerationPrincipalRef } from "../../domain/generation-operation.js";
 import {
   normalizeOwnerWan30FirstLastGenerationIntent,
@@ -57,8 +58,8 @@ export interface OwnerWan30FirstLastUploadedFrame {
 export interface OwnerWan30FirstLastGenerationContext {
   readonly status: "ready";
   readonly model_id: typeof MODEL_ID;
-  readonly profile_id: "owner-wan30-first-last-web-request-observed-1823";
-  readonly reference_roles: readonly ["first_frame", "last_frame"];
+  readonly profile_id: "owner-wan30-first-last-web-request-observed-1823" | typeof WAN30_FIRST_LAST_CURRENT_PROFILE_ID;
+  readonly reference_roles: readonly ["first_frame", "last_frame"] | readonly ["first_frame"];
   readonly dispatch_state: "READY" | "RESERVED";
   readonly backend_acceptance: "UNPROVEN";
 }
@@ -69,7 +70,7 @@ export interface OwnerWan30FirstLastNativeRequest {
   readonly chat_id: string;
   readonly intent: OwnerWan30FirstLastGenerationIntent;
   readonly first_frame: OwnerWan30FirstLastUploadedFrame;
-  readonly last_frame: OwnerWan30FirstLastUploadedFrame;
+  readonly last_frame: OwnerWan30FirstLastUploadedFrame | null;
 }
 
 export class OwnerWan30FirstLastNativeContextError extends Error {
@@ -105,7 +106,7 @@ interface GenerationState {
   readonly prompt: string;
   readonly settings: Readonly<Record<string, unknown>>;
   readonly first: OwnerWan30FirstLastUploadedFrame;
-  readonly last: OwnerWan30FirstLastUploadedFrame;
+  readonly last: OwnerWan30FirstLastUploadedFrame | null;
   dispatchState: "READY" | "RESERVED" | "RELEASED";
 }
 
@@ -209,18 +210,19 @@ export function createOwnerWan30FirstLastGenerationContext(
     parameters: intentFields.parameters
   });
   const first = readUpload(clientInput, fields.first_frame, "first_frame");
-  const last = readUpload(clientInput, fields.last_frame, "last_frame");
-  if (first === last) fail("INVALID_CONTEXT");
+  const last = fields.last_frame === null ? null : readUpload(clientInput, fields.last_frame, "last_frame");
+  if (last && first === last) fail("INVALID_CONTEXT");
   const candidate = projectOwnerWan30FirstLastGenerationWireCandidate(normalized.intent);
   if (candidate.dispatch_allowed !== false || candidate.chat_id_bound !== false ||
-      candidate.profile_id !== "owner-wan30-first-last-web-request-observed-1823") fail("INVALID_CONTEXT");
+      !["owner-wan30-first-last-web-request-observed-1823", WAN30_FIRST_LAST_CURRENT_PROFILE_ID].includes(candidate.profile_id)) fail("INVALID_CONTEXT");
   const context: OwnerWan30FirstLastGenerationContext = Object.freeze({ status: "ready", model_id: MODEL_ID,
-    profile_id: candidate.profile_id, reference_roles: Object.freeze(["first_frame", "last_frame"] as const),
+    profile_id: last ? candidate.profile_id : WAN30_FIRST_LAST_CURRENT_PROFILE_ID,
+    reference_roles: last ? Object.freeze(["first_frame", "last_frame"] as const) : Object.freeze(["first_frame"] as const),
     dispatch_state: "READY", backend_acceptance: "UNPROVEN" });
   GENERATIONS.set(context, { client: first.client, attemptId: fields.attempt_id, principal, chatId: fields.chat_id,
     prompt: candidate.prompt_candidate, settings: candidate.settings_candidate,
     first: fields.first_frame as OwnerWan30FirstLastUploadedFrame,
-    last: fields.last_frame as OwnerWan30FirstLastUploadedFrame, dispatchState: "READY" });
+    last: fields.last_frame as OwnerWan30FirstLastUploadedFrame | null, dispatchState: "READY" });
   return context;
 }
 
@@ -232,11 +234,11 @@ export function consumeOwnerWan30FirstLastGenerationContext(
   const state = readGeneration(clientInput, contextInput);
   if (!state || state.dispatchState !== "READY") fail("INVALID_CONTEXT");
   const first = readUpload(clientInput, state.first, "first_frame");
-  const last = readUpload(clientInput, state.last, "last_frame");
+  const last = state.last ? readUpload(clientInput, state.last, "last_frame") : null;
   const { model_type, ...remainingSettings } = state.settings;
   state.dispatchState = "RESERVED";
   return Object.freeze({ chat_id: state.chatId, prompt: state.prompt, settings: Object.freeze({ model_type,
-    file_urls: Object.freeze([{ type: "first_frame", url: first.url }, { type: "last_frame", url: last.url }]),
+    file_urls: Object.freeze([{ type: "first_frame", url: first.url }, ...(last ? [{ type: "last_frame", url: last.url }] : [])]),
     ...remainingSettings }) });
 }
 
@@ -248,7 +250,7 @@ export function releaseOwnerWan30FirstLastGenerationContext(clientInput: unknown
   state.dispatchState = "RELEASED";
   GENERATIONS.delete(contextInput as object);
   releaseOwnerWan30FirstLastUploadedFrame(clientInput, state.first);
-  releaseOwnerWan30FirstLastUploadedFrame(clientInput, state.last);
+  if (state.last) releaseOwnerWan30FirstLastUploadedFrame(clientInput, state.last);
   return true;
 }
 
@@ -277,7 +279,7 @@ function readGeneration(client: unknown, context: unknown): GenerationState | nu
   const state = GENERATIONS.get(context as object);
   if (!state || state.client !== client || state.dispatchState === "RELEASED") return null;
   try {
-    if (!readUpload(client, state.first, "first_frame") || !readUpload(client, state.last, "last_frame")) return null;
+    if (!readUpload(client, state.first, "first_frame") || (state.last && !readUpload(client, state.last, "last_frame"))) return null;
     return state;
   } catch { return null; }
 }

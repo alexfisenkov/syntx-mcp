@@ -151,7 +151,7 @@ test("Kling I2V SDK schemas reject unsafe extra fields and unsupported settings"
     const invalid = [
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "1.5", mode: "standart", video_duration: 5, native_audio: true, temperature: 0.5 },
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "2.1-master", mode: "standart", video_duration: 5, native_audio: false, temperature: 0.5 },
-      { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "3.0", mode: "hd", video_duration: 5, native_audio: false, temperature: 0.55, multi_shots: false },
+      { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "3.0", mode: "hd", video_duration: 5, native_audio: false, temperature: 1.01, multi_shots: false },
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "3.0-turbo", mode: "hd", video_duration: 5, native_audio: false, temperature: 0.5, reference_url: ARTIFACT_URL },
       { link_attempt_id: ATTEMPT, image_handle: IMAGE_HANDLE, model_id: "kling_image2video", prompt: "x", version: "1.5", mode: "hd", video_duration: 5, native_audio: false, temperature: 0.5, provider_id: "secret" }
     ];

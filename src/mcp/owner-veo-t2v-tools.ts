@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
+import { advertisedUnionInputSchema } from "./advertised-input-schema.js";
 import {
   OWNER_VEO_T2V_CONTRACT_VARIANT_IDS,
   type OwnerVeoT2vModelId,
@@ -94,7 +95,7 @@ export function registerSyntxOwnerVeoT2vTools(server: McpServer, options: Regist
   server.registerTool(SYNTX_OWNER_GENERATE_VEO_T2V_TOOL_NAME, {
     title: "Generate one Veo T2V video",
     description: "Runs one non-idempotent owner generation for the exact selected model. Supply numeric upscale 0, 1, or 2, a supported ratio, and 8 seconds. The server fixes text mode and empty file_urls. Display labels, draft value 3, references, URLs, wire fields, and raw chat identifiers are rejected. Price and backend acceptance are unknown. Unknown outcomes require GET-only reconciliation; never retry generation.",
-    inputSchema: generationInputSchema, outputSchema: ownerVeoT2vOutputSchema,
+    inputSchema: advertisedUnionInputSchema(generationInputSchema), outputSchema: ownerVeoT2vOutputSchema,
     annotations: { title: "Generate one Veo T2V video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {
     try {

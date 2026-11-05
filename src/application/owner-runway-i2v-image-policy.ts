@@ -220,7 +220,7 @@ function oneOf<T extends string>(value: unknown, values: readonly T[]): value is
 }
 
 function isSupportedAspect(model: unknown, aspect: unknown): aspect is OwnerRunwayI2vImageAspectRatio {
-  return model === GEN45_MODEL_ID ? aspect === "16:9" :
+  return model === GEN45_MODEL_ID ? typeof aspect === "string" && (ASPECT_RATIOS as readonly string[]).includes(aspect) && aspect !== "21:9" :
     (model === "4genfirstframeimage" || model === "turbo4genfirstframeimage") && oneOf(aspect, ASPECT_RATIOS);
 }
 

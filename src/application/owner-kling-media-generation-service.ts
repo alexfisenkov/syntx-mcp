@@ -1,3 +1,5 @@
+import { OWNER_KLING_MEDIA_CURRENT_CONTROLS } from "./owner-kling-media-current-controls.js";
+import { loadSelectedDiscoveryCatalog } from "../catalog/selected-discovery-catalog.js";
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { z } from "zod/v4";
@@ -31,14 +33,24 @@ const MAX_RECORDS = 128;
 const OPERATIONS = new WeakMap<object, Operation>();
 const RESULTS = new WeakMap<object, { readonly operation: Operation; readonly row: HistoryRow }>();
 const SERVICES = new WeakSet<object>();
-const inputSchema = z.discriminatedUnion("model_id", [
+const inputSchema = z.union([
   z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.literal("kling_elements"), prompt: z.string().min(1).max(1_000), version: z.literal("1.6"),
     mode: z.literal("hd"), aspect_ratio: z.literal("16:9"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(/^kling_media_reference_[0-9a-f-]{36}$/u) }).strict(),
   z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.literal("kling_o1_image2video"), prompt: z.string().min(1).max(1_000), version: z.literal("1.6"),
     mode: z.literal("hd"), aspect_ratio: z.literal("16:9"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(/^kling_media_reference_[0-9a-f-]{36}$/u) }).strict(),
   z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.literal("kling_o1_video2video"), prompt: z.string().min(1).max(1_000), version: z.literal("1.6"),
-    mode: z.literal("hd"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(/^kling_media_reference_[0-9a-f-]{36}$/u) }).strict()
+    mode: z.literal("hd"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(/^kling_media_reference_[0-9a-f-]{36}$/u) }).strict(),
+  z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.literal("kling_elements"), prompt: currentPrompt(), version: z.literal("3.0"),
+    mode: z.enum(["standart", "hd", "4K"]), aspect_ratio: z.enum(["16:9", "1:1", "9:16"]), video_duration: z.number().finite().min(3).max(15),
+    native_audio: z.boolean(), multi_shots: z.boolean(), reference_handles: currentHandles(7) }).strict(),
+  z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.literal("kling_o1_image2video"), prompt: currentPrompt(), mode: z.literal("hd"),
+    aspect_ratio: z.enum(["16:9", "1:1", "9:16"]), video_duration: z.number().finite().min(3).max(10), reference_handles: currentHandles(4) }).strict(),
+  z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.literal("kling_o1_video2video"), prompt: currentPrompt(), mode: z.literal("hd"),
+    reference_handles: currentHandles(5) }).strict()
 ]);
+function currentPrompt() { return z.string().min(1).max(1000).refine(value => !!value.trim() && !/[\p{Cs}\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)); }
+function currentHandles(maximum: number) { return z.array(z.string().regex(/^kling_media_reference_[0-9a-f-]{36}$/u)).min(1).max(maximum)
+  .refine(value => new Set(value).size === value.length); }
 const idSchema = z.union([z.string().regex(SAFE_ID), z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).transform(String);
 const objectSchema = z.object({ id: idSchema, message_id: idSchema, object_type: z.string().max(128), object_text: z.string().max(20_000).nullable().optional(),
   object_url: z.string().max(4096).nullable().optional(), model_type: z.string().max(160).nullable().optional(), completed: z.boolean().nullable().optional() }).strip();
@@ -46,7 +58,10 @@ const rowSchema = z.object({ id: idSchema, chat_id: idSchema, author_id: z.numbe
 const historySchema = z.object({ messages: z.array(rowSchema).max(10), pagination: z.object({ page: z.literal(1), page_size: z.literal(10),
   total_count: z.number().int().min(0).max(10), total_pages: z.number().int().min(0).max(1), has_next: z.boolean(), has_previous: z.boolean() }).strip() }).strip();
 type HistoryRow = z.infer<typeof rowSchema>;
-type Request = Readonly<z.infer<typeof inputSchema>>;
+type Request = Readonly<{ attemptId: string; model_id: OwnerKlingMediaModelId; prompt: string;
+  version?: "1.6" | "3.0"; mode: "standart" | "hd" | "4K"; aspect_ratio?: "16:9" | "1:1" | "9:16";
+  video_duration?: number; native_audio?: boolean; multi_shots?: boolean;
+  reference_handle?: string; reference_handles?: readonly string[] }>;
 
 export interface OwnerKlingMediaRuntimeCatalog { readonly catalog: DiscoveryCatalogRepository; readonly catalog_version: string }
 export function loadOwnerKlingMediaRuntimeCatalog(catalogDirectory?: string): Readonly<OwnerKlingMediaRuntimeCatalog> {
@@ -87,7 +102,7 @@ export class OwnerKlingMediaGenerationError extends Error {
   constructor(readonly code: string, readonly recovery_id?: string) { super("The owner Kling media generation could not be completed safely."); this.name = "OwnerKlingMediaGenerationError"; }
 }
 interface Operation { readonly token: object; readonly request: Request; readonly principal: Readonly<GenerationPrincipalRef>; readonly client: SyntxChatHttpClient;
-  readonly owned: OwnerKlingMediaResolvedReference; wire: Readonly<OwnerKlingMediaWireCandidate>; readonly recovery_id: string;
+  readonly owned: readonly OwnerKlingMediaResolvedReference[]; readonly parameters: OwnerKlingMediaParametersInput; wire: Readonly<OwnerKlingMediaWireCandidate>; readonly recovery_id: string;
   readonly semantic: string; readonly epoch: number; phase: "PREPARING" | "READY" | "POSTED"; invalid: boolean;
   chat?: OwnerKlingMediaChatContext; ack?: string; owner_echo?: string; provider_chat?: string; quote_at: number;
   result: OwnerKlingMediaGenerationResult; validate(dispatch: boolean): void; }
@@ -97,6 +112,7 @@ export class OwnerKlingMediaGenerationService {
   readonly #o: OwnerKlingMediaGenerationOptions; readonly #records = new Map<string, Operation>(); readonly #claims = new Set<string>();
   readonly #busy = new Set<string>(); readonly #epochs = new Map<string, number>();
   readonly #pending = new Map<Promise<unknown>, { readonly attempt: string; readonly abort: AbortController }>();
+  #currentCatalog: DiscoveryCatalogRepository | undefined;
   #closed = false; #lastTime = 0;
   constructor(options: OwnerKlingMediaGenerationOptions) {
     if (!options || types.isProxy(options) || !genuine(options.linkService, PerUserLinkService, ["getStatus"]) ||
@@ -108,8 +124,8 @@ export class OwnerKlingMediaGenerationService {
     this.#o = Object.freeze({ ...options, binding: Object.freeze({ ...options.binding }) }); this.#time(); SERVICES.add(this); Object.freeze(this);
   }
   generate(input: unknown, signal?: AbortSignal): Promise<OwnerKlingMediaGenerationResult> {
-    let request: Request; try { request = Object.freeze(inputSchema.parse(snapshot(input))) as Request; } catch { return Promise.reject(new OwnerKlingMediaGenerationError("INVALID_REQUEST")); }
-    try { const normalized = normalizeOwnerKlingMediaParameters(parameterInput(request)); void normalized; }
+    let request: Request; try { const parsed = inputSchema.parse(snapshot(input)); request = Object.freeze({ ...parsed, ...("reference_handles" in parsed ? { reference_handles: Object.freeze([...parsed.reference_handles]) } : {}) }) as Request; } catch { return Promise.reject(new OwnerKlingMediaGenerationError("INVALID_REQUEST")); }
+    try { if (request.version === "1.6" || request.model_id !== "kling_o1_video2video") normalizeOwnerKlingMediaParameters(parameterInput(request)); }
     catch { return Promise.reject(new OwnerKlingMediaGenerationError("INVALID_REQUEST")); }
     return this.#run(request.attemptId, signal, deadline => this.#generate(request, deadline));
   }
@@ -142,18 +158,32 @@ export class OwnerKlingMediaGenerationService {
     const epoch = this.#epochs.get(request.attemptId) ?? 0;
     try {
       const principal = await deadline.waitFor(resolveOwnerReferencePrincipal({ binding: this.#o.binding, attemptId: request.attemptId, linkService: this.#o.linkService }));
-      const owned = await deadline.waitFor(this.#o.referenceService.resolve({ attemptId: request.attemptId, model_id: request.model_id, reference_handle: request.reference_handle }));
-      if (!this.#o.referenceService.isOwnedReference(owned) || !sameGenerationPrincipal(principal, owned.principal)) fail("REFERENCE_UNAVAILABLE");
-      let captured!: { client: SyntxChatHttpClient; wire: Readonly<OwnerKlingMediaWireCandidate> };
-      this.#o.referenceService.withCapturedReference(owned, (client, reference) => { captured = { client,
-        wire: buildOwnerKlingMediaWire(normalizeOwnerKlingMediaParameters(parameterInput(request)), { chat_uuid: "chat_pending", reference }) }; });
+      const owned: OwnerKlingMediaResolvedReference[] = [];
+      for (const handle of request.reference_handles ?? [request.reference_handle!]) {
+        let row: OwnerKlingMediaResolvedReference;
+        try { row = await deadline.waitFor(this.#o.referenceService.resolve({ attemptId: request.attemptId, model_id: request.model_id, reference_handle: handle })); }
+        catch { deadline.throwIfAborted(); return fail("REFERENCE_UNAVAILABLE"); }
+        if (!this.#o.referenceService.isOwnedReference(row) || !sameGenerationPrincipal(principal, row.principal)) fail("REFERENCE_UNAVAILABLE");
+        owned.push(row);
+      }
+      const current = request.version !== "1.6";
+      if (current) validateCurrentReferences(request.model_id, owned);
+      const measured = owned.find(row => row.type === "video")?.duration_seconds;
+      const parameters = parameterInput(request, measured === undefined || measured === null ? undefined : Math.round(measured));
+      const normalized = normalizeOwnerKlingMediaParameters(parameters);
+      let capturedClient: SyntxChatHttpClient | undefined;
+      const references = owned.map(row => this.#o.referenceService.withCapturedReference(row, (client, reference) => {
+        if (capturedClient && capturedClient !== client) fail("REFERENCE_UNAVAILABLE"); capturedClient = client; return reference;
+      }));
+      if (!capturedClient) fail("REFERENCE_UNAVAILABLE");
+      const captured = { client: capturedClient, wire: buildOwnerKlingMediaWire(normalized, { chat_uuid: "chat_pending", references }) };
       const semantic = schemaHash({ tenant_id: principal.tenant_id, subject_id: principal.subject_id, intent: captured.wire.intent_fingerprint });
       if (this.#claims.has(semantic)) fail("INTENT_ALREADY_CLAIMED"); if (this.#records.size >= MAX_RECORDS) fail("CAPACITY_EXCEEDED");
       this.#validateClient(captured.client);
       this.#claims.add(semantic);
       const recovery_id = `kling_media_recovery_${randomUUID()}`, token = Object.freeze({ model_id: request.model_id });
       let op!: Operation;
-      op = { token, request, principal, client: captured.client, owned, wire: captured.wire, recovery_id, semantic, epoch, phase: "PREPARING",
+      op = { token, request, principal, client: captured.client, owned: Object.freeze(owned), parameters, wire: captured.wire, recovery_id, semantic, epoch, phase: "PREPARING",
         invalid: false, quote_at: 0, result: unknown(request.model_id, recovery_id, ["NOT_DISPATCHED"]), validate: dispatch => this.#validateOperation(op, dispatch) };
       OPERATIONS.set(token, op);
       try { await this.#preflight(op, deadline); op.validate(true); }
@@ -163,8 +193,10 @@ export class OwnerKlingMediaGenerationService {
         model_id: request.model_id, title: `owner-kling-media-${randomUUID()}` }, deadline.signal])) as OwnerKlingMediaChatContext; }
       catch { return this.#unknown(op, "CHAT_CREATE_OUTCOME_UNKNOWN"); }
       if (readOwnerKlingMediaChat(op.client, op.chat, request.attemptId)?.model_id !== request.model_id) return this.#unknown(op, "CHAT_CONTEXT_UNVERIFIED");
-      const ref = this.#o.referenceService.withCapturedReference(owned, (_client, media) => media);
-      op.wire = buildOwnerKlingMediaWire(normalizeOwnerKlingMediaParameters(parameterInput(request)), { chat_uuid: op.chat.chat_uuid, reference: ref });
+      const refs = owned.map(row => this.#o.referenceService.withCapturedReference(row, (client, media) => {
+        if (client !== op.client) fail("REFERENCE_UNAVAILABLE"); return media;
+      }));
+      op.wire = buildOwnerKlingMediaWire(normalizeOwnerKlingMediaParameters(parameters), { chat_uuid: op.chat.chat_uuid, references: refs });
       await this.#preflight(op, deadline); op.validate(true); op.phase = "READY";
       try {
         const ack = await deadline.waitFor(callNative(op.client, "startOwnerKlingMediaOperation", [token, deadline.signal])) as { chat_uuid: string; message_id: string };
@@ -181,15 +213,17 @@ export class OwnerKlingMediaGenerationService {
     await this.#current(op, deadline, true); const read = this.#o.createReadClient(op.request.attemptId);
     if (!genuine(read, SyntxHttpClient, ["getAccountBalance", "getSubscription", "getModelInfo"])) fail("PREFLIGHT_FAILED");
     const account = await deadline.waitFor(new AccountStatusService(read, () => this.#time()).getAccountStatus(deadline.signal));
-    const params = parameterInput(op.request), normalized = normalizeOwnerKlingMediaParameters(params), costParameters = Object.create(null) as Record<string, SyntxCostParameter>;
+    const normalized = normalizeOwnerKlingMediaParameters(op.parameters), costParameters = Object.create(null) as Record<string, SyntxCostParameter>;
     for (const key of normalized.cost_query_keys) {
       const value = (normalized.source_parameters as Record<string, unknown>)[key];
       if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") fail("MODEL_BINDING_MISMATCH");
       costParameters[key] = value;
     }
-    const access = await deadline.waitFor(new ModelAccessService(this.#o.catalog, read, () => this.#time()).getModelAccess({ model_id: op.request.model_id,
+    const catalog = op.request.version === "1.6" ? this.#o.catalog : this.#currentCatalog ??=
+      loadSelectedDiscoveryCatalog(OWNER_KLING_MEDIA_CURRENT_CONTROLS.public_catalog_version, this.#o.catalogDirectory).discoveryCatalog;
+    const access = await deadline.waitFor(new ModelAccessService(catalog, read, () => this.#time()).getModelAccess({ model_id: op.request.model_id,
       cost_parameters: costParameters }, deadline.signal));
-    checkAccess(access, account, op.request.model_id, normalized.cost_query_keys, this.#catalogVersion(), this.#time());
+    checkAccess(access, account, op.request.model_id, normalized.cost_query_keys, this.#catalogVersion(catalog), this.#time());
     const a = (access as { observed_at: string }).observed_at, b = (account as { observed_at: string }).observed_at;
     op.quote_at = Math.min(Date.parse(a), Date.parse(b)); await this.#current(op, deadline, true);
   }
@@ -198,7 +232,7 @@ export class OwnerKlingMediaGenerationService {
     if (!sameGenerationPrincipal(p, op.principal)) fail("PRINCIPAL_NOT_LINKED"); deadline.throwIfAborted(); op.validate(dispatch); }
   #validateOperation(op: Operation, dispatch: boolean): void {
     if (this.#closed || op.invalid || (this.#epochs.get(op.request.attemptId) ?? 0) !== op.epoch || this.#o.resolveChatClient(op.request.attemptId) !== op.client ||
-        (dispatch && (!this.#o.referenceService.isOwnedReference(op.owned) || op.owned.expires_at <= this.#time()))) fail("PRINCIPAL_NOT_LINKED");
+        (dispatch && (op.owned.some(row => !this.#o.referenceService.isOwnedReference(row) || row.expires_at <= this.#time())))) fail("PRINCIPAL_NOT_LINKED");
     if (op.chat && readOwnerKlingMediaChat(op.client, op.chat, op.request.attemptId)?.model_id !== op.request.model_id) fail("PRINCIPAL_NOT_LINKED");
     if (op.phase === "READY" && (this.#time() < op.quote_at || this.#time() - op.quote_at > FRESH_MS)) fail("PREFLIGHT_EXPIRED");
   }
@@ -211,10 +245,10 @@ export class OwnerKlingMediaGenerationService {
       const rows = new Set<string>(), objects = new Set<string>();
       for (const row of history.messages) { if (row.chat_id !== chatId || rows.has(row.id)) fail("HISTORY_BINDING_MISMATCH"); rows.add(row.id);
         for (const item of row.message_object) { if (item.message_id !== row.id || objects.has(item.id)) fail("HISTORY_BINDING_MISMATCH"); objects.add(item.id); } }
-      const mediaType = op.owned.type, media = op.wire.body.settings.file_urls as readonly Readonly<{type:string;url:string}>[];
-      const owner = history.messages.filter(row => row.author_id > 0 && (!op.ack || row.id === op.ack) && row.message_object.length === 2 &&
+      const media = op.wire.body.settings.file_urls as readonly Readonly<{type:string;url:string}>[];
+      const owner = history.messages.filter(row => row.author_id > 0 && (!op.ack || row.id === op.ack) && row.message_object.length === media.length + 1 &&
         row.message_object.some(item => item.object_type === "text" && item.object_text === op.request.prompt) &&
-        row.message_object.some(item => item.object_type === mediaType && item.object_url === media[0]!.url));
+        media.every(reference => row.message_object.filter(item => item.object_type === reference.type && item.object_url === reference.url).length === 1));
       if (owner.length !== 1 || history.messages.filter(row => row.author_id > 0).length !== 1 || (op.owner_echo && owner[0]!.id !== op.owner_echo)) fail("OWNER_ECHO_UNVERIFIED");
       op.owner_echo = owner[0]!.id; op.provider_chat = chatId;
       const candidates = history.messages.filter(row => row.author_id === -1 && row.message_object.some(item => item.object_type === "video"));
@@ -246,7 +280,7 @@ export class OwnerKlingMediaGenerationService {
     this.#pending.set(promise, { attempt, abort }); return promise;
   }
   #time(): number { const n = this.#o.now(); if (!Number.isSafeInteger(n) || n < this.#lastTime) fail("CLOCK_INVALID"); this.#lastTime = n; return n; }
-  #catalogVersion(): string { return `${this.#o.catalog.fetched_at}.${this.#o.catalog.source_hashes.models.slice(7, 19)}`; }
+  #catalogVersion(catalog = this.#o.catalog): string { return `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`; }
   #validateClient(client: SyntxChatHttpClient): void { for (const name of ["createOwnerKlingMediaChat", "isOwnerKlingMediaChat", "invalidateOwnerKlingMediaChats",
     "startOwnerKlingMediaOperation", "readOwnerKlingMediaHistory", "readOwnerKlingMediaResult"]) if (typeof Reflect.get(client, name) !== "function") fail("NATIVE_METHOD_UNAVAILABLE"); }
 }
@@ -290,16 +324,55 @@ function exact(value: unknown, keys: readonly string[]): Record<string, unknown>
     const out = Object.create(null) as Record<string, unknown>; for (const k of keys) out[k] = d[k]!.value; return out;
   } catch { return fail("INVALID_REQUEST"); }
 }
-function snapshot(value: unknown): unknown { if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) return value;
-  try { const p = Object.getPrototypeOf(value), d = Object.getOwnPropertyDescriptors(value); if (p !== Object.prototype && p !== null) return value;
-    const out = Object.create(null) as Record<string, unknown>; for (const k of Reflect.ownKeys(d)) { if (typeof k !== "string" || !Object.hasOwn(d[k]!, "value") || d[k]!.enumerable !== true) return value; out[k] = d[k]!.value; } return out;
-  } catch { return value; } }
-function parameterInput(request: Request): OwnerKlingMediaParametersInput {
-  if (request.model_id === "kling_o1_video2video") return { model_id: "kling_o1_video2video", prompt: request.prompt,
-    version: request.version, mode: request.mode, video_duration: request.video_duration, native_audio: request.native_audio };
-  return { model_id: request.model_id, prompt: request.prompt, version: request.version, mode: request.mode,
-    aspect_ratio: request.aspect_ratio, video_duration: request.video_duration, native_audio: request.native_audio };
+function snapshot(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  if (types.isProxy(value)) fail("INVALID_REQUEST");
+  try {
+    const prototype = Object.getPrototypeOf(value), descriptors = Object.getOwnPropertyDescriptors(value);
+    if (Array.isArray(value)) {
+      const length = descriptors.length?.value as unknown;
+      if (prototype !== Array.prototype || !Number.isSafeInteger(length) || (length as number) < 0 || (length as number) > 7 ||
+        Reflect.ownKeys(descriptors).length !== (length as number) + 1) fail("INVALID_REQUEST");
+      const result: unknown[] = [];
+      for (let i = 0; i < (length as number); i++) {
+        const field = descriptors[String(i)];
+        if (!field?.enumerable || !("value" in field) || typeof field.value !== "string") fail("INVALID_REQUEST");
+        result.push(field.value);
+      }
+      return result;
+    }
+    if (prototype !== Object.prototype && prototype !== null) fail("INVALID_REQUEST");
+    const result = Object.create(null) as Record<string, unknown>;
+    for (const key of Reflect.ownKeys(descriptors)) {
+      if (typeof key !== "string" || !descriptors[key]!.enumerable || !("value" in descriptors[key]!)) fail("INVALID_REQUEST");
+      const field: unknown = descriptors[key]!.value;
+      result[key] = Array.isArray(field) ? snapshot(field) : field;
+    }
+    return result;
+  } catch { return fail("INVALID_REQUEST"); }
 }
+
+function parameterInput(request: Request, measuredDuration?: number): OwnerKlingMediaParametersInput {
+  if (request.version === "1.6") return { model_id: request.model_id, prompt: request.prompt, version: request.version, mode: request.mode,
+    ...(request.model_id === "kling_o1_video2video" ? {} : { aspect_ratio: request.aspect_ratio }),
+    video_duration: request.video_duration, native_audio: request.native_audio } as OwnerKlingMediaParametersInput;
+  return Object.freeze({ model_id: request.model_id, prompt: request.prompt, mode: request.mode,
+    video_duration: request.model_id === "kling_o1_video2video" ? measuredDuration : request.video_duration,
+    ...(request.model_id === "kling_o1_video2video" ? {} : { aspect_ratio: request.aspect_ratio }),
+    ...(request.model_id === "kling_elements" ? { version: request.version, native_audio: request.native_audio, multi_shots: request.multi_shots } : {}) }) as OwnerKlingMediaParametersInput;
+}
+function validateCurrentReferences(model: OwnerKlingMediaModelId, owned: readonly OwnerKlingMediaResolvedReference[]): void {
+  const images = owned.filter(row => row.type === "image"), videos = owned.filter(row => row.type === "video");
+  if (model === "kling_elements" ? videos.length !== 0 || images.length < 1 || images.length > 7 :
+      model === "kling_o1_image2video" ? videos.length !== 0 || images.length < 1 || images.length > 4 : videos.length !== 1 || images.length > 4) fail("REFERENCE_UNAVAILABLE");
+  for (const row of owned) {
+    if (row.width < 300 || row.height < 300 || row.width > 8000 || row.height > 8000 || row.width * row.height > 64000000) fail("REFERENCE_UNAVAILABLE");
+    if (row.type === "image" && (!["image/jpeg", "image/jpg", "image/png", "image/avif"].includes(row.mime_type) ||
+      row.size > (model === "kling_o1_image2video" ? 30 : 10) * 1024 * 1024)) fail("REFERENCE_UNAVAILABLE");
+    if (row.type === "video" && (row.duration_seconds === null || row.duration_seconds < 3 || row.duration_seconds > 10)) fail("REFERENCE_UNAVAILABLE");
+  }
+}
+
 function checkAccess(access: unknown, account: unknown, model: OwnerKlingMediaModelId, keys: readonly string[], version: string, now: number): void {
   const a = record(access, ["catalog_kind", "catalog_version", "model_id", "ai_name", "model_type", "account_read_live", "parameter_keys", "parameters_redacted", "access", "cost", "discount_cost", "observed_at"]);
   const r = record(account, ["balance", "subscription", "contract_evidence", "source_build", "observed_at"]), b = record(r.balance, ["unit", "available"]), s = record(r.subscription, ["active", "plan_type"]);

@@ -2,7 +2,7 @@ import { types } from "node:util";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import { schemaHash } from "../domain/generation-contract.js";
 import { OWNER_WAN27_I2V_IMAGE_POLICY, type OwnerWan27I2vImageMimeType } from "./owner-wan27-i2v-image-policy.js";
-import { getOwnerWan27I2vSourceProfile, normalizeOwnerWan27I2vParameters,
+import { normalizeOwnerWan27I2vParameters,
   type OwnerWan27I2vNormalizedParameters } from "./owner-wan27-i2v-parameters.js";
 
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -11,8 +11,8 @@ export interface OwnerWan27I2vCapturedImage {
   readonly mime_type: OwnerWan27I2vImageMimeType; readonly size: number; readonly width: number; readonly height: number;
 }
 export interface OwnerWan27I2vWireSettings {
-  readonly model_type: "wan_27_i2v"; readonly resolution: "720P"; readonly aspect_ratio: "1:1"; readonly video_duration: 5;
-  readonly prompt_extend: false; readonly shot_type: "single"; readonly audio_setting: "auto"; readonly seed: null;
+  readonly model_type: "wan_27_i2v"; readonly resolution: "720P" | "1080P"; readonly aspect_ratio: "1:1"; readonly video_duration: number;
+  readonly prompt_extend: boolean; readonly shot_type: "single"; readonly audio_setting: "auto"; readonly seed: number | null;
   readonly native_audio: false; readonly rendering_speed: "basic";
   readonly file_urls: readonly Readonly<{ type: "first_frame"; url: string }>[];
 }
@@ -42,7 +42,7 @@ export function buildOwnerWan27I2vWire(parametersInput: unknown, imageInput: unk
       image.width > policy.public_bounds.max_side || image.height > policy.public_bounds.max_side ||
       image.width / image.height < policy.public_bounds.min_aspect_ratio || image.width / image.height > policy.public_bounds.max_aspect_ratio ||
       image.width * image.height > policy.local_max_pixels) invalid();
-  const profileHash = getOwnerWan27I2vSourceProfile().source_sha256;
+  const profileHash = params.source_profile_sha256;
   const file_urls = Object.freeze([Object.freeze({ type: "first_frame" as const, url: image.url })]);
   const settings = Object.freeze({ ...params.settings, file_urls });
   const wire = Object.freeze({ ai_name: "wan_video" as const, prompt: params.intent.prompt, settings });

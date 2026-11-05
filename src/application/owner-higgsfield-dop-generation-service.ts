@@ -18,10 +18,11 @@ import { ACCOUNT_CONTRACT_EVIDENCE, ACCOUNT_SOURCE_BUILD } from "../adapter/synt
 import { AccountStatusService } from "./account-status.js";
 import { ModelAccessService } from "./model-access.js";
 import { buildOwnerHiggsfieldDopWire, type OwnerHiggsfieldDopWireCandidate } from "./owner-higgsfield-dop-wire.js";
-import { normalizeOwnerHiggsfieldDopParameters, getOwnerHiggsfieldDopSourceProfile,
+import { normalizeOwnerHiggsfieldDopParameters,
   type OwnerHiggsfieldDopModelId, type OwnerHiggsfieldDopMotionSelection } from "./owner-higgsfield-dop-parameters.js";
 import { isOwnerHiggsfieldDopReferenceService, type OwnerHiggsfieldDopOwnedReference,
   type OwnerHiggsfieldDopReferenceService } from "./owner-higgsfield-dop-reference-service.js";
+import { isOwnerHiggsfieldDopMotionStrength } from "./owner-higgsfield-dop-current-controls.js";
 
 const MODEL_IDS = ["dop-lite", "dop-turbo"] as const;
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
@@ -48,9 +49,9 @@ const FORM_ID = "higgsfield" as const;
 
 const motionId = z.union([z.string().min(1).max(160).refine(value => !/[\u0000-\u001f\u007f]/u.test(value)),
   z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]);
-const motionSelection = z.object({ id: motionId, label: z.string().min(1).max(256), strength: z.literal(1) }).strict();
+const motionSelection = z.object({ id: motionId, label: z.string().min(1).max(256), strength: z.number().finite().min(0).max(1) }).strict();
 const GENERATE = z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.enum(MODEL_IDS), prompt: z.string().min(1).max(PROMPT_MAX_UTF16),
-  enhance_prompt: z.literal(false), motions: z.array(motionSelection).min(1).max(2),
+  enhance_prompt: z.boolean(), motions: z.array(motionSelection).min(1).max(2),
   reference_handle: z.string().regex(/^higgsfield_dop_reference_[0-9a-f-]{36}$/u) }).strict();
 const id = z.union([z.string().regex(ID), z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).transform(String);
 const objectSchema = z.object({ id, message_id: id, object_type: z.string().max(128), object_text: z.string().max(20_000).nullable().optional(),
@@ -198,7 +199,7 @@ export class OwnerHiggsfieldDopGenerationService {
           if (operation.chat && (operation.chat.model_id !== request.model_id ||
               !SyntxChatHttpClient.prototype.isOwnerHiggsfieldDopChat.call(operation.client, operation.chat, request.attemptId))) fail("PRINCIPAL_NOT_LINKED");
           if (dispatch && (!this.#options.referenceService.isOwnedReference(reference) || reference.expires_at <= this.#time() ||
-              operation.wire.profile_sha256 !== getOwnerHiggsfieldDopSourceProfile().source_sha256)) fail("REFERENCE_EXPIRED");
+              operation.wire.profile_sha256 !== normalized.profile_sha256)) fail("REFERENCE_EXPIRED");
           if (dispatch && operation.phase === "READY" && (this.#time() < operation.quoteAt || this.#time() - operation.quoteAt > OBSERVATION_FRESHNESS_MS)) fail("PREFLIGHT_EXPIRED");
         } };
       try {
@@ -457,9 +458,9 @@ function operationUnknown(operation: Operation, reason: string): OwnerHiggsfield
     ...(operation.responseStatus === undefined ? [] : [`GENERATION_HTTP_${operation.responseStatus}`]),
     ...(operation.transportCode === undefined ? [] : [`GENERATION_TRANSPORT_${operation.transportCode}`])]);
 }
-function assertRequestedMotions(requested: readonly { readonly id: string | number; readonly label: string; readonly strength: 1 }[],
+function assertRequestedMotions(requested: readonly { readonly id: string | number; readonly label: string; readonly strength: number }[],
   catalogue: readonly { readonly id: string | number; readonly title: string }[]): void {
-  if (requested.length < 1 || requested.length > 2 || requested.some(selection => selection.strength !== 1 ||
+  if (requested.length < 1 || requested.length > 2 || requested.some(selection => !isOwnerHiggsfieldDopMotionStrength(selection.strength) ||
       !catalogue.some(row => typeof row.id === typeof selection.id && row.id === selection.id && row.title === selection.label))) {
     fail("PREFLIGHT_FAILED");
   }

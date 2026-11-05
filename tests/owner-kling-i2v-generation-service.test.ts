@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerSyntxOwnerKlingI2vTools } from "../src/mcp/owner-kling-i2v-tools.js";
 import { AccountStatusService } from "../src/application/account-status.js";
 import { ModelAccessService } from "../src/application/model-access.js";
 import { SyntxChatHttpClient } from "../src/adapter/syntx/chat-http-client.js";
@@ -54,7 +58,8 @@ function brokerFor(links: PerUserLinkService, binding: AuthBinding, attemptId: s
 function jsonResponse(payload: unknown): Response { return Response.json(payload); }
 
 async function setup(options: { readonly historyFailures?: number; readonly generationAckLost?: boolean;
-  readonly ready?: boolean; readonly denyModelAccessOnRead?: number; readonly linkForeign?: boolean } = {}) {
+  readonly ready?: boolean; readonly denyModelAccessOnRead?: number; readonly linkForeign?: boolean;
+  readonly expectedSettings?: Readonly<Record<string, unknown>> } = {}) {
   let now = NOW, chatNumber = 0, modelAccessReads = 0, historyGets = 0, resultGets = 0, generationPosts = 0;
   let remainingHistoryFailures = options.historyFailures ?? 0;
   let ready = options.ready ?? true;
@@ -123,7 +128,7 @@ async function setup(options: { readonly historyFailures?: number; readonly gene
       const request = body as { chat_id: string; prompt: string; settings: Record<string, unknown> };
       assert.equal(request.chat_id, `kling-i2v-chat-${chatNumber}`);
       assert.equal(request.prompt, PARAMETERS.prompt);
-      assert.deepEqual(request.settings, { model_type: "kling_image2video", version: "2.6", mode: "hd", video_duration: 5,
+      assert.deepEqual(request.settings, options.expectedSettings ?? { model_type: "kling_image2video", version: "2.6", mode: "hd", video_duration: 5,
         native_audio: true, temperature: 0.6, file_urls: [{ type: "image", url: UPLOAD_URL }] });
       if (options.generationAckLost) throw new Error("synthetic lost POST acknowledgement");
       return jsonResponse({ id: `kling-i2v-ack-${chatNumber}` });
@@ -164,7 +169,7 @@ async function setup(options: { readonly historyFailures?: number; readonly gene
   const httpClient = (attemptId: string) => new SyntxHttpClient({ credentialBroker: brokerFor(links, BINDING, attemptId), fetchImpl });
   const service = new OwnerKlingI2vGenerationService({ binding: BINDING, linkService: links, catalog: CATALOG, referenceService,
     resolveChatClient, createAccountStatusService: (attemptId: string) => new AccountStatusService(httpClient(attemptId), () => now),
-    createModelAccessService: (attemptId: string) => new ModelAccessService(CATALOG, httpClient(attemptId), () => now),
+    createModelAccessService: (attemptId: string,override?:DiscoveryCatalogRepository) => new ModelAccessService(override??CATALOG, httpClient(attemptId), () => now),
     now: () => now, pollDelayMs: 0 });
   async function upload(attemptId = ATTEMPT_A) {
     const receipt = await referenceService.upload({ attemptId, content_base64: IMAGE.toString("base64"), filename: "frame.jpg", mime_type: "image/jpeg" });
@@ -275,4 +280,38 @@ test("second fresh access denial creates no generation POST", async () => {
     assert.equal(f.counts().modelAccessReads, 2);
     assert.equal(f.counts().generationPosts, 0);
   } finally { await f.close(); }
+});
+
+test("current Kling I2V SDK binds source2.5 and fractional temperature through fresh cost, native POST and owned GET", async () => {
+  const f = await setup({ expectedSettings: { model_type: "kling_image2video", version: "2.5", mode: "hd", video_duration: 5,
+    native_audio: false, temperature: 0.375, file_urls: [{ type: "image", url: UPLOAD_URL }] } });
+  const server = new McpServer({ name: "kling-camera-current", version: "1" });
+  registerSyntxOwnerKlingI2vTools(server, { referenceService: f.referenceService,
+    generationService: f.service as unknown as OwnerKlingI2vGenerationService });
+  const client = new Client({ name: "kling-camera-current", version: "1" }), [caller, host] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(host); await client.connect(caller);
+    const image_handle = await f.upload();
+    const tool = (await client.listTools()).tools.find(tool => tool.name === "syntx_owner_generate_kling_i2v_video");
+    assert.ok(tool?.inputSchema.properties?.temperature);
+    assert.equal(Object.hasOwn(tool!.inputSchema.properties!, "camera_movement"), false);
+    const result = await client.callTool({ name: "syntx_owner_generate_kling_i2v_video", arguments: {
+      link_attempt_id: ATTEMPT_A, image_handle, model_id: "kling_image2video", prompt: PARAMETERS.prompt,
+      version: "2.5", mode: "hd", video_duration: 5, native_audio: false, temperature: 0.375 } });
+    assert.equal(result.isError, undefined, JSON.stringify(result));
+    assert.equal((result.structuredContent as { status: string }).status, "completed");
+    assert.deepEqual(f.counts(), { chatNumber: 1, modelAccessReads: 2, historyGets: 1, resultGets: 1, generationPosts: 1 });
+  } finally { await client.close(); await server.close(); await f.close(); }
+});
+
+
+test("current Kling I2V manual finite duration reaches actual SDK quote/native wire without rounding",async()=>{
+ const settings={model_type:"kling_image2video",version:"3.0",mode:"hd",video_duration:5.375,native_audio:false,temperature:0.5,multi_shots:false,file_urls:[{type:"image",url:UPLOAD_URL}]};
+ const f=await setup({expectedSettings:settings}), server=new McpServer({name:"finite-i2v",version:"1"});
+ registerSyntxOwnerKlingI2vTools(server,{referenceService:f.referenceService,generationService:f.service as unknown as OwnerKlingI2vGenerationService});
+ const client=new Client({name:"finite-i2v",version:"1"}),[caller,host]=InMemoryTransport.createLinkedPair();
+ try {await server.connect(host);await client.connect(caller);const image_handle=await f.upload();
+ const result=await client.callTool({name:"syntx_owner_generate_kling_i2v_video",arguments:{link_attempt_id:ATTEMPT_A,image_handle,model_id:"kling_image2video",prompt:PARAMETERS.prompt,version:"3.0",mode:"hd",video_duration:5.375,native_audio:false,temperature:0.5,multi_shots:false}});
+ assert.equal(result.isError,undefined,JSON.stringify(result));assert.equal(f.counts().modelAccessReads,2);assert.equal(f.counts().generationPosts,1);
+ }finally{await client.close();await server.close();await f.close();}
 });

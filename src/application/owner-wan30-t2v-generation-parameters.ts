@@ -1,7 +1,8 @@
 import { types } from "node:util";
+import { WAN30_CURRENT_ADAPTIVE_SOURCE } from "./owner-wan30-t2v-current-adaptive.js";
 
 export type OwnerWan30T2vGenerationResolution = "480P" | "720P" | "1080P";
-export type OwnerWan30T2vGenerationAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
+export type OwnerWan30T2vGenerationAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "adaptive";
 export type OwnerWan30T2vRenderingSpeed = "basic" | "prime";
 
 export interface OwnerWan30T2vGenerationParameters {
@@ -111,11 +112,11 @@ export interface OwnerWan30T2vCostQueryCandidate {
 }
 
 export interface OwnerWan30T2vNormalizedGeneration {
-  readonly status: "WEB_REQUEST_OBSERVED_EXPLICIT_INTENT";
+  readonly status: "WEB_REQUEST_OBSERVED_EXPLICIT_INTENT" | "FORM_SOURCE_REVIEWED_EXPLICIT_INTENT";
   readonly intent: OwnerWan30T2vGenerationIntent;
   readonly cost_query_candidate: OwnerWan30T2vCostQueryCandidate;
-  readonly source_profile_id: typeof PROFILE_ID;
-  readonly source_pins: typeof SOURCE_PINS;
+  readonly source_profile_id: typeof PROFILE_ID | typeof WAN30_CURRENT_ADAPTIVE_SOURCE.profile_id;
+  readonly source_pins: typeof SOURCE_PINS | typeof WAN30_CURRENT_ADAPTIVE_SOURCE.source_pins;
   readonly effective_defaults: "UNKNOWN";
   readonly runtime_usable: false;
   readonly dispatch_allowed: false;
@@ -141,8 +142,8 @@ export interface OwnerWan30T2vGenerationWireCandidate {
     duration: 0;
     rendering_speed: OwnerWan30T2vRenderingSpeed;
   }>;
-  readonly profile_id: typeof PROFILE_ID;
-  readonly source_pins: typeof SOURCE_PINS;
+  readonly profile_id: typeof PROFILE_ID | typeof WAN30_CURRENT_ADAPTIVE_SOURCE.profile_id;
+  readonly source_pins: typeof SOURCE_PINS | typeof WAN30_CURRENT_ADAPTIVE_SOURCE.source_pins;
   readonly status: "WIRE_SHAPE_CANDIDATE_NOT_DISPATCHED";
   readonly chat_id_bound: false;
   readonly dispatch_allowed: false;
@@ -170,7 +171,7 @@ export function normalizeOwnerWan30T2vGenerationIntent(input: unknown): OwnerWan
   const raw = exactRecord(fields.parameters, [
     "aspect_ratio", "resolution", "video_duration", "prompt_extend", "seed", "native_audio", "rendering_speed"
   ]);
-  if (!isOneOf(raw.aspect_ratio, ASPECT_RATIOS) || !isOneOf(raw.resolution, RESOLUTIONS) ||
+  if (!(raw.aspect_ratio === "adaptive" || isOneOf(raw.aspect_ratio, ASPECT_RATIOS)) || !isOneOf(raw.resolution, RESOLUTIONS) ||
       !Number.isSafeInteger(raw.video_duration) || (raw.video_duration as number) < VIDEO_DURATION_MIN ||
       (raw.video_duration as number) > VIDEO_DURATION_MAX || typeof raw.prompt_extend !== "boolean" ||
       typeof raw.native_audio !== "boolean" || !(raw.seed === null ||
@@ -199,11 +200,11 @@ export function normalizeOwnerWan30T2vGenerationIntent(input: unknown): OwnerWan
     current_quote: "UNKNOWN"
   });
   return Object.freeze({
-    status: "WEB_REQUEST_OBSERVED_EXPLICIT_INTENT",
+    status: parameters.aspect_ratio === "adaptive" ? "FORM_SOURCE_REVIEWED_EXPLICIT_INTENT" : "WEB_REQUEST_OBSERVED_EXPLICIT_INTENT",
     intent,
     cost_query_candidate,
-    source_profile_id: PROFILE_ID,
-    source_pins: SOURCE_PINS,
+    source_profile_id: parameters.aspect_ratio === "adaptive" ? WAN30_CURRENT_ADAPTIVE_SOURCE.profile_id : PROFILE_ID,
+    source_pins: parameters.aspect_ratio === "adaptive" ? WAN30_CURRENT_ADAPTIVE_SOURCE.source_pins : SOURCE_PINS,
     effective_defaults: "UNKNOWN",
     runtime_usable: false,
     dispatch_allowed: false,
@@ -236,8 +237,8 @@ export function prepareOwnerWan30T2vGenerationWireCandidate(intentInput: unknown
       duration: 0,
       rendering_speed: intent.parameters.rendering_speed
     }),
-    profile_id: PROFILE_ID,
-    source_pins: SOURCE_PINS,
+    profile_id: normalized.source_profile_id,
+    source_pins: normalized.source_pins,
     status: "WIRE_SHAPE_CANDIDATE_NOT_DISPATCHED",
     chat_id_bound: false,
     dispatch_allowed: false,

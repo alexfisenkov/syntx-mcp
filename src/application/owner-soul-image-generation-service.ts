@@ -1,3 +1,4 @@
+import { ownerImageManualCurrentProfileHash } from "./owner-image-manual-current-controls.js";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import type { AuthBinding } from "../auth/types.js";
@@ -348,9 +349,9 @@ export class OwnerSoulImageGenerationService {
     const deadline = this.#deadline(signal, () => recovery ? unknownError(recovery) : generationError("PRE_DISPATCH_FAILED"));
     try {
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId, deadline.signal));
-      const profile = this.#assertProfile();
+      this.#assertProfile();
       const candidate = await this.#prepareCandidate(request, principal, deadline);
-      this.#assertCandidate(candidate, principal, request.attemptId, profile);
+      const profile = this.#assertCandidate(candidate, principal, request.attemptId);
       semanticKey = semanticIntentKey(principal, candidate);
       const pruneNow = this.#readNow(); this.#pruneSuccess(pruneNow); this.#pruneRecoveries(pruneNow);
       if (this.#unknownIntents.has(semanticKey)) fail("INTENT_ALREADY_CLAIMED");
@@ -570,10 +571,11 @@ export class OwnerSoulImageGenerationService {
     let profile: Readonly<OwnerSoulImageSourceProfile>;
     try { profile = getOwnerSoulImageSourceProfile(MODEL_ID, this.#catalog, DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION); }
     catch { fail("MODEL_BINDING_MISMATCH"); }
-    if (candidate.profile_id !== profile.profile_id || candidate.profile_schema_hash !== profile.profile_schema_hash ||
+    const currentHash = ownerImageManualCurrentProfileHash("soul", profile.profile_schema_hash, candidate.parameters);
+    if (candidate.profile_id !== profile.profile_id || candidate.profile_schema_hash !== currentHash ||
         candidate.catalog_version !== profile.public_catalog_version || profile.dispatch_allowed !== false || profile.runtime_activation !== false ||
-        profile.backend_acceptance !== "UNPROVEN" || (expectedProfile && expectedProfile.profile_schema_hash !== profile.profile_schema_hash)) fail("MODEL_BINDING_MISMATCH");
-    return profile;
+        profile.backend_acceptance !== "UNPROVEN" || (expectedProfile && expectedProfile.profile_schema_hash !== currentHash)) fail("MODEL_BINDING_MISMATCH");
+    return currentHash === profile.profile_schema_hash ? profile : Object.freeze({ ...profile, profile_schema_hash: currentHash });
   }
 
   #assertSynchronousCurrent(candidate: OwnerSoulImagePreparedCandidate, principal: Readonly<GenerationPrincipalRef>, attemptId: string,
@@ -581,7 +583,7 @@ export class OwnerSoulImageGenerationService {
     this.#assertOpen();
     if (this.#invalidatingAttempts.has(attemptId) || !this.#candidateGuard(candidate, attemptId, principal)) fail("PRE_DISPATCH_FAILED");
     const current = this.#assertProfile();
-    if (current.profile_schema_hash !== profile.profile_schema_hash) fail("MODEL_BINDING_MISMATCH");
+    if (ownerImageManualCurrentProfileHash("soul", current.profile_schema_hash, candidate.parameters) !== profile.profile_schema_hash) fail("MODEL_BINDING_MISMATCH");
   }
 
   #assertProfile(): Readonly<OwnerSoulImageSourceProfile> {
@@ -628,7 +630,7 @@ export class OwnerSoulImageGenerationService {
     if (!sameGenerationPrincipal(principal, recovery.principal) || this.#closed || this.#invalidatingAttempts.has(recovery.attemptId) ||
         (recovery.expires_at !== null && recovery.expires_at <= this.#readNow())) throw unknownError(recovery);
     const profile = this.#assertProfile();
-    if (profile.profile_schema_hash !== recovery.profile.profile_schema_hash) throw unknownError(recovery);
+    if (ownerImageManualCurrentProfileHash("soul", profile.profile_schema_hash, recovery.candidate.parameters) !== recovery.profile.profile_schema_hash) throw unknownError(recovery);
   }
 
   #mergeObservedArtifacts(recovery: Recovery, result: InternalOwnerSoulImageResult): void {

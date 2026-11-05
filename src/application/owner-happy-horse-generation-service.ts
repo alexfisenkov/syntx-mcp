@@ -25,11 +25,13 @@ import { buildOwnerHappyHorseEditWire, buildOwnerHappyHorseWire, type OwnerHappy
 import { getOwnerHappyHorseSourceProfile, normalizeOwnerHappyHorseParameters,
   type OwnerHappyHorseModelId } from "./owner-happy-horse-parameters.js";
 
+import { OWNER_HAPPY_HORSE_CURRENT_CONTROLS } from "./owner-happy-horse-current-controls.js";
+
 const MODEL_IDS = ["happy_horse_first_frame", "happy_horse_references", "happy_horse_edit"] as const;
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const RECOVERY = /^happy_horse_recovery_[0-9a-f-]{36}$/u;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
-const PROMPT_MAX = 1_000;
+const PROMPT_MAX = 5_000;
 const FRESH_MS = 15_000;
 const MAX_OPS = 128;
 const CLAIMED = new Set<string>();
@@ -37,8 +39,18 @@ const OPERATIONS = new WeakMap<object, Operation>();
 const RESULTS = new WeakMap<object, { readonly op: Operation; readonly row: HistoryRow }>();
 const SERVICES = new WeakSet<object>();
 const GENERATE = z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.enum(MODEL_IDS), prompt: z.string().min(1).max(PROMPT_MAX),
-  aspect_ratio: z.literal("16:9"), resolution: z.literal("720P"), video_duration: z.literal(5), seed: z.null(),
-  reference_handle: z.string().regex(/^(?:happy_horse_image|happy_horse_video)_[0-9a-f-]{36}$/u) }).strict();
+  aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4"]).optional(), resolution: z.enum(["720P", "1080P"]).optional(),
+  video_duration: z.number().min(3).max(15).optional(), seed: z.number().int().min(0).max(2147483647).nullable().optional(), native_audio: z.boolean().optional(),
+  reference_handle: z.string().regex(/^(?:happy_horse_image|happy_horse_video)_[0-9a-f-]{36}$/u).optional(),
+  image_handles: z.array(z.string().regex(/^happy_horse_image_[0-9a-f-]{36}$/u)).max(9).optional()
+}).strict().superRefine((request, context) => {
+  const images = request.image_handles;
+  const valid = request.model_id === "happy_horse_edit"
+    ? !!request.reference_handle?.startsWith("happy_horse_video_") && (images?.length ?? 0) <= 5
+    : request.native_audio === undefined && (images === undefined ? !!request.reference_handle?.startsWith("happy_horse_image_")
+      : request.reference_handle === undefined && images.length >= 1 && images.length <= (request.model_id === "happy_horse_first_frame" ? 1 : 9));
+  if (!valid || images && new Set(images).size !== images.length) context.addIssue({ code: "custom", message: "References do not match the selected model roles/counts." });
+});
 const id = z.union([z.string().regex(SAFE_ID), z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).transform(String);
 const objectSchema = z.object({ id, message_id: id, object_type: z.string().max(128), object_text: z.string().max(20_000).nullable().optional(),
   object_url: z.string().max(4096).nullable().optional(), model_type: z.string().max(160).nullable().optional(), completed: z.boolean().nullable().optional() }).strip();
@@ -56,9 +68,10 @@ export interface OwnerHappyHorseRuntimeCatalog {
 }
 
 /** Loads only the exact pinned public snapshot and validates both source-target model rows. */
-export function loadOwnerHappyHorseRuntimeCatalog(catalogDirectory?: string): Readonly<OwnerHappyHorseRuntimeCatalog> {
+export function loadOwnerHappyHorseRuntimeCatalog(catalogDirectory?: string, current = false): Readonly<OwnerHappyHorseRuntimeCatalog> {
   try {
-    const snapshot = loadPublicCatalogVersion(getOwnerHappyHorseSourceProfile().public_catalog_version, catalogDirectory);
+    const version = current ? OWNER_HAPPY_HORSE_CURRENT_CONTROLS.public_catalog_version : getOwnerHappyHorseSourceProfile().public_catalog_version;
+    const snapshot = loadPublicCatalogVersion(version, catalogDirectory);
     const catalog = new DiscoveryCatalogRepository(snapshot), ai = snapshot.ai.find(item => item.value === "happy_horse");
     if (!ai?.active || ai.scope !== "video") return fail("MODEL_BINDING_MISMATCH");
     const costBindings = MODEL_IDS.map(modelId => {
@@ -74,7 +87,7 @@ export function loadOwnerHappyHorseRuntimeCatalog(catalogDirectory?: string): Re
           !Array.isArray(settings.accepted_file_types) || !expectedMime.every(t => settings.accepted_file_types!.includes(t)) ||
           !Array.isArray(settings.allowed_media_types) || !expectedMedia.every(t => settings.allowed_media_types!.includes(t)) ||
           schemaHash(settings.file_count_limit) !== schemaHash(expectedFiles) ||
-          settings.max_file_size !== (modelId === "happy_horse_edit" ? 100 * 1024 * 1024 : 10 * 1024 * 1024) || settings.uploadable !== true ||
+          schemaHash(settings.max_file_size) !== schemaHash(current ? (modelId === "happy_horse_edit" ? { images: 10485760, videos: 104857600 } : { images: 10485760 }) : (modelId === "happy_horse_edit" ? 100 * 1024 * 1024 : 10 * 1024 * 1024)) || settings.uploadable !== true ||
           (modelId !== "happy_horse_edit" && (settings.min_side !== 400 || settings.max_side !== 8_000)) ||
           (modelId === "happy_horse_edit" && (settings.min_video_duration !== 3 || settings.max_video_duration !== 60 ||
             settings.min_video_width !== 400 || settings.max_video_width !== 2_160 || settings.min_video_height !== 400 || settings.max_video_height !== 2_160 ||
@@ -84,7 +97,7 @@ export function loadOwnerHappyHorseRuntimeCatalog(catalogDirectory?: string): Re
       return Object.freeze({ model_id: modelId, ai_name: "happy_horse" as const, scope: "video" as const,
         cost_keys: Object.freeze(["resolution", "video_duration"] as const) });
     });
-    return Object.freeze({ catalog, catalog_version: getOwnerHappyHorseSourceProfile().public_catalog_version, cost_bindings: Object.freeze(costBindings) });
+    return Object.freeze({ catalog, catalog_version: version, cost_bindings: Object.freeze(costBindings) });
   } catch (error) { if (error instanceof OwnerHappyHorseGenerationError) throw error; return fail("MODEL_BINDING_MISMATCH"); }
 }
 
@@ -111,16 +124,24 @@ export class OwnerHappyHorseGenerationError extends Error {
 }
 interface Operation {
   readonly token: object; readonly request: Request; readonly principal: Readonly<GenerationPrincipalRef>; readonly client: SyntxChatHttpClient;
-  readonly owned: OwnerHappyHorseOwnedImage | OwnerHappyHorseOwnedVideo; readonly wire: Readonly<OwnerHappyHorseWireCandidate>; readonly recovery: string;
+  readonly owned_images: readonly OwnerHappyHorseOwnedImage[]; readonly owned_video?: OwnerHappyHorseOwnedVideo; readonly wire: Readonly<OwnerHappyHorseWireCandidate>; readonly recovery: string;
   readonly semantic: string; readonly epoch: number; readonly validate: (dispatch: boolean) => void;
   chat?: OwnerHappyHorseChatContext; ack?: string; ownerEcho?: string; providerChat?: string;
   phase: "PREPARING" | "READY" | "POSTED"; quoteAt: number; invalid: boolean; responseStatus?: number; transportCode?: string;
   result: OwnerHappyHorseGenerationResult;
 }
 
+function isLegacyHappyHorseOperation(op: Operation): boolean {
+  const settings = op.wire.wire.settings;
+  return settings.aspect_ratio === "16:9" && settings.resolution === "720P" && settings.video_duration === 5 && settings.seed === null &&
+    settings.native_audio === undefined && op.request.prompt.length <= 1000 && (op.request.model_id === "happy_horse_edit"
+      ? op.owned_images.length === 0 && op.owned_video !== undefined && op.owned_video.video.measured_duration_seconds <= 30
+      : op.owned_images.length === 1);
+}
+
 /** Owner-scoped initial-image generation. Any uncertain POST is sticky and all follow-up reads are GET-only. */
 export class OwnerHappyHorseGenerationService {
-  readonly #o: OwnerHappyHorseGenerationOptions; readonly #records = new Map<string, Operation>();
+  readonly #o: OwnerHappyHorseGenerationOptions; readonly #currentCatalog: DiscoveryCatalogRepository; readonly #records = new Map<string, Operation>();
   readonly #busy = new Set<string>(); readonly #pending = new Map<Promise<unknown>, { attempt: string; abort: AbortController }>();
   readonly #epochs = new Map<string, number>(); #closed = false; #lastTime = 0;
   constructor(options: OwnerHappyHorseGenerationOptions) {
@@ -132,56 +153,71 @@ export class OwnerHappyHorseGenerationService {
     const catalog = pinned;
     if (options.catalog.fetched_at !== catalog.fetched_at || MODEL_IDS.some(m => schemaHash(options.catalog.getModel(m)) !== schemaHash(catalog.getModel(m))) ||
         schemaHash(options.catalog.source_hashes) !== schemaHash(catalog.source_hashes)) fail("MODEL_BINDING_MISMATCH");
+    this.#currentCatalog = loadOwnerHappyHorseRuntimeCatalog(options.catalogDirectory, true).catalog;
     this.#o = Object.freeze({ ...options, binding: Object.freeze({ ...options.binding }) }); this.#time(); SERVICES.add(this); Object.freeze(this);
   }
 
   generate(input: unknown, signal?: AbortSignal): Promise<OwnerHappyHorseGenerationResult> {
     let fields: Record<string, unknown>;
-    try { fields = exact(input, ["attemptId", "model_id", "prompt", "aspect_ratio", "resolution", "video_duration", "seed", "reference_handle"]); }
+    try {
+      fields = exact(input, ["attemptId", "model_id", "prompt"], ["aspect_ratio", "resolution", "video_duration", "seed", "native_audio", "reference_handle", "image_handles"]);
+      if (fields.image_handles !== undefined) fields.image_handles = snapshotImageHandles(fields.image_handles);
+    }
     catch (error) { return Promise.reject(error); }
     const parsed = GENERATE.safeParse(fields); if (!parsed.success) return Promise.reject(new OwnerHappyHorseGenerationError("INVALID_REQUEST"));
     try { normalizeOwnerHappyHorseParameters({ model_id: parsed.data.model_id, prompt: parsed.data.prompt, aspect_ratio: parsed.data.aspect_ratio,
-      resolution: parsed.data.resolution, video_duration: parsed.data.video_duration, seed: parsed.data.seed }); }
+      resolution: parsed.data.resolution, video_duration: parsed.data.video_duration, seed: parsed.data.seed, native_audio: parsed.data.native_audio }); }
     catch { return Promise.reject(new OwnerHappyHorseGenerationError("INVALID_REQUEST")); }
     const request = Object.freeze(parsed.data);
     return this.#run(request.attemptId, signal, async deadline => {
       const epoch = this.#epochs.get(request.attemptId) ?? 0;
       const principal = await deadline.waitFor(resolveOwnerReferencePrincipal({ binding: this.#o.binding, attemptId: request.attemptId, linkService: this.#o.linkService }));
       const parameters = { model_id: request.model_id, prompt: request.prompt, aspect_ratio: request.aspect_ratio,
-        resolution: request.resolution, video_duration: request.video_duration, seed: request.seed };
-      let owned: OwnerHappyHorseOwnedImage | OwnerHappyHorseOwnedVideo;
+        resolution: request.resolution, video_duration: request.video_duration, seed: request.seed, native_audio: request.native_audio };
+      const ownedImages: OwnerHappyHorseOwnedImage[] = [];
+      let ownedVideo: OwnerHappyHorseOwnedVideo | undefined;
+      const resolveImages = async (handles: readonly string[]) => {
+        const images: { url: string; sha256: string; width: number; height: number; client: SyntxChatHttpClient }[] = [];
+        for (const handle of handles) {
+          const image = await deadline.waitFor(this.#o.referenceService.resolveReference({ attemptId: request.attemptId, model_id: request.model_id, reference_handle: handle }, deadline.signal));
+          if (!sameGenerationPrincipal(principal, image.principal)) fail("PRINCIPAL_NOT_LINKED");
+          const captured = this.#o.referenceService.withCapturedReference(image, (client, media) => ({ client, url: media.url, sha256: image.image.sha256, width: image.image.width, height: image.image.height }));
+          ownedImages.push(image); images.push(captured);
+        }
+        if (images.some((image) => image.client !== images[0]?.client)) fail("PRINCIPAL_NOT_LINKED");
+        return images;
+      };
       let captured: { client: SyntxChatHttpClient; wire: Readonly<OwnerHappyHorseWireCandidate> };
       if (request.model_id === "happy_horse_edit") {
-        if (!/^happy_horse_video_[0-9a-f-]{36}$/u.test(request.reference_handle)) fail("INVALID_REQUEST");
         const video = await deadline.waitFor(this.#o.editVideoReferenceService.resolveVideo({ attemptId: request.attemptId,
-          reference_handle: request.reference_handle }, deadline.signal));
+          reference_handle: request.reference_handle! }, deadline.signal));
         if (!sameGenerationPrincipal(principal, video.principal)) fail("PRINCIPAL_NOT_LINKED");
-        owned = video;
-        captured = this.#o.editVideoReferenceService.withCapturedVideo(video, (client, media) => ({ client,
-          wire: buildOwnerHappyHorseEditWire(parameters, { url: media.url, sha256: video.video.sha256, width: video.video.width,
-            height: video.video.height, mime_type: video.video.mime_type, measured_duration_seconds: video.video.measured_duration_seconds }) }));
+        ownedVideo = video;
+        const images = await resolveImages(request.image_handles ?? []);
+        captured = this.#o.editVideoReferenceService.withCapturedVideo(video, (client, media) => {
+          if (images.some((image) => image.client !== client)) fail("PRINCIPAL_NOT_LINKED");
+          return { client, wire: buildOwnerHappyHorseEditWire(parameters, { url: media.url, sha256: video.video.sha256, width: video.video.width,
+            height: video.video.height, mime_type: video.video.mime_type, measured_duration_seconds: video.video.measured_duration_seconds,
+            ...(images.length ? { images: images.map(({ client: _client, ...image }) => image) } : {}) }) };
+        });
       } else {
-        if (!/^happy_horse_image_[0-9a-f-]{36}$/u.test(request.reference_handle)) fail("INVALID_REQUEST");
-        const image = await deadline.waitFor(this.#o.referenceService.resolveReference({ attemptId: request.attemptId, model_id: request.model_id,
-          reference_handle: request.reference_handle }, deadline.signal));
-        if (!sameGenerationPrincipal(principal, image.principal)) fail("PRINCIPAL_NOT_LINKED");
-        owned = image;
-        captured = this.#o.referenceService.withCapturedReference(image, (client, media) => ({ client,
-          wire: buildOwnerHappyHorseWire(parameters, { url: media.url, sha256: image.image.sha256, width: image.image.width, height: image.image.height }) }));
+        const images = await resolveImages(request.image_handles ?? [request.reference_handle!]);
+        captured = { client: images[0]!.client, wire: buildOwnerHappyHorseWire(parameters, images.map(({ client: _client, ...image }) => image)) };
       }
       const semantic = schemaHash({ tenant_id: principal.tenant_id, subject_id: principal.subject_id, intent: captured.wire.intent_fingerprint });
       if (CLAIMED.has(semantic)) fail("INTENT_ALREADY_CLAIMED");
       if (this.#records.size >= MAX_OPS) fail("CAPACITY_EXCEEDED");
       const recovery = `happy_horse_recovery_${randomUUID()}`, token = Object.freeze({ model_id: request.model_id });
-      const op: Operation = { token, request, principal, client: captured.client, owned, wire: captured.wire, recovery, semantic, epoch,
+      const op: Operation = { token, request, principal, client: captured.client, owned_images: Object.freeze(ownedImages),
+        ...(ownedVideo === undefined ? {} : { owned_video: ownedVideo }), wire: captured.wire, recovery, semantic, epoch,
         phase: "PREPARING", quoteAt: 0, invalid: false, result: unknownResult(request.model_id, recovery, ["NOT_DISPATCHED"]),
         validate: dispatch => {
           if (this.#closed || op.invalid || (this.#epochs.get(request.attemptId) ?? 0) !== epoch || this.#o.resolveChatClient(request.attemptId) !== op.client ||
               !clientHasHappyHorseMethods(op.client)) fail("PRINCIPAL_NOT_LINKED");
           if (op.chat) { const chat = readOwnerHappyHorseChat(op.client, op.chat, request.attemptId);
             if (!chat || chat.model_id !== request.model_id || Reflect.apply(Reflect.get(op.client, "isOwnerHappyHorseChat"), op.client, [op.chat, request.attemptId]) !== true) fail("PRINCIPAL_NOT_LINKED"); }
-          if (dispatch && (!(request.model_id === "happy_horse_edit" ? this.#o.editVideoReferenceService.isOwnedVideo(owned) :
-            this.#o.referenceService.isOwnedReference(owned)) || owned.expires_at <= this.#time())) fail("REFERENCE_EXPIRED");
+          if (dispatch && (op.owned_images.some((image) => !this.#o.referenceService.isOwnedReference(image) || image.expires_at <= this.#time()) ||
+            op.owned_video && (!this.#o.editVideoReferenceService.isOwnedVideo(op.owned_video) || op.owned_video.expires_at <= this.#time()))) fail("REFERENCE_EXPIRED");
           if (dispatch && op.phase === "READY" && (this.#time() < op.quoteAt || this.#time() - op.quoteAt > FRESH_MS)) fail("PREFLIGHT_EXPIRED");
         } };
       try {
@@ -233,10 +269,11 @@ export class OwnerHappyHorseGenerationService {
     const read = this.#o.createReadClient(op.request.attemptId);
     if (!genuine(read, SyntxHttpClient, ["getAccountBalance", "getSubscription", "getModelInfo"])) fail("PREFLIGHT_FAILED");
     const account = await deadline.waitFor(new AccountStatusService(read, () => this.#time()).getAccountStatus(deadline.signal));
-    const cost = Object.freeze({ resolution: op.request.resolution, video_duration: op.request.video_duration });
-    const access = await deadline.waitFor(new ModelAccessService(this.#o.catalog, read, () => this.#time()).getModelAccess({ model_id: op.request.model_id,
+    const cost = Object.freeze({ resolution: op.wire.wire.settings.resolution, video_duration: op.wire.wire.settings.video_duration });
+    const catalog = isLegacyHappyHorseOperation(op) ? this.#o.catalog : this.#currentCatalog;
+    const access = await deadline.waitFor(new ModelAccessService(catalog, read, () => this.#time()).getModelAccess({ model_id: op.request.model_id,
       cost_parameters: { ...cost } }, deadline.signal));
-    checkAccess(access, account, op.request.model_id, cost, this.#catalogVersion(), this.#time());
+    checkAccess(access, account, op.request.model_id, cost, `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`, this.#time());
     op.quoteAt = Math.min(Date.parse((account as { observed_at: string }).observed_at), Date.parse((access as { observed_at: string }).observed_at));
     await this.#current(op, deadline); op.validate(true);
   }
@@ -248,8 +285,8 @@ export class OwnerHappyHorseGenerationService {
       await this.#current(op, deadline);
       const raw = await deadline.waitFor(callNative(op.client, "readOwnerHappyHorseHistory", [op.token, deadline.signal])); await this.#current(op, deadline);
       const h = historySchema.parse(raw); if (h.pagination.total_count !== h.messages.length) fail("HISTORY_INCOMPLETE");
-      const providerChat = h.messages[0]!.chat_id, media = op.wire.wire.settings.file_urls[0]!;
-      const mediaType = op.request.model_id === "happy_horse_edit" ? "video" : "image";
+      const providerChat = h.messages[0]!.chat_id;
+      const expectedMedia = op.wire.wire.settings.file_urls.map((file) => ({ type: file.type === "video" ? "video" : "image", url: file.url }));
       const seenMessages = new Set<string>(), seenObjects = new Set<string>();
       for (const row of h.messages) {
         if (row.chat_id !== providerChat || seenMessages.has(row.id)) fail("HISTORY_BINDING_MISMATCH");
@@ -259,9 +296,9 @@ export class OwnerHappyHorseGenerationService {
           seenObjects.add(object.id);
         }
       }
-      const owner = h.messages.filter(row => row.author_id > 0 && (!op.ack || row.id === op.ack) && row.message_object.length === 2 &&
-        row.message_object.some(obj => obj.object_type === "text" && obj.object_text === op.request.prompt) &&
-        row.message_object.some(obj => obj.object_type === mediaType && obj.object_url === media.url));
+      const owner = h.messages.filter(row => row.author_id > 0 && (!op.ack || row.id === op.ack) && row.message_object.length === expectedMedia.length + 1 &&
+        row.message_object.filter(obj => obj.object_type === "text" && obj.object_text === op.request.prompt).length === 1 &&
+        expectedMedia.every((media) => row.message_object.filter(obj => obj.object_type === media.type && obj.object_url === media.url).length === 1));
       if (owner.length !== 1 || h.messages.filter(row => row.author_id > 0).length !== 1 || (op.ownerEcho && owner[0]!.id !== op.ownerEcho)) fail("OWNER_ECHO_UNVERIFIED");
       op.ownerEcho = owner[0]!.id; op.providerChat = providerChat;
       const candidates = h.messages.filter(row => row.author_id === -1 && row.message_object.some(obj => obj.object_type === "video"));
@@ -293,7 +330,6 @@ export class OwnerHappyHorseGenerationService {
   }
   #time(): number { let n: unknown; try { n = this.#o?.now?.() ?? Date.now(); } catch { fail("CLOCK_INVALID"); }
     if (!Number.isSafeInteger(n) || (n as number) < this.#lastTime) fail("CLOCK_INVALID"); this.#lastTime = n as number; return n as number; }
-  #catalogVersion(): string { return `${this.#o.catalog.fetched_at}.${this.#o.catalog.source_hashes.models.slice(7, 19)}`; }
 }
 Object.freeze(OwnerHappyHorseGenerationService.prototype);
 
@@ -336,14 +372,14 @@ function genuine(value: unknown, ctor: Function, methods: readonly string[]): bo
   try { return !!value && typeof value === "object" && !types.isProxy(value) && Object.getPrototypeOf(value) === ctor.prototype &&
     methods.every(method => typeof Reflect.get(value, method) === "function"); } catch { return false; }
 }
-function exact(value: unknown, keys: readonly string[]): Record<string, unknown> {
+function exact(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) fail("INVALID_REQUEST");
   try { const p = Object.getPrototypeOf(value), d = Object.getOwnPropertyDescriptors(value), own = Reflect.ownKeys(d);
-    if ((p !== Object.prototype && p !== null) || own.length !== keys.length || own.some(k => typeof k !== "string" || !keys.includes(k) || !Object.hasOwn(d[k]!, "value") || d[k]!.enumerable !== true)) fail("INVALID_REQUEST");
-    const out = Object.create(null) as Record<string, unknown>; for (const key of keys) out[key] = d[key]!.value; return out;
+    if ((p !== Object.prototype && p !== null) || keys.some(key => !Object.hasOwn(d, key)) || own.some(k => typeof k !== "string" || ![...keys, ...optional].includes(k) || !Object.hasOwn(d[k]!, "value") || d[k]!.enumerable !== true)) fail("INVALID_REQUEST");
+    const out = Object.create(null) as Record<string, unknown>; for (const key of own as string[]) out[key] = d[key]!.value; return out;
   } catch { return fail("INVALID_REQUEST"); }
 }
-function checkAccess(access: unknown, account: unknown, model: OwnerHappyHorseModelId, cost: Readonly<{ resolution: "720P"; video_duration: 5 }>, version: string, now: number): void {
+function checkAccess(access: unknown, account: unknown, model: OwnerHappyHorseModelId, cost: Readonly<{ resolution: "720P" | "1080P"; video_duration: number }>, version: string, now: number): void {
   const a = record(access, ["catalog_kind", "catalog_version", "model_id", "ai_name", "model_type", "account_read_live", "parameter_keys",
     "parameters_redacted", "access", "cost", "discount_cost", "observed_at"]);
   const row = record(account, ["balance", "subscription", "contract_evidence", "source_build", "observed_at"]);
@@ -378,3 +414,16 @@ function unknownResult(model: OwnerHappyHorseModelId, recovery: string, gaps: re
     observed_artifact_count: 0, artifacts: Object.freeze([]), gaps: Object.freeze([...gaps]) });
 }
 function fail(code: string): never { throw new OwnerHappyHorseGenerationError(code); }
+
+function snapshotImageHandles(value: unknown): readonly string[] {
+  if (!value || types.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) fail("INVALID_REQUEST");
+  const descriptors = Object.getOwnPropertyDescriptors(value), length = Object.getOwnPropertyDescriptor(value, "length")?.value;
+  if (!Number.isSafeInteger(length) || length < 0 || length > 9 || Reflect.ownKeys(descriptors).length !== length + 1) fail("INVALID_REQUEST");
+  const result: string[] = [];
+  for (let i = 0; i < length; i++) {
+    const descriptor = descriptors[String(i)];
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable || typeof descriptor.value !== "string") fail("INVALID_REQUEST");
+    result.push(descriptor.value);
+  }
+  return Object.freeze(result);
+}

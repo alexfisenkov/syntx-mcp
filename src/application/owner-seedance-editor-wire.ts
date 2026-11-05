@@ -4,6 +4,7 @@ import { schemaHash } from "../domain/generation-contract.js";
 import {
   getOwnerSeedanceEditorCurrentUiObservation,
   getOwnerSeedanceEditorCurrentSource,
+  getOwnerSeedanceEditorFrameSource,
   getOwnerSeedanceEditorSourceProfile,
   normalizeOwnerSeedanceEditorParameters,
   type OwnerSeedanceEditorNormalizedParameters
@@ -31,7 +32,7 @@ export interface OwnerSeedanceEditorWireInput {
     readonly resolution: OwnerSeedanceEditorNormalizedParameters["intent"]["resolution"];
     readonly video_duration: 0;
     readonly generate_audio: true;
-    readonly file_urls: readonly Readonly<{ readonly type: "video"; readonly url: string }>[];
+    readonly file_urls: readonly Readonly<{ readonly type: "video" | "image"; readonly url: string }>[];
   }>;
 }
 
@@ -41,6 +42,7 @@ export interface OwnerSeedanceEditorWireCandidate {
   readonly profile_sha256: string;
   readonly current_ui_observation_sha256: string;
   readonly current_source_sha256: string;
+  readonly frame_source_sha256?: string;
   readonly wire: Readonly<OwnerSeedanceEditorWireInput>;
   readonly source_input_duration_context: Readonly<{
     readonly seconds: number;
@@ -49,7 +51,7 @@ export interface OwnerSeedanceEditorWireCandidate {
   readonly cost_projection: "UNKNOWN";
   readonly intent_fingerprint: string;
   readonly wire_fingerprint: string;
-  readonly reference_binding: "ONE_CAPTURED_VIDEO_NO_FRAME_REFERENCES";
+  readonly reference_binding: "ONE_CAPTURED_VIDEO_NO_FRAME_REFERENCES" | "ONE_CAPTURED_VIDEO_WITH_FRAME_REFERENCES";
   readonly dispatch_allowed: false;
   readonly backend_acceptance: "UNPROVEN";
 }
@@ -62,13 +64,24 @@ export class OwnerSeedanceEditorWireError extends Error {
 }
 
 /** Builds a frozen internal candidate from explicit controls and one captured video row. */
-export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknown): Readonly<OwnerSeedanceEditorWireCandidate> {
+export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknown, framesInput: readonly Readonly<{url: string; sha256: string; time_seconds: number}>[] = []): Readonly<OwnerSeedanceEditorWireCandidate> {
   const source = exactSource(sourceInput);
   if (!isSafeUploadReferenceUrl(source.url) || !SHA256.test(source.sha256) ||
       !Number.isFinite(source.duration_seconds) || source.duration_seconds < MIN_VIDEO_SECONDS) invalidWire();
 
   let normalized: Readonly<OwnerSeedanceEditorNormalizedParameters>;
   try { normalized = normalizeOwnerSeedanceEditorParameters(input); } catch { return invalidWire(); }
+  if (!Array.isArray(framesInput) || types.isProxy(framesInput) || framesInput.length > 30) invalidWire();
+  const seen = new Set<string>([source.url]);
+  const frames = framesInput.map(frame => {
+    const f = exactFrame(frame);
+    if (!isSafeUploadReferenceUrl(f.url) || /[|<>\u0000-\u001f\u007f]/u.test(f.url) || seen.has(f.url) || !SHA256.test(f.sha256) || !Number.isFinite(f.time_seconds) ||
+        f.time_seconds < 0 || f.time_seconds > source.duration_seconds) invalidWire();
+    seen.add(f.url); return f;
+  });
+  const prompt = normalized.intent.prompt + frames.map(f => ` <<<${f.url}|${frameTimecode(f.time_seconds)}>>>`).join("");
+  // The history reader accepts at most 20,000 UTF-16 units; fail before quote or dispatch.
+  if (prompt.length > 20_000) invalidWire();
   const settings = Object.freeze({
     model_type: MODEL_TYPE,
     mode: "edit" as const,
@@ -76,11 +89,12 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     resolution: normalized.intent.resolution,
     video_duration: 0 as const,
     generate_audio: true as const,
-    file_urls: Object.freeze([Object.freeze({ type: "video" as const, url: source.url })])
+    file_urls: Object.freeze([Object.freeze({ type: "video" as const, url: source.url }),
+      ...frames.map(f => Object.freeze({ type: "image" as const, url: f.url }))])
   });
   const wire: Readonly<OwnerSeedanceEditorWireInput> = Object.freeze({
     ai_name: AI_NAME,
-    prompt: normalized.intent.prompt,
+    prompt,
     settings
   });
   const profileSha256 = getOwnerSeedanceEditorSourceProfile().source_sha256;
@@ -90,7 +104,8 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     prompt: normalized.intent.prompt,
     resolution: normalized.intent.resolution,
     source_sha256: source.sha256,
-    source_duration_seconds: source.duration_seconds
+    source_duration_seconds: source.duration_seconds,
+    ...(frames.length ? { frames: frames.map(f => ({ sha256: f.sha256, time_seconds: f.time_seconds })) } : {})
   });
   return Object.freeze({
     status: "SOURCE_ONLY_WIRE_CANDIDATE_NOT_DISPATCH_AUTHORITY" as const,
@@ -98,6 +113,7 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     profile_sha256: profileSha256,
     current_ui_observation_sha256: currentUiObservation.observation_sha256,
     current_source_sha256: getOwnerSeedanceEditorCurrentSource().source_sha256,
+    ...(frames.length ? { frame_source_sha256: getOwnerSeedanceEditorFrameSource().source_sha256 } : {}),
     wire,
     source_input_duration_context: Object.freeze({
       seconds: source.duration_seconds,
@@ -106,7 +122,7 @@ export function buildOwnerSeedanceEditorWire(input: unknown, sourceInput: unknow
     cost_projection: "UNKNOWN" as const,
     intent_fingerprint: schemaHash(semanticIntent),
     wire_fingerprint: schemaHash(wire),
-    reference_binding: "ONE_CAPTURED_VIDEO_NO_FRAME_REFERENCES" as const,
+    reference_binding: frames.length ? "ONE_CAPTURED_VIDEO_WITH_FRAME_REFERENCES" as const : "ONE_CAPTURED_VIDEO_NO_FRAME_REFERENCES" as const,
     dispatch_allowed: false as const,
     backend_acceptance: "UNPROVEN" as const
   });
@@ -128,9 +144,26 @@ export function isOwnerSeedanceEditorWireCurrentUiAligned(value: unknown): value
       typeof wire.prompt === "string" && !Reflect.has(settings, "n") && settings.model_type === MODEL_TYPE &&
       settings.mode === "edit" && settings.aspect_ratio === "adaptive" && isResolution(settings.resolution) &&
       settings.video_duration === 0 && settings.generate_audio === true && Array.isArray(settings.file_urls) &&
-      settings.file_urls.length === 1 && settings.file_urls[0]?.type === "video" &&
-      isSafeUploadReferenceUrl(settings.file_urls[0]?.url);
+      settings.file_urls.length >= 1 && settings.file_urls.length <= 31 && settings.file_urls[0]?.type === "video" &&
+      settings.file_urls.every((item, index) => item.type === (index === 0 ? "video" : "image") && isSafeUploadReferenceUrl(item.url)) &&
+      new Set(settings.file_urls.map(item => item.url)).size === settings.file_urls.length &&
+      (settings.file_urls.length === 1 ? candidate.frame_source_sha256 === undefined : candidate.frame_source_sha256 === getOwnerSeedanceEditorFrameSource().source_sha256) &&
+      candidate.reference_binding === (settings.file_urls.length === 1 ? "ONE_CAPTURED_VIDEO_NO_FRAME_REFERENCES" : "ONE_CAPTURED_VIDEO_WITH_FRAME_REFERENCES");
   } catch { return false; }
+}
+
+function exactFrame(value: unknown): Readonly<{url: string; sha256: string; time_seconds: number}> {
+  if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) invalidWire();
+  const d = Object.getOwnPropertyDescriptors(value), keys = Reflect.ownKeys(d);
+  if ((Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) || keys.length !== 3 ||
+      keys.some(k => typeof k !== "string" || !["url", "sha256", "time_seconds"].includes(k) || !("value" in d[k]!) || !d[k]!.enumerable) ||
+      typeof d.url?.value !== "string" || typeof d.sha256?.value !== "string" || typeof d.time_seconds?.value !== "number") invalidWire();
+  return Object.freeze({url: d.url.value, sha256: d.sha256.value, time_seconds: d.time_seconds.value});
+}
+
+function frameTimecode(seconds: number): string {
+  const ms = Math.round(Math.max(0, seconds) * 1000);
+  return `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms % 60000 / 1000)).padStart(2, "0")}.${String(ms % 1000).padStart(3, "0")}`;
 }
 
 function exactSource(value: unknown): OwnerSeedanceEditorCapturedSource {

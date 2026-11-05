@@ -10,7 +10,8 @@ import {
 import { OwnerVideo2AudioOriginalReferenceService,
   type OwnerVideo2AudioOriginalResolution } from "./owner-video2audio-original-reference-service.js";
 import { normalizeOwnerVideo2AudioPrompt, validateOwnerVideo2AudioTrustedUploadDuration } from "./owner-video2audio-input-parameters.js";
-import { isAuthenticOwnerVideo2AudioSourceProfile, type OwnerVideo2AudioSourceProfile } from "./owner-video2audio-source-profile.js";
+import { normalizeOwnerVideo2AudioCurrentControls } from "./owner-video2audio-current-controls.js";
+import { isAuthenticOwnerVideo2AudioSourceProfile, isCurrentOwnerVideo2AudioSourceProfile, type OwnerVideo2AudioSourceProfile, type OwnerVideo2AudioMimeType } from "./owner-video2audio-source-profile.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const TTL_MS = 15 * 60_000;
@@ -38,7 +39,7 @@ export interface OwnerVideo2AudioPreparedCandidate {
   readonly intent_fingerprint: string;
   readonly request_fingerprint: string;
   readonly prompt_utf16_length: number;
-  readonly original: Readonly<{ mime_type: "video/mp4"; size: number; sha256: string; duration_seconds: number }>;
+  readonly original: Readonly<{ mime_type: OwnerVideo2AudioMimeType; size: number; sha256: string; duration_seconds: number }>;
   readonly expires_at: number;
 }
 
@@ -48,8 +49,8 @@ export interface OwnerVideo2AudioPreparedRequest {
     model_type: "video2audio";
     mode: "generate";
     duration: number;
-    negative_prompt: "";
-    seed: 0;
+    negative_prompt: string;
+    seed: number | null;
     file_urls: readonly Readonly<{ type: "video"; url: string }>[];
   }>;
 }
@@ -70,6 +71,8 @@ export interface OwnerVideo2AudioCandidateBinding {
   readonly intent_fingerprint: string;
   readonly request_fingerprint: string;
   readonly prompt: string;
+  readonly negative_prompt: string;
+  readonly seed: number | null;
   readonly captured_client: SyntxChatHttpClient;
   readonly captured_reference: OwnerVideo2AudioOriginalReference;
 }
@@ -78,6 +81,8 @@ export interface PrepareOwnerVideo2AudioRequestInput {
   readonly attemptId: string;
   readonly prompt: string;
   readonly video_original_handle: string;
+  readonly seed?: number | null;
+  readonly negative_prompt?: string;
 }
 
 export interface OwnerVideo2AudioRequestPreparerOptions {
@@ -233,7 +238,7 @@ export function createOwnerVideo2AudioRequestPreparer(optionsInput: OwnerVideo2A
     if (!Reflect.apply(ORIGINAL_GUARD, options.originalReferenceService, [resolution!, context]) ||
         resolution!.attempt_id !== attemptId || resolution!.video_original_handle !== handle ||
         resolution!.source_profile_id !== options.profile.profileId || resolution!.profile_schema_hash !== options.profile.profileSchemaHash ||
-        resolution!.generation_permit !== false || resolution!.wire_type !== "video" || resolution!.mime_type !== "video/mp4" ||
+        resolution!.generation_permit !== false || resolution!.wire_type !== "video" || !(options.profile.source.controls.original_video.profile_accepts as readonly string[]).includes(resolution!.mime_type) ||
         resolution!.principal.connection_id !== attemptId) fail("REFERENCE_UNAVAILABLE");
     let captured: { readonly client: SyntxChatHttpClient; readonly reference: OwnerVideo2AudioOriginalReference; readonly url: string };
     try {
@@ -242,7 +247,7 @@ export function createOwnerVideo2AudioRequestPreparer(optionsInput: OwnerVideo2A
           if (!(client instanceof SyntxChatHttpClient) || !isOwnerVideo2AudioOriginalReferenceForClient(client, options.profile, reference)) fail("REFERENCE_UNAVAILABLE");
           const details = readOwnerVideo2AudioOriginalReferenceForClient(client, options.profile, reference);
           if (!details || details.profile_schema_hash !== options.profile.profileSchemaHash || details.sha256 !== resolution!.sha256 ||
-              details.mime_type !== "video/mp4" || details.size !== resolution!.size ||
+              details.mime_type !== resolution!.mime_type || details.size !== resolution!.size ||
               details.duration_seconds !== resolution!.duration_seconds || !isSafeUploadReferenceUrl(details.url)) fail("REFERENCE_UNAVAILABLE");
           validateOwnerVideo2AudioTrustedUploadDuration(details.duration_seconds, options.profile);
           return Object.freeze({ client, reference, url: details.url });
@@ -269,6 +274,7 @@ export function createOwnerVideo2AudioRequestPreparer(optionsInput: OwnerVideo2A
         const startedAt = readNow();
         if (operation.controller.signal.aborted) fail("REQUEST_ABORTED");
         const prompt = normalizeOwnerVideo2AudioPrompt(input.prompt, options.profile);
+        if (!isCurrentOwnerVideo2AudioSourceProfile(options.profile) && (input.seed !== 0 || input.negative_prompt !== "")) fail("PROFILE_BINDING_MISMATCH");
         let current: Awaited<ReturnType<typeof resolveOriginal>>;
         try { current = await resolveOriginal(input.attemptId, input.handle, operation.controller.signal); }
         catch (error) { if (error instanceof Error && "code" in error && error.code === "PROMPT_INVALID") throw error; throw error; }
@@ -279,13 +285,13 @@ export function createOwnerVideo2AudioRequestPreparer(optionsInput: OwnerVideo2A
         if (expiresAt <= issuedAt) fail("REFERENCE_EXPIRED");
         const request: OwnerVideo2AudioPreparedRequest = deepFreeze({ prompt, settings: {
           model_type: "video2audio", mode: "generate", duration: current.resolution.duration_seconds,
-          negative_prompt: "", seed: 0, file_urls: [Object.freeze({ type: "video" as const, url: current.url })]
+          negative_prompt: input.negative_prompt, seed: input.seed, file_urls: [Object.freeze({ type: "video" as const, url: current.url })]
         } });
         const intentFingerprint = schemaHash({ tenant_id: current.resolution.principal.tenant_id,
           subject_id: current.resolution.principal.subject_id, model_id: "video2audio", operation_id: "generate-audio",
           profile_schema_hash: options.profile.profileSchemaHash, prompt, original_sha256: current.resolution.sha256,
           original_size: current.resolution.size, duration_seconds: current.resolution.duration_seconds,
-          settings: { model_type: "video2audio", mode: "generate", negative_prompt: "", seed: 0 } });
+          settings: { model_type: "video2audio", mode: "generate", negative_prompt: input.negative_prompt, seed: input.seed } });
         const requestFingerprint = schemaHash(request);
         const sourceBinding = Object.freeze({ public_catalog_version: options.profile.source.source_pins.public_catalog_version,
           settings_inventory_version: options.profile.source.source_pins.settings_inventory_version,
@@ -294,7 +300,7 @@ export function createOwnerVideo2AudioRequestPreparer(optionsInput: OwnerVideo2A
           original: current.resolution, expiresAt });
         const binding = privateBinding({ attemptId: input.attemptId, principal: current.resolution.principal,
           originalHandle: input.handle, profile: options.profile, sourceBinding, original: current.resolution,
-          expiresAt, intentFingerprint, requestFingerprint, prompt, client: current.client, reference: current.reference });
+          expiresAt, intentFingerprint, requestFingerprint, prompt, seed: input.seed, negative_prompt: input.negative_prompt, client: current.client, reference: current.reference });
         const now = readNow();
         const state: CandidateState = { owner, candidate: publicCandidate, attemptId: input.attemptId, handle: input.handle,
           principal: current.resolution.principal, original: current.resolution, client: current.client, reference: current.reference,
@@ -380,12 +386,14 @@ function readOptions(value: unknown): OwnerVideo2AudioRequestPreparerOptions {
   return Object.freeze({ profile: fields.profile, originalReferenceService: service, ...(fields.now === undefined ? {} : { now: readClock(fields.now) }) }) as OwnerVideo2AudioRequestPreparerOptions;
 }
 
-function readPrepareInput(value: unknown, signal?: AbortSignal): Readonly<{ attemptId: string; prompt: string; handle: string }> {
-  const fields = exactRecord(value, ["attemptId", "prompt", "video_original_handle"]);
+function readPrepareInput(value: unknown, signal?: AbortSignal): Readonly<{ attemptId: string; prompt: string; handle: string; seed: number | null; negative_prompt: string }> {
+  const fields = exactRecord(value, ["attemptId", "prompt", "video_original_handle"], ["seed", "negative_prompt"]);
   if (typeof fields.attemptId !== "string" || !ATTEMPT.test(fields.attemptId) || typeof fields.prompt !== "string" ||
       typeof fields.video_original_handle !== "string" || !/^video2audio_original_[0-9a-f-]{36}$/u.test(fields.video_original_handle) ||
       (signal !== undefined && (types.isProxy(signal) || !(signal instanceof AbortSignal)))) fail("INVALID_REQUEST");
-  return Object.freeze({ attemptId: fields.attemptId, prompt: fields.prompt, handle: fields.video_original_handle });
+  let controls: ReturnType<typeof normalizeOwnerVideo2AudioCurrentControls>;
+  try { controls = normalizeOwnerVideo2AudioCurrentControls(fields.seed, fields.negative_prompt); } catch { return fail("INVALID_REQUEST"); }
+  return Object.freeze({ attemptId: fields.attemptId, prompt: fields.prompt, handle: fields.video_original_handle, ...controls });
 }
 
 function makeCandidate(input: { profile: OwnerVideo2AudioSourceProfile; intentFingerprint: string; requestFingerprint: string;
@@ -401,7 +409,7 @@ function makeCandidate(input: { profile: OwnerVideo2AudioSourceProfile; intentFi
       form_sha256: input.profile.source.source_pins.form_sha256 }), enumerable: true },
     intent_fingerprint: { value: input.intentFingerprint, enumerable: true }, request_fingerprint: { value: input.requestFingerprint, enumerable: true },
     prompt_utf16_length: { value: input.prompt.length, enumerable: true },
-    original: { value: Object.freeze({ mime_type: "video/mp4", size: input.original.size, sha256: input.original.sha256,
+    original: { value: Object.freeze({ mime_type: input.original.mime_type, size: input.original.size, sha256: input.original.sha256,
       duration_seconds: input.original.duration_seconds }), enumerable: true }, expires_at: { value: input.expiresAt, enumerable: true }
   });
   return Object.freeze(candidate);
@@ -410,7 +418,7 @@ function makeCandidate(input: { profile: OwnerVideo2AudioSourceProfile; intentFi
 function privateBinding(input: { attemptId: string; principal: Readonly<GenerationPrincipalRef>; originalHandle: string;
   profile: OwnerVideo2AudioSourceProfile; sourceBinding: OwnerVideo2AudioCandidateBinding["source_binding"];
   original: OwnerVideo2AudioOriginalResolution; expiresAt: number; intentFingerprint: string; requestFingerprint: string;
-  prompt: string; client: SyntxChatHttpClient; reference: OwnerVideo2AudioOriginalReference }): OwnerVideo2AudioCandidateBinding {
+  prompt: string; seed: number | null; negative_prompt: string; client: SyntxChatHttpClient; reference: OwnerVideo2AudioOriginalReference }): OwnerVideo2AudioCandidateBinding {
   const binding = Object.create(null) as OwnerVideo2AudioCandidateBinding;
   Object.defineProperties(binding, {
     attempt_id: { value: input.attemptId, enumerable: true }, principal: { value: input.principal, enumerable: true },
@@ -420,7 +428,7 @@ function privateBinding(input: { attemptId: string; principal: Readonly<Generati
     duration_seconds: { value: input.original.duration_seconds, enumerable: true }, original_epoch: { value: input.original.epoch, enumerable: true },
     original_expires_at: { value: input.original.expires_at, enumerable: true }, expires_at: { value: input.expiresAt, enumerable: true },
     intent_fingerprint: { value: input.intentFingerprint, enumerable: true }, request_fingerprint: { value: input.requestFingerprint, enumerable: true },
-    prompt: { value: input.prompt, enumerable: true }, captured_client: { value: input.client, enumerable: false },
+    prompt: { value: input.prompt, enumerable: true }, seed: { value: input.seed, enumerable: true }, negative_prompt: { value: input.negative_prompt, enumerable: true }, captured_client: { value: input.client, enumerable: false },
     captured_reference: { value: input.reference, enumerable: false }
   });
   return Object.freeze(binding);

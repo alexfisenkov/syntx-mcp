@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import { inspectBoundedOwnerImageBytesWithMax } from "./owner-image-reference-input-validator.js";
-import { isOwnerHappyHorseImageModelId, type OwnerHappyHorseImageModelId } from "./owner-happy-horse-parameters.js";
+import { isOwnerHappyHorseImageReferenceModelId, type OwnerHappyHorseImageReferenceModelId } from "./owner-happy-horse-parameters.js";
 
 const MIME_TYPES = Object.freeze(["image/jpeg", "image/jpg", "image/png", "image/webp"] as const);
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -14,7 +14,7 @@ const VALIDATED = new WeakMap<object, State>();
 export type OwnerHappyHorseImageMimeType = typeof MIME_TYPES[number];
 export interface OwnerHappyHorseValidatedImage {
   readonly status: "LOCAL_IMAGE_VALIDATED_NOT_UPLOAD_AUTHORITY";
-  readonly model_id: OwnerHappyHorseImageModelId;
+  readonly model_id: OwnerHappyHorseImageReferenceModelId;
   readonly filename: string;
   readonly mime_type: OwnerHappyHorseImageMimeType;
   readonly size: number;
@@ -37,7 +37,7 @@ export function validateOwnerHappyHorseImage(input: unknown): Readonly<OwnerHapp
   let owned: Buffer | undefined;
   try {
     const f = exact(input, ["model_id", "filename", "mime_type", "bytes"]);
-    if (!isOwnerHappyHorseImageModelId(f.model_id) || typeof f.filename !== "string" || !safeFilename(f.filename) ||
+    if (!isOwnerHappyHorseImageReferenceModelId(f.model_id) || typeof f.filename !== "string" || !safeFilename(f.filename) ||
         typeof f.mime_type !== "string" || !(MIME_TYPES as readonly string[]).includes(f.mime_type)) invalid();
     const source = sourceBytes(f.bytes);
     if (source.byteLength < 1) invalid();
@@ -64,7 +64,7 @@ export function validateOwnerHappyHorseImage(input: unknown): Readonly<OwnerHapp
 }
 
 export function readValidatedOwnerHappyHorseImage(input: unknown): Readonly<{
-  bytes: Uint8Array; model_id: OwnerHappyHorseImageModelId; filename: string; mime_type: OwnerHappyHorseImageMimeType;
+  bytes: Uint8Array; model_id: OwnerHappyHorseImageReferenceModelId; filename: string; mime_type: OwnerHappyHorseImageMimeType;
   size: number; sha256: string; width: number; height: number;
 }> | null {
   if (!input || typeof input !== "object" || types.isProxy(input)) return null;
@@ -82,7 +82,7 @@ export function releaseValidatedOwnerHappyHorseImage(input: unknown): boolean {
   return VALIDATED.delete(input);
 }
 
-interface State { readonly bytes: Buffer; readonly model_id: OwnerHappyHorseImageModelId; readonly filename: string;
+interface State { readonly bytes: Buffer; readonly model_id: OwnerHappyHorseImageReferenceModelId; readonly filename: string;
   readonly mime_type: OwnerHappyHorseImageMimeType; readonly size: number; readonly sha256: string; readonly width: number; readonly height: number }
 function exact(value: unknown, expected: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) invalid();

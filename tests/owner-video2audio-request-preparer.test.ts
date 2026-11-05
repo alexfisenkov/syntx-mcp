@@ -120,6 +120,25 @@ test("preparation yields only a safe candidate and the exact private body from t
   } finally { await preparer.close?.(); await originalService.close(); }
 });
 
+test("legacy Video2Audio profile preserves zero fingerprint and refuses current-only controls", async () => {
+  const createPreparer = preparerModule?.createOwnerVideo2AudioRequestPreparer as (input: unknown) => any;
+  const profile = createOwnerVideo2AudioSourceProfile(), links = await linkedService();
+  const nativeClient = new SyntxChatHttpClient({ credentialBroker: broker(), fetchImpl: async () => response({ total: 1, successful: 1,
+    failed: 0, duplicates: 0, files: [{ filename: "original.mp4", url: UPLOAD_URL, status: "success", content_type: "video/mp4", size: MP4.byteLength, duration: 5.64 }] }) });
+  const originals = new OwnerVideo2AudioOriginalReferenceService({ profile, binding: BINDING, linkService: links, resolveClient: () => nativeClient, now: () => 2_000 });
+  const preparer = createPreparer({ profile, originalReferenceService: originals, now: () => 2_000 });
+  try {
+    const uploaded = await originals.uploadOriginal({ attemptId: ATTEMPT, filename: "original.mp4", mime_type: "video/mp4", bytes: MP4 });
+    const base = { attemptId: ATTEMPT, prompt: "Create audio", video_original_handle: uploaded.video_original_handle };
+    const legacy = await preparer.prepare(base), explicitZero = await preparer.prepare({ ...base, seed: 0 });
+    assert.equal(preparer.getPrivateRequest(legacy).settings.seed, 0);
+    assert.equal(explicitZero.intent_fingerprint, legacy.intent_fingerprint);
+    for (const controls of [{ seed: null }, { seed: 123 }, { negative_prompt: "no noise" }]) await assert.rejects(preparer.prepare({ ...base, ...controls }));
+    await assert.rejects(preparer.prepare({ ...base, seed: 2147483648 }));
+    await assert.rejects(preparer.prepare({ ...base, negative_prompt: "x".repeat(5001) }));
+  } finally { await preparer.close(); await originals.close(); }
+});
+
 test("the nominal one-shot receipt binds the genuine candidate and principal, requires revalidation, and consumes only once", async () => {
   const createPreparer = preparerModule?.createOwnerVideo2AudioRequestPreparer as ((input: unknown) => any) | undefined;
   const createPermit = oneShotModule?.createOwnerVideo2AudioOneShotPermit as ((input: unknown) => Promise<any>) | undefined;

@@ -131,8 +131,7 @@ function snapshotControls(value: unknown, version: OwnerKlingKeyframesVersion, m
   const allowed = [...required, ...(cameraApplicable ? ["camera_movement"] : [])];
   const fields = snapshotOptionalRecord(value, required, allowed);
   if (typeof fields.temperature !== "number" || !Number.isFinite(fields.temperature) ||
-      fields.temperature < 0 || fields.temperature > 1 ||
-      Math.abs(fields.temperature - Math.round(fields.temperature * 10) / 10) > 1e-9) invalid();
+      fields.temperature < 0 || fields.temperature > 1) invalid();
 
   if (multiShotsApplicable && typeof fields.multi_shots !== "boolean") invalid();
   const cameraMovement = Object.hasOwn(fields, "camera_movement")

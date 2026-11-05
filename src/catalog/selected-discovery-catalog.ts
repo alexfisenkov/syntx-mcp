@@ -7,7 +7,7 @@ export const DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION =
 
 /** Current read-only public metadata; independent from the historical native-profile pin above. */
 export const CURRENT_DISCOVERY_READ_VERSION =
-  "sha256-bca24244ca2a2ffc79e6788621993335181f0a44958d3b0ff0fac724326fd41b.json";
+  "sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json";
 
 /** Trusted, immutable read snapshot for ordinary model discovery. It ignores operator/native profile selection. */
 export function loadCurrentDiscoveryReadCatalog() {

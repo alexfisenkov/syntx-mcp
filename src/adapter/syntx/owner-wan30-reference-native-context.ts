@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import {WAN30_REFERENCE_CURRENT_PROFILE_ID} from "../../application/owner-wan30-current-form-source.js";
 import type { GenerationPrincipalRef } from "../../domain/generation-operation.js";
 import {
   normalizeOwnerWan30ReferenceGenerationIntent,
@@ -54,7 +55,7 @@ export interface OwnerWan30ReferenceUploadedImage {
 export interface OwnerWan30ReferenceGenerationContext {
   readonly status: "ready";
   readonly model_id: typeof MODEL_ID;
-  readonly profile_id: typeof PROFILE_ID;
+  readonly profile_id: typeof PROFILE_ID | typeof WAN30_REFERENCE_CURRENT_PROFILE_ID;
   readonly reference_types: readonly ["image"];
   readonly dispatch_state: "READY" | "RESERVED";
   readonly backend_acceptance: "UNPROVEN";
@@ -199,13 +200,13 @@ export function createOwnerWan30ReferenceGenerationContext(
   if (intentFields.model_id !== MODEL_ID) fail("INVALID_CONTEXT");
   const normalized = normalizeOwnerWan30ReferenceGenerationIntent({ prompt: intentFields.prompt, parameters: intentFields.parameters });
   const candidate = projectOwnerWan30ReferenceGenerationWireCandidate(normalized.intent);
-  if (candidate.dispatch_allowed !== false || candidate.chat_id_bound !== false || candidate.profile_id !== PROFILE_ID ||
+  if (candidate.dispatch_allowed !== false || candidate.chat_id_bound !== false || ![PROFILE_ID,WAN30_REFERENCE_CURRENT_PROFILE_ID].includes(candidate.profile_id) ||
       candidate.reference_prompt_plan.file_urls_bound !== false || candidate.reference_prompt_plan.url_source !== "TRUSTED_OWNER_REFERENCE_LAYER_NOT_ACCEPTED_HERE") {
     fail("INVALID_CONTEXT");
   }
   readUploaded(clientInput, fields.reference_image);
   const context: OwnerWan30ReferenceGenerationContext = Object.freeze({ status: "ready", model_id: MODEL_ID,
-    profile_id: PROFILE_ID, reference_types: Object.freeze(["image"] as const), dispatch_state: "READY", backend_acceptance: "UNPROVEN" });
+    profile_id: candidate.profile_id, reference_types: Object.freeze(["image"] as const), dispatch_state: "READY", backend_acceptance: "UNPROVEN" });
   GENERATIONS.set(context, { client: clientInput, attemptId: fields.attempt_id, principal, chatId: fields.chat_id,
     prompt: candidate.prompt_candidate, settings: candidate.settings_candidate,
     reference: fields.reference_image as OwnerWan30ReferenceUploadedImage, dispatchState: "READY" });

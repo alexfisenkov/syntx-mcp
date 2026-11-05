@@ -1,16 +1,17 @@
 import { types } from "node:util";
+import {WAN30_CURRENT_FORM_SOURCE,WAN30_EDIT_CURRENT_PROFILE_ID} from "./owner-wan30-current-form-source.js";
 
 export interface OwnerWan30EditGenerationParameters {
-  readonly aspect_ratio: "16:9";
-  readonly resolution: "480P";
-  readonly video_duration: 2;
-  readonly prompt_extend: true;
+  readonly aspect_ratio: "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "adaptive";
+  readonly resolution: "480P" | "720P" | "1080P";
+  readonly video_duration: number;
+  readonly prompt_extend: boolean;
   readonly shot_type: "single";
   readonly audio_setting: "auto";
-  readonly seed: null;
-  readonly native_audio: true;
-  readonly duration: 2;
-  readonly rendering_speed: "basic";
+  readonly seed: number | null;
+  readonly native_audio: boolean;
+  readonly duration: number;
+  readonly rendering_speed: "basic" | "prime";
 }
 
 export interface OwnerWan30EditGenerationIntent {
@@ -132,10 +133,10 @@ export interface OwnerWan30EditGenerationSourceContract {
 }
 
 export interface OwnerWan30EditNormalizedGeneration {
-  readonly status: "LIVE_UI_SINGLE_REQUEST_EXPLICIT_INTENT";
+  readonly status: "LIVE_UI_SINGLE_REQUEST_EXPLICIT_INTENT" | "FORM_SOURCE_REVIEWED_EXPLICIT_INTENT";
   readonly intent: OwnerWan30EditGenerationIntent;
-  readonly source_profile_id: typeof PROFILE_ID;
-  readonly source_pins: typeof SOURCE_PINS;
+  readonly source_profile_id: typeof PROFILE_ID | typeof WAN30_EDIT_CURRENT_PROFILE_ID;
+  readonly source_pins: typeof SOURCE_PINS | typeof WAN30_CURRENT_FORM_SOURCE;
   readonly effective_defaults: "UNKNOWN";
   readonly runtime_usable: false;
   readonly dispatch_allowed: false;
@@ -158,20 +159,26 @@ export function getOwnerWan30EditGenerationSourceContract(): OwnerWan30EditGener
 export function normalizeOwnerWan30EditGenerationIntent(input: unknown): OwnerWan30EditNormalizedGeneration {
   const fields = exactRecord(input, ["prompt", "parameters"]);
   if (typeof fields.prompt !== "string" || fields.prompt.length === 0 || fields.prompt.length > PROMPT_LOCAL_MAX_UTF16 ||
-      !isWellFormedUnicode(fields.prompt) || fields.prompt.trim().length === 0) invalid();
+      /<<<https?:\/\//iu.test(fields.prompt) || !isWellFormedUnicode(fields.prompt) || fields.prompt.trim().length === 0) invalid();
   const raw = exactRecord(fields.parameters, [
     "aspect_ratio", "resolution", "video_duration", "prompt_extend", "shot_type", "audio_setting", "seed",
     "native_audio", "duration", "rendering_speed"
   ]);
-  if (raw.aspect_ratio !== OBSERVED_PARAMETERS.aspect_ratio || raw.resolution !== OBSERVED_PARAMETERS.resolution ||
-      raw.video_duration !== OBSERVED_PARAMETERS.video_duration || raw.prompt_extend !== OBSERVED_PARAMETERS.prompt_extend ||
+  if (!["16:9","9:16","1:1","4:3","3:4","adaptive"].includes(String(raw.aspect_ratio)) || !["480P","720P","1080P"].includes(String(raw.resolution)) ||
+      !Number.isInteger(raw.video_duration) || (raw.video_duration as number)<2 || (raw.video_duration as number)>15 || typeof raw.prompt_extend!=="boolean" ||
       raw.shot_type !== OBSERVED_PARAMETERS.shot_type || raw.audio_setting !== OBSERVED_PARAMETERS.audio_setting ||
-      raw.seed !== OBSERVED_PARAMETERS.seed || raw.native_audio !== OBSERVED_PARAMETERS.native_audio ||
-      raw.duration !== OBSERVED_PARAMETERS.duration || raw.rendering_speed !== OBSERVED_PARAMETERS.rendering_speed) invalid();
-  const parameters: OwnerWan30EditGenerationParameters = Object.freeze({ ...OBSERVED_PARAMETERS });
+      !(raw.seed===null || Number.isSafeInteger(raw.seed) && (raw.seed as number)>=0 && (raw.seed as number)<=2147483647) || typeof raw.native_audio!=="boolean" ||
+      typeof raw.duration!=="number" || !Number.isFinite(raw.duration) || raw.duration<1 || raw.duration>15 ||
+      Math.round(raw.duration*100)/100!==raw.duration || (raw.video_duration as number)>Math.max(2,Math.floor(raw.duration)) ||
+      (raw.rendering_speed!=="basic"&&raw.rendering_speed!=="prime")) invalid();
+  const parameters: OwnerWan30EditGenerationParameters = Object.freeze({aspect_ratio:raw.aspect_ratio as OwnerWan30EditGenerationParameters["aspect_ratio"],
+    resolution:raw.resolution as OwnerWan30EditGenerationParameters["resolution"],video_duration:raw.video_duration as number,prompt_extend:raw.prompt_extend as boolean,
+    shot_type:"single",audio_setting:"auto",seed:raw.seed as number|null,native_audio:raw.native_audio as boolean,duration:raw.duration as number,
+    rendering_speed:raw.rendering_speed as OwnerWan30EditGenerationParameters["rendering_speed"]});
   const intent: OwnerWan30EditGenerationIntent = Object.freeze({ model_id: MODEL_ID, prompt: fields.prompt, parameters });
-  return Object.freeze({ status: "LIVE_UI_SINGLE_REQUEST_EXPLICIT_INTENT", intent, source_profile_id: PROFILE_ID,
-    source_pins: SOURCE_PINS, effective_defaults: "UNKNOWN", runtime_usable: false,
+  const legacy=JSON.stringify(parameters)===JSON.stringify(OBSERVED_PARAMETERS);
+  return Object.freeze({ status: legacy?"LIVE_UI_SINGLE_REQUEST_EXPLICIT_INTENT":"FORM_SOURCE_REVIEWED_EXPLICIT_INTENT", intent,
+    source_profile_id:legacy?PROFILE_ID:WAN30_EDIT_CURRENT_PROFILE_ID, source_pins:legacy?SOURCE_PINS:WAN30_CURRENT_FORM_SOURCE, effective_defaults: "UNKNOWN", runtime_usable: false,
     dispatch_allowed: false, backend_acceptance: "UNPROVEN" });
 }
 

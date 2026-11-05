@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { isOwnerWan27I2vGenerationService, type OwnerWan27I2vGenerationService } from "../application/owner-wan27-i2v-generation-service.js";
 import { isOwnerWan27I2vReferenceService, type OwnerWan27I2vReferenceService } from "../application/owner-wan27-i2v-reference-service.js";
-import { getOwnerWan27I2vSourceProfile } from "../application/owner-wan27-i2v-parameters.js";
+import { getOwnerWan27I2vCurrentSource, getOwnerWan27I2vSourceProfile } from "../application/owner-wan27-i2v-parameters.js";
 
 const ATTEMPT = z.string().regex(/^link_[A-Za-z0-9_-]{20,120}$/u);
 const MODEL = z.literal("wan_27_i2v");
@@ -22,10 +22,10 @@ export interface OwnerWan27I2vToolOptions {
 }
 const parameterInput = z.object({}).strict();
 const sourceOutput = z.object({status:z.literal("EXPLICIT_SOURCE_CANDIDATE_ONLY"),model_id:MODEL,ai_name:z.literal("wan_video"),
-  scope:z.literal("video"),source_profile_sha256:z.string().regex(/^[a-f0-9]{64}$/u),
+  scope:z.literal("video"),source_profile_sha256:z.string().regex(/^sha256:[a-f0-9]{64}$/u),
   cost_query_keys:z.array(z.enum(["resolution","video_duration"])).length(2),
   dispatch_allowed:z.literal(false),provider_acceptance:z.literal("UNPROVEN"),
-  source_gaps:z.array(z.string().max(160)).max(12)}).strict();
+  source_gaps:z.array(z.string().max(160)).max(12), current_controls:z.json()}).strict();
 const uploadInput = z.object({link_attempt_id:ATTEMPT,model_id:MODEL,filename:z.string().min(1).max(255),
   mime_type:SOURCE_MIME,content_base64:z.string().min(4).max(MAX_BASE64)}).strict();
 const uploadOutput = z.object({status:z.literal("uploaded"),model_id:MODEL,image_handle:HANDLE,filename:z.string().min(1).max(255),
@@ -34,8 +34,8 @@ const uploadOutput = z.object({status:z.literal("uploaded"),model_id:MODEL,image
   expires_in_seconds:z.number().int().nonnegative(),metadata_confidence:z.literal("STRUCTURALLY_VALIDATED_NOT_PIXEL_DECODED"),
   provider_acceptance:z.literal("UNPROVEN"),generation_permit:z.literal(false)}).strict();
 const generateInput = z.object({link_attempt_id:ATTEMPT,model_id:MODEL,image_handle:HANDLE,prompt:z.string().min(1).max(1500),
-  resolution:z.literal("720P"),aspect_ratio:z.literal("1:1"),video_duration:z.literal(5),prompt_extend:z.literal(false),
-  shot_type:z.literal("single"),audio_setting:z.literal("auto"),seed:z.null(),native_audio:z.literal(false),
+  resolution:z.enum(["720P","1080P"]).default("720P"),aspect_ratio:z.literal("1:1"),video_duration:z.number().int().min(2).max(15).default(5),prompt_extend:z.boolean().default(false),
+  shot_type:z.literal("single"),audio_setting:z.literal("auto"),seed:z.number().int().min(0).max(2147483647).nullable().default(null),native_audio:z.literal(false),
   rendering_speed:z.literal("basic")}).strict();
 const artifact = z.object({object_index:z.number().int().nonnegative(),message_object_id:z.string().min(1).max(160),
   object_type:z.literal("video"),object_url:z.string().url().max(4096),mime_type:z.enum(["video/mp4","video/quicktime"]).nullable(),
@@ -49,7 +49,7 @@ const listOutput = z.object({recoveries:z.array(generationOutput).max(128)}).str
 export function registerSyntxOwnerWan27I2vTools(server:McpServer,input:OwnerWan27I2vToolOptions|unknown):void{
   const options=readOptions(input);
   server.registerTool(OWNER_WAN27_I2V_TOOL_NAMES[0],{title:"Get WAN 2.7 I2V initial candidate",
-    description:"Returns the one explicit source-derived WAN27 I2V candidate and its evidence gaps; defaults and provider acceptance remain unproven.",
+    description:"Returns the historical WAN27 I2V candidate and separately source-bound controls for the current first-image path; effective UI defaults and provider acceptance remain unproven.",
     inputSchema:parameterInput,outputSchema:sourceOutput,
     annotations:{title:"Get WAN 2.7 I2V candidate",readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false}
   },async()=>success(sourceOutput,projectSource()));
@@ -65,7 +65,7 @@ export function registerSyntxOwnerWan27I2vTools(server:McpServer,input:OwnerWan2
     catch(error){return safeError(error);}finally{bytes?.fill(0);}
   });
   server.registerTool(OWNER_WAN27_I2V_TOOL_NAMES[2],{title:"Generate WAN 2.7 I2V video",
-    description:"Submits one explicit WAN27 I2V candidate and one uploaded image. Unknown outcomes are sticky; never repeat generation.",
+    description:"Submits one WAN27 I2V first-image candidate. The current source supports resolution, duration, prompt enhancement and seed; omitted controls use the historical candidate. Other media branches and provider acceptance remain unproven. Unknown outcomes are sticky; never repeat generation.",
     inputSchema:generateInput,outputSchema:generationOutput,
     annotations:{title:"Generate WAN 2.7 I2V video",readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:true}
   },async(raw,{signal})=>{
@@ -95,7 +95,7 @@ function projectSource(){
   const profile=getOwnerWan27I2vSourceProfile();
   return {status:"EXPLICIT_SOURCE_CANDIDATE_ONLY",model_id:profile.model_id,ai_name:profile.ai_name,scope:profile.scope,
     source_profile_sha256:profile.source_sha256,cost_query_keys:[...profile.cost_query_keys],dispatch_allowed:false,
-    provider_acceptance:"UNPROVEN",source_gaps:[...profile.source_gaps]};
+    provider_acceptance:"UNPROVEN",source_gaps:[...profile.source_gaps],current_controls:getOwnerWan27I2vCurrentSource()};
 }
 function readOptions(value:unknown):OwnerWan27I2vToolOptions{
   const row=snapshot(value) as Record<string,unknown>|undefined;

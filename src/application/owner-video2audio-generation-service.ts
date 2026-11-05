@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { normalizeOwnerVideo2AudioCurrentControls } from "./owner-video2audio-current-controls.js";
 import { isDeepStrictEqual, types } from "node:util";
 import { AbsoluteRequestDeadline } from "../adapter/syntx/request-deadline.js";
 import {
@@ -152,6 +153,8 @@ export interface OwnerVideo2AudioGenerateInput {
   readonly attemptId: string;
   readonly prompt: string;
   readonly video_original_handle: string;
+  readonly seed?: number | null;
+  readonly negative_prompt?: string;
 }
 export interface OwnerVideo2AudioReconcileInput { readonly attemptId: string; readonly recovery_id: string; }
 export interface OwnerVideo2AudioRecoveryListInput { readonly attemptId: string; readonly limit?: number; }
@@ -364,7 +367,9 @@ export class OwnerVideo2AudioGenerationService {
       this.#assertProfileBinding();
       const principal = await this.#resolvePrincipal(request.attemptId, deadline.signal);
       candidate = await this.#await(deadline, () => this.#preparer.prepare({ attemptId: request.attemptId,
-        prompt: request.prompt, video_original_handle: request.video_original_handle }, deadline.signal));
+        prompt: request.prompt, video_original_handle: request.video_original_handle,
+        ...(request.seed === undefined ? {} : { seed: request.seed }),
+        ...(request.negative_prompt === undefined ? {} : { negative_prompt: request.negative_prompt }) }, deadline.signal));
       candidateBinding = this.#preparer.inspectCandidate(candidate);
       if (!candidateBinding || candidateBinding.attempt_id !== request.attemptId ||
           !sameGenerationPrincipal(candidateBinding.principal, principal) ||
@@ -944,11 +949,14 @@ function getDataMethod(value: object, key: string): unknown {
 }
 
 function snapshotGenerate(value: unknown): Readonly<OwnerVideo2AudioGenerateInput> {
-  const fields = exactRecord(value, ["attemptId", "prompt", "video_original_handle"]);
+  const fields = exactRecord(value, ["attemptId", "prompt", "video_original_handle"], ["seed", "negative_prompt"]);
   const attemptId = readAttempt(fields.attemptId);
   if (typeof fields.prompt !== "string" || typeof fields.video_original_handle !== "string" ||
       !/^video2audio_original_[0-9a-f-]{36}$/u.test(fields.video_original_handle)) invalid();
-  return Object.freeze({ attemptId, prompt: fields.prompt, video_original_handle: fields.video_original_handle });
+  try { normalizeOwnerVideo2AudioCurrentControls(fields.seed, fields.negative_prompt); } catch { return invalid(); }
+  return Object.freeze({ attemptId, prompt: fields.prompt, video_original_handle: fields.video_original_handle,
+    ...(fields.seed === undefined ? {} : { seed: fields.seed as number | null }),
+    ...(fields.negative_prompt === undefined ? {} : { negative_prompt: fields.negative_prompt as string }) });
 }
 
 function snapshotReconcile(value: unknown): Readonly<OwnerVideo2AudioReconcileInput> {

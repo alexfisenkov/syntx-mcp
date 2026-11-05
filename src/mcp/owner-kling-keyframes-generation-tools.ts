@@ -1,3 +1,4 @@
+import { OWNER_KLING_CURRENT_MANUAL_CONTROLS } from "../application/owner-kling-current-controls.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -25,7 +26,7 @@ const versions = z.enum(SOURCE.controls.version.values);
 const camera = z.object({ type: z.string(), horizontal: z.number(), vertical: z.number(), zoom: z.number(), tilt: z.number(), pan: z.number(), roll: z.number() }).strict();
 const flat = { link_attempt_id: attempt, model_id: z.literal("kling_keyframes"), prompt: z.string().min(1).max(65_536),
   image_handles: z.tuple([z.string().regex(/^kling_keyframes_image_[0-9a-f-]{36}$/u), z.string().regex(/^kling_keyframes_image_[0-9a-f-]{36}$/u)]),
-  version: versions, mode: z.enum(["standart", "hd", "4K"]), video_duration: z.number().int().min(3).max(15), native_audio: z.boolean(),
+  version: versions, mode: z.enum(["standart", "hd", "4K"]), video_duration: z.number().finite().min(3).max(15), native_audio: z.boolean(),
   aspect_ratio: z.enum(["16:9", "1:1", "9:16"]).nullable(), temperature: z.number().min(0).max(1), multi_shots: z.boolean().optional(), camera_movement: camera.optional() };
 const generateSchema = z.object(flat).strict().superRefine((v, c) => {
   try { buildOwnerKlingKeyframesWireSettingsTemplate({ parameters: { model_id: v.model_id, version: v.version, mode: v.mode,
@@ -50,7 +51,7 @@ const listToolOutput = z.object({ recoveries: listOutput.shape.recoveries.option
 export function registerSyntxOwnerKlingKeyframesGenerationTools(server: McpServer, serviceInput: unknown): void {
   if (!isOwnerKlingKeyframesGenerationService(serviceInput)) throw new Error("OWNER_KLING_KEYFRAMES_GENERATION_SERVICE_INVALID");
   const service: OwnerKlingKeyframesGenerationService = serviceInput;
-  server.registerTool(OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES[0], { title: "Get Kling Keyframes parameters", description: "Returns source-reviewed parameter choices and limits. This static source projection is not a provider validator or runtime grant; the separate generation tools appear only under owner opt-in.", inputSchema: z.object({}).strict(), annotations: { title: "Get Kling Keyframes parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async () => structured({ source: SOURCE, generation_tools_registered: true, backend_acceptance: "UNPROVEN" }));
+  server.registerTool(OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES[0], { title: "Get Kling Keyframes parameters", description: "Returns source-reviewed parameter choices and limits. This static source projection is not a provider validator or runtime grant; the separate generation tools appear only under owner opt-in.", inputSchema: z.object({}).strict(), annotations: { title: "Get Kling Keyframes parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async () => structured({ source: SOURCE, current_controls: OWNER_KLING_CURRENT_MANUAL_CONTROLS, generation_tools_registered: true, backend_acceptance: "UNPROVEN" }));
   server.registerTool(OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES[1], { title: "Generate Kling Keyframes", description: "Submits one explicit two-image Kling Keyframes request for the exact linked owner attempt. Do not retry an uncertain outcome; reconcile its recovery id.", inputSchema: generateSchema, outputSchema: resultToolOutput, annotations: { title: "Generate Kling Keyframes", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true } }, async (input, { signal }) => {
     const p = generateSchema.safeParse(snapshot(input)); if (!p.success) return errorResult(undefined, "INVALID_REQUEST"); const v = p.data;
     try { return structured(resultSchema.parse(await service.generate({ attemptId: v.link_attempt_id, request: { model_id: v.model_id, prompt: v.prompt, image_handles: v.image_handles, parameters: { model_id: v.model_id, version: v.version, mode: v.mode, video_duration: v.video_duration, native_audio: v.native_audio, aspect_ratio: v.aspect_ratio }, controls: { temperature: v.temperature, ...(v.multi_shots === undefined ? {} : { multi_shots: v.multi_shots }), ...(v.camera_movement === undefined ? {} : { camera_movement: v.camera_movement }) } } }, signal))); } catch (e) { return errorResult(e, "PRE_DISPATCH_FAILED"); }

@@ -27,11 +27,13 @@ const importOutput = z.object({ status: z.literal("imported"), reference_handle:
   height: z.number().int().positive().optional(), duration_seconds: z.number().min(2).max(120).optional(), expires_in_seconds: z.number().int().nonnegative(),
   provenance: z.literal("OWNED_EXISTING_ACCOUNT_ASSET"), generation_permit: z.literal(false), provider_acceptance: z.literal("UNPROVEN") }).strict();
 const parameterSchema = z.object({ model_id: z.literal("heygen4"), ai_name: z.literal("heygen"), aspect_ratios: z.array(z.literal("16:9").or(z.literal("9:16"))),
+  current_source_controls: z.record(z.string(), z.unknown()).optional(),
   initial_aspect_ratio: z.literal("16:9"), image_count: z.literal(1), audio_count: z.literal(1), accepted_image_mime_types: z.array(imageMime),
   accepted_audio_mime_types: z.array(audioMime), max_file_size_bytes: z.number().int().positive(), audio_duration_seconds: z.object({ minimum: z.literal(2),
     maximum: z.literal(120), source: z.literal("TRUSTED_LOCAL_FFPROBE_OF_SELECTED_AUDIO") }).strict(), cost_parameter_keys: z.array(z.literal("duration")),
   cost_parameter_sources: z.record(z.string(), z.string()), prompt: z.record(z.string(), z.unknown()) }).strict();
-const generateSchema = z.object({ link_attempt_id: ATTEMPT, prompt: z.string().min(1).max(2_000), image_handle: z.string().regex(HANDLE), audio_handle: z.string().regex(HANDLE) }).strict();
+const generateSchema = z.object({ link_attempt_id: ATTEMPT, prompt: z.string().min(1).max(2_000), image_handle: z.string().regex(HANDLE), audio_handle: z.string().regex(HANDLE),
+  aspect_ratio: z.enum(["16:9", "9:16"]).optional().describe("Current public source ratios; omission preserves legacy16:9. Duration is measured from the selected audio, not a caller override.") }).strict();
 const recoverySchema = z.object({ link_attempt_id: ATTEMPT, recovery_id: z.string().regex(/^heygen4_recovery_[0-9a-f-]{36}$/u) }).strict();
 const listSchema = z.object({ link_attempt_id: ATTEMPT }).strict();
 const artifact = z.object({ message_object_id: z.string().min(1).max(160), message_id: z.string().min(1).max(160), object_type: z.literal("video"),
@@ -45,7 +47,7 @@ const resultSchema = z.object({ status: z.enum(["completed", "outcome_unknown"])
 export function registerSyntxOwnerHeygen4Tools(server: McpServer, input: RegisterSyntxOwnerHeygen4ToolsOptions | unknown): void {
   const options = snapshotOptions(input);
   server.registerTool(OWNER_HEYGEN4_TOOL_NAMES[0], { title: "Get HeyGen 4 source profile",
-    description: "Returns the bounded HeyGen 4 image-plus-audio source contract. Public upload is disabled; only explicitly selected existing account assets can be imported.",
+    description: "Returns the historical pinned HeyGen4 image-plus-audio contract, not current public uploadability. This runtime imports explicitly selected existing account assets; that local admission is not a claim that current UI upload is disabled. The parameters tool separately reports current source ratios.",
     inputSchema: z.object({}).strict(), outputSchema: sourceSchema,
     annotations: { title: "HeyGen 4 source", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async () => safeSuccess(sourceSchema, options.service.getSourceProfile()));
@@ -71,11 +73,12 @@ export function registerSyntxOwnerHeygen4Tools(server: McpServer, input: Registe
   }, async () => safeSuccess(parameterSchema, options.service.getParameters()));
 
   server.registerTool(OWNER_HEYGEN4_TOOL_NAMES[3], { title: "Generate one HeyGen 4 video",
-    description: "Requires one imported image and one imported audio in that order. Uses 16:9 and the measured audio duration, checks two fresh account/model quotes, and makes at most one generation request. An uncertain POST is never retried.",
+    description: "Requires one imported image and one imported audio in that order. Select16:9 or9:16; omission retains16:9. Uses measured audio duration, checks two fresh account/model quotes, and makes at most one generation request. New ratio acceptance is not inferred from historical16:9 results. An uncertain POST is never retried.",
     inputSchema: generateSchema, outputSchema: resultSchema,
     annotations: { title: "Generate HeyGen 4 video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => { try { const data = generateSchema.parse(snapshot(input)); return safeSuccess(resultSchema,
-    await options.service.generate({ attemptId: data.link_attempt_id, prompt: data.prompt, image_handle: data.image_handle, audio_handle: data.audio_handle }, signal));
+    await options.service.generate({ attemptId: data.link_attempt_id, prompt: data.prompt, image_handle: data.image_handle, audio_handle: data.audio_handle,
+      ...(data.aspect_ratio === undefined ? {} : { aspect_ratio: data.aspect_ratio }) }, signal));
   } catch (error) { return safeError(error); } });
 
   server.registerTool(OWNER_HEYGEN4_TOOL_NAMES[4], { title: "Reconcile one HeyGen 4 result (GET only)",

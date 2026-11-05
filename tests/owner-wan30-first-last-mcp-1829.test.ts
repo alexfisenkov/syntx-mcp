@@ -57,7 +57,7 @@ test("default runtime omits all Wan30 First/Last tools; explicit opt-in exposes 
 
     const badGeneration = await enabledClient.callTool({ name: SYNTX_OWNER_GENERATE_WAN30_FIRST_LAST_VIDEO_TOOL_NAME, arguments: {
       link_attempt_id: "link_wan30_first_last_1829_000000000001", prompt: "synthetic local validation only",
-      parameters: { aspect_ratio: "16:9", resolution: "720P", video_duration: 2, prompt_extend: true,
+      parameters: { aspect_ratio: "16:9", resolution: "4K", video_duration: 2, prompt_extend: true,
         seed: null, native_audio: false, rendering_speed: "basic" },
       first_frame_handle: "wan30_frame_00000000-0000-4000-8000-000000000001",
       last_frame_handle: "wan30_frame_00000000-0000-4000-8000-000000000002"

@@ -23,7 +23,7 @@ import {
   isOwnerKling4ReferenceService,
   OwnerKling4ReferenceService
 } from "../../application/owner-kling4-reference-service.js";
-import { getOwnerKling4SourceProfile, type OwnerKling4ParametersModelId } from "../../application/owner-kling4-parameters.js";
+import { getOwnerKling4EffectiveProfileHash, type OwnerKling4ParametersModelId } from "../../application/owner-kling4-parameters.js";
 import type { OwnerKling4WireCandidate, OwnerKling4WireFile } from "../../application/owner-kling4-wire.js";
 import { SyntxChatHttpClient } from "./chat-http-client.js";
 import { isSafeUploadReferenceUrl } from "./upload-reference-bridge.js";
@@ -544,7 +544,7 @@ function validWire(value: unknown, binding: Readonly<CandidateBinding>): value i
     const settings = exact(wire.settings, ["model_type", "version", "mode", "aspect_ratio", "video_duration", "native_audio", "file_urls"]);
     if (settings.model_type !== modelId || settings.version !== "4.0" || !["standart", "hd"].includes(String(settings.mode)) ||
         !["16:9", "1:1", "9:16", "21:9"].includes(String(settings.aspect_ratio)) ||
-        !Number.isSafeInteger(settings.video_duration) || Number(settings.video_duration) < 3 || Number(settings.video_duration) > 30 ||
+        typeof settings.video_duration !== "number" || !Number.isFinite(settings.video_duration) || settings.video_duration < 3 || settings.video_duration > 30 ||
         typeof settings.native_audio !== "boolean" || (modelId === "kling_4_keyframes" && settings.native_audio !== true) ||
         !Array.isArray(settings.file_urls) || types.isProxy(settings.file_urls) || !Object.isFrozen(settings.file_urls) ||
         settings.file_urls.length > 15 || settings.file_urls.length !== wire.wire_reference_count || !nonnegativeInt(wire.wire_reference_count, 15)) return false;
@@ -599,7 +599,7 @@ function fingerprintWire(wire: OwnerKling4WireCandidate, files: readonly OwnerKl
 }
 
 function validateSourceProfile(binding: Readonly<CandidateBinding>): boolean {
-  if (!isModelId(binding.model_id) || getOwnerKling4SourceProfile(binding.model_id).source_sha256 !== binding.profile_sha256 ||
+  if (!isModelId(binding.model_id) || getOwnerKling4EffectiveProfileHash(binding.model_id,binding.cost_parameters.video_duration) !== binding.profile_sha256 ||
       !Array.isArray(binding.sources) || types.isProxy(binding.sources) || binding.sources.length > 15) return false;
   let images = 0, videos = 0, totalCost = 0;
   for (const source of binding.sources) {

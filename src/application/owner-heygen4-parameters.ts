@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import { OWNER_HEYGEN4_CURRENT_CONTROLS, ownerHeygen4AspectRatio, type OwnerHeygen4AspectRatio } from "./owner-actor-current-controls.js";
 import { isValidatedOwnerHeygen4Image, isValidatedOwnerHeygen4Audio,
   type ValidatedOwnerHeygen4Image, type ValidatedOwnerHeygen4Audio } from "./owner-heygen4-media-policy.js";
 
@@ -42,7 +43,7 @@ export const OWNER_HEYGEN4_SOURCE_PROFILE = Object.freeze({
 } as const);
 
 export function getOwnerHeygen4Parameters() {
-  return Object.freeze({ model_id: OWNER_HEYGEN4_MODEL_ID, ai_name: OWNER_HEYGEN4_AI_NAME, aspect_ratios: OWNER_HEYGEN4_SOURCE_PROFILE.controls.aspect_ratio,
+  return Object.freeze({ current_source_controls: OWNER_HEYGEN4_CURRENT_CONTROLS, model_id: OWNER_HEYGEN4_MODEL_ID, ai_name: OWNER_HEYGEN4_AI_NAME, aspect_ratios: OWNER_HEYGEN4_SOURCE_PROFILE.controls.aspect_ratio,
     initial_aspect_ratio: OWNER_HEYGEN4_SOURCE_PROFILE.controls.initial_aspect_ratio,
     image_count: OWNER_HEYGEN4_SOURCE_PROFILE.initial_tuple.image_count, audio_count: OWNER_HEYGEN4_SOURCE_PROFILE.initial_tuple.audio_count,
     accepted_image_mime_types: OWNER_HEYGEN4_SOURCE_PROFILE.public_bounds.accepted_image_mime_types,
@@ -57,6 +58,7 @@ export function getOwnerHeygen4Parameters() {
 }
 
 export interface OwnerHeygen4Input {
+  readonly aspect_ratio?: OwnerHeygen4AspectRatio;
   readonly attemptId: string;
   readonly prompt: string;
   readonly image: Readonly<ValidatedOwnerHeygen4Image>;
@@ -69,10 +71,10 @@ export interface OwnerHeygen4NormalizedInput extends OwnerHeygen4Input {
   readonly intent_fingerprint: string;
   readonly duration: number;
   readonly cost_parameters: Readonly<{ duration: number }>;
-  readonly aspect_ratio: "16:9";
+  readonly aspect_ratio: OwnerHeygen4AspectRatio;
 }
 export interface OwnerHeygen4IntentInput { readonly attemptId: string; readonly prompt: string; readonly image_sha256: string;
-  readonly image_file_id: string; readonly audio_sha256: string; readonly audio_file_id: string; readonly duration: number; }
+  readonly image_file_id: string; readonly audio_sha256: string; readonly audio_file_id: string; readonly duration: number; readonly aspect_ratio?: OwnerHeygen4AspectRatio; }
 
 export class OwnerHeygen4ParametersError extends Error {
   constructor(readonly code: "INVALID_REQUEST" | "IMAGE_NOT_VALIDATED" | "AUDIO_NOT_VALIDATED") {
@@ -82,7 +84,7 @@ export class OwnerHeygen4ParametersError extends Error {
 }
 
 export function normalizeOwnerHeygen4Input(value: unknown): Readonly<OwnerHeygen4NormalizedInput> {
-  const row = exact(value, ["attemptId", "prompt", "image", "image_file_id", "audio", "audio_file_id"]);
+  const row = exact(value, ["attemptId", "prompt", "image", "image_file_id", "audio", "audio_file_id"], ["aspect_ratio"]);
   if (typeof row.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(row.attemptId) ||
       typeof row.prompt !== "string" || !row.prompt.trim() || row.prompt.length > 2_000 || !wellFormed(row.prompt) ||
       /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(row.prompt) ||
@@ -99,16 +101,17 @@ export function normalizeOwnerHeygen4Input(value: unknown): Readonly<OwnerHeygen
     throw new OwnerHeygen4ParametersError("AUDIO_NOT_VALIDATED");
   }
   const intent = normalizeOwnerHeygen4Intent({ attemptId: row.attemptId, prompt: row.prompt, image_sha256: row.image.sha256,
-    image_file_id: row.image_file_id, audio_sha256: row.audio.sha256, audio_file_id: row.audio_file_id, duration: row.audio.duration_seconds });
+    image_file_id: row.image_file_id, audio_sha256: row.audio.sha256, audio_file_id: row.audio_file_id, duration: row.audio.duration_seconds,
+    ...(row.aspect_ratio === undefined ? {} : { aspect_ratio: row.aspect_ratio }) });
   return Object.freeze({ attemptId: row.attemptId, prompt: row.prompt, image: row.image, image_file_id: row.image_file_id,
     audio: row.audio, audio_file_id: row.audio_file_id, intent_fingerprint: intent.intent_fingerprint,
-    duration: intent.duration, cost_parameters: intent.cost_parameters, aspect_ratio: "16:9" });
+    duration: intent.duration, cost_parameters: intent.cost_parameters, aspect_ratio: intent.aspect_ratio });
 }
 
 /** Normalizes trusted process-local import metadata after the native client has matched the account object's exact bytes. */
 export function normalizeOwnerHeygen4Intent(value: OwnerHeygen4IntentInput | unknown): Readonly<Pick<OwnerHeygen4NormalizedInput,
   "attemptId" | "prompt" | "image_file_id" | "audio_file_id" | "intent_fingerprint" | "duration" | "cost_parameters" | "aspect_ratio">> {
-  const row = exact(value, ["attemptId", "prompt", "image_sha256", "image_file_id", "audio_sha256", "audio_file_id", "duration"]);
+  const row = exact(value, ["attemptId", "prompt", "image_sha256", "image_file_id", "audio_sha256", "audio_file_id", "duration"], ["aspect_ratio"]);
   if (typeof row.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(row.attemptId) || typeof row.prompt !== "string" ||
       !row.prompt.trim() || row.prompt.length > 2_000 || !wellFormed(row.prompt) || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(row.prompt) ||
       typeof row.image_sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(row.image_sha256) || typeof row.audio_sha256 !== "string" ||
@@ -117,19 +120,21 @@ export function normalizeOwnerHeygen4Intent(value: OwnerHeygen4IntentInput | unk
       typeof row.duration !== "number" || !Number.isFinite(row.duration) || row.duration < 2 || row.duration > 120) {
     throw new OwnerHeygen4ParametersError("INVALID_REQUEST");
   }
+  let aspectRatio: OwnerHeygen4AspectRatio;
+  try { aspectRatio = ownerHeygen4AspectRatio(row.aspect_ratio); } catch { throw new OwnerHeygen4ParametersError("INVALID_REQUEST"); }
   return Object.freeze({ attemptId: row.attemptId, prompt: row.prompt, image_file_id: row.image_file_id, audio_file_id: row.audio_file_id,
     intent_fingerprint: fingerprint({ prompt: row.prompt, image_sha256: row.image_sha256, image_file_id: row.image_file_id,
-      audio_sha256: row.audio_sha256, audio_file_id: row.audio_file_id, aspect_ratio: "16:9", duration: row.duration }),
-    duration: row.duration, cost_parameters: Object.freeze({ duration: row.duration }), aspect_ratio: "16:9" });
+      audio_sha256: row.audio_sha256, audio_file_id: row.audio_file_id, aspect_ratio: aspectRatio, duration: row.duration }),
+    duration: row.duration, cost_parameters: Object.freeze({ duration: row.duration }), aspect_ratio: aspectRatio });
 }
 
-function exact(value: unknown, keys: readonly string[]): Record<string, any> {
+function exact(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, any> {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) throw new OwnerHeygen4ParametersError("INVALID_REQUEST");
   let descriptors: PropertyDescriptorMap; try { descriptors = Object.getOwnPropertyDescriptors(value); }
   catch { throw new OwnerHeygen4ParametersError("INVALID_REQUEST"); }
   const names = Reflect.ownKeys(descriptors);
-  if ((Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) || names.length !== keys.length ||
-      names.some((key) => typeof key !== "string" || !keys.includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) {
+  if ((Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) || keys.some((key) => !Object.hasOwn(descriptors, key)) ||
+      names.some((key) => typeof key !== "string" || ![...keys, ...optional].includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) {
     throw new OwnerHeygen4ParametersError("INVALID_REQUEST");
   }
   const result = Object.create(null) as Record<string, unknown>; for (const key of names as string[]) result[key] = descriptors[key]!.value; return result;

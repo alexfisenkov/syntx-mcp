@@ -19,7 +19,7 @@ import { bindOwnerWan27I2vAck, bindOwnerWan27I2vOwnerEcho, bindOwnerWan27I2vResu
   isOwnerWan27I2vChatContextForClient, readOwnerWan27I2vTransport, registerOwnerWan27I2vOperation }
   from "../adapter/syntx/owner-wan27-i2v-native-context.js";
 import { buildOwnerWan27I2vWire, type OwnerWan27I2vWireCandidate } from "./owner-wan27-i2v-wire.js";
-import { getOwnerWan27I2vSourceProfile, normalizeOwnerWan27I2vParameters,
+import { getOwnerWan27I2vSourceProfile, getOwnerWan27I2vCurrentSource, normalizeOwnerWan27I2vParameters,
   type OwnerWan27I2vInput, type OwnerWan27I2vNormalizedParameters } from "./owner-wan27-i2v-parameters.js";
 import { isOwnerWan27I2vReferenceService, type OwnerWan27I2vOwnedImage, type OwnerWan27I2vReferenceService } from "./owner-wan27-i2v-reference-service.js";
 
@@ -83,7 +83,7 @@ export class OwnerWan27I2vGenerationServiceError extends Error {
 /** Draft owner-only WAN27 I2V engine. No canonical client methods are added from this draft. */
 export class OwnerWan27I2vGenerationService {
   readonly #binding: Readonly<AuthBinding>; readonly #links: Pick<PerUserLinkService,"getStatus">;
-  readonly #references: OwnerWan27I2vReferenceService; readonly #catalog: DiscoveryCatalogRepository;
+  readonly #references: OwnerWan27I2vReferenceService; readonly #catalog: DiscoveryCatalogRepository; readonly #currentCatalog: DiscoveryCatalogRepository;
   readonly #resolve: (attempt: string) => unknown; readonly #read: (attempt: string) => unknown;
   readonly #now: () => number; readonly #timeout: number; readonly #records = new Map<string,Operation>();
   readonly #epochs = new Map<string,number>(); readonly #claims = new Set<string>(); readonly #pending = new Set<Promise<unknown>>();
@@ -99,7 +99,13 @@ export class OwnerWan27I2vGenerationService {
     this.#references = f.referenceService as OwnerWan27I2vReferenceService; this.#catalog = f.catalog as DiscoveryCatalogRepository;
     this.#resolve = f.resolveChatClient as (attempt: string) => unknown; this.#read = f.createReadClient as (attempt: string) => unknown;
     this.#now = f.now as () => number; this.#timeout = bounded(f.timeoutMs,1_000,300_000,120_000);
-    assertCatalog(this.#catalog,f.catalogDirectory as string|undefined); SERVICES.add(this); Object.freeze(this);
+    assertCatalog(this.#catalog,f.catalogDirectory as string|undefined);
+    this.#currentCatalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(getOwnerWan27I2vCurrentSource().public_version, f.catalogDirectory as string|undefined));
+    const current = this.#currentCatalog.getModel(MODEL_ID);
+    if (this.#currentCatalog.source_hashes.models !== "sha256:11f085ad9b0dd97435d6ebece623fa85bce2870e714e876e6fbb041c562fb438" ||
+        !current.active || current.ai_name !== AI_NAME || current.upstream_id !== MODEL_ID || current.settings?.uploadable !== true ||
+        schemaHash([...(current.settings?.get_cost_params ?? [])].sort()) !== schemaHash(["resolution", "video_duration"])) fail("MODEL_BINDING_MISMATCH");
+    SERVICES.add(this); Object.freeze(this);
   }
   generate(input: OwnerWan27I2vGenerateInput | unknown, signal?: AbortSignal): Promise<OwnerWan27I2vGenerationResult> {
     const request = generateRequest(input), normalized = normalizeOwnerWan27I2vParameters(sourceInput(request));
@@ -177,10 +183,11 @@ export class OwnerWan27I2vGenerationService {
     await this.#current(op,d);this.#validate(op,true);
     const read=this.#read(op.request.attemptId);if(!genuine(read,SyntxHttpClient,["getAccountBalance","getSubscription","getModelInfo"]))fail("PREFLIGHT_FAILED");
     const account=await d.waitFor(new AccountStatusService(read as SyntxHttpClient,()=>this.#time()).getAccountStatus(d.signal));
-    const access=await d.waitFor(new ModelAccessService(this.#catalog,read as SyntxHttpClient,()=>this.#time()).getModelAccess(
+    const catalog = op.normalized.source_profile_sha256 === getOwnerWan27I2vCurrentSource().source_sha256 ? this.#currentCatalog : this.#catalog;
+    const access=await d.waitFor(new ModelAccessService(catalog,read as SyntxHttpClient,()=>this.#time()).getModelAccess(
       {model_id:MODEL_ID,cost_parameters:op.normalized.cost_parameters},d.signal));
     const now=this.#time();
-    validateQuote(access,account,this.#catalog,now);op.quoteAt=Math.min(Date.parse(account.observed_at),Date.parse(access.observed_at));
+    validateQuote(access,account,catalog,now);op.quoteAt=Math.min(Date.parse(account.observed_at),Date.parse(access.observed_at));
     await this.#current(op,d);this.#validate(op,true);
   }
   async #current(op:Operation,d:AbsoluteRequestDeadline):Promise<void>{
@@ -194,7 +201,8 @@ export class OwnerWan27I2vGenerationService {
     if(op.chat&&(!isOwnerWan27I2vChatContextForClient(op.client,op.chat,op.request.attemptId)||
       !op.client.isOwnerWan27I2vChat(op.chat,op.request.attemptId)))fail("CHAT_CONTEXT_INVALID");
     if(dispatch&&(!this.#references.isOwnedImage(op.reference)||op.reference.expires_at<=this.#time()||
-      op.wire.source_profile_sha256!==getOwnerWan27I2vSourceProfile().source_sha256))fail("REFERENCE_EXPIRED");
+      op.wire.source_profile_sha256!==op.normalized.source_profile_sha256 ||
+      ![getOwnerWan27I2vSourceProfile().source_sha256,getOwnerWan27I2vCurrentSource().source_sha256].includes(op.wire.source_profile_sha256)))fail("REFERENCE_EXPIRED");
     if(dispatch&&op.phase==="READY"&&(this.#time()<op.quoteAt||this.#time()-op.quoteAt>FRESH_MS))fail("PREFLIGHT_EXPIRED");
   }
   async #collect(op:Operation,d:AbsoluteRequestDeadline):Promise<OwnerWan27I2vGenerationResult>{
@@ -277,8 +285,8 @@ function generateRequest(value:unknown):OwnerWan27I2vGenerateInput{
   return Object.freeze({attemptId:f.attemptId,...request,image_handle:f.image_handle}) as OwnerWan27I2vGenerateInput;
 }
 function sourceInput(request:OwnerWan27I2vGenerateInput):OwnerWan27I2vInput{return Object.freeze({model_id:MODEL_ID,prompt:request.prompt,
-  resolution:request.resolution as "720P",aspect_ratio:request.aspect_ratio as "1:1",video_duration:request.video_duration as 5,
-  prompt_extend:false,shot_type:"single",audio_setting:"auto",seed:null,native_audio:false,rendering_speed:"basic"});}
+  resolution:request.resolution,aspect_ratio:request.aspect_ratio,video_duration:request.video_duration,
+  prompt_extend:request.prompt_extend,shot_type:"single",audio_setting:"auto",seed:request.seed,native_audio:false,rendering_speed:"basic"});}
 function parseHistory(value: unknown): { messages: Array<{ id: string; chat_id: string | number; author_id: number; message_object: Array<Record<string, unknown>> }>; total: number } {
   if (!value || typeof value !== "object" || types.isProxy(value)) fail("HISTORY_UNVERIFIED");
   const source = value as Record<string, unknown>, page = source.pagination as Record<string, unknown>;

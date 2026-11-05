@@ -69,7 +69,7 @@ test("requires an explicit boolean multi-shot mode at version 3.0 and validates 
   reject({ multi_shots: false });
   reject({ temperature: -0.1, multi_shots: false });
   reject({ temperature: 1.1, multi_shots: false });
-  reject({ temperature: 0.55, multi_shots: false });
+  assert.equal(buildOwnerKlingI2vWireSettingsTemplate({ parameters: PARAMETERS, controls: { temperature: 0.55, multi_shots: false } }).settings_template.temperature, 0.55);
   const singleShot = buildOwnerKlingI2vWireSettingsTemplate({
     parameters: PARAMETERS, controls: { temperature: 1, multi_shots: false }
   });

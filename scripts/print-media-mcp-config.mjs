@@ -307,6 +307,9 @@ export function buildMediaMcpConfig(entryUrl, nodeExecutable, options = undefine
   env.SYNTX_LOCAL_IMAGE_ROOTS = JSON.stringify(selection.localImageRoots ?? []);
   if (selection.includeAllSupportedMedia) {
     env.SYNTX_OWNER_MEDIA_PROFILE = "all-supported";
+    // Explicit media opt-in admits bounded Base64 for the supported large files.
+    // The base owner-stdio transport retains its 10 MiB default.
+    env.SYNTX_STDIO_MAX_BUFFER_BYTES = String(192 * 1024 * 1024);
     env.SYNTX_OWNER_GENERATE_IMAGE = "1";
     env.SYNTX_OWNER_GENERATE_VIDEO = "1";
     env.SYNTX_OWNER_GROK_IMAGE_REFERENCES = "1";

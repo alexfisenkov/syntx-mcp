@@ -22,6 +22,7 @@ import { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION } from "../catalog/selected-discovery-catalog.js";
 import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
 import { sameGenerationPrincipal } from "../domain/generation-principal.js";
+import { schemaHash } from "../domain/generation-contract.js";
 import {
   createOwnerClarityUpscaleCompletionPolicy,
   decideOwnerClarityUpscaleCompletion,
@@ -32,6 +33,7 @@ import { createOwnerClarityUpscaleOneShotPermit } from "./owner-clarity-upscale-
 import {
   OwnerClarityUpscalePrepareError,
   prepareOwnerClarityUpscaleRequest,
+  getOwnerClarityUpscaleSourceProfile,
   type OwnerClarityUpscalePreparedCandidate
 } from "./owner-clarity-upscale-request-preparer.js";
 import {
@@ -347,6 +349,10 @@ export class OwnerClarityUpscaleGenerationService {
       const refreshedCandidate = await this.#prepareCandidate(request, principal, deadline.signal);
       assertSamePreparedIntent(candidate, refreshedCandidate);
       candidate = refreshedCandidate;
+      if (candidate.profile_schema_hash !== schemaHash(getOwnerClarityUpscaleSourceProfile())) {
+        try { preflight = await this.#await(deadline, () => this.#preflight(request.attemptId, principal, deadline.signal)); }
+        catch { throw generationError("PREFLIGHT_FAILED"); }
+      }
       this.#assertFreshPreflight(preflight);
       await this.#assertPrincipal(request.attemptId, principal, deadline);
       const permit = createOwnerClarityUpscaleOneShotPermit({

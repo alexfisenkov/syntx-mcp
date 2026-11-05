@@ -58,11 +58,34 @@ export interface OwnerWan30EditOriginalProbeRunner {
 interface RetainedReceipt { readonly bytes: Buffer; readonly sha256: string; }
 const retainedReceipts = new WeakMap<object, RetainedReceipt>();
 const resultDescriptors = new WeakMap<object, Readonly<Record<string, PropertyDescriptor>>>();
+const currentReceipts = new WeakSet<object>();
 
 /** ffprobePath is absolute trusted operator configuration and is never accepted from the probe input. */
 export function createOwnerWan30EditOriginalProbe(config: unknown): OwnerWan30EditOriginalProbeRunner {
   const { ffprobePath, timeoutMs } = exactConfig(config);
-  return Object.freeze({ probe: (input: unknown) => probeOriginal(ffprobePath, timeoutMs, input) });
+  return Object.freeze({ probe: (input: unknown) => probeOriginal(ffprobePath, timeoutMs, input, false) });
+}
+
+/** Separate source-current witness; the historical factory remains limited to two seconds. */
+export function createOwnerWan30EditCurrentOriginalProbe(config: unknown): OwnerWan30EditOriginalProbeRunner {
+  const { ffprobePath, timeoutMs } = exactConfig(config);
+  return Object.freeze({ probe: (input: unknown) => probeOriginal(ffprobePath, timeoutMs, input, true) });
+}
+
+/** Preserve the observed witness first, then admit the separate current form witness when appropriate. */
+export function createOwnerWan30EditCompatibleOriginalProbe(config: unknown): OwnerWan30EditOriginalProbeRunner {
+  const { ffprobePath, timeoutMs } = exactConfig(config);
+  return Object.freeze({ async probe(input: unknown) {
+    try { return await probeOriginal(ffprobePath, timeoutMs, input, false); }
+    catch (error) {
+      if (!(error instanceof OwnerWan30EditOriginalProbeError) || (error.code !== "INVALID_ORIGINAL" && error.code !== "ORIGINAL_LOCAL_LIMIT_EXCEEDED")) throw error;
+      return probeOriginal(ffprobePath, timeoutMs, input, true);
+    }
+  } });
+}
+
+export function isTrustedOwnerWan30EditCurrentOriginalProbeResult(value: unknown): value is Readonly<TrustedOwnerWan30EditOriginalProbeResult> {
+  return isTrustedOwnerWan30EditOriginalProbeResult(value) && currentReceipts.has(value);
 }
 
 export function isTrustedOwnerWan30EditOriginalProbeResult(value: unknown): value is Readonly<TrustedOwnerWan30EditOriginalProbeResult> {
@@ -91,9 +114,10 @@ export function releaseTrustedOwnerWan30EditOriginalProbeResult(value: unknown):
   retainedReceipts.get(value)!.bytes.fill(0);
   retainedReceipts.delete(value);
   resultDescriptors.delete(value);
+  currentReceipts.delete(value);
 }
 
-async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unknown): Promise<Readonly<TrustedOwnerWan30EditOriginalProbeResult>> {
+async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unknown, current: boolean): Promise<Readonly<TrustedOwnerWan30EditOriginalProbeResult>> {
   const request = exactInput(input);
   if (!safeFilename(request.filename) || request.mime_type !== "video/mp4") invalid();
   const sourceView = readSourceBytes(request.bytes);
@@ -127,8 +151,8 @@ async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unkn
 
     const stdout = await runFfprobe(executablePath, inputPath, timeoutMs, request.signal);
     if (request.signal && signalIsAborted(request.signal)) throw new OwnerWan30EditOriginalProbeError("PROBE_ABORTED");
-    const measured = parseFfprobe(stdout);
-    if (Math.abs(measured.duration - 2) > 0.001 || measured.width < 240 || measured.height < 240 ||
+    const measured = parseFfprobe(stdout, current);
+    if ((current ? measured.duration < 1 || measured.duration > 15 : Math.abs(measured.duration - 2) > 0.001) || measured.width < 240 || measured.height < 240 ||
         measured.width > 8_000 || measured.height > 8_000 || measured.width * measured.height > 52_500_000 ||
         measured.fps < 16 || measured.fps > 120) limit();
     const after = await lstat(inputPath);
@@ -153,6 +177,7 @@ async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unkn
     mintedReceipt = result;
     retainedReceipts.set(result, { bytes: ownedCopy, sha256 });
     resultDescriptors.set(result, Object.getOwnPropertyDescriptors(result));
+    if (current) currentReceipts.add(result);
     ownedCopy = undefined;
     return result;
   } catch (error) {
@@ -174,6 +199,7 @@ async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unkn
         retainedReceipts.get(mintedReceipt)?.bytes.fill(0);
         retainedReceipts.delete(mintedReceipt);
         resultDescriptors.delete(mintedReceipt);
+        currentReceipts.delete(mintedReceipt);
       }
       throw new OwnerWan30EditOriginalProbeError("PROBE_FAILED");
     }
@@ -182,6 +208,7 @@ async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unkn
         retainedReceipts.get(mintedReceipt)?.bytes.fill(0);
         retainedReceipts.delete(mintedReceipt);
         resultDescriptors.delete(mintedReceipt);
+        currentReceipts.delete(mintedReceipt);
       }
       throw new OwnerWan30EditOriginalProbeError("PROBE_ABORTED");
     }
@@ -248,7 +275,7 @@ function runFfprobe(path: string, inputPath: string, timeoutMs: number, signal?:
   });
 }
 
-function parseFfprobe(output: string): { width: number; height: number; duration: number; fps: number; frameCount: number | null } {
+function parseFfprobe(output: string, allowAudio: boolean): { width: number; height: number; duration: number; fps: number; frameCount: number | null } {
   let root: unknown;
   try { root = JSON.parse(output); } catch { return invalid(); }
   if (!isRecord(root) || !Array.isArray(root.streams) || root.streams.length < 1 || root.streams.length > 32 || !isRecord(root.format) ||
@@ -259,7 +286,7 @@ function parseFfprobe(output: string): { width: number; height: number; duration
     streams.push(item);
   }
   const videos = streams.filter((stream) => stream.codec_type === "video");
-  if (videos.length !== 1 || streams.some((stream) => stream.codec_type === "audio")) return invalid();
+  if (videos.length !== 1 || (!allowAudio && streams.some((stream) => stream.codec_type === "audio"))) return invalid();
   const video = videos[0]!;
   const width = positiveInteger(video.width), height = positiveInteger(video.height);
   const formatDuration = finitePositive(root.format.duration), streamDuration = finitePositive(video.duration);

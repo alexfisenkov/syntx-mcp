@@ -1,3 +1,4 @@
+import { advertisedUnionInputSchema } from "./advertised-input-schema.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
@@ -18,27 +19,17 @@ const modelIdSchema = z.enum(OWNER_EXPANDED_T2V_MODEL_IDS);
 const commonInput = { link_attempt_id: attemptIdSchema, prompt: z.string().min(1).max(5_000) };
 const generationInputSchema = z.discriminatedUnion("model_id", [
   z.object({ model_id: z.literal("flux3_t2v"), ...commonInput, video_duration: z.number().int().min(5).max(20), resolution: z.enum(["hd", "fhd"]), aspect_ratio: z.enum(["auto", "21:9", "2:1", "16:9", "4:3", "1:1", "3:4", "9:16"]), generate_audio: z.boolean() }).strict(),
-  z.object({ model_id: z.literal("happy_horse_t2v"), ...commonInput, video_duration: z.number().int().min(3).max(15), resolution: z.enum(["720P", "1080P"]), aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4"]) }).strict(),
+  z.object({ model_id: z.literal("happy_horse_t2v"), ...commonInput, video_duration: z.number().finite().min(3).max(15), resolution: z.enum(["720P", "1080P"]), aspect_ratio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4"]), seed: z.number().int().min(0).max(2147483647).nullable().optional() }).strict(),
   z.object({ model_id: z.literal("seedance-1.5-pro"), ...commonInput, video_duration: z.number().int().min(5).max(12), resolution: z.literal("720p"), aspect_ratio: z.enum(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]), generate_audio: z.boolean(), camera_fixed: z.boolean() }).strict(),
   z.object({ model_id: z.literal("seedance_pro"), ...commonInput, video_duration: z.union([z.literal(5), z.literal(10)]), resolution: z.enum(["480p", "720p", "1080p"]), aspect_ratio: z.enum(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]) }).strict(),
   z.object({ model_id: z.literal("seedance_pro-fast"), ...commonInput, video_duration: z.number().int().min(5).max(12), resolution: z.enum(["480p", "720p", "1080p"]), aspect_ratio: z.enum(["16:9", "4:3", "1:1", "3:4", "9:16"]) }).strict(),
-  z.object({ model_id: z.literal("text2video-4.5"), ...commonInput, video_duration: z.enum(["5.0", "8.0", "10.0"]), aspect_ratio: z.enum(["169", "916"]) }).strict()
+  z.object({ model_id: z.literal("text2video-4.5"), ...commonInput, video_duration: z.enum(["5.0", "8.0", "10.0"]), aspect_ratio: z.enum(["169", "916"]), seed: z.number().int().min(0).max(2147483647).nullable().optional() }).strict()
 ]);
-const mcpGenerationInputSchema = z.object({
-  model_id: modelIdSchema,
-  ...commonInput,
-  video_duration: z.union([z.number().int().min(3).max(20), z.enum(["5.0", "8.0", "10.0"])]).optional(),
-  resolution: z.enum(["hd", "fhd", "720P", "1080P", "720p", "480p", "1080p"]).optional(),
-  aspect_ratio: z.enum(["auto", "21:9", "2:1", "16:9", "4:3", "1:1", "3:4", "9:16", "169", "916"]).optional(),
-  generate_audio: z.boolean().optional(),
-  camera_fixed: z.boolean().optional()
-}).strict().superRefine((input, context) => {
-  const parsed = generationInputSchema.safeParse(input);
-  if (!parsed.success) context.addIssue({ code: "custom", message: "Fields and values must match the selected source-reviewed model controls." });
-});
+const mcpGenerationInputSchema = advertisedUnionInputSchema(generationInputSchema);
 
 const sourceOutputSchema = z.object({
   status: z.literal("CURRENT_STATIC_FORM_SOURCE_REVIEWED_CONTROLS_WITH_LIMITATIONS"),
+  current_controls: z.json().optional(),
   source_pins: z.object({ public_catalog_version: z.string(), public_models_sha256: z.string(), settings_inventory_version: z.string(),
     build_id: z.string(), form_module: z.string(), form_bytes: z.number().int(), form_sha256: z.string(), sender_module: z.literal("video.js"),
     sender_bytes: z.literal(8_689), sender_sha256: z.string() }).strict(),

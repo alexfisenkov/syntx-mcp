@@ -1,4 +1,5 @@
 import { types } from "node:util";
+import {WAN30_CURRENT_FORM_SOURCE} from "../application/owner-wan30-current-form-source.js";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -66,9 +67,10 @@ const uploadInputSchema = z.object({
   }
 });
 const parametersSchema = z.object({
-  aspect_ratio: z.literal("16:9"), resolution: z.literal("480P"), video_duration: z.literal(2), prompt_extend: z.literal(true),
-  shot_type: z.literal("single"), audio_setting: z.literal("auto"), seed: z.null(), native_audio: z.literal(false),
-  duration: z.literal(0), rendering_speed: z.literal("basic")
+  aspect_ratio:z.enum(["16:9","9:16","1:1","4:3","3:4","adaptive"]).default("16:9"),resolution:z.enum(["480P","720P","1080P"]).default("480P"),
+  video_duration:z.number().int().min(2).max(30).default(2),prompt_extend:z.boolean().default(true),
+  shot_type:z.literal("single").default("single"),audio_setting:z.literal("auto").default("auto"),seed:z.number().int().min(0).max(2147483647).nullable().default(null),
+  native_audio:z.boolean().default(false),duration:z.literal(0).default(0),rendering_speed:z.enum(["basic","prime"]).default("basic")
 }).strict();
 const promptSchema = z.string().min(1).max(20_000).refine((value) => isWellFormedUnicode(value) && value.trim().length > 0 &&
   !value.includes("<<<") && !value.includes(">>>"),
@@ -80,7 +82,7 @@ const generateInputSchema = z.object({
   image_handle: imageHandleSchema
 }).strict().superRefine((input, context) => {
   try { normalizeOwnerWan30OmniGenerationIntent({ prompt: input.prompt, parameters: input.parameters }); }
-  catch { context.addIssue({ code: "custom", path: ["parameters"], message: "The one observed WAN 3.0 Omni image tuple is required." }); }
+  catch { context.addIssue({ code: "custom", path: ["parameters"], message: "The WAN Omni source-bounded settings are invalid." }); }
 });
 const reconcileInputSchema = z.object({ link_attempt_id: attemptSchema, recovery_id: recoveryIdSchema }).strict();
 const listRecoveriesInputSchema = z.object({ link_attempt_id: attemptSchema,
@@ -93,6 +95,10 @@ const tenParametersSchema = z.object({
   shot_type: z.literal("single"), audio_setting: z.literal("auto"), seed: z.null(), native_audio: z.literal(false),
   duration: z.literal(0), rendering_speed: z.literal("basic")
 }).strict();
+const currentParametersOutputSchema = z.object({aspect_ratio:z.enum(["16:9","9:16","1:1","4:3","3:4","adaptive"]),
+  resolution:z.enum(["480P","720P","1080P"]),video_duration:z.number().int().min(2).max(30),prompt_extend:z.boolean(),
+  shot_type:z.literal("single"),audio_setting:z.literal("auto"),seed:z.number().int().min(0).max(2147483647).nullable(),
+  native_audio:z.boolean(),duration:z.literal(0),rendering_speed:z.enum(["basic","prime"])}).strict();
 const sourceOutputSchema = z.object({
   profile_id: z.literal(SOURCE.profile_id), status: z.literal(SOURCE.status), model_id: z.literal(SOURCE.model_id),
   ai_name: z.literal(SOURCE.ai_name),
@@ -127,7 +133,7 @@ const sourceOutputSchema = z.object({
     other_omni_input_variants: z.literal("NOT_COVERED") }).strict(),
   prompt_limit: z.object({ maximum_utf16_length: z.literal(20_000),
     source: z.literal("LOCAL_SAFETY_BOUND_NOT_OMNI_UI_OR_PROVIDER_LIMIT") }).strict(),
-  effective_defaults: z.literal("UNKNOWN"), dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN")
+  effective_defaults: z.literal("UNKNOWN"), dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN"),current_source:z.unknown().optional()
 }).strict();
 const diagnosticSchema = z.object({
   phase: z.enum(OWNER_WAN_T2V_GENERATION_PHASES), post_started: z.boolean(), ack_known: z.boolean(),
@@ -150,9 +156,9 @@ const artifactSchema = z.object({ url: z.string().url().max(4_096).refine(isSafe
 const generationOutputSchema = z.object({
   status: z.enum(["completed", "partial_results"]), status_semantics: z.literal("LOCAL_OBSERVED_AVAILABILITY_ONLY"),
   backend_acceptance: z.literal("UNPROVEN"), provider_terminal_status: z.literal("UNPROVEN"), model_id: z.literal("wan_30_omni"),
-  parameters: tenParametersSchema, cost_inputs: z.object({ resolution: z.literal("480P"), video_duration: z.literal(2),
-    duration: z.literal(0), rendering_speed: z.literal("basic") }).strict(),
-  cost_input_confidence: z.literal("UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING"),
+  parameters: currentParametersOutputSchema, cost_inputs: z.object({ resolution:z.enum(["480P","720P","1080P"]),video_duration:z.number().int().min(2).max(30),
+    duration:z.literal(0),rendering_speed:z.enum(["basic","prime"]) }).strict(),
+  cost_input_confidence: z.enum(["UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING","CURRENT_STATIC_SOURCE_NOT_BILLING"]),
   recovery_id: recoveryIdSchema, observed_artifact_count: z.number().int().min(0).max(MAX_RESULTS),
   offset: z.number().int().min(0).max(MAX_RESULTS), page_size: z.literal(PAGE_SIZE), artifacts: z.array(artifactSchema).max(PAGE_SIZE),
   has_more: z.boolean(), next_offset: z.number().int().min(1).max(MAX_RESULTS).nullable(), diagnostic: diagnosticSchema
@@ -189,12 +195,12 @@ export function registerSyntxOwnerWan30OmniVideoTools(server: McpServer,
   const options = snapshotOptions(optionsInput);
   server.registerTool(SYNTX_GET_WAN30_OMNI_PARAMETERS_TOOL_NAME, {
     title: "Get WAN 3.0 Omni parameters",
-    description: "Returns one observed Omni image request and selected-mode quote. It does not claim other Omni inputs, full controls, effective defaults, provider acceptance, or billing.",
+    description: "Returns the historical one-image observation and separate current source evidence. Additional media inputs, effective defaults and provider acceptance remain unproven.",
     inputSchema: emptyInputSchema, outputSchema: sourceOutputSchema,
     annotations: { title: "Get WAN 3.0 Omni parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async (input) => {
     if (!emptyInputSchema.safeParse(snapshotSafeInput(input)).success) return errorResult({ error: { code: "INVALID_REQUEST", message: ERROR_MESSAGES.INVALID_REQUEST } });
-    return structured(parseSafeOutput(sourceOutputSchema, SOURCE));
+    return structured(parseSafeOutput(sourceOutputSchema, {...SOURCE,current_source:WAN30_CURRENT_FORM_SOURCE}));
   });
 
   server.registerTool(SYNTX_OWNER_UPLOAD_WAN30_OMNI_IMAGE_TOOL_NAME, {

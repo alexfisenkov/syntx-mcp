@@ -13,7 +13,7 @@ import {
   createOwnerWan30EditGenerationContext, inspectOwnerWan30EditGenerationContext,
   readOwnerWan30EditPrivateAckContext, readOwnerWan30EditPrivateWireBinding,
   releaseOwnerWan30EditGenerationContext, releaseOwnerWan30EditUploadedVideo,
-  releaseOwnerWan30EditVideoInput, uploadOwnerWan30EditVideo, validateOwnerWan30EditVideoInput,
+  releaseOwnerWan30EditVideoInput, uploadOwnerWan30EditVideo, validateOwnerWan30EditVideoInput, validateOwnerWan30EditCurrentVideoInput,
   OwnerWan30EditNativeContextError,
   type OwnerWan30EditGenerationContext, type OwnerWan30EditOwnerAckBinding,
   type OwnerWan30EditUploadedVideo, type OwnerWan30EditValidatedVideo
@@ -24,10 +24,11 @@ import {
   type OwnerWan30EditGenerationParameters
 } from "./owner-wan30-edit-generation-parameters.js";
 import {
-  isTrustedOwnerWan30EditOriginalProbeResult, releaseTrustedOwnerWan30EditOriginalProbeResult,
+  isTrustedOwnerWan30EditCurrentOriginalProbeResult, isTrustedOwnerWan30EditOriginalProbeResult, releaseTrustedOwnerWan30EditOriginalProbeResult,
   type TrustedOwnerWan30EditOriginalProbeResult
 } from "../adapter/syntx/owner-wan30-edit-original-probe.js";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
+import {WAN30_CURRENT_FORM_SOURCE,WAN30_EDIT_CURRENT_PROFILE_ID} from "./owner-wan30-current-form-source.js";
 import { ACCOUNT_CONTRACT_EVIDENCE, ACCOUNT_SOURCE_BUILD } from "../adapter/syntx/account-decoder.js";
 import type { AuthBinding } from "../auth/types.js";
 import { PerUserLinkService } from "../auth/link-service.js";
@@ -89,7 +90,7 @@ export interface OwnerWan30EditVideoUploadReceipt {
   readonly size: number; readonly sha256: string; readonly width: number; readonly height: number;
   readonly duration_seconds: number; readonly fps: number; readonly frame_count: number | null; readonly expires_in_seconds: number;
   readonly metadata_confidence: "LOCAL_FFPROBE_METADATA_ONLY";
-  readonly upload_binding_confidence: "UI_MULTIPART_FIELDS_OBSERVED_SINGLE_CASE";
+  readonly upload_binding_confidence: "UI_MULTIPART_FIELDS_OBSERVED_SINGLE_CASE" | "CURRENT_FORM_SOURCE_NOT_PROVIDER_OBSERVED";
 }
 export interface OwnerWan30EditGenerateInput { readonly attemptId: string; readonly input: OwnerWan30EditGenerationIntent; readonly video_handle: string }
 export interface OwnerWan30EditReconcileInput { readonly attemptId: string; readonly recovery_id: string }
@@ -98,8 +99,8 @@ export interface OwnerWan30EditResultPageInput { readonly attemptId: string; rea
 export interface OwnerWan30EditGenerationResult {
   readonly status: "completed" | "partial_results"; readonly status_semantics: "LOCAL_OBSERVED_AVAILABILITY_ONLY";
   readonly backend_acceptance: "UNPROVEN"; readonly provider_terminal_status: "UNPROVEN"; readonly model_id: typeof MODEL_ID;
-  readonly parameters: OwnerWan30EditGenerationParameters; readonly cost_inputs: typeof COST_INPUTS;
-  readonly cost_input_confidence: "UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING"; readonly recovery_id: string;
+  readonly parameters: OwnerWan30EditGenerationParameters; readonly cost_inputs: Readonly<{resolution:string;video_duration:number;duration:number;rendering_speed:string}>;
+  readonly cost_input_confidence: "UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING" | "CURRENT_STATIC_SOURCE_NOT_BILLING"; readonly recovery_id: string;
   readonly observed_artifact_count: number; readonly offset: number; readonly page_size: 64;
   readonly artifacts: readonly OwnerWan30EditVideoArtifact[]; readonly has_more: boolean; readonly next_offset: number | null;
   readonly diagnostic: OwnerWan30EditGenerationDiagnostic;
@@ -158,7 +159,7 @@ export class OwnerWan30EditGenerationService {
   readonly #recoveries = new Map<string, Recovery>(); readonly #runs = new Set<ActiveRun>();
   readonly #invalidating = new Set<string>(); readonly #epochs = new Map<string, number>();
   readonly #usedAccounts = new WeakSet<object>(); readonly #usedAccess = new WeakSet<object>();
-  #editCatalog: DiscoveryCatalogRepository | undefined; #closed = false; #closing: Promise<void> | undefined; #lastNow = -1;
+  #editCatalog: DiscoveryCatalogRepository | undefined; #currentCatalog: DiscoveryCatalogRepository | undefined; #closed = false; #closing: Promise<void> | undefined; #lastNow = -1;
 
   constructor(optionsInput: OwnerWan30EditGenerationServiceOptions | unknown) {
     if (new.target !== OwnerWan30EditGenerationService) invalid();
@@ -206,7 +207,7 @@ export class OwnerWan30EditGenerationService {
     return await this.#run(request.attemptId, signal, async (deadline) => {
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId)), recovery = this.#recoveries.get(request.recovery_id);
       if (!recovery || recovery.attemptId !== request.attemptId || !sameGenerationPrincipal(recovery.principal, principal)) fail("RECOVERY_NOT_FOUND");
-      const source = this.#assertSource(); if (!samePins(recovery.source_pins, source.source_pins)) throw unknown(recovery);
+      const source = this.#assertGenerationSource(recovery.source_pins); if (!samePins(recovery.source_pins, source.source_pins)) throw unknown(recovery);
       if (recovery.status === "outcome_unknown") throw unknown(recovery);
       deadline.throwIfAborted();
       if (this.#invalidating.has(request.attemptId)) fail("PRINCIPAL_NOT_LINKED");
@@ -232,7 +233,7 @@ export class OwnerWan30EditGenerationService {
     let provisional: OwnerWan30EditUploadedVideo | undefined, provisionalClient: SyntxChatHttpClient | undefined;
     let stored = false, nativeInvoked = false, unknownOutcome = false, semanticKey: string | undefined;
     try {
-      this.#prune(this.#readNow()); const source = this.#assertSource();
+      this.#prune(this.#readNow()); this.#assertSource();
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       const client = this.#resolveNativeClient(request.attemptId);
       const pendingProbe = Promise.resolve(Reflect.apply(this.#probe.probe, this.#probe,
@@ -247,9 +248,11 @@ export class OwnerWan30EditGenerationService {
       if (!isTrustedOwnerWan30EditOriginalProbeResult(probeReceipt) || probeReceipt.model_id !== MODEL_ID ||
           probeReceipt.mime_type !== "video/mp4" || probeReceipt.size !== request.bytes.byteLength ||
           createHash("sha256").update(request.bytes).digest("hex") !== probeReceipt.sha256) fail("UPLOAD_REJECTED");
-      validated = validateOwnerWan30EditVideoInput(probeReceipt); probeReceipt = undefined;
+      const currentProbe = isTrustedOwnerWan30EditCurrentOriginalProbeResult(probeReceipt);
+      const source = currentProbe ? this.#assertGenerationSource(WAN30_CURRENT_FORM_SOURCE) : this.#assertSource();
+      validated = currentProbe ? validateOwnerWan30EditCurrentVideoInput(probeReceipt) : validateOwnerWan30EditVideoInput(probeReceipt); probeReceipt = undefined;
       if (validated.model_id !== MODEL_ID || validated.sha256 !== createHash("sha256").update(request.bytes).digest("hex") ||
-          validated.size !== request.bytes.byteLength || Math.abs(validated.duration_seconds - 2) > 0.001 || validated.generation_permit !== false) fail("UPLOAD_REJECTED");
+          validated.size !== request.bytes.byteLength || (!currentProbe && Math.abs(validated.duration_seconds - 2) > 0.001) || validated.generation_permit !== false) fail("UPLOAD_REJECTED");
       const current = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, current) || this.#resolveNativeClient(request.attemptId) !== client || this.#invalidating.has(request.attemptId)) fail("PRINCIPAL_NOT_LINKED");
       semanticKey = semanticUploadKey(request.attemptId, principal, validated, source);
@@ -263,7 +266,7 @@ export class OwnerWan30EditGenerationService {
       try { provisional = await this.#await(deadline, () => pending); }
       catch (error) { void pending.then((late) => releaseOwnerWan30EditUploadedVideo(client, late), () => {}); throw error; }
       provisionalClient = client; deadline.throwIfAborted();
-      if (!validUploaded(provisional, validated) || epoch !== this.#epoch(request.attemptId) || this.#invalidating.has(request.attemptId)) { unknownOutcome = true; fail("UPLOAD_OUTCOME_UNKNOWN"); }
+      if (!validUploaded(provisional, validated, currentProbe) || epoch !== this.#epoch(request.attemptId) || this.#invalidating.has(request.attemptId)) { unknownOutcome = true; fail("UPLOAD_OUTCOME_UNKNOWN"); }
       const after = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, after) || this.#resolveNativeClient(request.attemptId) !== client) { unknownOutcome = true; fail("UPLOAD_OUTCOME_UNKNOWN"); }
       const expires = this.#readNow() + HANDLE_TTL_MS, handle = `wan30_edit_video_${randomUUID()}`;
@@ -290,9 +293,13 @@ export class OwnerWan30EditGenerationService {
 
   async #generate(request: Readonly<OwnerWan30EditGenerateInput>, deadline: AbsoluteRequestDeadline): Promise<OwnerWan30EditGenerationResult> {
     let context: OwnerWan30EditGenerationContext | undefined, recovery: Recovery | undefined;
-    const intent = normalizeOwnerWan30EditGenerationIntent({ prompt: request.input.prompt, parameters: request.input.parameters }).intent;
-    const source = this.#assertSource(), principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
+    const normalized = normalizeOwnerWan30EditGenerationIntent({ prompt: request.input.prompt, parameters: request.input.parameters }), intent = normalized.intent;
+    const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
     const client = this.#resolveNativeClient(request.attemptId), video = this.#getVideoRecord(request.video_handle);
+    const source = this.#assertGenerationSource(video.profile_id===WAN30_EDIT_CURRENT_PROFILE_ID ? WAN30_CURRENT_FORM_SOURCE : normalized.source_pins);
+    if (intent.parameters.duration !== Math.round(video.video.duration_seconds * 100) / 100 ||
+        intent.parameters.video_duration > Math.max(2, Math.floor(Math.round(video.video.duration_seconds * 100) / 100))) fail("REFERENCE_UNAVAILABLE");
+    if(source.profile_id===WAN30_EDIT_CURRENT_PROFILE_ID && (video.video.width<240||video.video.height<240||video.video.width>8000||video.video.height>8000||video.video.fps<16))fail("REFERENCE_UNAVAILABLE");
     this.#assertVideoBinding(video, request.attemptId, principal, client);
     const semanticKey = semanticGenerationKey(principal, intent, video, source), claim = this.#claims.get(semanticKey);
     if (claim !== undefined) {
@@ -303,10 +310,10 @@ export class OwnerWan30EditGenerationService {
     this.#assertVideo(request, video, principal, client); if (this.#claims.size >= MAX_RECOVERIES) fail("SERVICE_BUSY");
     this.#claims.set(semanticKey, Object.freeze({ attemptId: request.attemptId, recovery_id: null }));
     try {
-      await this.#preflight(request.attemptId, deadline); await this.#assertOwnerAndVideo(request, video, principal, client, deadline);
+      await this.#preflight(request.attemptId, deadline,intent.parameters,source.profile_id===WAN30_EDIT_CURRENT_PROFILE_ID); await this.#assertOwnerAndVideo(request, video, principal, client, deadline);
       const chat = await this.#await(deadline, () => Reflect.apply(CHAT_CREATE, client, ["video", `owner-wan30-edit-${randomUUID()}`, deadline.signal]) as Promise<{ chat_uuid: string }>);
       if (!chat || !safeId(chat.chat_uuid)) fail("PRE_DISPATCH_FAILED");
-      await this.#assertOwnerAndVideo(request, video, principal, client, deadline); await this.#preflight(request.attemptId, deadline);
+      await this.#assertOwnerAndVideo(request, video, principal, client, deadline); await this.#preflight(request.attemptId, deadline,intent.parameters,source.profile_id===WAN30_EDIT_CURRENT_PROFILE_ID);
       await this.#assertOwnerAndVideo(request, video, principal, client, deadline);
       context = createOwnerWan30EditGenerationContext(client, Object.freeze({ attempt_id: request.attemptId, principal, chat_id: chat.chat_uuid, intent, reference_video: video.video }));
       const binding = readOwnerWan30EditPrivateWireBinding(client, context);
@@ -333,7 +340,7 @@ export class OwnerWan30EditGenerationService {
     const recovery = this.#recoveries.get(request.recovery_id); if (!recovery || recovery.attemptId !== request.attemptId) fail("RECOVERY_NOT_FOUND");
     try { const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, recovery.principal) || this.#invalidating.has(request.attemptId)) throw unknown(recovery);
-      const source = this.#assertSource(); if (!samePins(recovery.source_pins, source.source_pins)) throw unknown(recovery);
+      const source = this.#assertGenerationSource(recovery.source_pins); if (!samePins(recovery.source_pins, source.source_pins)) throw unknown(recovery);
       if (recovery.status === "completed") return page(recovery, 0); return await this.#observe(recovery, this.#resolveNativeClient(request.attemptId), deadline);
     } catch (error) { if (error instanceof OwnerWan30EditGenerationServiceError && error.code === "RECOVERY_NOT_FOUND") throw error; throw unknown(recovery); }
   }
@@ -400,14 +407,14 @@ export class OwnerWan30EditGenerationService {
     if (!sameGenerationPrincipal(principal, recovery.principal) || this.#resolveNativeClient(recovery.attemptId) !== client || this.#invalidating.has(recovery.attemptId) ||
         !native || native.attempt_id !== recovery.attemptId || native.chat_id !== recovery.chat_uuid || native.dispatch_state !== "RESERVED" || !sameGenerationPrincipal(native.principal, recovery.principal)) throw unknown(recovery);
   }
-  async #preflight(attemptId: string, deadline: AbsoluteRequestDeadline): Promise<void> {
-    deadline.throwIfAborted(); const catalog = this.#getEditCatalog(); let accountService: AccountStatusService, accessService: ModelAccessService;
+  async #preflight(attemptId: string, deadline: AbsoluteRequestDeadline,parameters:OwnerWan30EditGenerationParameters,current:boolean): Promise<void> {
+    deadline.throwIfAborted(); const catalog = current?this.#getCurrentCatalog():this.#getEditCatalog(); let accountService: AccountStatusService, accessService: ModelAccessService;
     try { accountService = Reflect.apply(this.#createAccount, undefined, [attemptId]) as AccountStatusService; accessService = Reflect.apply(this.#createAccess, undefined, [attemptId, catalog]) as ModelAccessService; }
     catch { fail("PREFLIGHT_FAILED"); }
     if (!isExactService(accountService, AccountStatusService, ["getAccountStatus"]) || this.#usedAccounts.has(accountService) || !isExactService(accessService, ModelAccessService, ["getModelAccess"]) || this.#usedAccess.has(accessService)) fail("PREFLIGHT_FAILED");
     this.#usedAccounts.add(accountService); this.#usedAccess.add(accessService); let account: AccountStatusResult, access: ModelAccessResult;
     try { account = await this.#await(deadline, () => Reflect.apply(ACCOUNT_GET, accountService, [deadline.signal]) as Promise<AccountStatusResult>);
-      access = await this.#await(deadline, () => Reflect.apply(ACCESS_GET, accessService, [Object.freeze({ model_id: MODEL_ID, cost_parameters: COST_INPUTS }), deadline.signal]) as Promise<ModelAccessResult>); }
+      access = await this.#await(deadline, () => Reflect.apply(ACCESS_GET, accessService, [Object.freeze({ model_id: MODEL_ID, cost_parameters: costInputs(parameters) }), deadline.signal]) as Promise<ModelAccessResult>); }
     catch { fail("PREFLIGHT_FAILED"); }
     if (!freshPreflight(account, access, catalog, this.#readNow())) fail("PREFLIGHT_FAILED");
   }
@@ -421,6 +428,13 @@ export class OwnerWan30EditGenerationService {
     try { catalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(CATALOG_VERSION, this.#catalogDirectory)); } catch { fail("MODEL_BINDING_MISMATCH"); }
     this.#assertCatalog(catalog); this.#editCatalog = catalog; return catalog; }
   #assertSource() { const source = getOwnerWan30EditGenerationSourceContract(); this.#assertCatalog(this.#getEditCatalog()); return source; }
+  #getCurrentCatalog():DiscoveryCatalogRepository{if(this.#currentCatalog)return this.#currentCatalog;let catalog:DiscoveryCatalogRepository;
+    try{catalog=new DiscoveryCatalogRepository(loadPublicCatalogVersion(WAN30_CURRENT_FORM_SOURCE.public_catalog_version,this.#catalogDirectory));}catch{fail("MODEL_BINDING_MISMATCH");}
+    const model=catalog.getModel(MODEL_ID);if(catalog.source_hashes.models!==WAN30_CURRENT_FORM_SOURCE.public_models_sha256||!model.active||model.id!==MODEL_ID||model.upstream_id!==MODEL_ID||model.ai_name!=="wan_video"||
+      model.settings?.min_side!==240||model.settings?.max_side!==8000||model.settings?.min_video_duration!==1||model.settings?.max_video_duration!==15||model.settings?.min_video_fps!==16||
+      !sameStrings(model.settings?.get_cost_params,Object.keys(COST_INPUTS)))fail("MODEL_BINDING_MISMATCH");this.#currentCatalog=catalog;return catalog;}
+  #assertGenerationSource(pins:object):Readonly<{profile_id:string;source_pins:object}>{if(samePins(pins,WAN30_CURRENT_FORM_SOURCE)){this.#getCurrentCatalog();return Object.freeze({profile_id:WAN30_EDIT_CURRENT_PROFILE_ID,source_pins:WAN30_CURRENT_FORM_SOURCE});}
+    const source=this.#assertSource();if(!samePins(pins,source.source_pins))fail("MODEL_BINDING_MISMATCH");return source;}
   #resolveNativeClient(attemptId: string): SyntxChatHttpClient {
     let client: unknown; try { client = Reflect.apply(this.#resolveClient, undefined, [attemptId]); } catch { fail("MODEL_BINDING_MISMATCH"); }
     const methods: readonly [string, Function][] = [["createChat", CHAT_CREATE], ["uploadWan30EditVideo", VIDEO_UPLOAD], ["generateWan30EditVideo", VIDEO_GENERATE], ["listWanT2vMessageCandidates", HISTORY_GET], ["getWanT2vVideoResultMessage", RESULT_GET], ["listInProgress", IN_PROGRESS_GET]];
@@ -431,10 +445,10 @@ export class OwnerWan30EditGenerationService {
     try { return await resolveOwnerReferencePrincipal({ binding: this.#binding, attemptId, linkService: this.#linkService }); } catch { fail("PRINCIPAL_NOT_LINKED"); } }
   #getVideoRecord(handle: string): VideoRecord { if (!VIDEO_HANDLE.test(handle)) invalid(); const value = this.#videos.get(handle); if (!value) fail("REFERENCE_UNAVAILABLE"); return value; }
   #liveVideo(video: VideoRecord, attemptId: string, principal: Readonly<GenerationPrincipalRef>, client: SyntxChatHttpClient): boolean {
-    return this.#videos.get(video.video_handle) === video && !video.retained_recovery && !video.consumed && video.expires_at > this.#readNow() && video.attemptId === attemptId && video.client === client && sameGenerationPrincipal(video.principal, principal) && video.profile_id === PROFILE_ID && samePins(video.source_pins, getOwnerWan30EditGenerationSourceContract().source_pins) && video.video.model_id === MODEL_ID && video.video.reference_type === "video";
+    return this.#videos.get(video.video_handle) === video && !video.retained_recovery && !video.consumed && video.expires_at > this.#readNow() && video.attemptId === attemptId && video.client === client && sameGenerationPrincipal(video.principal, principal) && validVideoSource(video) && video.video.model_id === MODEL_ID && video.video.reference_type === "video";
   }
   #assertVideoBinding(video: VideoRecord, attemptId: string, principal: Readonly<GenerationPrincipalRef>, client: SyntxChatHttpClient): void {
-    if (this.#videos.get(video.video_handle) !== video || video.attemptId !== attemptId || video.client !== client || !sameGenerationPrincipal(video.principal, principal) || video.profile_id !== PROFILE_ID || !samePins(video.source_pins, getOwnerWan30EditGenerationSourceContract().source_pins) || video.video.model_id !== MODEL_ID || video.video.reference_type !== "video") fail("REFERENCE_UNAVAILABLE");
+    if (this.#videos.get(video.video_handle) !== video || video.attemptId !== attemptId || video.client !== client || !sameGenerationPrincipal(video.principal, principal) || !validVideoSource(video) || video.video.model_id !== MODEL_ID || video.video.reference_type !== "video") fail("REFERENCE_UNAVAILABLE");
   }
   #assertVideo(request: Readonly<OwnerWan30EditGenerateInput>, video: VideoRecord, principal: Readonly<GenerationPrincipalRef>, client: SyntxChatHttpClient): void {
     this.#assertVideoBinding(video, request.attemptId, principal, client); if (video.retained_recovery || video.consumed) fail("REFERENCE_UNAVAILABLE"); if (video.expires_at <= this.#readNow()) { this.#releaseVideo(video); fail("REFERENCE_EXPIRED"); }
@@ -489,9 +503,11 @@ function snapshotGenerate(input: unknown, signal?: AbortSignal): Readonly<OwnerW
 function snapshotRecovery(input: unknown, signal?: AbortSignal): Readonly<OwnerWan30EditReconcileInput> { if (signal !== undefined && (!(signal instanceof AbortSignal) || types.isProxy(signal))) invalid(); const row = exact(input, ["attemptId", "recovery_id"]); return Object.freeze({ attemptId: safeAttempt(row.attemptId), recovery_id: safeRecovery(row.recovery_id) }); }
 function snapshotRecoveryList(input: unknown): Readonly<{ attemptId: string; limit: number }> { const row = exact(input, ["attemptId"], ["limit"]); return Object.freeze({ attemptId: safeAttempt(row.attemptId), limit: bounded(row.limit, 1, 128, 32) }); }
 function snapshotResultPage(input: unknown, signal?: AbortSignal): Readonly<{ attemptId: string; recovery_id: string; offset: number }> { if (signal !== undefined && (!(signal instanceof AbortSignal) || types.isProxy(signal))) invalid(); const row = exact(input, ["attemptId", "recovery_id"], ["offset"]); return Object.freeze({ attemptId: safeAttempt(row.attemptId), recovery_id: safeRecovery(row.recovery_id), offset: bounded(row.offset, 0, 4096, 0) }); }
-function semanticUploadKey(attemptId: string, principal: Readonly<GenerationPrincipalRef>, video: OwnerWan30EditValidatedVideo, source: ReturnType<typeof getOwnerWan30EditGenerationSourceContract>): string { return createHash("sha256").update(JSON.stringify({ attemptId, tenant_id: principal.tenant_id, subject_id: principal.subject_id, profile_id: source.profile_id, source_pins: source.source_pins, sha256: video.sha256, size: video.size, mime_type: video.mime_type })).digest("hex"); }
-function semanticGenerationKey(principal: Readonly<GenerationPrincipalRef>, intent: OwnerWan30EditGenerationIntent, video: VideoRecord, source: ReturnType<typeof getOwnerWan30EditGenerationSourceContract>): string { return createHash("sha256").update(JSON.stringify({ tenant_id: principal.tenant_id, subject_id: principal.subject_id, profile_id: source.profile_id, source_pins: source.source_pins, intent, reference_sha256: video.video.sha256 })).digest("hex"); }
-function uploadReceipt(record: VideoRecord, now: number): OwnerWan30EditVideoUploadReceipt { return Object.freeze({ status: "uploaded", video_handle: record.video_handle, model_id: MODEL_ID, mime_type: "video/mp4", size: record.video.size, sha256: record.video.sha256, width: record.video.width, height: record.video.height, duration_seconds: record.video.duration_seconds, fps: record.video.fps, frame_count: record.video.frame_count, expires_in_seconds: Math.max(0, Math.ceil((record.expires_at - now) / 1000)), metadata_confidence: "LOCAL_FFPROBE_METADATA_ONLY", upload_binding_confidence: "UI_MULTIPART_FIELDS_OBSERVED_SINGLE_CASE" }); }
+function validVideoSource(video: VideoRecord): boolean { return video.profile_id===PROFILE_ID && samePins(video.source_pins,getOwnerWan30EditGenerationSourceContract().source_pins) || video.profile_id===WAN30_EDIT_CURRENT_PROFILE_ID && samePins(video.source_pins,WAN30_CURRENT_FORM_SOURCE); }
+function semanticUploadKey(attemptId: string, principal: Readonly<GenerationPrincipalRef>, video: OwnerWan30EditValidatedVideo, source: Readonly<{profile_id:string;source_pins:object}>): string { return createHash("sha256").update(JSON.stringify({ attemptId, tenant_id: principal.tenant_id, subject_id: principal.subject_id, profile_id: source.profile_id, source_pins: source.source_pins, sha256: video.sha256, size: video.size, mime_type: video.mime_type })).digest("hex"); }
+function semanticGenerationKey(principal: Readonly<GenerationPrincipalRef>, intent: OwnerWan30EditGenerationIntent, video: VideoRecord, source: Readonly<{profile_id:string;source_pins:object}>): string { return createHash("sha256").update(JSON.stringify({ tenant_id: principal.tenant_id, subject_id: principal.subject_id, profile_id: source.profile_id, source_pins: source.source_pins, intent, reference_sha256: video.video.sha256 })).digest("hex"); }
+function costInputs(p:OwnerWan30EditGenerationParameters):Readonly<{resolution:string;video_duration:number;duration:number;rendering_speed:string}>{return Object.freeze({resolution:p.resolution,video_duration:p.video_duration,duration:p.duration,rendering_speed:p.rendering_speed});}
+function uploadReceipt(record: VideoRecord, now: number): OwnerWan30EditVideoUploadReceipt { return Object.freeze({ status: "uploaded", video_handle: record.video_handle, model_id: MODEL_ID, mime_type: "video/mp4", size: record.video.size, sha256: record.video.sha256, width: record.video.width, height: record.video.height, duration_seconds: record.video.duration_seconds, fps: record.video.fps, frame_count: record.video.frame_count, expires_in_seconds: Math.max(0, Math.ceil((record.expires_at - now) / 1000)), metadata_confidence: "LOCAL_FFPROBE_METADATA_ONLY", upload_binding_confidence: record.profile_id===WAN30_EDIT_CURRENT_PROFILE_ID ? "CURRENT_FORM_SOURCE_NOT_PROVIDER_OBSERVED" : "UI_MULTIPART_FIELDS_OBSERVED_SINGLE_CASE" }); }
 function createRecovery(input: { attemptId: string; principal: Readonly<GenerationPrincipalRef>; intent: OwnerWan30EditGenerationIntent; semanticKey: string; chatUuid: string; createdAt: number; sourcePins: object; videoHash: string; context: OwnerWan30EditGenerationContext; client: SyntxChatHttpClient }): Recovery { return { recovery_id: `wan_edit_recovery_${randomUUID()}`, attemptId: input.attemptId, principal: input.principal, intent: input.intent, semantic_key: input.semanticKey, chat_uuid: input.chatUuid, created_at: new Date(input.createdAt).toISOString(), source_pins: input.sourcePins, video_sha256: input.videoHash, context: input.context, client: input.client, owner_echo_message_id: null, status: "outcome_unknown", artifacts: Object.freeze([]), diagnostic: { phase: "GENERATION_POST", post_started: false, ack_known: false, history_status: "NOT_READ", history_reason: null, history_get_calls: 0, result_get_calls: 0, inprogress_get_calls: 0, result_status: "NOT_READ", result_reason: null } }; }
 
 function bindHistory(input: unknown, recovery: Recovery):
@@ -550,7 +566,7 @@ function bindHistory(input: unknown, recovery: Recovery):
 function page(recovery: Recovery, offset: number): OwnerWan30EditGenerationResult {
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > recovery.artifacts.length) invalid();
   const artifacts = Object.freeze(recovery.artifacts.slice(offset, offset + PAGE_SIZE)), next = offset + artifacts.length;
-  return Object.freeze({ status: recovery.status as "completed" | "partial_results", status_semantics: "LOCAL_OBSERVED_AVAILABILITY_ONLY", backend_acceptance: "UNPROVEN", provider_terminal_status: "UNPROVEN", model_id: MODEL_ID, parameters: recovery.intent.parameters, cost_inputs: COST_INPUTS, cost_input_confidence: "UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING", recovery_id: recovery.recovery_id, observed_artifact_count: recovery.artifacts.length, offset, page_size: PAGE_SIZE, artifacts, has_more: next < recovery.artifacts.length, next_offset: next < recovery.artifacts.length ? next : null, diagnostic: freezeDiagnostic(recovery.diagnostic) });
+  return Object.freeze({ status: recovery.status as "completed" | "partial_results", status_semantics: "LOCAL_OBSERVED_AVAILABILITY_ONLY", backend_acceptance: "UNPROVEN", provider_terminal_status: "UNPROVEN", model_id: MODEL_ID, parameters: recovery.intent.parameters, cost_inputs: costInputs(recovery.intent.parameters), cost_input_confidence: samePins(recovery.source_pins,WAN30_CURRENT_FORM_SOURCE)?"CURRENT_STATIC_SOURCE_NOT_BILLING":"UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING", recovery_id: recovery.recovery_id, observed_artifact_count: recovery.artifacts.length, offset, page_size: PAGE_SIZE, artifacts, has_more: next < recovery.artifacts.length, next_offset: next < recovery.artifacts.length ? next : null, diagnostic: freezeDiagnostic(recovery.diagnostic) });
 }
 function freezeDiagnostic(input: MutableDiagnostic): OwnerWan30EditGenerationDiagnostic { return Object.freeze({ ...input }); }
 function unknown(recovery: Recovery): OwnerWan30EditGenerationServiceError { return new OwnerWan30EditGenerationServiceError("OUTCOME_UNKNOWN", recovery.recovery_id, freezeDiagnostic(recovery.diagnostic)); }
@@ -558,9 +574,9 @@ function serviceError(code: OwnerWan30EditGenerationServiceErrorCode): OwnerWan3
 function invalid(): never { throw serviceError("INVALID_REQUEST"); }
 function fail(code: OwnerWan30EditGenerationServiceErrorCode): never { throw serviceError(code); }
 function validAck(value: unknown, chatUuid: string): value is MediaGenerationReceipt { try { const row = exact(value, ["chat_uuid", "message_id"]); return row.chat_uuid === chatUuid && safeId(row.message_id); } catch { return false; } }
-function validUploaded(value: unknown, receipt: OwnerWan30EditValidatedVideo): value is OwnerWan30EditUploadedVideo {
+function validUploaded(value: unknown, receipt: OwnerWan30EditValidatedVideo, current: boolean): value is OwnerWan30EditUploadedVideo {
   try { const row = exact(value, ["status", "model_id", "reference_type", "mime_type", "size", "sha256", "width", "height", "duration_seconds", "fps", "frame_count", "upload_profile_confidence", "owner_upload_binding"]);
-    return Object.isFrozen(value) && row.status === "uploaded" && row.model_id === MODEL_ID && row.reference_type === "video" && row.mime_type === "video/mp4" && row.size === receipt.size && row.sha256 === receipt.sha256 && row.width === receipt.width && row.height === receipt.height && row.duration_seconds === receipt.duration_seconds && row.fps === receipt.fps && row.frame_count === receipt.frame_count && row.upload_profile_confidence === "UI_MULTIPART_FIELDS_OBSERVED_1918" && row.owner_upload_binding === "SAME_CLIENT_NATIVE_UPLOAD";
+    return Object.isFrozen(value) && row.status === "uploaded" && row.model_id === MODEL_ID && row.reference_type === "video" && row.mime_type === "video/mp4" && row.size === receipt.size && row.sha256 === receipt.sha256 && row.width === receipt.width && row.height === receipt.height && row.duration_seconds === receipt.duration_seconds && row.fps === receipt.fps && row.frame_count === receipt.frame_count && row.upload_profile_confidence === (current ? "CURRENT_FORM_SOURCE_NOT_PROVIDER_OBSERVED" : "UI_MULTIPART_FIELDS_OBSERVED_1918") && row.owner_upload_binding === "SAME_CLIENT_NATIVE_UPLOAD";
   } catch { return false; }
 }
 

@@ -1,3 +1,4 @@
+import { isKlingFractionalDuration, OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } from "./owner-kling-duration-current-source.js";
 import { types } from "node:util";
 import {
   normalizeOwnerKlingI2vParameters,
@@ -88,7 +89,7 @@ export function buildOwnerKlingI2vWireSettingsTemplate(input: unknown): OwnerKli
   });
   return Object.freeze({
     status: SOURCE.status,
-    source: SOURCE,
+    source: Object.freeze({...SOURCE,...(isKlingFractionalDuration(parameters.intent.video_duration)?{current_duration_source:OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE}:{})}),
     prompt: parameters.intent.prompt,
     settings_template: settings,
     reference_requirement: SOURCE.reference,
@@ -98,23 +99,15 @@ export function buildOwnerKlingI2vWireSettingsTemplate(input: unknown): OwnerKli
   });
 }
 
-function snapshotControls(value: unknown, version: OwnerKlingI2vVersion): Readonly<{
-  temperature: number;
-  multi_shots?: boolean;
-}> {
-  const expected = version === "3.0" ? ["temperature", "multi_shots"] : ["temperature"];
-  const fields = exactRecord(value, expected);
-  if (typeof fields.temperature !== "number" || !Number.isFinite(fields.temperature) ||
-      fields.temperature < 0 || fields.temperature > 1 ||
-      Math.abs(fields.temperature - Math.round(fields.temperature * 10) / 10) > 1e-9) invalid();
-  if (version === "3.0") {
-    if (typeof fields.multi_shots !== "boolean") invalid();
-    return Object.freeze({ temperature: fields.temperature, multi_shots: fields.multi_shots });
-  }
-  return Object.freeze({ temperature: fields.temperature });
+function snapshotControls(value: unknown, version: OwnerKlingI2vVersion): Readonly<{ temperature: number; multi_shots?: boolean }> {
+  const required = version === "3.0" ? ["temperature", "multi_shots"] : ["temperature"];
+  const fields = exactRecord(value, required);
+  if (typeof fields.temperature !== "number" || !Number.isFinite(fields.temperature) || fields.temperature < 0 || fields.temperature > 1) invalid();
+  if (version === "3.0" && typeof fields.multi_shots !== "boolean") invalid();
+  return Object.freeze({ temperature: fields.temperature, ...(version === "3.0" ? { multi_shots: fields.multi_shots as boolean } : {}) });
 }
 
-function exactRecord(value: unknown, keys: readonly string[]): Record<string, unknown> {
+function exactRecord(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) return invalid();
   let prototype: object | null;
   let descriptors: PropertyDescriptorMap;
@@ -125,11 +118,11 @@ function exactRecord(value: unknown, keys: readonly string[]): Record<string, un
     return invalid();
   }
   const actual = Reflect.ownKeys(descriptors);
-  if ((prototype !== Object.prototype && prototype !== null) || actual.length !== keys.length ||
-      actual.some((key) => typeof key !== "string" || !keys.includes(key) ||
+  if ((prototype !== Object.prototype && prototype !== null) || !keys.every(key => actual.includes(key)) ||
+      actual.some((key) => typeof key !== "string" || ![...keys, ...optional].includes(key) ||
         descriptors[key as string]?.enumerable !== true || !Object.hasOwn(descriptors[key as string]!, "value"))) invalid();
   const result = Object.create(null) as Record<string, unknown>;
-  for (const key of keys) result[key] = descriptors[key]!.value;
+  for (const key of actual) result[key as string] = descriptors[key as string]!.value;
   return result;
 }
 

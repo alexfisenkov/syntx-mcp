@@ -1,11 +1,14 @@
 import { types } from "node:util";
 import { schemaHash } from "../domain/generation-contract.js";
+import { normalizeOwnerHappyHorseCurrentFields, type OwnerHappyHorseAspectRatio, type OwnerHappyHorseResolution } from "./owner-happy-horse-current-controls.js";
 
 export const OWNER_HAPPY_HORSE_MODEL_IDS = Object.freeze([
   "happy_horse_first_frame", "happy_horse_references", "happy_horse_edit"
 ] as const);
 export type OwnerHappyHorseModelId = typeof OWNER_HAPPY_HORSE_MODEL_IDS[number];
 export type OwnerHappyHorseImageModelId = Exclude<OwnerHappyHorseModelId, "happy_horse_edit">;
+/** Image attachments include edit-mode auxiliary images; this does not make edit an image-generation branch. */
+export type OwnerHappyHorseImageReferenceModelId = OwnerHappyHorseModelId;
 
 const PROMPT_LOCAL_LIMIT = 1_000;
 const SOURCE = Object.freeze({
@@ -45,21 +48,23 @@ const SOURCE_PROFILE = Object.freeze({ ...SOURCE, source_sha256: schemaHash(SOUR
 export interface OwnerHappyHorseParametersInput {
   readonly model_id: OwnerHappyHorseModelId;
   readonly prompt: string;
-  readonly aspect_ratio: "16:9";
-  readonly resolution: "720P";
-  readonly video_duration: 5;
-  readonly seed: null;
+  readonly aspect_ratio?: OwnerHappyHorseAspectRatio;
+  readonly resolution?: OwnerHappyHorseResolution;
+  readonly video_duration?: number;
+  readonly seed?: number | null;
+  readonly native_audio?: boolean;
 }
 
 export interface OwnerHappyHorseNormalizedParameters {
   readonly status: "SOURCE_PARAMETERS_ONLY_NOT_DISPATCH_AUTHORITY";
-  readonly intent: Readonly<OwnerHappyHorseParametersInput>;
+  readonly intent: Readonly<OwnerHappyHorseParametersInput & { readonly aspect_ratio: OwnerHappyHorseAspectRatio; readonly resolution: OwnerHappyHorseResolution; readonly video_duration: number; readonly seed: number | null }>;
   readonly source_parameters: Readonly<{
     readonly model_type: OwnerHappyHorseModelId;
-    readonly aspect_ratio: "16:9";
-    readonly resolution: "720P";
-    readonly video_duration: 5;
-    readonly seed: null;
+    readonly aspect_ratio: OwnerHappyHorseAspectRatio;
+    readonly resolution: OwnerHappyHorseResolution;
+    readonly video_duration: number;
+    readonly seed: number | null;
+    readonly native_audio?: boolean;
   }>;
   readonly source_profile_sha256: string;
   readonly cost_query_keys: readonly ["resolution", "video_duration"];
@@ -78,17 +83,16 @@ export class OwnerHappyHorseParametersError extends Error {
 
 export function getOwnerHappyHorseSourceProfile() { return SOURCE_PROFILE; }
 
-/** Fixed initial source candidates only. This intentionally does not claim the full settings matrix. */
+/** Current per-model controls; historical source-profile facts and provider tuple proofs stay separate. */
 export function normalizeOwnerHappyHorseParameters(input: unknown): Readonly<OwnerHappyHorseNormalizedParameters> {
-  const fields = exactRecord(input, ["model_id", "prompt", "aspect_ratio", "resolution", "video_duration", "seed"]);
+  const fields = exactRecord(input, ["model_id", "prompt"], ["aspect_ratio", "resolution", "video_duration", "seed", "native_audio"]);
   if (!isOwnerHappyHorseModelId(fields.model_id) || typeof fields.prompt !== "string" || !wellFormed(fields.prompt) ||
-      fields.prompt.trim().length === 0 || fields.prompt.length > PROMPT_LOCAL_LIMIT || fields.aspect_ratio !== "16:9" ||
-      fields.resolution !== "720P" || fields.video_duration !== 5 || fields.seed !== null) invalid();
-  const intent = Object.freeze({ model_id: fields.model_id, prompt: fields.prompt, aspect_ratio: "16:9" as const,
-    resolution: "720P" as const, video_duration: 5 as const, seed: null });
+      fields.prompt.trim().length === 0 || fields.prompt.length > 5000) invalid();
+  let controls: ReturnType<typeof normalizeOwnerHappyHorseCurrentFields>;
+  try { controls = normalizeOwnerHappyHorseCurrentFields(fields.model_id, fields); } catch { return invalid(); }
+  const intent = Object.freeze({ model_id: fields.model_id, prompt: fields.prompt, ...controls });
   return Object.freeze({ status: "SOURCE_PARAMETERS_ONLY_NOT_DISPATCH_AUTHORITY" as const, intent,
-    source_parameters: Object.freeze({ model_type: fields.model_id, aspect_ratio: "16:9" as const,
-      resolution: "720P" as const, video_duration: 5 as const, seed: null }),
+    source_parameters: Object.freeze({ model_type: fields.model_id, ...controls }),
     source_profile_sha256: SOURCE_PROFILE.source_sha256, cost_query_keys: SOURCE.cost_query_keys,
     prompt_limit_confidence: SOURCE.prompt_limit_confidence,
     initializer_confidence: SOURCE.source_candidate_confidence, dispatch_allowed: false as const,
@@ -101,15 +105,18 @@ export function isOwnerHappyHorseModelId(value: unknown): value is OwnerHappyHor
 export function isOwnerHappyHorseImageModelId(value: unknown): value is OwnerHappyHorseImageModelId {
   return value === "happy_horse_first_frame" || value === "happy_horse_references";
 }
+export function isOwnerHappyHorseImageReferenceModelId(value: unknown): value is OwnerHappyHorseImageReferenceModelId {
+  return isOwnerHappyHorseModelId(value);
+}
 
-function exactRecord(value: unknown, expected: readonly string[]): Record<string, unknown> {
+function exactRecord(value: unknown, expected: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) invalid();
   try {
     const prototype = Object.getPrototypeOf(value), descriptors = Object.getOwnPropertyDescriptors(value), keys = Reflect.ownKeys(descriptors);
-    if ((prototype !== Object.prototype && prototype !== null) || keys.length !== expected.length || keys.some(key =>
-      typeof key !== "string" || !expected.includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) invalid();
+    if ((prototype !== Object.prototype && prototype !== null) || expected.some(key => !Object.hasOwn(descriptors, key)) || keys.some(key =>
+      typeof key !== "string" || ![...expected, ...optional].includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) invalid();
     const out = Object.create(null) as Record<string, unknown>;
-    for (const key of expected) out[key] = descriptors[key]!.value;
+    for (const key of keys as string[]) out[key] = descriptors[key]!.value;
     return out;
   } catch { return invalid(); }
 }

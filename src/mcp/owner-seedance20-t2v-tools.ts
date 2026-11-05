@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
+import { SEEDANCE20_CURRENT_VARIANT } from "../application/owner-seedance20-t2v-current-profile.js";
 import {
   OWNER_SEEDANCE20_T2V_CONTRACT_VARIANT_ID,
   type OwnerSeedance20T2vSourceContract
@@ -38,15 +39,16 @@ export const ownerSeedance20T2vSourceOutputSchema = z.object({
   excluded_controls: sourceRecordSchema,
   wire_observation: sourceRecordSchema,
   cost_projection: sourceRecordSchema,
-  defaults: z.literal("UNKNOWN"), runtime_usable: z.literal(false), dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN")
+  defaults: z.literal("UNKNOWN"), runtime_usable: z.literal(false), dispatch_allowed: z.literal(false), backend_acceptance: z.literal("UNPROVEN"),
+  current_controls: z.unknown().optional()
 }).strict() as unknown as z.ZodType<OwnerSeedance20T2vSourceContract>;
 
 export const ownerSeedance20T2vOutputSchema = z.object({ status: z.literal("reviewed"), confidence_scope: z.literal("exact_result_only"),
   model_id: z.literal("seedance-2.0"), operation_id: z.literal("generate-video"), modality: z.literal("video"),
-  variant_id: z.literal(OWNER_SEEDANCE20_T2V_CONTRACT_VARIANT_ID), artifacts: z.array(artifactSchema).max(16) }).strict();
+  variant_id: z.enum([OWNER_SEEDANCE20_T2V_CONTRACT_VARIANT_ID,SEEDANCE20_CURRENT_VARIANT]), artifacts: z.array(artifactSchema).max(16) }).strict();
 
 const recoveryListOutputSchema = z.object({ recoveries: z.array(z.object({ recovery_id: recoveryIdSchema, model_id: z.literal("seedance-2.0"),
-  operation_id: z.literal("generate-video"), variant_id: z.literal(OWNER_SEEDANCE20_T2V_CONTRACT_VARIANT_ID), created_at: z.iso.datetime() }).strict()).max(20) }).strict();
+  operation_id: z.literal("generate-video"), variant_id: z.enum([OWNER_SEEDANCE20_T2V_CONTRACT_VARIANT_ID,SEEDANCE20_CURRENT_VARIANT]), created_at: z.iso.datetime() }).strict()).max(20) }).strict();
 
 export interface RegisterSyntxOwnerSeedance20T2vToolsOptions {
   readonly service: Pick<OwnerSeedance20T2vGenerationService, "getParametersSource" | "generate" | "reconcile" | "listRecoveries">;
@@ -57,7 +59,7 @@ export function registerSyntxOwnerSeedance20T2vTools(server: McpServer, options:
   const service = options.service;
   server.registerTool(SYNTX_OWNER_GET_SEEDANCE20_T2V_SOURCE_TOOL_NAME, {
     title: "Get Seedance 2.0 mini T2V source profile",
-    description: "Returns the pinned Seedance 2.0 mini source contract. The profile requires explicit resolution (480p or 720p), aspect ratio, duration (4–15 seconds), and generate_audio. mode=mini and no-reference file_urls are injected by the sealed profile; mode is not a caller selector. camera_fixed is hidden for Seedance 2.0. Defaults, provider acceptance, and price are unknown.",
+    description: "Returns the historical Seedance 2.0 mini contract and separately the current source controls. Public generation defaults version to mini and sends current omni-references mode; the historical wire remains a low-level compatibility path. Effective defaults, provider acceptance and price are unproven.",
     inputSchema: z.object({}).strict(), outputSchema: ownerSeedance20T2vSourceOutputSchema,
     annotations: { title: "Get Seedance 2.0 mini T2V source profile", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async (): Promise<CallToolResult> => {
@@ -70,21 +72,25 @@ export function registerSyntxOwnerSeedance20T2vTools(server: McpServer, options:
   const generationInputSchema = z.object({
     link_attempt_id: attemptIdSchema,
     prompt: z.string().min(1).max(5_000),
-    resolution: z.enum(["480p", "720p"]),
+    resolution: z.enum(["480p", "720p", "1080p", "4K"]).describe("Mini and fast accept 480p or 720p; pro also accepts 1080p and 4K."),
     aspect_ratio: z.enum(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]),
     video_duration: z.number().int().min(4).max(15),
-    generate_audio: z.boolean()
-  }).strict();
+    generate_audio: z.boolean(), version:z.enum(["mini","fast","pro"]).default("mini")
+  }).strict().superRefine((value,context)=>{
+    if ((value.version === undefined || value.version === "mini" || value.version === "fast") && value.resolution !== "480p" && value.resolution !== "720p")
+      context.addIssue({code:"custom",path:["resolution"],message:"Mini and fast accept 480p or 720p; pro also accepts 1080p and 4K."});
+  });
   server.registerTool(SYNTX_OWNER_GENERATE_SEEDANCE20_T2V_TOOL_NAME, {
     title: "Generate one Seedance 2.0 mini no-reference video",
-    description: "Runs one non-idempotent owner generation with no references. Select 480p or 720p, one of the source-listed aspect ratios, a 4–15 second duration, and generate_audio explicitly. mode=mini and file_urls=[] are injected; camera_fixed, raw settings, URLs, and mode selectors are not accepted. 5,000 UTF-16 code units is a local prompt bound. Price and provider acceptance are unknown. Unknown outcomes require GET-only reconciliation; never retry generation.",
+    description: "Runs one non-idempotent no-reference generation using current source mode=omni-references and version separately; version defaults to mini. Pro accepts 480p/720p/1080p/4K, mini and fast accept 480p/720p. Current combinations and provider acceptance are unproven. Unknown outcomes require GET-only reconciliation; never retry generation.",
     inputSchema: generationInputSchema, outputSchema: ownerSeedance20T2vOutputSchema,
     annotations: { title: "Generate one Seedance 2.0 mini no-reference video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {
     try {
       const request: OwnerSeedance20T2vGenerationInput = {
         attemptId: input.link_attempt_id, prompt: input.prompt, resolution: input.resolution,
-        aspect_ratio: input.aspect_ratio, video_duration: input.video_duration, generate_audio: input.generate_audio
+        aspect_ratio: input.aspect_ratio, video_duration: input.video_duration, generate_audio: input.generate_audio,
+        version:input.version
       };
       return structuredSuccess(await service.generate(request, signal));
     } catch (error) { return safeError(error); }

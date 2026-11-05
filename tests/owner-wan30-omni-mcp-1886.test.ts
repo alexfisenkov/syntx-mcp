@@ -92,7 +92,7 @@ test("invalid upload and out-of-profile generation fail without dispatch or stru
     } });
     const badGeneration = await fixture.client.callTool({ name: SYNTX_OWNER_GENERATE_WAN30_OMNI_VIDEO_TOOL_NAME, arguments: {
       link_attempt_id: "link_wan30_omni_1886_000000000001", prompt: "synthetic local validation only",
-      parameters: { aspect_ratio: "16:9", resolution: "720P", video_duration: 2, prompt_extend: true,
+      parameters: { aspect_ratio: "16:9", resolution: "4K", video_duration: 2, prompt_extend: true,
         shot_type: "single", audio_setting: "auto", seed: null, native_audio: false, duration: 0, rendering_speed: "basic" },
       image_handle: "wan30_omni_image_00000000-0000-4000-8000-000000000001"
     } });

@@ -13,6 +13,7 @@ import {
   validateOwnerSeedanceEditorVideo, type OwnerSeedanceEditorVideoMimeType, type ValidatedOwnerSeedanceEditorVideo
 } from "./owner-seedance-editor-video-policy.js";
 import { getOwnerSeedanceEditorSourceProfile } from "./owner-seedance-editor-parameters.js";
+import { validateOwnerSeedanceEditorFrame, readValidatedOwnerSeedanceEditorFrame, releaseValidatedOwnerSeedanceEditorFrame } from "./owner-seedance-editor-frame-policy.js";
 
 const MODEL_ID = "seedance-2.5-editor" as const;
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
@@ -22,6 +23,8 @@ const MAX_RECORDS = 128;
 const MAX_PENDING = 4;
 const MAX_FILE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u;
 const NATIVE_UPLOAD = Reflect.get(SyntxChatHttpClient.prototype, "uploadOwnerSeedanceEditorVideo") as unknown;
+const NATIVE_FRAME_UPLOAD = SyntxChatHttpClient.prototype.uploadOwnerSeedanceEditorFrame;
+const FRAME_HANDLE = /^seedance_editor_frame_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const NATIVE_LINK_STATUS = PerUserLinkService.prototype.getStatus;
 const TA = Object.getPrototypeOf(Uint8Array.prototype) as object;
 const TA_LENGTH = Object.getOwnPropertyDescriptor(TA, "byteLength")?.get;
@@ -74,6 +77,7 @@ interface OwnedState { readonly service: OwnerSeedanceEditorReferenceService; re
   readonly epoch: number; readonly expiresAt: number }
 interface UploadSnapshot { readonly attemptId: string; readonly filename: string; readonly mimeType: OwnerSeedanceEditorVideoMimeType; readonly bytes: Buffer }
 interface ResolveSnapshot { readonly attemptId: string; readonly handle: string }
+interface FrameEntry { readonly handle: string; readonly video: RecordEntry; readonly url: string; readonly sha256: string; readonly time: number }
 const OWNED = new WeakMap<object, OwnedState>();
 const SERVICES = new WeakSet<object>();
 
@@ -82,6 +86,7 @@ export class OwnerSeedanceEditorReferenceService {
   readonly #binding: Readonly<AuthBinding>; readonly #links: Pick<PerUserLinkService, "getStatus">;
   readonly #resolveClient: (id: string) => unknown; readonly #ffprobePath: string; readonly #maxVideoBytes: number; readonly #now: () => number;
   readonly #records = new Map<string, RecordEntry>(); readonly #handles = new Map<string, Set<string>>();
+  readonly #frames = new Map<string, FrameEntry>();
   readonly #principalByAttempt = new Map<string, Readonly<GenerationPrincipalRef>>(); readonly #epochs = new Map<string, number>();
   readonly #pendingByAttempt = new Map<string, Set<Pending>>(); readonly #pendingSemantics = new Set<string>();
   readonly #unknownSemantics = new Set<string>(); readonly #invalidating = new Set<string>();
@@ -166,6 +171,75 @@ export class OwnerSeedanceEditorReferenceService {
     }
   }
 
+  async uploadFrame(input: unknown, signalInput?: AbortSignal): Promise<Readonly<{status: "uploaded"; frame_handle: string; time_seconds: number; expires_in_seconds: number}>> {
+    this.#assertOpen();
+    const q = exactRecord(input, ["attemptId", "model_id", "reference_handle", "filename", "mime_type", "bytes", "time_seconds"]);
+    if (typeof q.attemptId !== "string" || !ATTEMPT.test(q.attemptId) || q.model_id !== MODEL_ID ||
+        typeof q.reference_handle !== "string" || !HANDLE.test(q.reference_handle) || typeof q.filename !== "string" ||
+        q.mime_type !== "image/png" || !supportedBytes(q.bytes) || byteLength(q.bytes) < 1 || byteLength(q.bytes) > 20 * 1024 * 1024 ||
+        typeof q.time_seconds !== "number" || !Number.isFinite(q.time_seconds) || q.time_seconds < 0) fail("INVALID_REQUEST");
+    const bytes = copyBytes(q.bytes), attemptId = q.attemptId, handle = q.reference_handle, time = q.time_seconds;
+    let op: Pending; try { op = this.#begin(attemptId, exactSignal(signalInput)); } catch (e) { bytes.fill(0); throw e; }
+    let validated: ReturnType<typeof validateOwnerSeedanceEditorFrame> | undefined, semantic: string | undefined, reserved = false, invoked = false, published = false;
+    try {
+      const principal = await this.#principal(attemptId, op.controller.signal); this.#stopped(op);
+      const video = this.#records.get(handle), client = clientSnapshot(this.#resolveClient(attemptId)).client;
+      if (!video || video.attemptId !== attemptId || !sameGenerationPrincipal(video.principal, principal) || video.client !== client ||
+          video.epoch !== op.epoch || video.expiresAt <= this.#time() || time > video.duration) fail("REFERENCE_UNAVAILABLE");
+      try { validated = validateOwnerSeedanceEditorFrame({ model_id: MODEL_ID, filename: q.filename, mime_type: q.mime_type, bytes }); }
+      catch { fail("VALIDATION_REJECTED"); }
+      const media = readValidatedOwnerSeedanceEditorFrame(validated); if (!media) fail("VALIDATION_REJECTED");
+      const hash = media.sha256, size = media.size; media.bytes.fill(0);
+      semantic = semanticKey(principal, hash, "image/png", size);
+      if (this.#unknownSemantics.has(semantic)) fail("UPLOAD_OUTCOME_UNKNOWN");
+      if (this.#pendingSemantics.has(semantic)) fail("SERVICE_BUSY");
+      if (this.#frames.size + this.#records.size + this.#unknownSemantics.size + this.#pendingSemantics.size >= MAX_RECORDS ||
+          [...this.#frames.values()].filter(f => f.video === video).length >= 30) fail("CAPACITY_EXCEEDED");
+      this.#pendingSemantics.add(semantic); reserved = true;
+      const before = await this.#principal(attemptId, op.controller.signal); this.#stopped(op);
+      if (!sameGenerationPrincipal(principal, before) || this.#records.get(handle) !== video || video.expiresAt <= this.#time() ||
+          clientSnapshot(this.#resolveClient(attemptId)).client !== client || SyntxChatHttpClient.prototype.uploadOwnerSeedanceEditorFrame !== NATIVE_FRAME_UPLOAD ||
+          Object.hasOwn(client, "uploadOwnerSeedanceEditorFrame")) fail("REFERENCE_UNAVAILABLE");
+      invoked = true; let native: InternalUploadReference;
+      try { native = await NATIVE_FRAME_UPLOAD.call(client, validated, op.controller.signal); } catch { fail("UPLOAD_OUTCOME_UNKNOWN"); }
+      this.#unknownIfStopped(op); const ref = readNativeReference(native); if (!ref || /[|<>\u0000-\u001f\u007f]/u.test(ref.url)) fail("UPLOAD_OUTCOME_UNKNOWN");
+      const after = await this.#principal(attemptId, op.controller.signal); this.#unknownIfStopped(op);
+      const ack = this.#time();
+      if (!sameGenerationPrincipal(principal, after) || this.#records.get(handle) !== video || video.expiresAt - ack < 1000 ||
+          video.epoch !== (this.#epochs.get(attemptId) ?? 0) || clientSnapshot(this.#resolveClient(attemptId)).client !== client ||
+          this.#frames.size + this.#records.size >= MAX_RECORDS || [...this.#frames.values()].filter(f => f.video === video).length >= 30 ||
+          ref.url === video.url || [...this.#frames.values()].some(f => f.url === ref.url)) fail("UPLOAD_OUTCOME_UNKNOWN");
+      const frame_handle = "seedance_editor_frame_" + randomUUID();
+      const expires_in_seconds = Math.floor((video.expiresAt - ack) / 1000);
+      this.#frames.set(frame_handle, Object.freeze({ handle: frame_handle, video, url: ref.url, sha256: hash, time })); published = true;
+      return Object.freeze({ status: "uploaded" as const, frame_handle, time_seconds: time, expires_in_seconds });
+    } catch (error) {
+      if (invoked && !published) fail("UPLOAD_OUTCOME_UNKNOWN");
+      if (error instanceof OwnerSeedanceEditorReferenceServiceError) throw error;
+      if (op.controller.signal.aborted) fail("REQUEST_ABORTED"); return fail("VALIDATION_REJECTED");
+    } finally {
+      if (semantic && reserved) { if (invoked && !published) this.#unknownSemantics.add(semantic); this.#pendingSemantics.delete(semantic); }
+      if (validated) releaseValidatedOwnerSeedanceEditorFrame(validated); bytes.fill(0); this.#finish(attemptId, op);
+    }
+  }
+
+  withCapturedFrames<T>(owned: unknown, handles: readonly string[], consume: (frames: readonly Readonly<{url: string; sha256: string; time_seconds: number}>[]) => T): T {
+    const state = owned && typeof owned === "object" && !types.isProxy(owned) ? OWNED.get(owned) : undefined;
+    if (!state || !this.isOwnedReferences(owned) || !Array.isArray(handles) || types.isProxy(handles) ||
+        Object.getPrototypeOf(handles) !== Array.prototype || typeof consume !== "function" || types.isProxy(consume)) fail("REFERENCE_UNAVAILABLE");
+    const descriptors = Object.getOwnPropertyDescriptors(handles) as unknown as PropertyDescriptorMap, length = descriptors.length?.value;
+    if (!Number.isSafeInteger(length) || length < 0 || length > 30 || Reflect.ownKeys(descriptors).length !== length + 1) fail("REFERENCE_UNAVAILABLE");
+    const safeHandles: string[] = [];
+    for (let i = 0; i < length; i++) { const d = descriptors[String(i)];
+      if (!d || !("value" in d) || !d.enumerable || typeof d.value !== "string" || !FRAME_HANDLE.test(d.value)) fail("REFERENCE_UNAVAILABLE");
+      safeHandles.push(d.value); }
+    if (new Set(safeHandles).size !== safeHandles.length) fail("REFERENCE_UNAVAILABLE");
+    const frames = safeHandles.map(h => {
+      const frame = this.#frames.get(h); if (!frame || frame.video !== state.record || !isSafeUploadReferenceUrl(frame.url)) fail("REFERENCE_UNAVAILABLE");
+      return Object.freeze({ url: frame.url, sha256: frame.sha256, time_seconds: frame.time }); });
+    return consume(Object.freeze(frames));
+  }
+
   async resolveReferences(input: unknown, signalInput?: AbortSignal): Promise<OwnerSeedanceEditorOwnedReferences> {
     this.#assertOpen(); const q = snapshotResolve(input); const op = this.#begin(q.attemptId, exactSignal(signalInput));
     try {
@@ -221,7 +295,7 @@ export class OwnerSeedanceEditorReferenceService {
     if (this.#closing) return this.#closing; this.#closed = true;
     const invalid = [...this.#active()].map(id => this.#invalidate(id)); const pending = [...this.#all];
     this.#closing = Promise.allSettled([...invalid, ...pending]).then(() => {
-      this.#records.clear(); this.#handles.clear(); this.#principalByAttempt.clear(); this.#epochs.clear(); this.#pendingSemantics.clear();
+      this.#records.clear(); this.#frames.clear(); this.#handles.clear(); this.#principalByAttempt.clear(); this.#epochs.clear(); this.#pendingSemantics.clear();
       this.#unknownSemantics.clear(); this.#invalidating.clear(); this.#invalidations.clear(); this.#all.clear();
     }); return this.#closing;
   }
@@ -256,8 +330,8 @@ export class OwnerSeedanceEditorReferenceService {
     const done = Promise.allSettled(waits).then(() => { this.#invalidating.delete(id); this.#invalidations.delete(id); this.#release(id); });
     this.#invalidations.set(id, done); return done;
   }
-  #removeAttempt(id: string): void { for (const handle of this.#handles.get(id) ?? []) this.#records.delete(handle); this.#handles.delete(id); }
-  #remove(handle: string): void { const r = this.#records.get(handle); if (!r) return; this.#records.delete(handle); const set = this.#handles.get(r.attemptId);
+  #removeAttempt(id: string): void { for (const handle of [...(this.#handles.get(id) ?? [])]) this.#remove(handle); this.#handles.delete(id); }
+  #remove(handle: string): void { const r = this.#records.get(handle); if (!r) return; this.#records.delete(handle); for (const [id, f] of this.#frames) if (f.video === r) this.#frames.delete(id); const set = this.#handles.get(r.attemptId);
     set?.delete(handle); if (!set?.size) this.#handles.delete(r.attemptId); this.#release(r.attemptId); }
   #prune(now: number): void { for (const [handle, record] of this.#records) if (record.expiresAt <= now) this.#remove(handle); }
   #release(id: string): void { if (this.#handles.has(id) || this.#pendingByAttempt.has(id) || this.#invalidating.has(id)) return;

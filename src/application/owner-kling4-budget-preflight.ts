@@ -195,7 +195,7 @@ function snapshotCostParameters(value: unknown, modelId: OwnerKling4ModelId): Re
       row[key] = descriptor.value;
     }
     if (row.version !== "4.0" || (row.mode !== "hd" && row.mode !== "standart") ||
-        typeof row.video_duration !== "number" || !Number.isSafeInteger(row.video_duration) ||
+        typeof row.video_duration !== "number" || !Number.isFinite(row.video_duration) ||
         row.video_duration < 3 || row.video_duration > 30) return null;
     if (modelId === "kling_4_omni" && !validOmniSourceDuration(row.duration)) return null;
     return Object.freeze(row) as Readonly<Record<string, SyntxCostParameter>>;

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
+import { isOwnerActTwoCurrentDuration } from "./owner-actor-current-controls.js";
 import type { AuthBinding } from "../auth/types.js";
 import { PerUserLinkService } from "../auth/link-service.js";
 import { OwnerReferencePrincipalError, resolveOwnerReferencePrincipal } from "../auth/owner-reference-principal.js";
@@ -54,7 +55,7 @@ export interface OwnerActTwoPerformanceVideoReceipt {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
-  readonly measured_duration_seconds: 5;
+  readonly measured_duration_seconds: number;
   readonly expires_in_seconds: number;
   readonly probe_confidence: "FFPROBE_METADATA_NOT_DECODED_PIXELS";
   readonly upload_authority: false;
@@ -68,7 +69,7 @@ export interface OwnerActTwoOwnedPerformanceVideo {
   readonly expires_at: number;
   readonly epoch: number;
   readonly performance_video: Readonly<{
-    reference_handle: string; mime_type: "video/mp4"; size: number; sha256: string; width: number; height: number; measured_duration_seconds: 5;
+    reference_handle: string; mime_type: "video/mp4"; size: number; sha256: string; width: number; height: number; measured_duration_seconds: number;
   }>;
   readonly generation_permit: false;
 }
@@ -143,7 +144,7 @@ export class OwnerActTwoPerformanceVideoReferenceService {
       if (!reference || reference.type !== "video" || !isSafeUploadReferenceUrl(reference.url) || context.model_id !== "acttwo" ||
           context.destination !== this.#destination || context.mime_type !== "video/mp4" || context.size !== metadata.size ||
           context.sha256 !== metadata.sha256 || context.width !== metadata.width || context.height !== metadata.height ||
-          context.measured_duration_seconds !== 5) { this.#unknown.add(semantic); fail("UPLOAD_OUTCOME_UNKNOWN"); }
+          !isOwnerActTwoCurrentDuration(context.measured_duration_seconds) || context.measured_duration_seconds !== metadata.measured_duration_seconds) { this.#unknown.add(semantic); fail("UPLOAD_OUTCOME_UNKNOWN"); }
       const current = await this.#principal(request.attemptId);
       if (!sameGenerationPrincipal(principal, current) || clientSnapshot(this.#resolveClient(request.attemptId)) !== client ||
           (this.#epochs.get(request.attemptId) ?? 0) !== epoch) { this.#unknown.add(semantic); fail("UPLOAD_OUTCOME_UNKNOWN"); }
@@ -152,7 +153,7 @@ export class OwnerActTwoPerformanceVideoReferenceService {
       const entry = Object.freeze({ handle, attemptId: request.attemptId, principal, client, context, epoch, expiresAt });
       this.#entries.set(handle, entry); this.#byAttempt.set(request.attemptId, handle);
       return Object.freeze({ status: "uploaded", reference_handle: handle, model_id: "acttwo", media_type: "video", mime_type: "video/mp4",
-        size: metadata.size, sha256: metadata.sha256, width: metadata.width, height: metadata.height, measured_duration_seconds: 5,
+        size: metadata.size, sha256: metadata.sha256, width: metadata.width, height: metadata.height, measured_duration_seconds: metadata.measured_duration_seconds,
         expires_in_seconds: Math.floor((expiresAt - now) / 1000), probe_confidence: "FFPROBE_METADATA_NOT_DECODED_PIXELS",
         upload_authority: false, generation_permit: false });
     } catch (error) {
@@ -180,19 +181,19 @@ export class OwnerActTwoPerformanceVideoReferenceService {
     const owned = Object.freeze({ attempt_id: request.attemptId, model_id: "acttwo" as const, principal,
       profile_sha256: getOwnerActTwoSourceProfile().source_sha256, expires_at: entry.expiresAt, epoch: entry.epoch,
       performance_video: Object.freeze({ reference_handle: entry.handle, mime_type: context.mime_type, size: context.size,
-        sha256: context.sha256, width: context.width, height: context.height, measured_duration_seconds: 5 as const }), generation_permit: false as const });
+        sha256: context.sha256, width: context.width, height: context.height, measured_duration_seconds: context.measured_duration_seconds }), generation_permit: false as const });
     REFERENCES.set(owned, Object.freeze({ service: this, entry, client: entry.client, principal, attemptId: request.attemptId,
       expiresAt: entry.expiresAt, epoch: entry.epoch })); return owned;
   }
 
   withCapturedPerformanceVideo<T>(ownedInput: unknown, consume: (client: SyntxChatHttpClient, video: Readonly<{
-    url: string; sha256: string; size: number; width: number; height: number; mime_type: "video/mp4"; measured_duration_seconds: 5;
+    url: string; sha256: string; size: number; width: number; height: number; mime_type: "video/mp4"; measured_duration_seconds: number;
   }>) => T): T {
     if (!this.isOwnedPerformanceVideo(ownedInput) || typeof consume !== "function" || types.isProxy(consume)) fail("REFERENCE_UNAVAILABLE");
     const state = REFERENCES.get(ownedInput as object)!, reference = readOwnerActTwoPerformanceVideoReference(state.client, state.entry.context);
     if (!reference) fail("REFERENCE_UNAVAILABLE"); const context = state.entry.context;
     return consume(state.client, Object.freeze({ url: reference.url, sha256: context.sha256, size: context.size,
-      width: context.width, height: context.height, mime_type: "video/mp4", measured_duration_seconds: 5 }));
+      width: context.width, height: context.height, mime_type: "video/mp4", measured_duration_seconds: context.measured_duration_seconds }));
   }
 
   isOwnedPerformanceVideo(value: unknown): value is OwnerActTwoOwnedPerformanceVideo {

@@ -162,9 +162,9 @@ export function correlateOwnerVideo2AudioHistory(input: unknown): OwnerVideo2Aud
 
   const rows = pageRows.flat() as readonly HistoryRow[];
   const ownerRows = rows.filter((row) => row.author_id > 0);
-  const matchingAcks = ownerRows.filter((row) => isPositiveOwnerAck(row, snapshot.prompt));
+  const matchingAcks = ownerRows.filter((row) => isPositiveOwnerAck(row, snapshot.prompt, snapshot.allowEmptyPrompt));
   const postedAckRow = ownerRows.find((row) => row.id === snapshot.ownerEchoMessageId);
-  const ackMatchesPost = postedAckRow !== undefined && isPositiveOwnerAck(postedAckRow, snapshot.prompt);
+  const ackMatchesPost = postedAckRow !== undefined && isPositiveOwnerAck(postedAckRow, snapshot.prompt, snapshot.allowEmptyPrompt);
   if (matchingAcks.length > 1) {
     return historyResult("UNVERIFIED", "AMBIGUOUS", "COMPLETE", boundProviderChatId ?? null, null, [], ["OWNER_ACK_AMBIGUOUS"]);
   }
@@ -270,25 +270,26 @@ export function decodeOwnerVideo2AudioResult(rawInput: unknown, contextInput: un
   return bound(modelEcho, ready, gaps);
 }
 
-interface HistoryInputSnapshot { readonly chatUuid: string; readonly ownerEchoMessageId: string; readonly prompt: string; readonly pages: readonly unknown[] }
+interface HistoryInputSnapshot { readonly chatUuid: string; readonly ownerEchoMessageId: string; readonly prompt: string; readonly allowEmptyPrompt: boolean; readonly pages: readonly unknown[] }
 interface HistoryRow { readonly id: string; readonly chat_id: string; readonly author_id: number; readonly message_object: readonly Readonly<Record<string, unknown>>[] }
 
 function snapshotHistoryInput(value: unknown): HistoryInputSnapshot | null {
-  const record = readRecord(value, ["chat_uuid", "model_id", "owner_echo_message_id", "prompt", "pages"]);
+  const record = readRecord(value, ["chat_uuid", "model_id", "owner_echo_message_id", "prompt", "pages", "allow_empty_prompt"]);
   if (!record || record.unknownFieldCount !== 0 || record.values.model_id !== MODEL_ID || !isSafeId(record.values.chat_uuid) ||
-      !isSafeId(record.values.owner_echo_message_id) || typeof record.values.prompt !== "string" || record.values.prompt.trim().length === 0 ||
+      !isSafeId(record.values.owner_echo_message_id) || typeof record.values.prompt !== "string" || record.values.prompt.trim().length === 0 && record.values.allow_empty_prompt !== true ||
+      record.values.allow_empty_prompt !== undefined && typeof record.values.allow_empty_prompt !== "boolean" ||
       record.values.prompt.length > 5_000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(record.values.prompt) ||
       !Array.isArray(record.values.pages) || types.isProxy(record.values.pages)) return null;
   return Object.freeze({ chatUuid: record.values.chat_uuid, ownerEchoMessageId: record.values.owner_echo_message_id,
-    prompt: record.values.prompt, pages: record.values.pages });
+    prompt: record.values.prompt, allowEmptyPrompt: record.values.allow_empty_prompt === true, pages: record.values.pages });
 }
 
-function isPositiveOwnerAck(row: HistoryRow, prompt: string): boolean {
+function isPositiveOwnerAck(row: HistoryRow, prompt: string, allowEmpty = false): boolean {
   if (row.author_id <= 0 || row.message_object.length !== 1) return false;
   const object = row.message_object[0]!;
   return object.object_type === "text" && typeof object.object_text === "string" &&
     (object.object_text === prompt || object.object_text === `🎵 ${prompt}`) &&
-    object.object_text.trim().length > 0 && object.model_type === MODEL_ID;
+    (object.object_text.trim().length > 0 || allowEmpty && object.object_text === "" && prompt === "") && object.model_type === MODEL_ID;
 }
 
 function snapshotResultContext(value: unknown): Readonly<OwnerVideo2AudioResultReadContext> {

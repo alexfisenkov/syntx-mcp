@@ -3,6 +3,7 @@ import test from "node:test";
 import { chmod, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { nodeScriptExecutable } from "./helpers/node-script-executable.js";
 import { SyntxChatHttpClient } from "../src/adapter/syntx/chat-http-client.js";
 import { InMemoryAuthLinkStore } from "../src/auth/in-memory-auth-store.js";
 import { PerUserLinkService } from "../src/auth/link-service.js";
@@ -23,7 +24,7 @@ function mp4(): Buffer {
 async function ffprobeFixture(probe = PROBE): Promise<{ directory: string; path: string }> {
   const directory = await mkdtemp(join(tmpdir(), "syntx-seedance-editor-reference-2228-"));
   const path = join(directory, "ffprobe-fixture");
-  await writeFile(path, "#!" + process.execPath + "\nprocess.stdout.write(" + JSON.stringify(probe) + ");\n", { mode: 0o700, flag: "wx" });
+  await writeFile(path, nodeScriptExecutable("#!" + process.execPath + "\nprocess.stdout.write(" + JSON.stringify(probe) + ");\n"), { mode: 0o700, flag: "wx" });
   await chmod(path, 0o700); return { directory, path: await realpath(path) };
 }
 async function env(fetchHandler: (signal: AbortSignal | null, init: RequestInit) => Response | Promise<Response>, probe = PROBE) {

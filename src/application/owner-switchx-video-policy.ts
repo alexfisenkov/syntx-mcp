@@ -1,15 +1,10 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
-import {
-  copyTrustedOwnerWan27R2vOriginalBytes,
-  createOwnerWan27R2vOriginalProbe,
-  isTrustedOwnerWan27R2vOriginalProbeResult,
-  releaseTrustedOwnerWan27R2vOriginalProbeResult,
-  type OwnerWan27R2vOriginalProbeResult
-} from "./owner-wan27-r2v-original-probe.js";
+import { probeOwnerCurrentVideoMetadata } from "./owner-current-video-metadata.js";
+import { prepareOwnerSwitchxSegment, type OwnerSwitchxSegment } from "./owner-switchx-segment.js";
 
 const MODEL_ID = "switchx" as const;
-const MAX_LOCAL_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_LOCAL_UPLOAD_BYTES = 100 * 1024 * 1024;
 const PUBLIC_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const MIN_PUBLIC_PIXELS = 100_000;
 const MAX_PUBLIC_PIXELS = 2_770_000;
@@ -24,12 +19,12 @@ export const OWNER_SWITCHX_VIDEO_INPUT_POLICY = Object.freeze({
   model_id: MODEL_ID,
   source_public_max_bytes: PUBLIC_MAX_UPLOAD_BYTES,
   effective_local_upload_max_bytes: MAX_LOCAL_UPLOAD_BYTES,
-  local_upload_limit_kind: "EXISTING_NATIVE_UPLOAD_TRANSPORT_BOUND_NOT_PROVIDER_LIMIT",
+  local_upload_limit_kind: "CURRENT_PUBLIC_ROW_AND_LOCAL_RESOURCE_BOUND",
   public_pixel_bounds: Object.freeze({ min: MIN_PUBLIC_PIXELS, max: MAX_PUBLIC_PIXELS }),
   initial_source_frame: Object.freeze({ width: INITIAL_SOURCE_WIDTH, height: INITIAL_SOURCE_HEIGHT }),
   initial_duration_seconds: INITIAL_DURATION_SECONDS,
   initial_frame_rate: INITIAL_FRAME_RATE,
-  probe: "TRUSTED_LOCAL_FFPROBE_METADATA_ONLY_NO_PIXEL_DECODE",
+  probe: "TRUSTED_LOCAL_METADATA_AND_BOUNDED_FRAME_COUNT",
   generation_permit: false,
   provider_acceptance: "UNPROVEN"
 } as const);
@@ -47,9 +42,11 @@ export interface ValidatedOwnerSwitchxVideo {
   readonly width: number;
   readonly height: number;
   readonly pixel_count: number;
-  readonly duration_seconds: 5;
-  readonly frame_rate: 24;
-  readonly probe_scope: "LOCAL_METADATA_ONLY_NO_PIXEL_DECODE";
+  readonly duration_seconds: number;
+  readonly frame_rate: number;
+  readonly probe_scope: "LOCAL_METADATA_AND_BOUNDED_FRAME_COUNT";
+  readonly frame_count: number;
+  readonly preparation: "ORIGINAL_BYTES" | "USER_SELECTED_SEGMENT_LOCAL_TRANSCODE";
   readonly generation_permit: false;
   readonly owner_upload_binding: "NOT_ESTABLISHED";
   readonly provider_acceptance: "UNPROVEN";
@@ -63,8 +60,8 @@ export interface OwnerSwitchxVideoRead {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
-  readonly duration_seconds: 5;
-  readonly frame_rate: 24;
+  readonly duration_seconds: number;
+  readonly frame_rate: number;
 }
 
 export class OwnerSwitchxVideoPolicyError extends Error {
@@ -74,62 +71,45 @@ export class OwnerSwitchxVideoPolicyError extends Error {
   }
 }
 
-/** Uses the existing bounded local ffprobe implementation, then applies Switchx's own public bounds. */
-export function createOwnerSwitchxVideoValidator(ffprobePath: string) {
-  if (typeof ffprobePath !== "string" || !ffprobePath.trim()) throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO");
-  const probe = createOwnerWan27R2vOriginalProbe({ ffprobePath });
+/** Measures Switchx bounds independently; selected segments are explicitly prepared with trusted operator ffmpeg. */
+export function createOwnerSwitchxVideoValidator(ffprobePath: string, ffmpegPath?: string) {
   return Object.freeze({
-    async validate(input: unknown, signal?: AbortSignal): Promise<Readonly<ValidatedOwnerSwitchxVideo>> {
+    async validate(input: unknown, signal?: AbortSignal, segment?: OwnerSwitchxSegment): Promise<Readonly<ValidatedOwnerSwitchxVideo>> {
       const request = snapshotInput(input);
-      if (request.bytes.byteLength < 16 || request.bytes.byteLength > MAX_LOCAL_UPLOAD_BYTES) {
-        throw new OwnerSwitchxVideoPolicyError("LOCAL_LIMIT_EXCEEDED");
-      }
-      const source = Buffer.from(request.bytes);
-      let measured: Readonly<OwnerWan27R2vOriginalProbeResult> | undefined;
+      let original: Awaited<ReturnType<typeof probeOwnerCurrentVideoMetadata>> | undefined;
+      let selected: Awaited<ReturnType<typeof probeOwnerCurrentVideoMetadata>> | undefined;
+      let prepared: Buffer | undefined;
       try {
-        measured = await probe.probe({ filename: request.filename, mime_type: request.mime_type, bytes: source },
-          signal === undefined ? undefined : { signal });
-        if (!isTrustedOwnerWan27R2vOriginalProbeResult(measured) || measured.generation_permit !== false ||
-            measured.owner_upload_binding !== "NOT_ESTABLISHED" || measured.selection_crop !== "NOT_PERFORMED" ||
-            measured.filename !== request.filename || measured.mime_type !== request.mime_type || measured.bytes_copied !== source.byteLength) {
-          throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO");
-        }
-        const metadata = measured.metadata;
-        const pixels = metadata.width * metadata.height;
-        const rate = metadata.frame_rate.denominator === 0 ? NaN : metadata.frame_rate.numerator / metadata.frame_rate.denominator;
-        if (!Number.isSafeInteger(pixels) || pixels < MIN_PUBLIC_PIXELS || pixels > MAX_PUBLIC_PIXELS ||
-            metadata.width !== INITIAL_SOURCE_WIDTH || metadata.height !== INITIAL_SOURCE_HEIGHT) {
-          throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO");
-        }
-        if (metadata.duration_seconds !== INITIAL_DURATION_SECONDS || rate !== INITIAL_FRAME_RATE) {
-          throw new OwnerSwitchxVideoPolicyError("VIDEO_METADATA_NOT_IN_INITIAL_SLICE");
-        }
-        const bytes = copyTrustedOwnerWan27R2vOriginalBytes(measured);
-        try {
-          if (bytes.byteLength !== source.byteLength || createHash("sha256").update(bytes).digest("hex") !== measured.source_sha256) {
-            throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO");
-          }
-          const receipt: ValidatedOwnerSwitchxVideo = Object.freeze({
-            status: "TRUSTED_LOCAL_SWITCHX_VIDEO_METADATA", policy_id: OWNER_SWITCHX_VIDEO_INPUT_POLICY.policy_id,
-            model_id: MODEL_ID, filename: measured.filename, mime_type: measured.mime_type, size: bytes.byteLength,
-            source_sha256: measured.source_sha256, width: metadata.width, height: metadata.height, pixel_count: pixels,
-            duration_seconds: INITIAL_DURATION_SECONDS, frame_rate: INITIAL_FRAME_RATE,
-            probe_scope: "LOCAL_METADATA_ONLY_NO_PIXEL_DECODE", generation_permit: false,
-            owner_upload_binding: "NOT_ESTABLISHED", provider_acceptance: "UNPROVEN"
-          });
-          RECEIPTS.set(receipt, Object.freeze({ bytes: Buffer.from(bytes), descriptorHash: descriptorFingerprint(receipt) }));
-          return receipt;
-        } finally { bytes.fill(0); }
-      } catch (error) {
-        if (error instanceof OwnerSwitchxVideoPolicyError) throw error;
-        throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO");
-      } finally {
-        source.fill(0);
-        request.bytes.fill(0);
-        if (measured && isTrustedOwnerWan27R2vOriginalProbeResult(measured)) releaseTrustedOwnerWan27R2vOriginalProbeResult(measured);
-      }
+        original = await probeOwnerCurrentVideoMetadata({ bytes: request.bytes, mime_type: request.mime_type }, { ffprobePath, maximumBytes: MAX_LOCAL_UPLOAD_BYTES, requireFrameCount: true }, signal);
+        assertPublicMetadata(original);
+        if (segment !== undefined) {
+          if (!ffmpegPath) throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO");
+          prepared = await prepareOwnerSwitchxSegment(original, segment, ffmpegPath, signal);
+          selected = await probeOwnerCurrentVideoMetadata({ bytes: prepared, mime_type: "video/mp4" }, { ffprobePath, maximumBytes: MAX_LOCAL_UPLOAD_BYTES, requireFrameCount: true }, signal);
+        } else selected = original;
+        assertPublicMetadata(selected);
+        if (selected.frame_count === null || selected.frame_count > 240 || selected.frame_rate === null) throw new OwnerSwitchxVideoPolicyError("VIDEO_METADATA_NOT_IN_INITIAL_SLICE");
+        const duration = Math.round(selected.duration_seconds), rate = Math.round(selected.frame_rate);
+        if (duration < 1 || duration > 10 || rate < 1 || rate > 240 || segment !== undefined && duration !== Math.round(segment.end_seconds - segment.start_seconds)) throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO");
+        const receipt: ValidatedOwnerSwitchxVideo = Object.freeze({
+          status: "TRUSTED_LOCAL_SWITCHX_VIDEO_METADATA", policy_id: OWNER_SWITCHX_VIDEO_INPUT_POLICY.policy_id, model_id: MODEL_ID,
+          filename: segment === undefined ? request.filename : "selected-segment.mp4", mime_type: segment === undefined ? request.mime_type : "video/mp4",
+          size: selected.size, source_sha256: selected.sha256, width: selected.width, height: selected.height,
+          pixel_count: selected.width * selected.height, duration_seconds: duration, frame_rate: rate, frame_count: selected.frame_count,
+          preparation: segment === undefined ? "ORIGINAL_BYTES" : "USER_SELECTED_SEGMENT_LOCAL_TRANSCODE",
+          probe_scope: "LOCAL_METADATA_AND_BOUNDED_FRAME_COUNT", generation_permit: false, owner_upload_binding: "NOT_ESTABLISHED", provider_acceptance: "UNPROVEN"
+        });
+        RECEIPTS.set(receipt, Object.freeze({ bytes: Buffer.from(selected.bytes), descriptorHash: descriptorFingerprint(receipt) }));
+        return receipt;
+      } catch (error) { if (error instanceof OwnerSwitchxVideoPolicyError) throw error; throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO"); }
+      finally { request.bytes.fill(0); original?.bytes.fill(0); if (selected !== original) selected?.bytes.fill(0); prepared?.fill(0); }
     }
   });
+}
+function assertPublicMetadata(value: Awaited<ReturnType<typeof probeOwnerCurrentVideoMetadata>>): void {
+  const pixels = value.width * value.height;
+  if (!Number.isSafeInteger(pixels) || pixels < MIN_PUBLIC_PIXELS || pixels > MAX_PUBLIC_PIXELS ||
+      value.duration_seconds <= 0 || value.duration_seconds > 10 || ["ap4h", "ap4x"].includes(value.codec_tag)) throw new OwnerSwitchxVideoPolicyError("INVALID_VIDEO");
 }
 
 export function isValidatedOwnerSwitchxVideo(value: unknown): value is Readonly<ValidatedOwnerSwitchxVideo> {

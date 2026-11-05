@@ -63,7 +63,7 @@ function readValidated(value: unknown): Pick<ValidatedOwnerHappyHorseEditVideo, 
         (v.mime_type !== "video/mp4" && v.mime_type !== "video/quicktime") || !Number.isSafeInteger(v.size) || v.size < 16 || v.size > 100 * 1024 * 1024 ||
         typeof v.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(v.sha256) || !Number.isSafeInteger(v.width) || !Number.isSafeInteger(v.height) ||
         v.width < 400 || v.width > 2_160 || v.height < 400 || v.height > 2_160 || v.width * v.height > 52_500_000 ||
-        !Number.isFinite(v.measured_duration_seconds) || v.measured_duration_seconds < 3 || v.measured_duration_seconds > 30 ||
+        !Number.isFinite(v.measured_duration_seconds) || v.measured_duration_seconds < 3 || v.measured_duration_seconds > 60 ||
         v.probe_confidence !== "FFPROBE_METADATA_NOT_DECODED_PIXELS" || v.local_limit_confidence !== "CONSERVATIVE_LOCAL_PROBE_CEILING_NOT_PROVIDER_LIMIT" || v.generation_permit !== false) return null;
     return Object.freeze({ mime_type: v.mime_type, size: v.size, sha256: v.sha256, width: v.width, height: v.height,
       measured_duration_seconds: v.measured_duration_seconds, probe_confidence: v.probe_confidence, local_limit_confidence: v.local_limit_confidence });

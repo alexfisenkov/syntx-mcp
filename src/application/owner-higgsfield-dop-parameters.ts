@@ -1,5 +1,6 @@
 import { types } from "node:util";
 import { schemaHash } from "../domain/generation-contract.js";
+import { isOwnerHiggsfieldDopMotionStrength, ownerHiggsfieldDopCurrentProfileHash } from "./owner-higgsfield-dop-current-controls.js";
 
 export const OWNER_HIGGSFIELD_DOP_MODEL_IDS = Object.freeze(["dop-lite", "dop-turbo"] as const);
 export type OwnerHiggsfieldDopModelId = typeof OWNER_HIGGSFIELD_DOP_MODEL_IDS[number];
@@ -15,7 +16,7 @@ const MOTION_LABEL_MAXIMUM_LENGTH = 256;
 export interface OwnerHiggsfieldDopMotionSelection {
   readonly id: string | number;
   readonly label: string;
-  readonly strength: 1;
+  readonly strength: number;
 }
 
 type DeepReadonly<T> = T extends readonly unknown[] ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
@@ -83,7 +84,7 @@ const SOURCE_PROFILE = deepFreeze({ ...SOURCE_FACTS, source_sha256: schemaHash(S
 export interface OwnerHiggsfieldDopParametersInput {
   readonly model_id: OwnerHiggsfieldDopModelId;
   readonly prompt: string;
-  readonly enhance_prompt: false;
+  readonly enhance_prompt: boolean;
   readonly motions: readonly OwnerHiggsfieldDopMotionSelection[];
 }
 
@@ -92,7 +93,7 @@ export interface OwnerHiggsfieldDopNormalizedParameters {
   readonly intent: Readonly<OwnerHiggsfieldDopParametersInput>;
   readonly source_parameters: Readonly<{
     model_type: OwnerHiggsfieldDopModelId;
-    enhance_prompt: false;
+    enhance_prompt: boolean;
     motions: readonly OwnerHiggsfieldDopMotionSelection[];
   }>;
   readonly profile_sha256: string;
@@ -121,18 +122,19 @@ export function normalizeOwnerHiggsfieldDopParameters(input: unknown): Readonly<
   const fields = exactRecord(input, ["model_id", "prompt", "enhance_prompt", "motions"]);
   if (!isOwnerHiggsfieldDopModelId(fields.model_id) || typeof fields.prompt !== "string" ||
       fields.prompt.trim().length === 0 || !isWellFormedUnicode(fields.prompt) ||
-      fields.prompt.length > PROMPT_MAXIMUM_UTF16_LENGTH || fields.enhance_prompt !== false) invalid();
+      fields.prompt.length > PROMPT_MAXIMUM_UTF16_LENGTH || typeof fields.enhance_prompt !== "boolean") invalid();
 
   const motions = normalizeMotionSelections(fields.motions);
 
   const intent = Object.freeze({ model_id: fields.model_id, prompt: fields.prompt,
-    enhance_prompt: false as const, motions });
-  const source_parameters = Object.freeze({ model_type: fields.model_id, enhance_prompt: false as const, motions });
+    enhance_prompt: fields.enhance_prompt, motions });
+  const source_parameters = Object.freeze({ model_type: fields.model_id, enhance_prompt: fields.enhance_prompt, motions });
+  const legacyTuple = fields.enhance_prompt === false && motions.every(motion => motion.strength === 1);
   return Object.freeze({
     status: "SOURCE_PARAMETERS_ONLY_NOT_DISPATCH_AUTHORITY" as const,
     intent,
     source_parameters,
-    profile_sha256: SOURCE_PROFILE.source_sha256,
+    profile_sha256: legacyTuple ? SOURCE_PROFILE.source_sha256 : ownerHiggsfieldDopCurrentProfileHash(SOURCE_PROFILE.source_sha256),
     prompt_limit_confidence: "LOCAL_CONSERVATIVE_BOUND_NOT_PROVIDER_LIMIT" as const,
     prompt_maximum_utf16_length: PROMPT_MAXIMUM_UTF16_LENGTH,
     cost_query_keys: COST_QUERY_KEYS,
@@ -193,11 +195,11 @@ function normalizeMotionSelections(value: unknown): readonly OwnerHiggsfieldDopM
       if (!((typeof id === "string" && id.length >= 1 && id.length <= MOTION_ID_MAXIMUM_LENGTH && !/[\u0000-\u001f\u007f]/u.test(id)) ||
           (typeof id === "number" && Number.isSafeInteger(id) && id >= 0)) ||
           typeof row.label !== "string" || row.label.length < 1 || row.label.length > MOTION_LABEL_MAXIMUM_LENGTH ||
-          !isWellFormedUnicode(row.label) || row.strength !== 1) return invalid();
+          !isWellFormedUnicode(row.label) || !isOwnerHiggsfieldDopMotionStrength(row.strength)) return invalid();
       const identity = `${typeof id}:${String(id)}`;
       if (seen.has(identity)) return invalid();
       seen.add(identity);
-      result.push(Object.freeze({ id, label: row.label, strength: 1 }));
+      result.push(Object.freeze({ id, label: row.label, strength: row.strength }));
     }
     return Object.freeze(result);
   } catch { return invalid(); }

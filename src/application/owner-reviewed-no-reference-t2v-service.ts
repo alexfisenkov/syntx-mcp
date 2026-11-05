@@ -26,6 +26,8 @@ import {
   type OwnerExpandedT2vProfile,
   type OwnerExpandedT2vSourceContract
 } from "./owner-expanded-t2v-profile.js";
+import { createOwnerExpandedT2vCurrentSeedProfile, getOwnerExpandedT2vCurrentSeedControls,
+  OWNER_EXPANDED_CURRENT_SEED_MODELS, type OwnerExpandedCurrentSeedModel } from "./owner-expanded-t2v-current-seed-profile.js";
 import {
   OWNER_HAILUO01_DIRECTOR_T2V_CONTRACT_REGISTRY_VERSION,
   isAuthenticOwnerHailuo01DirectorT2vProfile,
@@ -54,6 +56,9 @@ import {
   isAuthenticOwnerSeedance25T2vProfile,
   type OwnerSeedance25T2vSourceContract
 } from "./owner-seedance25-t2v-profile.js";
+import { createOwnerSeedance25CurrentProfile, getOwnerSeedance25CurrentControls } from "./owner-seedance25-t2v-current-profile.js";
+import { createOwnerSeedance20CurrentProfile, getOwnerSeedance20CurrentControls } from "./owner-seedance20-t2v-current-profile.js";
+import { createOwnerKlingT2vCurrentProfile, getOwnerKlingT2vCurrentControls, createOwnerKlingO1T2vCurrentProfile, getOwnerKlingO1T2vCurrentControls } from "./owner-kling-t2v-current-profile.js";
 import {
   OWNER_KLING_T2V_CONTRACT_REGISTRY_VERSION,
   createOwnerKlingT2vProfile,
@@ -127,6 +132,9 @@ export interface OwnerReviewedNoReferenceT2vServiceOptions<TSource extends objec
     costParameters: Readonly<Record<string, SyntxCostParameter>>,
     signal?: AbortSignal
   ) => Promise<ModelAccessResult>;
+  /** Optional separate source-bound reader for the current Seedance 2.5 profile. */
+  readonly resolveCurrentModelAccess?: OwnerReviewedNoReferenceT2vServiceOptions<TSource>["resolveModelAccess"];
+  readonly currentCatalogDirectory?: string;
   readonly resolveChatClient: (attemptId: string) => OwnerContractMediaClient;
   readonly now?: () => number;
   readonly wait?: (milliseconds: number) => Promise<void>;
@@ -157,19 +165,20 @@ export interface OwnerHailuo02T2vGenerationInput {
 export interface OwnerSeedance20T2vGenerationInput {
   readonly attemptId: string;
   readonly prompt: string;
-  readonly resolution: "480p" | "720p";
+  readonly resolution: "480p" | "720p" | "1080p" | "4K";
   readonly aspect_ratio: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16";
   readonly video_duration: number;
   readonly generate_audio: boolean;
+  readonly version?: "mini" | "fast" | "pro";
 }
 
 export interface OwnerSeedance25T2vGenerationInput {
   readonly attemptId: string;
   readonly prompt: string;
-  readonly resolution: "720p";
-  readonly aspect_ratio: "16:9";
-  readonly video_duration: 5;
-  readonly generate_audio: true;
+  readonly resolution: "480p" | "720p" | "1080p";
+  readonly aspect_ratio: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16" | "adaptive";
+  readonly video_duration: number;
+  readonly generate_audio: boolean;
 }
 
 export type OwnerKlingT2vGenerationInput =
@@ -178,15 +187,18 @@ export type OwnerKlingT2vGenerationInput =
       readonly attemptId: string;
       readonly prompt: string;
       readonly version: string;
-      readonly mode: "standart" | "hd";
+      readonly mode: "standart" | "hd" | "4K";
       readonly aspect_ratio: "16:9" | "1:1" | "9:16";
       readonly video_duration: number;
       readonly native_audio: boolean;
+      readonly temperature?: number;
+      readonly multi_shots?: boolean;
     }
   | {
       readonly model_id: "kling_o1_text2video";
       readonly attemptId: string;
       readonly prompt: string;
+      readonly version?: "1.6";
       readonly mode: "hd";
       readonly aspect_ratio: "16:9" | "1:1" | "9:16";
       readonly video_duration: 5 | 10;
@@ -326,6 +338,7 @@ class OwnerReviewedNoReferenceT2vEngine<TSource extends object> {
     let request: OwnerReviewedNoReferenceT2vNormalizedRequest;
     try { request = this.#profile.normalizeGenerationInput(input); }
     catch { throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST"); }
+    if (/<<<https?:\/\//iu.test(request.prompt)) throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
     if (this.#invalidating.has(request.attemptId)) throw new OwnerReviewedNoReferenceT2vServiceError("PRINCIPAL_NOT_LINKED");
     if (this.#recoveryStore.size() + this.#generationReservations.size >= MAX_RECOVERIES) {
       throw new OwnerReviewedNoReferenceT2vServiceError("SERVICE_BUSY");
@@ -639,6 +652,7 @@ export type OwnerExpandedT2vGenerationServiceOptions = Omit<
 /** Grouped six-model facade over the existing sealed no-reference T2V engine. */
 export class OwnerExpandedT2vGenerationService {
   readonly #engines: ReadonlyMap<OwnerExpandedT2vModelId, OwnerReviewedNoReferenceT2vEngine<OwnerExpandedT2vSourceContract>>;
+  readonly #current: ReadonlyMap<OwnerExpandedCurrentSeedModel, OwnerReviewedNoReferenceT2vEngine<OwnerExpandedT2vSourceContract & { readonly current_controls: ReturnType<typeof getOwnerExpandedT2vCurrentSeedControls> }>>;
 
   constructor(options: OwnerExpandedT2vGenerationServiceOptions) {
     const engines = new Map<OwnerExpandedT2vModelId, OwnerReviewedNoReferenceT2vEngine<OwnerExpandedT2vSourceContract>>();
@@ -653,10 +667,17 @@ export class OwnerExpandedT2vGenerationService {
     }
     if (options.profiles.size !== engines.size) throw new Error("OWNER_EXPANDED_T2V_PROFILE_INVALID");
     this.#engines = engines;
+    const current = new Map<OwnerExpandedCurrentSeedModel, OwnerReviewedNoReferenceT2vEngine<OwnerExpandedT2vSourceContract & { readonly current_controls: ReturnType<typeof getOwnerExpandedT2vCurrentSeedControls> }>>();
+    for (const modelId of OWNER_EXPANDED_CURRENT_SEED_MODELS) current.set(modelId, new OwnerReviewedNoReferenceT2vEngine({
+      ...options, profile: createOwnerExpandedT2vCurrentSeedProfile(modelId, options.currentCatalogDirectory),
+      resolveModelAccess: options.resolveCurrentModelAccess ?? options.resolveModelAccess
+    }));
+    this.#current = current;
   }
 
-  getParametersSource(modelId: OwnerExpandedT2vModelId): OwnerExpandedT2vSourceContract {
-    return this.#engine(modelId).getParametersSource();
+  getParametersSource(modelId: OwnerExpandedT2vModelId): OwnerExpandedT2vSourceContract & { readonly current_controls?: ReturnType<typeof getOwnerExpandedT2vCurrentSeedControls> } {
+    const source = this.#engine(modelId).getParametersSource();
+    return this.#current.has(modelId as OwnerExpandedCurrentSeedModel) ? Object.freeze({ ...source, current_controls: getOwnerExpandedT2vCurrentSeedControls(modelId as OwnerExpandedCurrentSeedModel) }) : source;
   }
 
   getReviewedContract(modelId: OwnerExpandedT2vModelId) {
@@ -668,7 +689,9 @@ export class OwnerExpandedT2vGenerationService {
         !OWNER_EXPANDED_T2V_MODEL_IDS.includes(input.model_id as OwnerExpandedT2vModelId)) {
       throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
     }
-    return this.#engine(input.model_id as OwnerExpandedT2vModelId).generate(input, signal);
+    const current = this.#current.get(input.model_id as OwnerExpandedCurrentSeedModel);
+    return current && (Object.hasOwn(input, "seed") || input.model_id==="happy_horse_t2v" && typeof input.video_duration==="number" && !Number.isInteger(input.video_duration))
+      ? current.generate(input, signal) : this.#engine(input.model_id as OwnerExpandedT2vModelId).generate(input, signal);
   }
 
   reconcile(input: unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
@@ -677,19 +700,23 @@ export class OwnerExpandedT2vGenerationService {
       throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
     }
     const { model_id, ...request } = input;
-    return this.#engine(model_id as OwnerExpandedT2vModelId).reconcile(request, signal);
+    const legacy = this.#engine(model_id as OwnerExpandedT2vModelId).reconcile(request, signal);
+    const current = this.#current.get(model_id as OwnerExpandedCurrentSeedModel);
+    return current ? legacy.catch(error => { if (error instanceof OwnerReviewedNoReferenceT2vServiceError && error.code === "RECOVERY_NOT_FOUND") return current.reconcile(request, signal); throw error; }) : legacy;
   }
 
   listRecoveries(modelId: OwnerExpandedT2vModelId, attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
-    return this.#engine(modelId).listRecoveries(attemptId, limit);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 20) throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+    const legacy = this.#engine(modelId).listRecoveries(attemptId, 20), current = this.#current.get(modelId as OwnerExpandedCurrentSeedModel);
+    return Object.freeze([...legacy, ...(current?.listRecoveries(attemptId, 20) ?? [])].sort((left, right) => right.created_at.localeCompare(left.created_at) || left.recovery_id.localeCompare(right.recovery_id)).slice(0, limit));
   }
 
   async invalidateAttempt(attemptId: string): Promise<void> {
-    await Promise.all([...this.#engines.values()].map((engine) => engine.invalidateAttempt(attemptId)));
+    await Promise.all([...this.#engines.values(), ...this.#current.values()].map((engine) => engine.invalidateAttempt(attemptId)));
   }
 
   async close(): Promise<void> {
-    const results = await Promise.allSettled([...this.#engines.values()].map((engine) => engine.close()));
+    const results = await Promise.allSettled([...this.#engines.values(), ...this.#current.values()].map((engine) => engine.close()));
     const failure = results.find((result) => result.status === "rejected");
     if (failure?.status === "rejected") throw failure.reason;
   }
@@ -790,6 +817,7 @@ export class OwnerHailuo02T2vGenerationService {
 /** Thin flat Seedance 2.0 mini ABI over the sealed no-reference T2V engine. */
 export class OwnerSeedance20T2vGenerationService {
   readonly #engine: OwnerReviewedNoReferenceT2vEngine<OwnerSeedance20T2vSourceContract>;
+  readonly #current: OwnerReviewedNoReferenceT2vEngine<ReturnType<typeof getOwnerSeedance20CurrentControls>>;
 
   constructor(options: OwnerReviewedNoReferenceT2vServiceOptions<OwnerSeedance20T2vSourceContract>) {
     if (!isAuthenticOwnerSeedance20T2vProfile(options.profile) ||
@@ -798,29 +826,43 @@ export class OwnerSeedance20T2vGenerationService {
       throw new Error("OWNER_REVIEWED_T2V_PROFILE_INVALID");
     }
     this.#engine = new OwnerReviewedNoReferenceT2vEngine(options);
+    this.#current = new OwnerReviewedNoReferenceT2vEngine({...options,profile:createOwnerSeedance20CurrentProfile(options.currentCatalogDirectory),
+      resolveModelAccess:options.resolveCurrentModelAccess??options.resolveModelAccess});
   }
 
-  getParametersSource(): OwnerSeedance20T2vSourceContract { return this.#engine.getParametersSource(); }
+  getParametersSource(): OwnerSeedance20T2vSourceContract & {readonly current_controls:ReturnType<typeof getOwnerSeedance20CurrentControls>} {
+    return Object.freeze({...this.#engine.getParametersSource(),current_controls:getOwnerSeedance20CurrentControls()});
+  }
   getReviewedContract() { return this.#engine.getReviewedContract(); }
   generate(input: OwnerSeedance20T2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
-    return this.#engine.generate(input, signal);
+    const q=snapshotSeedance20Input(input); return q.version===undefined?this.#engine.generate(q,signal):this.#current.generate(q,signal);
   }
   reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
-    return this.#engine.reconcile(input, signal);
+    return this.#engine.reconcile(input, signal).catch(e=>{if(e instanceof OwnerReviewedNoReferenceT2vServiceError&&e.code==="RECOVERY_NOT_FOUND")return this.#current.reconcile(input,signal);throw e;});
   }
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
-    return this.#engine.listRecoveries(attemptId, limit);
+    if(typeof attemptId!=="string"||!ATTEMPT_PATTERN.test(attemptId)||!Number.isSafeInteger(limit)||limit<1||limit>20)throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+    return Object.freeze([...this.#engine.listRecoveries(attemptId,20),...this.#current.listRecoveries(attemptId,20)]
+      .sort((a,b)=>b.created_at.localeCompare(a.created_at)||a.recovery_id.localeCompare(b.recovery_id)).slice(0,limit));
   }
   getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
-    return this.#engine.getRecoveryDiagnostic(input);
+    return this.#engine.getRecoveryDiagnostic(input).catch(e=>{if(e instanceof OwnerReviewedNoReferenceT2vServiceError&&e.code==="RECOVERY_NOT_FOUND")return this.#current.getRecoveryDiagnostic(input);throw e;});
   }
-  invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
-  close(): Promise<void> { return this.#engine.close(); }
+  async invalidateAttempt(attemptId: string): Promise<void> { await Promise.all([this.#engine.invalidateAttempt(attemptId),this.#current.invalidateAttempt(attemptId)]); }
+  async close(): Promise<void> { await Promise.all([this.#engine.close(),this.#current.close()]); }
+}
+
+function snapshotSeedance20Input(input:unknown):Record<string,unknown>{
+  if(!input||typeof input!=="object"||Array.isArray(input)||types.isProxy(input))throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+  const required=["attemptId","prompt","resolution","aspect_ratio","video_duration","generate_audio"], allowed=[...required,"version"],d=Object.getOwnPropertyDescriptors(input),keys=Reflect.ownKeys(d);
+  if(![Object.prototype,null].includes(Object.getPrototypeOf(input))||required.some(k=>!d[k])||keys.some(k=>typeof k!=="string"||!allowed.includes(k)||!("value" in d[k]!)||!d[k]!.enumerable))throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+  return Object.fromEntries((keys as string[]).map(k=>[k,d[k]!.value]));
 }
 
 /** Thin Seedance 2.5 ordinary T2V ABI over the reviewed no-reference engine. */
 export class OwnerSeedance25T2vGenerationService {
   readonly #engine: OwnerReviewedNoReferenceT2vEngine<OwnerSeedance25T2vSourceContract>;
+  readonly #current: OwnerReviewedNoReferenceT2vEngine<ReturnType<typeof getOwnerSeedance25CurrentControls>>;
 
   constructor(options: OwnerReviewedNoReferenceT2vServiceOptions<OwnerSeedance25T2vSourceContract>) {
     if (!isAuthenticOwnerSeedance25T2vProfile(options.profile) ||
@@ -828,30 +870,55 @@ export class OwnerSeedance25T2vGenerationService {
       throw new Error("OWNER_REVIEWED_T2V_PROFILE_INVALID");
     }
     this.#engine = new OwnerReviewedNoReferenceT2vEngine(options);
+    this.#current = new OwnerReviewedNoReferenceT2vEngine({ ...options, profile: createOwnerSeedance25CurrentProfile(options.currentCatalogDirectory),
+      resolveModelAccess: options.resolveCurrentModelAccess ?? options.resolveModelAccess });
   }
 
-  getParametersSource(): OwnerSeedance25T2vSourceContract { return this.#engine.getParametersSource(); }
+  getParametersSource(): OwnerSeedance25T2vSourceContract & { readonly current_controls: ReturnType<typeof getOwnerSeedance25CurrentControls> } {
+    return Object.freeze({ ...this.#engine.getParametersSource(), current_controls: getOwnerSeedance25CurrentControls() });
+  }
   getReviewedContract() { return this.#engine.getReviewedContract(); }
   generate(input: OwnerSeedance25T2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
-    return this.#engine.generate(input, signal);
+    const q = snapshotSeedance25Input(input);
+    return q.resolution === "720p" && q.aspect_ratio === "16:9" && q.video_duration === 5 && q.generate_audio === true
+      ? this.#engine.generate(q, signal) : this.#current.generate(q, signal);
   }
   reconcile(input: { readonly attemptId: string; readonly recovery_id: string } | unknown,
-    signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> { return this.#engine.reconcile(input, signal); }
+    signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
+    return this.#engine.reconcile(input, signal).catch(e => { if (e instanceof OwnerReviewedNoReferenceT2vServiceError && e.code === "RECOVERY_NOT_FOUND") return this.#current.reconcile(input, signal); throw e; });
+  }
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
-    return this.#engine.listRecoveries(attemptId, limit);
+    if (typeof attemptId !== "string" || !ATTEMPT_PATTERN.test(attemptId) || !Number.isSafeInteger(limit) || limit < 1 || limit > 20) {
+      throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+    }
+    return Object.freeze([...this.#engine.listRecoveries(attemptId, 20), ...this.#current.listRecoveries(attemptId, 20)]
+      .sort((a,b) => b.created_at.localeCompare(a.created_at) || a.recovery_id.localeCompare(b.recovery_id)).slice(0, limit));
   }
   getRecoveryDiagnostic(input: { readonly attemptId: string; readonly recovery_id: string } | unknown): Promise<OwnerReviewedVideoRecoveryDiagnostic> {
-    return this.#engine.getRecoveryDiagnostic(input);
+    return this.#engine.getRecoveryDiagnostic(input).catch(e => { if (e instanceof OwnerReviewedNoReferenceT2vServiceError && e.code === "RECOVERY_NOT_FOUND") return this.#current.getRecoveryDiagnostic(input); throw e; });
   }
-  invalidateAttempt(attemptId: string): Promise<void> { return this.#engine.invalidateAttempt(attemptId); }
-  close(): Promise<void> { return this.#engine.close(); }
+  async invalidateAttempt(attemptId: string): Promise<void> { await Promise.all([this.#engine.invalidateAttempt(attemptId), this.#current.invalidateAttempt(attemptId)]); }
+  async close(): Promise<void> { await Promise.all([this.#engine.close(), this.#current.close()]); }
+}
+
+function snapshotSeedance25Input(input: unknown): Record<string, unknown> {
+  if (!input || typeof input !== "object" || Array.isArray(input) || types.isProxy(input)) throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+  const keys = ["attemptId", "prompt", "resolution", "aspect_ratio", "video_duration", "generate_audio"], d = Object.getOwnPropertyDescriptors(input);
+  if (![Object.prototype, null].includes(Object.getPrototypeOf(input)) || Reflect.ownKeys(d).length !== keys.length ||
+      keys.some(key => !d[key] || !("value" in d[key]!) || !d[key]!.enumerable)) throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+  return Object.fromEntries(keys.map(key => [key, d[key]!.value]));
 }
 
 /** Model-selecting Kling family ABI over one independently sealed engine per source profile. */
 export class OwnerKlingT2vGenerationService {
+  readonly #options: OwnerKlingT2vGenerationServiceOptions;
+  #manual: OwnerReviewedNoReferenceT2vEngine<ReturnType<typeof getOwnerKlingT2vCurrentControls>> | undefined;
   readonly #engines: ReadonlyMap<OwnerKlingT2vModelId, OwnerReviewedNoReferenceT2vEngine<OwnerKlingT2vSourceContract>>;
+  readonly #current: OwnerReviewedNoReferenceT2vEngine<ReturnType<typeof getOwnerKlingT2vCurrentControls>>;
+  readonly #currentO1: OwnerReviewedNoReferenceT2vEngine<ReturnType<typeof getOwnerKlingO1T2vCurrentControls>> | undefined;
 
   constructor(options: OwnerKlingT2vGenerationServiceOptions) {
+    this.#options=Object.freeze({...options});
     const profiles = [
       createOwnerKlingT2vProfile("kling_text2video", options.catalogDirectory),
       createOwnerKlingT2vProfile("kling_o1_text2video", options.catalogDirectory)
@@ -867,10 +934,16 @@ export class OwnerKlingT2vGenerationService {
     }
     if (engines.size !== 2) throw new Error("OWNER_REVIEWED_T2V_PROFILE_INVALID");
     this.#engines = engines;
+    this.#current = new OwnerReviewedNoReferenceT2vEngine({...options,profile:createOwnerKlingT2vCurrentProfile(options.catalogDirectory),
+      resolveModelAccess:options.resolveCurrentModelAccess??options.resolveModelAccess});
+    this.#currentO1 = options.resolveCurrentModelAccess === undefined ? undefined : new OwnerReviewedNoReferenceT2vEngine({...options,
+      profile:createOwnerKlingO1T2vCurrentProfile(options.catalogDirectory),resolveModelAccess:options.resolveCurrentModelAccess});
   }
 
-  getParametersSource(modelId: OwnerKlingT2vModelId): OwnerKlingT2vSourceContract {
-    return this.#engine(modelId).getParametersSource();
+  getParametersSource(modelId: OwnerKlingT2vModelId): OwnerKlingT2vSourceContract & {readonly current_controls?:ReturnType<typeof getOwnerKlingT2vCurrentControls> | ReturnType<typeof getOwnerKlingO1T2vCurrentControls>} {
+    const source=this.#engine(modelId).getParametersSource();
+    return modelId==="kling_text2video"?Object.freeze({...source,current_controls:getOwnerKlingT2vCurrentControls()}):
+      this.#currentO1 ? Object.freeze({...source,current_controls:getOwnerKlingO1T2vCurrentControls()}) : source;
   }
 
   getReviewedContract(modelId: OwnerKlingT2vModelId) {
@@ -878,24 +951,37 @@ export class OwnerKlingT2vGenerationService {
   }
 
   generate(input: OwnerKlingT2vGenerationInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
-    const request = snapshotFamilyInput(input, ["model_id", "attemptId", "prompt", "version", "mode", "aspect_ratio", "video_duration", "native_audio"]);
+    const request = snapshotFamilyInput(input, ["model_id", "attemptId", "prompt", "version", "mode", "aspect_ratio", "video_duration", "native_audio", "temperature", "multi_shots"]);
     const modelId = readKlingModelId(request.model_id);
     delete request.model_id;
-    return this.#engine(modelId).generate(request, signal);
+    if(modelId==="kling_o1_text2video") {
+      if(Object.hasOwn(request,"version")){if(request.version!=="1.6")throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");delete request.version;return this.#engine(modelId).generate(request,signal);}
+      return (this.#currentO1??this.#engine(modelId)).generate(request,signal);
+    }
+    if(typeof request.video_duration==="number"&&!Number.isInteger(request.video_duration)) {
+      if(!this.#options.resolveCurrentModelAccess)throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
+      this.#manual??=new OwnerReviewedNoReferenceT2vEngine({...this.#options,profile:createOwnerKlingT2vCurrentProfile(this.#options.catalogDirectory,true),resolveModelAccess:this.#options.resolveCurrentModelAccess});
+      return this.#manual.generate(request,signal);
+    }
+    return modelId==="kling_text2video" && (request.mode==="4K" || Object.hasOwn(request,"temperature") || Object.hasOwn(request,"multi_shots"))
+      ? this.#current.generate(request,signal) : this.#engine(modelId).generate(request, signal);
   }
 
   reconcile(input: OwnerKlingT2vReconcileInput, signal?: AbortSignal): Promise<OwnerReviewedNoReferenceT2vGenerationOutput> {
     const request = snapshotFamilyInput(input, ["model_id", "attemptId", "recovery_id"]);
     const modelId = readKlingModelId(request.model_id);
     delete request.model_id;
-    return this.#engine(modelId).reconcile(request, signal);
+    const legacy=this.#engine(modelId).reconcile(request, signal);
+    const current=modelId==="kling_text2video"?this.#current:this.#currentO1;
+    const search=this.#manual&&modelId==="kling_text2video"?legacy.catch(e=>{if(e instanceof OwnerReviewedNoReferenceT2vServiceError&&e.code==="RECOVERY_NOT_FOUND")return this.#manual!.reconcile(request,signal);throw e;}):legacy;
+    return current?search.catch(e=>{if(e instanceof OwnerReviewedNoReferenceT2vServiceError&&e.code==="RECOVERY_NOT_FOUND")return current.reconcile(request,signal);throw e;}):search;
   }
 
   listRecoveries(attemptId: string, limit = 20): readonly OwnerReviewedNoReferenceT2vRecoveryListItem[] {
     if (typeof attemptId !== "string" || !ATTEMPT_PATTERN.test(attemptId) || !Number.isSafeInteger(limit) || limit < 1 || limit > 20) {
       throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST");
     }
-    return Object.freeze([...this.#engines.values()]
+    return Object.freeze([...this.#engines.values(),this.#current,...(this.#manual?[this.#manual]:[]),...(this.#currentO1?[this.#currentO1]:[])]
       .flatMap((engine) => engine.listRecoveries(attemptId, 20))
       .sort((left, right) => right.created_at.localeCompare(left.created_at) || left.recovery_id.localeCompare(right.recovery_id))
       .slice(0, limit));
@@ -907,15 +993,18 @@ export class OwnerKlingT2vGenerationService {
     catch { throw new OwnerReviewedNoReferenceT2vServiceError("INVALID_REQUEST"); }
     const modelId = readKlingModelId(request.model_id);
     delete request.model_id;
-    return this.#engine(modelId).getRecoveryDiagnostic(request);
+    const old=this.#engine(modelId).getRecoveryDiagnostic(request);
+    const legacy=this.#manual&&modelId==="kling_text2video"?old.catch(e=>{if(e instanceof OwnerReviewedNoReferenceT2vServiceError&&e.code==="RECOVERY_NOT_FOUND")return this.#manual!.getRecoveryDiagnostic(request);throw e;}):old;
+    const current=modelId==="kling_text2video"?this.#current:this.#currentO1;
+    return current?legacy.catch(e=>{if(e instanceof OwnerReviewedNoReferenceT2vServiceError&&e.code==="RECOVERY_NOT_FOUND")return current.getRecoveryDiagnostic(request);throw e;}):legacy;
   }
 
   async invalidateAttempt(attemptId: string): Promise<void> {
-    await Promise.all([...this.#engines.values()].map((engine) => engine.invalidateAttempt(attemptId)));
+    await Promise.all([...this.#engines.values(),this.#current,...(this.#manual?[this.#manual]:[]),...(this.#currentO1?[this.#currentO1]:[])].map((engine) => engine.invalidateAttempt(attemptId)));
   }
 
   async close(): Promise<void> {
-    await Promise.all([...this.#engines.values()].map((engine) => engine.close()));
+    await Promise.all([...this.#engines.values(),this.#current,...(this.#manual?[this.#manual]:[]),...(this.#currentO1?[this.#currentO1]:[])].map((engine) => engine.close()));
   }
 
   #engine(modelId: OwnerKlingT2vModelId): OwnerReviewedNoReferenceT2vEngine<OwnerKlingT2vSourceContract> {

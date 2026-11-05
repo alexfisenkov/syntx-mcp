@@ -122,12 +122,12 @@ test("Seedance 2.5 in-memory MCP flow performs one no-upload GEN then GET-only r
   } finally { await client.close(); await server.close(); await state.close(); }
 });
 
-test("Seedance 2.5 rejects caller aliases, extra wire fields and changed initial tuple before any HTTP call", async () => {
+test("Seedance 2.5 rejects caller aliases, extra wire fields and out-of-range controls before any HTTP call", async () => {
   const state = await fixture();
   try {
     for (const bad of [
-      { model_id: "seedance-2.0" }, { mode: "fast" }, { resolution: "1080p" }, { aspect_ratio: "9:16" },
-      { video_duration: 6 }, { generate_audio: false }, { file_urls: [{ type: "video", url: "https://r2.syntx.ai/x.mp4" }] },
+      { model_id: "seedance-2.0" }, { mode: "fast" }, { resolution: "4K" }, { aspect_ratio: "2:1" },
+      { video_duration: 3 }, { video_duration: 31 }, { file_urls: [{ type: "video", url: "https://r2.syntx.ai/x.mp4" }] },
       { camera_fixed: false }
     ]) {
       assert.throws(() => state.service.generate({ attemptId: ATTEMPT_ID, prompt: "Test prompt.", resolution: "720p",

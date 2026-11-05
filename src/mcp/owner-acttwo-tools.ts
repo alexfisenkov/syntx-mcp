@@ -5,6 +5,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { isOwnerActTwoGenerationService, type OwnerActTwoGenerationService } from "../application/owner-acttwo-generation-service.js";
 import { isOwnerActTwoImageReferenceService, type OwnerActTwoImageReferenceService } from "../application/owner-acttwo-image-reference-service.js";
 import { isOwnerActTwoPerformanceVideoReferenceService, type OwnerActTwoPerformanceVideoReferenceService } from "../application/owner-acttwo-video-reference-service.js";
+import { OWNER_ACTTWO_CURRENT_CONTROLS } from "../application/owner-actor-current-controls.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const RECOVERY = /^acttwo_recovery_[0-9a-f-]{36}$/u;
@@ -21,7 +22,8 @@ const videoUploadInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), 
   mime_type: z.literal("video/mp4"), content_base64: z.string().min(4).max(MAX_VIDEO_BASE64)
     .refine((value) => isCanonicalBase64Bounded(value, MAX_VIDEO_BASE64)) }).strict();
 const generateInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("acttwo"), aspect_ratio: z.literal("1:1"),
-  seed: z.null(), expression: z.literal(3), character_image_handle: z.string().regex(IMAGE_HANDLE),
+  seed: z.number().int().min(0).max(2147483647).nullable().default(null).describe("Current unconditional RandomSeed: null or integer0..2147483647; explicit0 stays wire0, omission keeps compatibilitynull."),
+  expression: z.number().min(1).max(5).default(3).describe("Current slider range1..5; step1 is a UI increment, manual finite fractions are allowed. Omission keeps compatibility3, not a verified saved UI default."), character_image_handle: z.string().regex(IMAGE_HANDLE),
   performance_video_handle: z.string().regex(VIDEO_HANDLE) }).strict();
 const resultInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), recovery_id: z.string().regex(RECOVERY) }).strict();
 const listInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT) }).strict();
@@ -32,7 +34,7 @@ const uploadImageOutput = z.object({ status: z.literal("uploaded"), reference_ha
   upload_authority: z.literal(false), generation_permit: z.literal(false) }).strict();
 const uploadVideoOutput = z.object({ status: z.literal("uploaded"), reference_handle: z.string().regex(VIDEO_HANDLE), model_id: z.literal("acttwo"),
   media_type: z.literal("video"), mime_type: z.literal("video/mp4"), size: z.number().int().positive(), sha256: z.string().regex(/^[a-f0-9]{64}$/u),
-  width: z.number().int().positive(), height: z.number().int().positive(), measured_duration_seconds: z.literal(5), expires_in_seconds: z.number().int().nonnegative(),
+  width: z.number().int().positive(), height: z.number().int().positive(), measured_duration_seconds: z.number().positive().max(30), expires_in_seconds: z.number().int().nonnegative(),
   probe_confidence: z.literal("FFPROBE_METADATA_NOT_DECODED_PIXELS"), upload_authority: z.literal(false), generation_permit: z.literal(false) }).strict();
 const artifact = z.object({ message_object_id: z.string().min(1).max(160), object_type: z.literal("video"), object_url: z.string().url().max(4096),
   mime_type: z.enum(["video/mp4", "video/quicktime"]).nullable(), message_id: z.string().min(1).max(160), chat_uuid: z.string().min(1).max(160),
@@ -72,7 +74,7 @@ export function registerSyntxOwnerActTwoTools(server: McpServer, input: unknown)
     } catch (error) { return safeError(error); } finally { bytes?.fill(0); }
   });
   server.registerTool(OWNER_ACTTWO_TOOL_NAMES[1], { title: "Upload ActTwo performance video",
-    description: "Measures and uploads one local five-second MP4 as the ActTwo performance-video role using trusted ffprobe configuration.",
+    description: "Measures and uploads one MP4 performance clip with genuine duration greater than0 and at most30seconds under current public bounds. Uses trusted ffprobe, without trimming or a caller-supplied duration. Existing20MiB/metadata resource guards remain.",
     inputSchema: videoUploadInput, outputSchema: uploadVideoOutput,
     annotations: { title: "Upload ActTwo performance video", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
   }, async (raw, { signal }) => {
@@ -85,8 +87,9 @@ export function registerSyntxOwnerActTwoTools(server: McpServer, input: unknown)
     } catch (error) { return safeError(error); } finally { bytes?.fill(0); }
   });
   server.registerTool(OWNER_ACTTWO_TOOL_NAMES[2], { title: "Generate one ActTwo video",
-    description: "Submits the initial one-character-image plus one-measured-performance-video tuple. Prompt is fixed empty, result recovery is GET-only, and affordability quotes are not a provider spending cap.",
+    description: "Submits one character image plus one measured performance clip. Expression accepts finite1..5 (including manual fractions); omitted compatibility value3. Duration/cost come from the clip, up to30seconds; callers cannot override them. Prompt stays empty, recovery is GET-only and quotes are not a spending cap. Historical5second/expression3 proof does not establish acceptance of new values.",
     inputSchema: generateInput, outputSchema: resultOutput,
+    _meta: { "syntx/currentSourceControls": OWNER_ACTTWO_CURRENT_CONTROLS },
     annotations: { title: "Generate one ActTwo video", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
   }, async (raw, { signal }) => {
     try {

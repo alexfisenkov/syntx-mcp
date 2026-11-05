@@ -106,6 +106,31 @@ export function getOwnerSeedanceEditorCurrentSource(): Readonly<typeof CURRENT_S
   return CURRENT_SOURCE;
 }
 
+const FRAME_SOURCE_FACTS = Object.freeze({
+  source_build_id: "1793890358" as const,
+  public_catalog_sha256: "a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88" as const,
+  settings_sha256: "4da7d12483291bb632aa21e0deb220142994fe061999d2f246318276964fa187" as const,
+  form_sha256: "5c884dcb0dca241d1bc47185db237ad556854d951b29c7cf5e4f5589641624f4" as const,
+  parent_sha256: "e607b023f73446cb083fddd3e530c7dcd3a3b5adc2c72359c22efc31601c81d6" as const,
+  frame_timecode_sha256: "d69325f2be02ee6825285235b5308d880d7210fc3ed089d8ff285fedee592996" as const,
+  sender_sha256: "4d81d1d8ea5b5f0a47fbe482f2bf974c0bdf8acbe1eea99699ded91edd5a1354" as const,
+  canvas_frame_mime: "image/png" as const,
+  maximum_images_catalog: 30 as const,
+  local_frame_limit_bytes: 20 * 1024 * 1024,
+  local_image_geometry: Object.freeze({ min_width: 300, min_height: 300, max_width: 6000, max_height: 6000,
+    max_pixels: 52500000, min_aspect: 0.4, max_aspect: 2.5 }),
+  timecode_format: "MM:SS.mmm_ROUNDED_TO_NEAREST_MILLISECOND" as const,
+  source_video_first: true as const,
+  frame_contents_match_video: "NOT_VERIFIED" as const,
+  effective_defaults: "UNKNOWN" as const,
+  rendered_ui: "NOT_CHECKED" as const,
+  backend_acceptance: "UNPROVEN" as const,
+  runtime_usable: false as const,
+  dispatch_allowed: false as const
+});
+const FRAME_SOURCE = Object.freeze({ ...FRAME_SOURCE_FACTS, source_sha256: schemaHash(FRAME_SOURCE_FACTS) });
+export function getOwnerSeedanceEditorFrameSource(): Readonly<typeof FRAME_SOURCE> { return FRAME_SOURCE; }
+
 export type OwnerSeedanceEditorResolution = typeof RESOLUTIONS[number];
 
 export interface OwnerSeedanceEditorParametersInput {
@@ -146,7 +171,7 @@ export function getOwnerSeedanceEditorCurrentUiObservation(): Readonly<typeof CU
 export function normalizeOwnerSeedanceEditorParameters(input: unknown): Readonly<OwnerSeedanceEditorNormalizedParameters> {
   const fields = exactRecord(input, ["model_id", "prompt", "resolution"]);
   if (fields.model_id !== MODEL_ID || typeof fields.prompt !== "string" || fields.prompt.trim().length === 0 ||
-      fields.prompt.length > MAX_PROMPT_UTF16 || !isWellFormedUnicode(fields.prompt) || !oneOf(fields.resolution, RESOLUTIONS)) {
+      fields.prompt.length > MAX_PROMPT_UTF16 || /<<<https?:\/\//iu.test(fields.prompt) || !isWellFormedUnicode(fields.prompt) || !oneOf(fields.resolution, RESOLUTIONS)) {
     invalidParameters();
   }
   const intent = Object.freeze({ model_id: MODEL_ID, prompt: fields.prompt, resolution: fields.resolution as OwnerSeedanceEditorResolution });

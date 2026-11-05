@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
-import { getOwnerSeedanceEditorCurrentSource, getOwnerSeedanceEditorCurrentUiObservation, getOwnerSeedanceEditorSourceProfile } from "../application/owner-seedance-editor-parameters.js";
+import { getOwnerSeedanceEditorCurrentSource, getOwnerSeedanceEditorCurrentUiObservation, getOwnerSeedanceEditorFrameSource, getOwnerSeedanceEditorSourceProfile } from "../application/owner-seedance-editor-parameters.js";
 
 export const SYNTX_SEEDANCE_EDITOR_SOURCE_TOOL_NAME = "syntx_get_seedance_editor_source" as const;
 
@@ -11,7 +11,8 @@ const outputSchema = z.object({
   dispatch_allowed: z.literal(false),
   profile: z.json(),
   current_ui_observation: z.json(),
-  current_source: z.json()
+  current_source: z.json(),
+  frame_source: z.json()
 }).strict();
 
 /** Local source evidence only: no account, uploaded URLs, runtime promotion or dispatch. */
@@ -28,7 +29,8 @@ export function registerSyntxSeedanceEditorSourceTool(server: McpServer): void {
         network_access: false, paid_operations: false, dispatch_allowed: false,
         profile: getOwnerSeedanceEditorSourceProfile(),
         current_ui_observation: getOwnerSeedanceEditorCurrentUiObservation(),
-        current_source: getOwnerSeedanceEditorCurrentSource()
+        current_source: getOwnerSeedanceEditorCurrentSource(),
+        frame_source: getOwnerSeedanceEditorFrameSource()
       });
       return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
     } catch {

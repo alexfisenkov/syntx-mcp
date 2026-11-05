@@ -10,6 +10,10 @@ import { SyntxHttpClient, type SyntxCredentialBroker } from "../src/adapter/synt
 import { InMemoryAuthLinkStore } from "../src/auth/in-memory-auth-store.js";
 import { PerUserLinkService } from "../src/auth/link-service.js";
 import { OBSERVED_AUTHORIZATION_PROFILE } from "../src/auth/types.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { registerSyntxOwnerVideo2AudioTools } from "../src/mcp/owner-video2audio-tools.js";
 import type { AuthBinding, AuthLinkProvider } from "../src/auth/types.js";
 
 const MODULE_URL = new URL("../src/application/owner-video2audio-generation-service.js", import.meta.url).href;
@@ -48,6 +52,7 @@ function jsonResponse(payload: unknown): Response {
 }
 
 async function makeVideo2AudioFixture(options: { readonly loseGenerationAck?: boolean; readonly activeSubscription?: boolean;
+  readonly expectedSeed?: number | null; readonly expectedNegativePrompt?: string;
   readonly modelAccessAllowed?: boolean; readonly balance?: string; readonly subscriptionEndDate?: string;
   readonly revokeAfterBalance?: boolean;
   readonly resultReadyAfterResultGets?: number;
@@ -118,7 +123,7 @@ async function makeVideo2AudioFixture(options: { readonly loseGenerationAck?: bo
       counts.generationPosts += 1;
       assert.equal(url.search, "?ai_name=video2audio");
       assert.deepEqual(body, { chat_uuid: chatId, prompt: PROMPT, settings: { model_type: "video2audio", mode: "generate",
-        duration: 5.64, negative_prompt: "", seed: 0, file_urls: [{ type: "video", url: ORIGINAL_URL }] } });
+        duration: 5.64, negative_prompt: options.expectedNegativePrompt ?? "", seed: options.expectedSeed === undefined ? 0 : options.expectedSeed, file_urls: [{ type: "video", url: ORIGINAL_URL }] } });
       if (options.generationGate) {
         options.generationGate.entered();
         return await new Promise<Response>((_resolve, reject) => {
@@ -246,6 +251,37 @@ test("generation performs two fresh account/model gates then one exact native PO
     assert.equal(accessIndexes.length, 2);
     assert.ok(accessIndexes[0]! < chatIndex && chatIndex < accessIndexes[1]! && accessIndexes[1]! < generationIndex,
       "both fresh model-access reads must bracket chat creation before the one generation POST");
+  } finally { await fixture.close(); }
+});
+
+test("Video2Audio historical SDK reports current controls but denies nondefault values without current profile", async () => {
+  const fixture = await makeVideo2AudioFixture({ expectedSeed: 321, expectedNegativePrompt: "no speech 🌙" });
+  const server = new McpServer({ name: "video2audio-current-controls", version: "1" });
+  registerSyntxOwnerVideo2AudioTools(server, { profile: fixture.serviceOptions.profile, originalReferenceService: fixture.originalReferenceService,
+    generationService: fixture.service as Parameters<typeof registerSyntxOwnerVideo2AudioTools>[1]["generationService"] });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "video2audio-current-controls", version: "1" });
+  await server.connect(serverTransport); await client.connect(clientTransport);
+  try {
+    const tools = await client.listTools(), generate = tools.tools.find((tool) => tool.name === "syntx_owner_generate_video2audio")!;
+    assert.ok(generate.inputSchema.properties?.seed); assert.ok(generate.inputSchema.properties?.negative_prompt);
+    const report = await client.callTool({ name: "syntx_owner_get_video2audio_source" });
+    const controls = (report.structuredContent as Record<string, any>).current_source_controls;
+    assert.equal(controls.build_id, "1793890358"); assert.equal(controls.seed.explicit_zero, "ZERO_WIRE_PRESERVED_RANDOM_VIEW_ONLY");
+    const uploaded = await fixture.upload();
+    const result = await client.callTool({ name: generate.name, arguments: { link_attempt_id: ATTEMPT, prompt: PROMPT,
+      video_original_handle: uploaded.video_original_handle, seed: 321, negative_prompt: "no speech 🌙" } });
+    assert.equal(result.isError, true); assert.equal(fixture.counts.generationPosts, 0);
+  } finally { await client.close(); await server.close(); await fixture.close(); }
+});
+
+test("Video2Audio historical direct API refuses current random null before dispatch", async () => {
+  const fixture = await makeVideo2AudioFixture({ expectedSeed: null, expectedNegativePrompt: "no noise" });
+  try {
+    const uploaded = await fixture.upload();
+    await assert.rejects(fixture.service.generate({ attemptId: ATTEMPT, prompt: PROMPT, video_original_handle: uploaded.video_original_handle,
+      seed: null, negative_prompt: "no noise" }));
+    assert.equal(fixture.counts.generationPosts, 0);
   } finally { await fixture.close(); }
 });
 

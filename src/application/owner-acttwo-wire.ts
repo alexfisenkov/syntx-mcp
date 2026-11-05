@@ -1,4 +1,5 @@
 import { types } from "node:util";
+import { isOwnerActTwoCurrentDuration } from "./owner-actor-current-controls.js";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import { schemaHash } from "../domain/generation-contract.js";
 import { getOwnerActTwoSourceProfile, normalizeOwnerActTwoParameters, type OwnerActTwoNormalizedParameters } from "./owner-acttwo-parameters.js";
@@ -16,7 +17,7 @@ export interface OwnerActTwoCapturedCharacterImage {
 }
 export interface OwnerActTwoCapturedPerformanceVideo {
   readonly url: string; readonly sha256: string; readonly size: number; readonly width: number; readonly height: number;
-  readonly mime_type: "video/mp4"; readonly measured_duration_seconds: 5;
+  readonly mime_type: "video/mp4"; readonly measured_duration_seconds: number;
 }
 export interface OwnerActTwoWireInput {
   readonly ai_name: "runway";
@@ -24,9 +25,9 @@ export interface OwnerActTwoWireInput {
   readonly settings: Readonly<{
     readonly model_type: "acttwo";
     readonly aspect_ratio: "11";
-    readonly video_duration: 5;
-    readonly seed: null;
-    readonly expression: 3;
+    readonly video_duration: number;
+    readonly seed: number | null;
+    readonly expression: number;
     readonly file_urls: readonly [Readonly<{ readonly type: "video"; readonly url: string }>, Readonly<{ readonly type: "image"; readonly url: string }>];
   }>;
 }
@@ -37,7 +38,7 @@ export interface OwnerActTwoWireCandidate {
   readonly wire: Readonly<OwnerActTwoWireInput>;
   readonly source_media: Readonly<{
     readonly character_image: Readonly<{ sha256: string; size: number; width: number; height: number; mime_type: "image/jpeg" | "image/png" }>;
-    readonly performance_video: Readonly<{ sha256: string; size: number; width: number; height: number; mime_type: "video/mp4"; duration_seconds: 5 }>;
+    readonly performance_video: Readonly<{ sha256: string; size: number; width: number; height: number; mime_type: "video/mp4"; duration_seconds: number }>;
     readonly metadata_confidence: "CAPTURED_LOCAL_VALIDATION_AND_FFPROBE_NOT_DECODED_PIXELS";
   }>;
   readonly role_binding: "VIDEO_FROM_G_FILES_THEN_IMAGE_FROM_SETTINGS_FILE_URLS";
@@ -71,7 +72,8 @@ export function buildOwnerActTwoWire(input: unknown, capturedInput: unknown): Re
       !Number.isSafeInteger(captured.performance_video.width) || captured.performance_video.width < 300 || captured.performance_video.width > MAX_DIMENSION ||
       !Number.isSafeInteger(captured.performance_video.height) || captured.performance_video.height < 300 || captured.performance_video.height > MAX_DIMENSION ||
       captured.performance_video.width * captured.performance_video.height > MAX_PIXELS || captured.performance_video.mime_type !== "video/mp4" ||
-      captured.performance_video.measured_duration_seconds !== 5) invalidWire();
+      !isOwnerActTwoCurrentDuration(captured.performance_video.measured_duration_seconds) ||
+      captured.performance_video.measured_duration_seconds !== normalized.source_parameters.video_duration) invalidWire();
 
   const source = getOwnerActTwoSourceProfile();
   const file_urls = Object.freeze([
@@ -113,7 +115,7 @@ function exactCaptured(value: unknown): Readonly<{ character_image: OwnerActTwoC
     character_image: Object.freeze({ url: image.url, sha256: image.sha256, size: image.size, width: image.width, height: image.height,
       mime_type: image.mime_type as OwnerActTwoCapturedCharacterImage["mime_type"] }),
     performance_video: Object.freeze({ url: video.url, sha256: video.sha256, size: video.size, width: video.width, height: video.height,
-      mime_type: video.mime_type as OwnerActTwoCapturedPerformanceVideo["mime_type"], measured_duration_seconds: video.measured_duration_seconds as 5 })
+      mime_type: video.mime_type as OwnerActTwoCapturedPerformanceVideo["mime_type"], measured_duration_seconds: video.measured_duration_seconds })
   });
 }
 

@@ -46,13 +46,14 @@ test("2281 accepts source-proven JPEG, PNG and WebP, canonicalizes JPEG, and hol
   }
 });
 
-test("2281 keeps legacy Grok I2V input geometry 16:9 while new Grok 1.5 accepts bounded geometry", () => {
+test("2281 preserves legacy 16:9 input and current Grok original images accept bounded geometry", () => {
   const legacy = validateOwnerGrokI2vImageUpload(input("grok_i2v", png(160, 90), "image/png"));
   const square = validateOwnerGrokI2vImageUpload(input("grok_15_i2v", png(90, 90), "image/png"));
   assert.equal(legacy.width, 160); assert.equal(legacy.height, 90); assert.equal(square.width, 90); assert.equal(square.height, 90);
   assert.equal("aspect_ratio" in legacy, false); assert.equal("aspect_ratio" in OWNER_GROK_I2V_IMAGE_POLICY, false);
   releaseValidatedOwnerGrokI2vImageUpload(legacy); releaseValidatedOwnerGrokI2vImageUpload(square);
-  assert.throws(() => validateOwnerGrokI2vImageUpload(input("grok_i2v", png(90, 90), "image/png")), invalid());
+  const current = validateOwnerGrokI2vImageUpload(input("grok_i2v", png(90, 90), "image/png"));
+  assert.equal(current.width, 90); assert.equal(current.height, 90); releaseValidatedOwnerGrokI2vImageUpload(current);
   assert.throws(() => validateOwnerGrokI2vImageUpload({ ...input("grok_15_i2v", png(90, 90), "image/png"), aspect_ratio: "1:1" }), invalid());
 });
 

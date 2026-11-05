@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import {
-  isAuthenticOwnerVideo2AudioSourceProfile,
+  isAuthenticOwnerVideo2AudioSourceProfile, isCurrentOwnerVideo2AudioSourceProfile, type OwnerVideo2AudioMimeType,
   type OwnerVideo2AudioSourceProfile
 } from "./owner-video2audio-source-profile.js";
 
@@ -17,10 +17,10 @@ export interface OwnerVideo2AudioNormalizedInput {
   readonly prompt: string;
   readonly original: Readonly<{
     filename: string;
-    mime_type: "video/mp4";
+    mime_type: OwnerVideo2AudioMimeType;
     size: number;
     sha256: string;
-    container: "ISO_BMFF_MP4_FTYP";
+    container: "ISO_BMFF_MP4_FTYP" | "WEBM_EBML" | "QUICKTIME_CONTAINER";
     bytes: Uint8Array;
   }>;
   readonly fixed_settings: Readonly<{
@@ -33,7 +33,7 @@ export interface OwnerVideo2AudioNormalizedInput {
     status: "TRUSTED_UPLOAD_RECEIPT_REQUIRED";
     duration_seconds: null;
     ui_hint_max_seconds: 20;
-    max_semantics: "UI_HINT_ONLY_NOT_BACKEND_LIMIT";
+    max_semantics: "UI_HINT_ONLY_NOT_BACKEND_LIMIT" | "INITIALIZER_FALLBACK_ONLY_NOT_DURATION_MAXIMUM";
     caller_supplied: false;
   }>;
   readonly runtime_usable: false;
@@ -76,7 +76,7 @@ export function normalizeOwnerVideo2AudioInput(
       status: "TRUSTED_UPLOAD_RECEIPT_REQUIRED",
       duration_seconds: null,
       ui_hint_max_seconds: profile.source.controls.duration.ui_hint_max_inclusive_seconds,
-      max_semantics: "UI_HINT_ONLY_NOT_BACKEND_LIMIT",
+      max_semantics: profile.source.controls.duration.max_semantics,
       caller_supplied: false
     }),
     runtime_usable: false,
@@ -98,7 +98,7 @@ export function validateOwnerVideo2AudioTrustedUploadDuration(
 ): number {
   if (!isAuthenticOwnerVideo2AudioSourceProfile(profile)) fail("SOURCE_PROFILE_INVALID");
   if (typeof trustedMetadata !== "number" || !Number.isFinite(trustedMetadata) || trustedMetadata <= 0 ||
-      trustedMetadata > profile.source.controls.duration.ui_hint_max_inclusive_seconds) {
+      !isCurrentOwnerVideo2AudioSourceProfile(profile) && trustedMetadata > profile.source.controls.duration.ui_hint_max_inclusive_seconds) {
     fail("TRUSTED_UPLOAD_DURATION_INVALID");
   }
   return trustedMetadata;
@@ -129,7 +129,7 @@ function readExactInput(value: unknown): Record<(typeof INPUT_KEYS)[number], unk
 function normalizePrompt(value: unknown, profile: OwnerVideo2AudioSourceProfile): string {
   if (typeof value !== "string" || !isWellFormedUnicode(value)) fail("PROMPT_INVALID");
   const prompt = value.trim();
-  if (prompt.length === 0 || prompt.length > profile.source.controls.prompt.local_bound_utf16 || PROMPT_CONTROL.test(prompt)) {
+  if ((!isCurrentOwnerVideo2AudioSourceProfile(profile) && prompt.length === 0) || prompt.length > profile.source.controls.prompt.local_bound_utf16 || PROMPT_CONTROL.test(prompt)) {
     fail("PROMPT_INVALID");
   }
   return prompt;
@@ -141,36 +141,35 @@ function normalizeOriginalVideo(
   rawBytes: unknown,
   profile: OwnerVideo2AudioSourceProfile
 ): OwnerVideo2AudioNormalizedInput["original"] {
-  if (typeof filename !== "string" || !SAFE_FILENAME.test(filename) || filename.includes("/") || filename.includes("\\") ||
-      mimeType !== "video/mp4" || !profile.source.controls.original_video.profile_accepts.includes(mimeType)) {
-    fail("ORIGINAL_VIDEO_INVALID");
-  }
-  if (types.isProxy(rawBytes) || !(rawBytes instanceof Uint8Array)) fail("ORIGINAL_VIDEO_INVALID");
-  try {
-    if (!Buffer.isBuffer(rawBytes) && Object.getPrototypeOf(rawBytes) !== Uint8Array.prototype) fail("ORIGINAL_VIDEO_INVALID");
-  } catch {
-    fail("ORIGINAL_VIDEO_INVALID");
-  }
+  const current = isCurrentOwnerVideo2AudioSourceProfile(profile);
+  if (typeof filename !== "string" || filename !== filename.trim() || !filename || Buffer.byteLength(filename) > 255 || /[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(filename) ||
+      !current && !SAFE_FILENAME.test(filename) || typeof mimeType !== "string" || !(profile.source.controls.original_video.profile_accepts as readonly string[]).includes(mimeType)) fail("ORIGINAL_VIDEO_INVALID");
+  if (types.isProxy(rawBytes) || !(rawBytes instanceof Uint8Array) || !Buffer.isBuffer(rawBytes) && Object.getPrototypeOf(rawBytes) !== Uint8Array.prototype ||
+      ["buffer", "byteLength", "byteOffset", "length"].some(key => Object.hasOwn(rawBytes, key))) fail("ORIGINAL_VIDEO_INVALID");
   if (rawBytes.byteLength < 16 || rawBytes.byteLength > profile.source.controls.original_video.local_size_bound_bytes) fail("ORIGINAL_VIDEO_INVALID");
-  const bytes = new Uint8Array(rawBytes.byteLength);
-  bytes.set(rawBytes);
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const boxSize = view.getUint32(0, false);
+  const bytes = new Uint8Array(rawBytes.byteLength); bytes.set(rawBytes);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), boxSize = view.getUint32(0, false);
   const fileType = String.fromCharCode(bytes[4]!, bytes[5]!, bytes[6]!, bytes[7]!);
-  if (boxSize < 16 || boxSize > bytes.byteLength || fileType !== "ftyp") fail("ORIGINAL_VIDEO_INVALID");
+  let container: OwnerVideo2AudioNormalizedInput["original"]["container"] = "ISO_BMFF_MP4_FTYP";
+  const canonicalMime: OwnerVideo2AudioMimeType = mimeType === "video/mov" ? "video/quicktime" : mimeType as OwnerVideo2AudioMimeType;
+  const valid = canonicalMime === "video/webm" ? view.getUint32(0, false) === 0x1a45dfa3
+    : canonicalMime === "video/quicktime" ? boxSize >= 8 && boxSize <= bytes.byteLength && ["ftyp", "moov", "mdat", "wide", "free", "skip"].includes(fileType)
+      : boxSize >= 16 && boxSize <= bytes.byteLength && fileType === "ftyp" && (!current || String.fromCharCode(bytes[8]!, bytes[9]!, bytes[10]!, bytes[11]!) !== "qt  ");
+  if (!valid) { bytes.fill(0); return fail("ORIGINAL_VIDEO_INVALID"); }
+  if (canonicalMime === "video/webm") container = "WEBM_EBML"; else if (canonicalMime === "video/quicktime") container = "QUICKTIME_CONTAINER";
   const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
   const original = {
     filename,
-    mime_type: "video/mp4" as const,
+    mime_type: canonicalMime,
     size: bytes.byteLength,
     sha256: digest,
-    container: "ISO_BMFF_MP4_FTYP" as const
+    container
   } as {
     filename: string;
-    mime_type: "video/mp4";
+    mime_type: OwnerVideo2AudioMimeType;
     size: number;
     sha256: string;
-    container: "ISO_BMFF_MP4_FTYP";
+    container: "ISO_BMFF_MP4_FTYP" | "WEBM_EBML" | "QUICKTIME_CONTAINER";
     bytes: Uint8Array;
   };
   Object.defineProperty(original, "bytes", { enumerable: false, configurable: false, get: () => new Uint8Array(bytes) });

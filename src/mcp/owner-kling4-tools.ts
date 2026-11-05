@@ -1,10 +1,11 @@
+import { OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE, KLING_MANUAL_DURATION_CURRENT_CATALOG } from "../application/owner-kling-duration-current-source.js";
 import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
-import { getOwnerKling4SourceProfile, normalizeOwnerKling4Parameters } from "../application/owner-kling4-parameters.js";
+import { getOwnerKling4SourceProfile, getOwnerKling4CurrentDurationProfileHash, normalizeOwnerKling4Parameters } from "../application/owner-kling4-parameters.js";
 
 export const OWNER_KLING4_TOOL_NAMES = Object.freeze([
   "syntx_owner_get_kling4_source", "syntx_owner_upload_kling4_reference", "syntx_owner_generate_kling4_video",
@@ -41,7 +42,7 @@ const diagnostic = z.object({ phase: z.enum(["VALIDATE_REQUEST", "PREFLIGHT_ONE"
 const resultSchema = z.object({ status: z.literal("completed"), status_semantics: z.literal("LOCAL_OBSERVED_AVAILABILITY_ONLY"),
   backend_acceptance: z.literal("UNPROVEN"), provider_terminal_status: z.literal("UNPROVEN"), cost_cap_enforced: z.literal(false),
   output_count: z.literal("UNKNOWN"), recovery_id: recovery, model_id: model,
-  source_binding: z.object({ public_catalog_version: z.literal(getOwnerKling4SourceProfile("kling_4_omni").source_catalog_version),
+  source_binding: z.object({ public_catalog_version: z.union([z.literal(getOwnerKling4SourceProfile("kling_4_omni").source_catalog_version), z.literal(KLING_MANUAL_DURATION_CURRENT_CATALOG)]),
     profile_sha256: sha, request_fingerprint: sha, intent_fingerprint: sha }).strict(),
   observed_artifact_count: z.number().int().min(1).max(MAX_RESULTS), offset: z.number().int().min(0).max(MAX_RESULTS), page_size: z.literal(64),
   artifacts: z.array(z.object({ object_index: z.number().int().nonnegative(), message_object_id: id, object_type: z.literal("video"),
@@ -50,7 +51,7 @@ const resultSchema = z.object({ status: z.literal("completed"), status_semantics
   has_more: z.boolean(), next_offset: z.number().int().min(0).max(MAX_RESULTS).nullable(), diagnostic
 }).strict().refine(value => {
   const next = value.offset + value.artifacts.length;
-  return value.source_binding.profile_sha256 === getOwnerKling4SourceProfile(value.model_id).source_sha256 &&
+  return value.source_binding.profile_sha256 === (value.source_binding.public_catalog_version === KLING_MANUAL_DURATION_CURRENT_CATALOG ? getOwnerKling4CurrentDurationProfileHash(value.model_id) : getOwnerKling4SourceProfile(value.model_id).source_sha256) &&
     value.artifacts.every(x => x.model_id === value.model_id && x.mime_source === (x.mime_type === null ? "UNKNOWN" : "URL_EXTENSION")) &&
     value.offset <= value.observed_artifact_count && value.artifacts.length === Math.min(64, value.observed_artifact_count - value.offset) &&
     value.has_more === (next < value.observed_artifact_count) && value.next_offset === (value.has_more ? next : null);
@@ -60,7 +61,7 @@ const recoveryListSchema = z.object({ recoveries: z.array(z.object({ recovery_id
 }).strict()).max(128) }).strict();
 const generationInput = z.object({ link_attempt_id: attempt, model_id: model, prompt: z.string().max(24000), version: z.literal("4.0"),
   mode: z.enum(["standart", "hd"]), aspect_ratio: z.enum(["16:9", "1:1", "9:16", "21:9"]),
-  video_duration: z.number().int().min(3).max(30), native_audio: z.boolean(), reference_handles: z.array(handle).max(15)
+  video_duration: z.number().finite().min(3).max(30), native_audio: z.boolean(), reference_handles: z.array(handle).max(15)
 }).strict();
 const recoveryInput = z.object({ link_attempt_id: attempt, recovery_id: recovery }).strict();
 const listInput = z.object({ link_attempt_id: attempt, limit: z.number().int().min(1).max(128).optional() }).strict();
@@ -98,7 +99,7 @@ export function registerSyntxOwnerKling4Tools(server: McpServer, options: OwnerK
   server.registerTool(OWNER_KLING4_TOOL_NAMES[0], { title: "Get Kling 4 controls and limits",
     description: "Pinned controls for exactly Kling 4 Keyframes or Omni, with separate configured local limits. Source evidence is not provider acceptance. No network or generation.",
     inputSchema: z.object({ model_id: model }).strict(), outputSchema: sourceSchema, annotations: hints(true, false)
-  }, async input => success(sourceSchema, { profile: getOwnerKling4SourceProfile(input.model_id), local_policy: {
+  }, async input => success(sourceSchema, { profile: { ...getOwnerKling4SourceProfile(input.model_id), current_duration_source: OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE }, local_policy: {
     max_image_file_bytes: IMAGE_CAP, max_video_file_bytes: videoCap, reference_ttl_seconds: 900,
     input_inspection: "LOCAL_METADATA_ONLY_NO_DECODE", image_subset: "JPEG_PNG_AV1_AVIF_CONSERVATIVE_STRUCTURE", durability: "PROCESS_LOCAL_ONLY",
     price_or_provider_cost_cap: "NOT_ENFORCED_BY_PROVIDER" }, backend_acceptance: "UNPROVEN" }));

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "../src/mcp/server.js";
@@ -25,12 +27,13 @@ function png384(): Buffer {
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 type ApiService = { generate(input: unknown): Promise<any>; reconcile(input: unknown): Promise<any>; listRecoveries(input: unknown): Promise<readonly unknown[]>; close(): Promise<void>; invalidateAttempt(id: string): Promise<void> };
 async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAck?: boolean; pending?: boolean;
-  wrongModel?: boolean; wrongOwner?: boolean; swapResult?: boolean; generationHttpStatus?: number } = {}, uploadInitially = true) {
+  wrongModel?: boolean; wrongOwner?: boolean; swapResult?: boolean; generationHttpStatus?: number; currentGeometry?: Buffer; currentDuration?: number } = {}, uploadInitially = true) {
   const [{ OwnerGrokI2vReferenceService }, module] = await Promise.all([
     import(new URL("../src/application/owner-grok-i2v-reference-service.js", import.meta.url).href),
     import(new URL("../src/application/owner-grok-i2v-generation-service.js", import.meta.url).href)
   ]);
   assert.equal(typeof module.OwnerGrokI2vGenerationService, "function");
+  const model = options.currentGeometry ? "grok_i2v" : "grok_15_i2v", aspect = options.currentGeometry ? "16:9" : "1:1", duration = options.currentDuration ?? (options.currentGeometry ? 6 : 5);
   const binding = { tenant_id: "grok2283", subject: `owner-${++serial}` };
   const now = () => Date.parse("2026-10-18T00:00:00.000Z");
   const links = new PerUserLinkService({ authorizationProfile: "OBSERVED_OWNER_AUTHORIZED",
@@ -43,11 +46,11 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
   const owner = () => ({ id: "owner2283", chat_id: "provider2283", author_id: options.wrongOwner ? -1 : 17,
     message_object: [
       { id: "text2283", message_id: "owner2283", object_type: "text", object_text: last?.prompt },
-      { id: "input2283", message_id: "owner2283", object_type: "image", object_url: INPUT, model_type: "grok_15_i2v" }
+      { id: "input2283", message_id: "owner2283", object_type: "image", object_url: INPUT, model_type: model }
     ] });
   const bot = () => ({ id: "bot2283", chat_id: "provider2283", author_id: -1, message_object: [
     { id: "output2283", message_id: "bot2283", object_type: "video", object_url: OUTPUT,
-      model_type: options.wrongModel ? "other-model" : "grok_15_i2v", completed: true }
+      model_type: options.wrongModel ? "other-model" : model, completed: true }
   ] });
   const fetchImpl: typeof fetch = async (input, init = {}) => {
     const url = new URL(String(input));
@@ -56,15 +59,15 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
     if (url.pathname.endsWith("user/subscription")) { stats.subscriptions++; return json({ active: true, type: options.free ? "FREE" : "PRO", end_date: "2099-01-01" }); }
     if (url.pathname.endsWith("get_model_info")) {
       stats.quotes++;
-      assert.equal(url.searchParams.get("model_type"), "grok_15_i2v");
+      assert.equal(url.searchParams.get("model_type"), model);
       assert.equal(url.searchParams.get("ai_name"), "grok_video");
-      assert.equal(url.searchParams.get("video_duration"), "5");
+      assert.equal(url.searchParams.get("video_duration"), String(duration));
       assert.equal(url.searchParams.get("resolution"), "480p");
       assert.deepEqual([...url.searchParams.keys()].sort(), ["ai_name", "model_type", "resolution", "video_duration"]);
       return json({ access: !(options.secondDenied && stats.quotes === 2), cost: 0.2, discount_cost: null,
         free_remaining_generations: 0, limit: null, show_warning: false });
     }
-    if (url.pathname.endsWith("chats/upload-files")) { stats.uploads++; return json({ files: [{ url: INPUT, status: "success", mime_type: "image/png", media_type: "image", type: "image", filename: "frame.png", size: 68 }] }); }
+    if (url.pathname.endsWith("chats/upload-files")) { stats.uploads++; return json({ files: [{ url: INPUT, status: "success", mime_type: "image/png", media_type: "image", type: "image", filename: "frame.png", size: options.currentGeometry?.length ?? 68 }] }); }
     if (url.pathname === "/api/v1/chats") {
       stats.chats++; assert.equal(JSON.parse(String(init.body)).scope, "video");
       return json({ uuid: "grokchat2283" });
@@ -73,8 +76,8 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
       stats.posts++; last = JSON.parse(String(init.body));
       assert.equal(url.searchParams.get("ai_name"), "grok_video");
       assert.equal(last.chat_id, "grokchat2283"); assert.equal(last.chat_uuid, undefined);
-      assert.deepEqual(last.settings, { model_type: "grok_15_i2v", aspect_ratio: "1:1",
-        video_duration: 5, resolution: "480p", file_urls: [{ type: "image", url: INPUT }] });
+      assert.deepEqual(last.settings, { model_type: model, aspect_ratio: aspect,
+        video_duration: duration, resolution: "480p", file_urls: [{ type: "image", url: INPUT }] });
       if (options.generationHttpStatus) return json({ detail: "PRIVATE_RESPONSE_BODY_MUST_NOT_ESCAPE" }, options.generationHttpStatus);
       if (options.loseAck) throw new Error("synthetic lost ACK");
       return json({ id: "owner2283" });
@@ -101,9 +104,9 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
   const service: ApiService = new module.OwnerGrokI2vGenerationService({ binding, linkService: links, referenceService: references,
     catalog, resolveChatClient: () => client, createReadClient, now });
   try {
-    const bytes = png384();
-    const upload = uploadInitially ? await references.uploadReference({ attemptId: ATTEMPT, model_id: "grok_15_i2v", filename: "frame.png", mime_type: "image/png", bytes }) : { reference_handle: "" };
-    const request = { attemptId: ATTEMPT, model_id: "grok_15_i2v", prompt: "Synthetic Grok test", aspect_ratio: "1:1", video_duration: 5, resolution: "480p", reference_handle: upload.reference_handle };
+    const bytes = options.currentGeometry ?? png384();
+    const upload = uploadInitially ? await references.uploadReference({ attemptId: ATTEMPT, model_id: model, filename: "frame.png", mime_type: "image/png", bytes }) : { reference_handle: "" };
+    const request = { attemptId: ATTEMPT, model_id: model, prompt: "Synthetic Grok test", aspect_ratio: aspect, video_duration: duration, resolution: "480p", reference_handle: upload.reference_handle };
     return { service, references, bytes, client, request, stats, ready() { ready = true; }, async close() { await service.close(); await references.close(); } };
   } catch (error) { await service.close(); await references.close(); throw error; }
 }
@@ -193,4 +196,43 @@ test("2283 unknown generation preserves HTTP metadata without exposing response 
     await assert.rejects(env.service.generate(env.request), { code: "INTENT_ALREADY_CLAIMED" });
     assert.equal(env.stats.posts, 1);
   } finally { await env.close(); }
+});
+
+
+test("Current Grok I2V SDK preserves genuine portrait original geometry through a829 quotes native upload GEN and owned GET", async t => {
+  const ffmpeg = process.env.SYNTX_MEDIA_FFMPEG_PATH ?? ["/opt/homebrew/Cellar/ffmpeg/9.0.2_1/bin/ffmpeg", "/usr/bin/ffmpeg"].find(existsSync);
+  if (!ffmpeg) { t.skip("trusted actual ffmpeg unavailable"); return; }
+  const bytes = execFileSync(ffmpeg, ["-nostdin", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=384x640:rate=1", "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "pipe:1"], { timeout: 30000, maxBuffer: 4 * 1024 * 1024 });
+  const env = await fixture({ currentGeometry: bytes }, false);
+  const server = createMcpServer(createDefaultApplication(), { ownerGrokI2v: { referenceService: env.references, generationService: env.service } });
+  const client = new Client({ name: "grok-current-geometry", version: "1" }), [caller, host] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(host); await client.connect(caller);
+    const uploaded = await client.callTool({ name: "syntx_owner_upload_grok_i2v_image", arguments: { link_attempt_id: ATTEMPT,
+      model_id: "grok_i2v", filename: "frame.png", mime_type: "image/png", content_base64: bytes.toString("base64") } });
+    assert.equal(uploaded.isError, undefined, JSON.stringify(uploaded));
+    const upload = uploaded.structuredContent as { reference_handle: string; width: number; height: number };
+    assert.equal(upload.width, 384); assert.equal(upload.height, 640);
+    const generated = await client.callTool({ name: "syntx_owner_generate_grok_i2v_video", arguments: { link_attempt_id: ATTEMPT,
+      model_id: "grok_i2v", prompt: "Current genuine portrait original", aspect_ratio: "16:9", video_duration: 6, resolution: "480p", reference_handle: upload.reference_handle } });
+    assert.equal(generated.isError, undefined, JSON.stringify(generated)); assert.equal((generated.structuredContent as { status: string }).status, "completed");
+    assert.equal(env.stats.posts, 1); assert.equal(env.stats.quotes, 2); assert.equal(env.stats.uploads, 1); assert.equal(env.stats.results, 1);
+  } finally { await client.close(); await server.close(); await env.close(); }
+});
+
+
+test("Current Grok1.5 SDK preserves fractional manual duration through a829 quotes sealed native GEN and owned GET", async () => {
+  const env = await fixture({ currentDuration: 5.375 }, false), server = createMcpServer(createDefaultApplication(), { ownerGrokI2v: { referenceService: env.references, generationService: env.service } });
+  const client = new Client({ name: "grok-current-duration", version: "1" }), [caller, host] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(host); await client.connect(caller);
+    const uploaded = await client.callTool({ name: "syntx_owner_upload_grok_i2v_image", arguments: { link_attempt_id: ATTEMPT,
+      model_id: "grok_15_i2v", filename: "frame.png", mime_type: "image/png", content_base64: env.bytes.toString("base64") } });
+    assert.equal(uploaded.isError, undefined, JSON.stringify(uploaded));
+    const result = await client.callTool({ name: "syntx_owner_generate_grok_i2v_video", arguments: { link_attempt_id: ATTEMPT,
+      model_id: "grok_15_i2v", prompt: "Current fractional duration", aspect_ratio: "1:1", video_duration: 5.375, resolution: "480p",
+      reference_handle: (uploaded.structuredContent as { reference_handle: string }).reference_handle } });
+    assert.equal(result.isError, undefined, JSON.stringify(result)); assert.equal((result.structuredContent as { status: string }).status, "completed");
+    assert.equal(env.stats.quotes, 2); assert.equal(env.stats.posts, 1); assert.equal(env.stats.results, 1);
+  } finally { await client.close(); await server.close(); await env.close(); }
 });

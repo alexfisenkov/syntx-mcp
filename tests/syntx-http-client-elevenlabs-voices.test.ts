@@ -57,14 +57,14 @@ test("ElevenLabs voice listing rejects malformed rows, wrong page envelopes, and
   assert.equal(index, bodies.length);
 });
 
-test("ElevenLabs voice listing rejects caller-selected pages, sizes, and query extensions before credential access", async () => {
+test("ElevenLabs voice listing rejects out-of-bound pages, sizes, and unknown query extensions before credential access", async () => {
   let credentials = 0, fetches = 0;
   const counting: SyntxCredentialBroker = { async useCredential(operation) { credentials += 1; return operation(SECRET); } };
   const client = new SyntxHttpClient({ credentialBroker: counting, fetchImpl: async () => {
     fetches += 1; return new Response("[]", { headers: { "content-type": "application/json" } });
   } });
   for (const request of [
-    { page: 2, page_size: 10 }, { page: 1, page_size: 11 }, { page: 1, page_size: 10, favourites: true }
+    { page: 0, page_size: 10 }, { page: 1, page_size: 11 }, { page: 1, page_size: 10, favourites: true }
   ]) await assert.rejects(list(client, request));
   assert.equal(credentials, 0);
   assert.equal(fetches, 0);

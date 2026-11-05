@@ -50,8 +50,9 @@ export function createOwnerKling4Runtime(options: OwnerKling4RuntimeOptions) {
     generationService = new OwnerKling4GenerationService({ binding: options.binding, linkService: options.linkService,
       catalog, catalog_version: catalogVersion, preparer, referenceService, resolveChatClient: resolveClient,
       createAccountStatusService: (attemptId: string) => new AccountStatusService(options.createReadClient(attemptId), options.now),
-      createModelAccessService: (attemptId: string) => new ModelAccessService(catalog, options.createReadClient(attemptId), options.now),
-      resolveSubscription: (attemptId: string, signal?: AbortSignal) => options.createReadClient(attemptId).getSubscription(signal), now: options.now });
+      createModelAccessService: (attemptId: string, catalogOverride?: DiscoveryCatalogRepository) => new ModelAccessService(catalogOverride??catalog, options.createReadClient(attemptId), options.now),
+      resolveSubscription: (attemptId: string, signal?: AbortSignal) => options.createReadClient(attemptId).getSubscription(signal), now: options.now,
+      ...(options.catalogDirectory===undefined?{}:{catalogDirectory:options.catalogDirectory}) });
   } catch (error) {
     const cleanup = settleClosures([() => generationService?.close(), () => preparer?.close(), () => referenceService.close()])
       .finally(() => clients.clear());

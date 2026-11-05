@@ -1,3 +1,4 @@
+import { ownerImageManualCurrentProfileHash } from "./owner-image-manual-current-controls.js";
 import { isDeepStrictEqual, types } from "node:util";
 import { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION } from "../catalog/selected-discovery-catalog.js";
@@ -144,7 +145,7 @@ export function createOwnerMagnificUpscaleOneShotPermit(
   const candidateRecord = readCandidateRecord(candidateInput);
   const variant = candidateRecord.variant as OwnerMagnificUpscaleVariant;
   const profile = getOwnerMagnificUpscaleSourceProfile(variant);
-  const profileSchemaHash = profile.profile_schema_hash;
+  const profileSchemaHash = ownerImageManualCurrentProfileHash("magnific", profile.profile_schema_hash, (candidateInput as OwnerMagnificUpscalePreparedCandidate).request.settings);
   const candidate = candidateInput as OwnerMagnificUpscalePreparedCandidate;
   const candidateIntent = validateCandidate(candidateRecord, candidate, principal, attemptId, profile, profileSchemaHash);
   observeCandidateClock(candidate, issuedAt, candidateIntent.expiresAt);

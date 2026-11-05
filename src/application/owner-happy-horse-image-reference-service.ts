@@ -11,7 +11,7 @@ import { readOwnerHappyHorseUploadReference, type OwnerHappyHorseImageUploadCont
   type OwnerHappyHorseUploadDestination, type OwnerHappyHorseUploadReference } from "../adapter/syntx/owner-happy-horse-image-context.js";
 import { validateOwnerHappyHorseImage, readValidatedOwnerHappyHorseImage, releaseValidatedOwnerHappyHorseImage,
   type OwnerHappyHorseImageMimeType, type OwnerHappyHorseValidatedImage } from "./owner-happy-horse-image-policy.js";
-import { getOwnerHappyHorseSourceProfile, isOwnerHappyHorseImageModelId, type OwnerHappyHorseImageModelId } from "./owner-happy-horse-parameters.js";
+import { getOwnerHappyHorseSourceProfile, isOwnerHappyHorseImageReferenceModelId, type OwnerHappyHorseImageReferenceModelId } from "./owner-happy-horse-parameters.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const HANDLE = /^happy_horse_image_[0-9a-f-]{36}$/u;
@@ -33,11 +33,11 @@ export interface OwnerHappyHorseImageReferenceServiceOptions {
   readonly now?: () => number;
 }
 export interface OwnerHappyHorseImageUploadInput {
-  readonly attemptId: string; readonly model_id: OwnerHappyHorseImageModelId; readonly filename: string;
+  readonly attemptId: string; readonly model_id: OwnerHappyHorseImageReferenceModelId; readonly filename: string;
   readonly mime_type: OwnerHappyHorseImageMimeType; readonly bytes: Uint8Array;
 }
 export interface OwnerHappyHorseImageUploadReceipt {
-  readonly status: "uploaded"; readonly reference_handle: string; readonly model_id: OwnerHappyHorseImageModelId;
+  readonly status: "uploaded"; readonly reference_handle: string; readonly model_id: OwnerHappyHorseImageReferenceModelId;
   readonly mime_type: OwnerHappyHorseImageMimeType; readonly size: number; readonly sha256: string;
   readonly width: number; readonly height: number; readonly expires_in_seconds: number;
   readonly metadata_confidence: "BOUNDED_CONTAINER_METADATA_NOT_DECODED_PIXELS";
@@ -45,7 +45,7 @@ export interface OwnerHappyHorseImageUploadReceipt {
   readonly provider_acceptance: "UNPROVEN"; readonly generation_permit: false;
 }
 export interface OwnerHappyHorseOwnedImage {
-  readonly attempt_id: string; readonly model_id: OwnerHappyHorseImageModelId; readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly attempt_id: string; readonly model_id: OwnerHappyHorseImageReferenceModelId; readonly principal: Readonly<GenerationPrincipalRef>;
   readonly profile_sha256: string; readonly expires_at: number; readonly generation_permit: false;
   readonly image: Readonly<{ reference_handle: string; mime_type: OwnerHappyHorseImageMimeType; size: number;
     sha256: string; width: number; height: number }>;
@@ -56,7 +56,7 @@ export class OwnerHappyHorseReferenceError extends Error {
   constructor(readonly code: OwnerHappyHorseReferenceErrorCode) { super("The HappyHorse image reference is unavailable."); this.name = "OwnerHappyHorseReferenceError"; }
 }
 interface Entry {
-  readonly handle: string; readonly attempt: string; readonly model: OwnerHappyHorseImageModelId; readonly principal: Readonly<GenerationPrincipalRef>;
+  readonly handle: string; readonly attempt: string; readonly model: OwnerHappyHorseImageReferenceModelId; readonly principal: Readonly<GenerationPrincipalRef>;
   readonly client: SyntxChatHttpClient; readonly context: OwnerHappyHorseImageUploadContext; readonly destination: OwnerHappyHorseUploadDestination;
   readonly expiresAt: number; readonly epoch: number; readonly mime: OwnerHappyHorseImageMimeType; readonly size: number;
   readonly sha256: string; readonly width: number; readonly height: number;
@@ -121,7 +121,7 @@ export class OwnerHappyHorseImageReferenceService {
 
   async resolveReference(input: unknown, signal?: AbortSignal): Promise<OwnerHappyHorseOwnedImage> {
     this.#assertOpen(); const f = exact(input, ["attemptId", "model_id", "reference_handle"]);
-    if (typeof f.attemptId !== "string" || !ATTEMPT.test(f.attemptId) || !isOwnerHappyHorseImageModelId(f.model_id) ||
+    if (typeof f.attemptId !== "string" || !ATTEMPT.test(f.attemptId) || !isOwnerHappyHorseImageReferenceModelId(f.model_id) ||
         typeof f.reference_handle !== "string" || !HANDLE.test(f.reference_handle)) fail("INVALID_REQUEST");
     if (signal?.aborted) fail("INVALID_REQUEST");
     const attempt = f.attemptId, model = f.model_id, principal = await resolveOwnerReferencePrincipal({ binding: this.#binding, attemptId: attempt, linkService: this.#links });
@@ -170,9 +170,9 @@ export function isOwnerHappyHorseImageReferenceService(value: unknown): value is
   return !!value && typeof value === "object" && !types.isProxy(value) && SERVICES.has(value) &&
     Object.getPrototypeOf(value) === OwnerHappyHorseImageReferenceService.prototype && Object.isFrozen(value);
 }
-function snapshotUpload(input: unknown): Readonly<{ attempt: string; model: OwnerHappyHorseImageModelId; filename: string; mime: OwnerHappyHorseImageMimeType; bytes: Buffer }> {
+function snapshotUpload(input: unknown): Readonly<{ attempt: string; model: OwnerHappyHorseImageReferenceModelId; filename: string; mime: OwnerHappyHorseImageMimeType; bytes: Buffer }> {
   const f = exact(input, ["attemptId", "model_id", "filename", "mime_type", "bytes"]);
-  if (typeof f.attemptId !== "string" || !ATTEMPT.test(f.attemptId) || !isOwnerHappyHorseImageModelId(f.model_id) || typeof f.filename !== "string" ||
+  if (typeof f.attemptId !== "string" || !ATTEMPT.test(f.attemptId) || !isOwnerHappyHorseImageReferenceModelId(f.model_id) || typeof f.filename !== "string" ||
       typeof f.mime_type !== "string" || !( ["image/jpeg", "image/jpg", "image/png", "image/webp"] as readonly string[]).includes(f.mime_type) ||
       !(f.bytes instanceof Uint8Array) || types.isProxy(f.bytes)) fail("INVALID_REQUEST");
   const bytes = copyBytes(f.bytes); return Object.freeze({ attempt: f.attemptId, model: f.model_id, filename: f.filename,

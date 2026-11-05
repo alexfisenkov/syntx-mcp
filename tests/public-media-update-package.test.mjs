@@ -9,6 +9,7 @@ const coverageMapV1 = JSON.parse(readFileSync(new URL("../catalog/media-coverage
 const coverageMapV2 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v2.json", import.meta.url), "utf8"));
 const coverageMapV4 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v4.json", import.meta.url), "utf8"));
 const coverageMapV5 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v5.json", import.meta.url), "utf8"));
+const coverageMapV6 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v6.json", import.meta.url), "utf8"));
 const coverageMapV3 = JSON.parse(readFileSync(new URL("../catalog/media-coverage/owner-tool-routes-v3.json", import.meta.url), "utf8"));
 
 test("public npm manifest declares the updater command and source files", () => {
@@ -49,7 +50,108 @@ test("release test command pins catalog, coverage, profiles, updater, and packag
     "tests/public-media-stdio-optins.test.mjs",
     "tests/mcp-self-update-service.test.mjs",
     "tests/print-media-all-supported-media.test.mjs",
-    "tests/public-media-update-package.test.mjs"
+    "tests/public-media-update-package.test.mjs",
+    "dist/tests/remote-owner-oauth.test.js",
+    "dist/tests/remote-owner-stdio-bridge.test.js",
+    "dist/tests/remote-owner-stdio-buffer.test.js",
+    "dist/tests/remote-owner-media-file-input.test.js",
+    "dist/tests/owner-seedance-editor-frames.test.js",
+    "dist/tests/owner-seedance25-t2v-current.test.js",
+    "dist/tests/owner-wan27-i2v-current.test.js",
+    "dist/tests/owner-seedance25-t2v2348.test.js",
+    "dist/tests/owner-wan27-i2v-sdk2349.test.js",
+    "dist/tests/owner-wan27-i2v2334-contract.test.js",
+    "dist/tests/owner-wan30-t2v-adaptive-current.test.js",
+    "dist/tests/owner-video2audio-current-controls.test.js",
+    "dist/tests/owner-video2audio-request-preparer.test.js",
+    "dist/tests/owner-video2audio-generation-service.test.js",
+    "dist/tests/syntx-chat-http-client-video2audio-native.test.js",
+    "tests/owner-acttwo-2355.test.mjs",
+    "dist/tests/owner-acttwo-sdk2355.test.js",
+    "dist/tests/owner-elevenlabs-voice-reference-service.test.js",
+    "dist/tests/owner-happy-horse-2324.test.js",
+    "dist/tests/owner-happy-horse-native2330.test.js",
+    "dist/tests/owner-heygen4-sdk2355.test.js",
+    "dist/tests/owner-higgsfield-dop-native2310.test.js",
+    "dist/tests/owner-higgsfield-dop-native2312.test.js",
+    "dist/tests/owner-kling-i2v-generation-service.test.js",
+    "dist/tests/owner-kling-i2v-tools.test.js",
+    "dist/tests/owner-kling-i2v-wire-source.test.js",
+    "dist/tests/owner-kling-keyframes-parameters-1583.test.js",
+    "dist/tests/owner-runway-i2v-flow2261.test.js",
+    "dist/tests/owner-runway-i2v-parameters2255.test.js",
+    "dist/tests/owner-runway-i2v-tools2262.test.js",
+    "dist/tests/owner-seedance20-t2v-tools.test.js",
+    "dist/tests/owner-switchx-video-sdk2355.test.js",
+    "dist/tests/owner-topaz-enhance-generation-service-1986.test.js",
+    "dist/tests/owner-topaz-enhance-parameters-1970.test.js",
+    "dist/tests/owner-video2audio-runtime-composition.test.js",
+    "dist/tests/owner-wan-t2v-generation-service.test.js",
+    "dist/tests/owner-wan30-edit-generation-parameters.test.js",
+    "dist/tests/owner-wan30-edit-mcp-1924.test.js",
+    "dist/tests/owner-wan30-edit-native-context.test.js",
+    "dist/tests/owner-wan30-edit-original-probe.test.js",
+    "dist/tests/owner-wan30-first-last-mcp-1829.test.js",
+    "dist/tests/owner-wan30-first-last-parameters-1825.test.js",
+    "dist/tests/owner-wan30-omni-generation-parameters.test.js",
+    "dist/tests/owner-wan30-omni-mcp-1886.test.js",
+    "dist/tests/owner-wan30-reference-generation-parameters.test.js",
+    "dist/tests/owner-wan30-reference-mcp-1876.test.js",
+    "dist/tests/syntx-http-client-elevenlabs-voices.test.js",
+    "dist/tests/advertised-input-schema.test.js",
+    "dist/tests/mcp-initialize-owner-instructions.test.js",
+    "dist/tests/owner-actor-current-controls.test.js",
+    "dist/tests/owner-current-reference-family-intents.test.js",
+    "dist/tests/owner-current-video-generation-sdk.test.js",
+    "dist/tests/owner-current-video-reference-native.test.js",
+    "dist/tests/owner-current-video-reference-operation.test.js",
+    "dist/tests/owner-current-video-reference-policy.test.js",
+    "dist/tests/owner-current-video-reference-store.test.js",
+    "dist/tests/owner-current-video-reference-tools.test.js",
+    "dist/tests/owner-current-video-reference-trim.test.js",
+    "dist/tests/owner-current-video-reference-validation.test.js",
+    "dist/tests/owner-elevenlabs-sts-wav-preparation.test.js",
+    "dist/tests/owner-elevenlabs-voice-discovery.test.js",
+    "dist/tests/owner-expanded-t2v-current-seed.test.js",
+    "dist/tests/owner-happy-horse-current-controls.test.js",
+    "dist/tests/owner-happy-horse-current-sdk.test.js",
+    "dist/tests/owner-heygen4-absolute-path.test.js",
+    "dist/tests/owner-higgsfield-dop-current-controls.test.js",
+    "dist/tests/owner-kling-media-current.test.js",
+    "dist/tests/owner-kling-t2v-current.test.js",
+    "dist/tests/owner-seedance-current-intent.test.js",
+    "dist/tests/owner-seedance-current-sdk.test.js",
+    "dist/tests/owner-seedance-editor-prompt-markers.test.js",
+    "dist/tests/owner-seedance20-t2v-current.test.js",
+    "dist/tests/owner-sts-ffmpeg-config.test.js",
+    "dist/tests/owner-switchx-current-native-config.test.js",
+    "dist/tests/owner-switchx-current-native-reference.test.js",
+    "dist/tests/owner-switchx-current-sdk.test.js",
+    "dist/tests/owner-video2audio-current-input-sdk.test.js",
+    "dist/tests/owner-video2audio-current-native-codec.test.js",
+    "dist/tests/owner-wan-current-intent.test.js",
+    "dist/tests/owner-wan-current-sdk.test.js",
+    "dist/tests/owner-wan-t2v-audio-current.test.js",
+    "dist/tests/owner-wan30-edit-current.test.js",
+    "dist/tests/owner-wan30-first-last-current.test.js",
+    "dist/tests/owner-wan30-omni-current.test.js",
+    "dist/tests/owner-wan30-prompt-markers.test.js",
+    "dist/tests/owner-wan30-reference-current.test.js",
+    "dist/tests/maintenance-skill-resources.test.js",
+    "dist/tests/owner-clarity-upscale-request-preparer.test.js",
+    "dist/tests/owner-grok-i2v-flow2283.test.js",
+    "dist/tests/owner-grok-i2v-image-policy2281.test.js",
+    "dist/tests/owner-grok-i2v-parameters2280.test.js",
+    "dist/tests/owner-grok-i2v-wire2281.test.js",
+    "dist/tests/owner-kling-keyframes-generation-service-1595.test.js",
+    "dist/tests/owner-kling4-generation-service-2148.test.js",
+    "dist/tests/owner-kling4-parameters-2138.test.js",
+    "dist/tests/owner-magnific-upscale-parameters.test.js",
+    "dist/tests/owner-soul-generation-parameters.test.js",
+    "dist/tests/owner-flux3-current-sdk.test.js",
+    "dist/tests/owner-image-manual-current-sdk.test.js",
+    "dist/tests/mcp-estimate-reference-pattern.test.js",
+    "deploy/private-owner.test.mjs"
   ]) assert.ok(command.includes(path), `release tests omit ${path}`);
   assert.ok(command.includes('tests/export-public-snapshot.test.mjs'));
   assert.ok(command.includes('tests/public-source-package-manifest.test.mjs'));
@@ -77,6 +179,26 @@ test("public package checker compares the packed media map and verifies the upda
   const expectedRoutes = structuredClone(coverageMapV4.routes);
   for (const id of ["V6", "V6_wild"]) expectedRoutes[id] = [...expectedRoutes[id], "syntx_owner_upload_suno_audio_reference"].sort();
   assert.deepEqual(coverageMapV5.routes, expectedRoutes);
+  assert.equal(coverageMapV6.schema_version, "6.0.0");
+  assert.equal(coverageMapV6.public_catalog_version, "sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json");
+  assert.equal(coverageMapV6.route_provenance.source_v5_sha256, "sha256:2a0da329494ae60a35f1df82b9d04e66dcd4c3cadda7cbbb49baaef07ee20790");
+  const expectedCurrentRoutes = structuredClone(coverageMapV5.routes);
+  const currentGroups = [[["seedance-2.0", "seedance-2.5", "seedance_pro", "seedance_pro-fast", "seedance-1.5-pro"], ["syntx_owner_get_seedance_current_source", "syntx_owner_generate_seedance_current_video", "syntx_owner_get_seedance_current_result", "syntx_owner_list_seedance_current_recoveries"]], [["hailuo-3.0"], ["syntx_owner_get_hailuo3_current_source", "syntx_owner_generate_hailuo3_current", "syntx_owner_get_hailuo3_current_result", "syntx_owner_list_hailuo3_current_recoveries"]], [["ray-3.14"], ["syntx_owner_get_luma_current_source", "syntx_owner_generate_luma_current", "syntx_owner_get_luma_current_result", "syntx_owner_list_luma_current_recoveries"]], [["veo3", "veo3fast", "veo3fast_r"], ["syntx_owner_get_veo3_current_source", "syntx_owner_generate_veo3_current", "syntx_owner_get_veo3_current_result", "syntx_owner_list_veo3_current_recoveries"]], [["wan_30_reference", "wan_30_omni", "wan_30_edit", "wan_30_first_last_frame", "wan_25_t2v_preview", "wan_25_i2v_preview", "wan_27_i2v", "wan_27_r2v", "wan_27_videoedit", "wan_30_t2v"], ["syntx_owner_get_wan_current_source", "syntx_owner_generate_wan_current", "syntx_owner_get_wan_current_result", "syntx_owner_list_wan_current_recoveries"]], [["flux3_t2v", "flux3_i2v", "flux3_v2v"], ["syntx_owner_get_flux3_current_source", "syntx_owner_generate_flux3_current_video", "syntx_owner_get_flux3_current_result", "syntx_owner_list_flux3_current_recoveries"]]];
+  for (const [ids, names] of currentGroups) for (const id of ids) {
+    const common = ["syntx_get_current_video_reference_policy"];
+    if (!["flux3_t2v", "wan_30_t2v"].includes(id)) common.push("syntx_owner_upload_current_video_reference");
+    expectedCurrentRoutes[id] = [...new Set([...expectedCurrentRoutes[id], ...common, ...names])].sort();
+  }
+  for (const id of ["wan_26_t2v", "wan_27_t2v"]) expectedCurrentRoutes[id] = [...new Set([...expectedCurrentRoutes[id], "syntx_owner_upload_wan_t2v_audio"])].sort();
+  expectedCurrentRoutes.switchx = [...new Set([...expectedCurrentRoutes.switchx, "syntx_owner_upload_switchx_reference"])].sort();
+  for (const [ids, name] of [[["clarity"], "syntx_owner_get_clarity_current_manual_source"], [["creative", "precision_v1", "precision_v2"], "syntx_owner_get_magnific_current_manual_source"], [["higgsfield-soul"], "syntx_owner_get_soul_current_manual_source"]]) for (const id of ids) expectedCurrentRoutes[id] = [...new Set([...expectedCurrentRoutes[id], name])].sort();
+  assert.deepEqual(coverageMapV6.routes, expectedCurrentRoutes);
+  assert.deepEqual(coverageMapV6.source_only_model_ids, ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst"]);
+  const expectedAliases = structuredClone(coverageMapV5.native_alias_bindings);
+  const editor = expectedAliases.find(binding => binding.operator_flag === "SYNTX_OWNER_SEEDANCE_EDITOR");
+  editor.tool_names.push("syntx_owner_upload_seedance_editor_frame");
+  editor.route_evidence_sources.push("src/application/owner-seedance-editor-frame-policy.ts");
+  assert.deepEqual(coverageMapV6.native_alias_bindings, expectedAliases);
   const recoveryAlias = coverageMapV3.native_alias_bindings.find((binding) => binding.operator_flag === "SYNTX_OWNER_EXISTING_VIDEO_RECOVERY");
   assert.deepEqual(recoveryAlias?.public_model_ids, ["kling_4_keyframes", "kling_4_omni"]);
   assert.deepEqual(recoveryAlias?.tool_names, ["syntx_owner_get_existing_video_recovery"]);
@@ -87,6 +209,7 @@ test("public package checker compares the packed media map and verifies the upda
     '"catalog/media-coverage/owner-tool-routes-v3.json"',
     '"catalog/media-coverage/owner-tool-routes-v4.json"',
     '"catalog/media-coverage/owner-tool-routes-v5.json"',
+    '"catalog/media-coverage/owner-tool-routes-v6.json"',
     '"catalog/media-coverage/owner-expanded-t2v-controls-v2.json"'
   ]) assert.ok(installChecker.includes(path), `package checker omits ${path}`);
   assert.ok(installChecker.includes("assertInstalledMediaUpdateArtifacts(installedPackagePath, consumerPath)"));

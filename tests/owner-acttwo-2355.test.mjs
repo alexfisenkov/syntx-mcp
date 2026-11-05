@@ -32,7 +32,7 @@ function png640() {
   return bytes;
 }
 
-test("ActTwo accepts only the measured five-second source-bound parameter slice", () => {
+test("ActTwo preserves the historical measured5second/expression3 tuple", () => {
   const input = Object.freeze({ model_id: "acttwo", aspect_ratio: "1:1", video_duration: 5, seed: null, expression: 3 });
   const normalized = parameters.normalizeOwnerActTwoParameters(input);
   assert.deepEqual(normalized.source_parameters, {
@@ -42,15 +42,15 @@ test("ActTwo accepts only the measured five-second source-bound parameter slice"
   assert.equal(Object.hasOwn(normalized.source_parameters, "gestures"), false);
 });
 
-test("ActTwo rejects prompt, gestures, alternate duration/aspect/seed, and extra fields", () => {
+test("ActTwo rejects prompt, gestures, out-of-bound duration/expression, alternate aspect/seed and extra fields", () => {
   const valid = { model_id: "acttwo", aspect_ratio: "1:1", video_duration: 5, seed: null, expression: 3 };
   for (const input of [
     { ...valid, prompt: "invented prompt" },
     { ...valid, gestures: false },
     { ...valid, aspect_ratio: "16:9" },
-    { ...valid, video_duration: 6 },
-    { ...valid, seed: 123 },
-    { ...valid, expression: 4 },
+    { ...valid, video_duration: 31 },
+    { ...valid, seed: 2147483648 },
+    { ...valid, expression: 6 },
     { ...valid, extra: true }
   ]) assert.throws(() => parameters.normalizeOwnerActTwoParameters(input));
 });
@@ -70,12 +70,13 @@ test("ActTwo character image policy validates JPEG/PNG and keeps upload bytes pr
   assert.throws(() => imagePolicy.validateOwnerActTwoCharacterImage({ model_id: "acttwo", filename: "character.webp", mime_type: "image/webp", bytes }));
 });
 
-test("ActTwo measures one local 5-second 24-fps MP4 and rejects a different measured duration", async t => {
+test("ActTwo genuinely probes1second and30second MP4s and rejects31seconds while preserving5second legacy", async t => {
   if (!existsSync(FFMPEG) || !existsSync(FFPROBE)) { t.skip("local ffmpeg/ffprobe pair unavailable for synthetic ActTwo video fixture"); return; }
   const directory = await mkdtemp(join(tmpdir(), "syntx-acttwo-2355-"));
-  const fiveSecondPath = join(directory, "performance.mp4"), fourSecondPath = join(directory, "wrong-duration.mp4");
+  const fiveSecondPath = join(directory, "performance.mp4"), fourSecondPath = join(directory, "one-second.mp4"),
+    thirtySecondPath = join(directory, "thirty-seconds.mp4"), tooLongPath = join(directory, "too-long.mp4");
   try {
-    for (const [path, duration] of [[fiveSecondPath, "5"], [fourSecondPath, "4"]]) {
+    for (const [path, duration] of [[fiveSecondPath, "5"], [fourSecondPath, "1"], [thirtySecondPath, "30"], [tooLongPath, "31"]]) {
       execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `color=c=teal:s=640x480:r=24:d=${duration}`,
         "-vf", "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709", "-an", "-pix_fmt", "yuv420p", "-c:v", "libx264",
         "-movflags", "+faststart", "-y", path]);
@@ -86,14 +87,18 @@ test("ActTwo measures one local 5-second 24-fps MP4 and rejects a different meas
     assert.equal(fiveSeconds.mime_type, "video/mp4");
     assert.equal(fiveSeconds.generation_permit, false);
     assert.equal(videoPolicy.releaseValidatedOwnerActTwoPerformanceVideo(fiveSeconds), true);
-    await assert.rejects(async () => validator.validate({ model_id: "acttwo", filename: "wrong-duration.mp4", mime_type: "video/mp4", bytes: await readFile(fourSecondPath) }),
-      error => error?.code === "DURATION_MISMATCH");
+    const oneSecond = await validator.validate({ model_id: "acttwo", filename: "one-second.mp4", mime_type: "video/mp4", bytes: await readFile(fourSecondPath) });
+    assert.equal(oneSecond.measured_duration_seconds, 1); assert.equal(videoPolicy.releaseValidatedOwnerActTwoPerformanceVideo(oneSecond), true);
+    const thirtySeconds = await validator.validate({ model_id: "acttwo", filename: "thirty-seconds.mp4", mime_type: "video/mp4", bytes: await readFile(thirtySecondPath) });
+    assert.equal(thirtySeconds.measured_duration_seconds, 30); assert.equal(videoPolicy.releaseValidatedOwnerActTwoPerformanceVideo(thirtySeconds), true);
+    await assert.rejects(validator.validate({ model_id: "acttwo", filename: "too-long.mp4", mime_type: "video/mp4", bytes: await readFile(tooLongPath) }), error => error?.code === "DURATION_MISMATCH");
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 test("ActTwo quote uses only numeric measured video_duration and pins the public model row", () => {
   assert.deepEqual(cost.buildOwnerActTwoCostParameters({ model_id: "acttwo", video_duration: 5 }), { video_duration: 5 });
-  assert.throws(() => cost.buildOwnerActTwoCostParameters({ model_id: "acttwo", video_duration: 6 }));
+  assert.deepEqual(cost.buildOwnerActTwoCostParameters({ model_id: "acttwo", video_duration: 6 }), { video_duration: 6 });
+  assert.throws(() => cost.buildOwnerActTwoCostParameters({ model_id: "acttwo", video_duration: 31 }));
   assert.throws(() => cost.buildOwnerActTwoCostParameters({ model_id: "acttwo", video_duration: "5" }));
   assert.throws(() => cost.buildOwnerActTwoCostParameters({ model_id: "acttwo", video_duration: 5, prompt: "" }));
   const catalog = cost.loadOwnerActTwoRuntimeCatalog(catalogDirectory);

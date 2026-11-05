@@ -1,3 +1,4 @@
+import { isOwnerRunwayCurrentSeed, ownerRunwayCurrentProfileHash } from "./owner-runway-current-controls.js";
 import { types } from "node:util";
 import { schemaHash } from "../domain/generation-contract.js";
 
@@ -72,7 +73,7 @@ export interface OwnerRunwayI2vParametersInput {
   readonly prompt: string;
   readonly aspect_ratio: OwnerRunwayI2vAspectRatio;
   readonly video_duration: OwnerRunwayI2vVideoDuration;
-  readonly seed: null;
+  readonly seed: number | null;
 }
 
 export interface OwnerRunwayI2vNormalizedParameters {
@@ -82,7 +83,7 @@ export interface OwnerRunwayI2vNormalizedParameters {
     model_type: OwnerRunwayI2vModelId;
     aspect_ratio: string;
     video_duration: "5.0" | "8.0" | "10.0";
-    seed: null;
+    seed: number | null;
   }>;
   readonly profile_sha256: string;
   readonly prompt_bound: "LOCAL_UTF16_BOUND_PUBLIC_MAXIMUM_PROVIDER_UNIT_UNPROVEN";
@@ -109,7 +110,7 @@ export function normalizeOwnerRunwayI2vParameters(input: unknown): Readonly<Owne
   const fields = exactRecord(input, ["model_id", "prompt", "aspect_ratio", "video_duration", "seed"]);
   if (!oneOf(fields.model_id, MODEL_IDS) || typeof fields.prompt !== "string" || fields.prompt.trim().length === 0 ||
       fields.prompt.length > MAX_PROMPT_UTF16 || !isWellFormedUnicode(fields.prompt) ||
-      !isSupportedAspect(fields.model_id, fields.aspect_ratio) || !isSupportedDuration(fields.model_id, fields.video_duration) || fields.seed !== null) {
+      !isSupportedAspect(fields.model_id, fields.aspect_ratio) || !isSupportedDuration(fields.model_id, fields.video_duration) || !isOwnerRunwayCurrentSeed(fields.seed)) {
     invalidParameters();
   }
   const intent = Object.freeze({
@@ -117,19 +118,20 @@ export function normalizeOwnerRunwayI2vParameters(input: unknown): Readonly<Owne
     prompt: fields.prompt,
     aspect_ratio: fields.aspect_ratio,
     video_duration: fields.video_duration,
-    seed: null
+    seed: fields.seed
   });
   const source_parameters = Object.freeze({
     model_type: fields.model_id,
-    aspect_ratio: fields.model_id === GEN45_MODEL_ID ? "169" : ASPECT_SOURCE_CODES[fields.aspect_ratio],
+    aspect_ratio: ASPECT_SOURCE_CODES[fields.aspect_ratio],
     video_duration: sourceDuration(fields.video_duration),
-    seed: null
+    seed: fields.seed
   });
   return Object.freeze({
     status: "SOURCE_PARAMETERS_ONLY_NOT_DISPATCH_AUTHORITY" as const,
     intent,
     source_parameters,
-    profile_sha256: SOURCE_PROFILE.source_sha256,
+    profile_sha256: fields.seed === null && (fields.model_id !== GEN45_MODEL_ID || fields.aspect_ratio === "16:9")
+      ? SOURCE_PROFILE.source_sha256 : ownerRunwayCurrentProfileHash(SOURCE_PROFILE.source_sha256),
     prompt_bound: "LOCAL_UTF16_BOUND_PUBLIC_MAXIMUM_PROVIDER_UNIT_UNPROVEN" as const,
     effective_defaults: "UNKNOWN" as const,
     crop_requirement: "EXACTLY_ONE_CROPPED_FILE" as const,
@@ -167,7 +169,7 @@ export function isOwnerRunwayI2vVideoDuration(modelId: unknown, value: unknown):
   return isModelId(modelId) && isSupportedDuration(modelId, value);
 }
 function isSupportedAspect(modelId: OwnerRunwayI2vModelId, value: unknown): value is OwnerRunwayI2vAspectRatio {
-  return modelId === GEN45_MODEL_ID ? value === "16:9" : oneOf(value, ASPECT_RATIOS);
+  return oneOf(value, ASPECT_RATIOS) && (modelId !== GEN45_MODEL_ID || value !== "21:9");
 }
 function isSupportedDuration(modelId: OwnerRunwayI2vModelId, value: unknown): value is OwnerRunwayI2vVideoDuration {
   return modelId === GEN45_MODEL_ID ? oneOf(value, GEN45_VIDEO_DURATIONS) : oneOf(value, LEGACY_VIDEO_DURATIONS);

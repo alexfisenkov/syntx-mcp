@@ -2,7 +2,6 @@ import { types } from "node:util";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import { schemaHash } from "../domain/generation-contract.js";
 import {
-  getOwnerHiggsfieldDopSourceProfile,
   normalizeOwnerHiggsfieldDopParameters,
   type OwnerHiggsfieldDopModelId,
   type OwnerHiggsfieldDopMotionSelection,
@@ -24,7 +23,7 @@ export interface OwnerHiggsfieldDopWireInput {
   readonly prompt: string;
   readonly settings: Readonly<{
     readonly model_type: OwnerHiggsfieldDopModelId;
-    readonly enhance_prompt: false;
+    readonly enhance_prompt: boolean;
     readonly motions: readonly OwnerHiggsfieldDopMotionSelection[];
     readonly file_urls: readonly Readonly<{ readonly type: "image"; readonly url: string }> [];
   }>;
@@ -66,11 +65,11 @@ export function buildOwnerHiggsfieldDopWire(input: unknown, capturedInput: unkno
       !Number.isSafeInteger(captured.height) || captured.height < 1 || captured.height > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.max_dimension ||
       captured.width * captured.height > OWNER_HIGGSFIELD_DOP_IMAGE_POLICY.max_pixels) invalidWire();
 
-  const profileSha256 = getOwnerHiggsfieldDopSourceProfile().source_sha256;
+  const profileSha256 = normalized.profile_sha256;
   const file_urls = Object.freeze([Object.freeze({ type: "image" as const, url: captured.url })]);
   const settings = Object.freeze({
     model_type: normalized.source_parameters.model_type,
-    enhance_prompt: false as const,
+    enhance_prompt: normalized.source_parameters.enhance_prompt,
     motions: normalized.source_parameters.motions,
     file_urls
   });
@@ -83,6 +82,7 @@ export function buildOwnerHiggsfieldDopWire(input: unknown, capturedInput: unkno
     model_id: normalized.intent.model_id,
     prompt: normalized.intent.prompt,
     motions: normalized.intent.motions,
+    ...(normalized.intent.enhance_prompt ? { enhance_prompt: true as const } : {}),
     source_profile_sha256: profileSha256,
     source_image_sha256: captured.sha256,
     source_image_width: captured.width,

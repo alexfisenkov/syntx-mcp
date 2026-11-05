@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import { inspectBoundedOwnerImageBytesWithMax } from "./owner-image-reference-input-validator.js";
+import { OWNER_GROK_I2V_CURRENT_CONTROLS } from "./owner-grok-i2v-current-controls.js";
 
 const MODEL_IDS = Object.freeze(["grok_i2v", "grok_15_i2v"] as const);
 const MIME_TYPES = Object.freeze(["image/jpeg", "image/png", "image/webp"] as const);
@@ -30,6 +31,7 @@ export const OWNER_GROK_I2V_IMAGE_POLICY = Object.freeze({
   max_dimension: MAX_DIMENSION,
   max_pixels: MAX_PIXELS,
   legacy_grok_i2v_input_geometry: "EXACT_16_9_LOCAL_INITIAL_SLICE_ONLY" as const,
+  current_controls: OWNER_GROK_I2V_CURRENT_CONTROLS,
   grok_15_i2v_input_geometry: "ANY_BOUNDED_GEOMETRY_OUTPUT_ASPECT_IS_EXPLICIT" as const,
   crop_resize_policy: "ORIGINAL_BYTES_NO_LOCAL_CROP_OR_RESIZE" as const,
   metadata_confidence: "CONTAINER_METADATA_ONLY_NOT_DECODED_PIXELS" as const,
@@ -81,8 +83,7 @@ export function validateOwnerGrokI2vImageUpload(input: unknown): Readonly<Valida
     const parsed = inspectBoundedOwnerImageBytesWithMax(owned, maxBytes);
     if (parsed.mime !== fields.mime_type || !Number.isSafeInteger(parsed.width) || !Number.isSafeInteger(parsed.height) ||
         parsed.width < 1 || parsed.height < 1 || parsed.width > MAX_DIMENSION || parsed.height > MAX_DIMENSION ||
-        parsed.width * parsed.height > MAX_PIXELS ||
-        (fields.model_id === "grok_i2v" && parsed.width * 9 !== parsed.height * 16)) invalid();
+        parsed.width * parsed.height > MAX_PIXELS) invalid();
 
     const state: ValidatedState = {
       bytes: owned, model_id: fields.model_id, filename: fields.filename, mime_type: parsed.mime,

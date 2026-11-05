@@ -4,9 +4,13 @@ import { existsSync } from "node:fs";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { nodeScriptExecutable } from "./helpers/node-script-executable.js";
 import {
   copyTrustedOwnerWan30EditOriginalBytes,
+  createOwnerWan30EditCompatibleOriginalProbe,
+  createOwnerWan30EditCurrentOriginalProbe,
   createOwnerWan30EditOriginalProbe,
+  isTrustedOwnerWan30EditCurrentOriginalProbeResult,
   isTrustedOwnerWan30EditOriginalProbeResult,
   OwnerWan30EditOriginalProbeError,
   releaseTrustedOwnerWan30EditOriginalProbeResult
@@ -33,7 +37,7 @@ async function localFfprobe(output: string, extraBody = ""): Promise<{ directory
     ${extraBody}
     process.stdout.write(${JSON.stringify(output)});
   `;
-  await writeFile(binary, `#!${process.execPath}\n${body}\n`, { mode: 0o700, flag: "wx" });
+  await writeFile(binary, nodeScriptExecutable(`#!${process.execPath}\n${body}\n`), { mode: 0o700, flag: "wx" });
   return { directory, binary, argumentLog };
 }
 
@@ -65,6 +69,31 @@ async function probeFixture(output = metadata(), extraBody = "") {
 function input(bytes: Uint8Array = tinyMp4(), extras: Record<string, unknown> = {}) {
   return { filename: "owned-source.mp4", mime_type: "video/mp4", bytes, ...extras };
 }
+
+test("source-current probe has a separate nominal witness and leaves the historical two-second guard intact",
+  { skip: process.platform === "win32" ? "POSIX fixture; real ffprobe.exe coverage NOT_RUN" : false }, async () => {
+    const fixture = await localFfprobe(metadata({ formatDuration: "10.250000", streamDuration: "10.250000", audio: true }));
+    const current = createOwnerWan30EditCurrentOriginalProbe({ ffprobePath: fixture.binary });
+    const historical = createOwnerWan30EditOriginalProbe({ ffprobePath: fixture.binary });
+    const receipt = await current.probe(input());
+    assert.equal(receipt.duration_seconds, 10.25);
+    assert.equal(isTrustedOwnerWan30EditCurrentOriginalProbeResult(receipt), true);
+    assert.equal(isTrustedOwnerWan30EditCurrentOriginalProbeResult({ ...receipt }), false);
+    await assert.rejects(() => historical.probe(input()));
+    const compatible = await createOwnerWan30EditCompatibleOriginalProbe({ ffprobePath: fixture.binary }).probe(input());
+    assert.equal(isTrustedOwnerWan30EditCurrentOriginalProbeResult(compatible), true);
+    releaseTrustedOwnerWan30EditOriginalProbeResult(compatible);
+    const oldFixture = await localFfprobe(metadata());
+    const old = await createOwnerWan30EditCompatibleOriginalProbe({ ffprobePath: oldFixture.binary }).probe(input());
+    assert.equal(isTrustedOwnerWan30EditCurrentOriginalProbeResult(old), false);
+    releaseTrustedOwnerWan30EditOriginalProbeResult(old);
+    releaseTrustedOwnerWan30EditOriginalProbeResult(receipt);
+    assert.equal(isTrustedOwnerWan30EditCurrentOriginalProbeResult(receipt), false);
+    for (const duration of ["0.990000", "15.010000"]) {
+      const other = await localFfprobe(metadata({ formatDuration: duration, streamDuration: duration }));
+      await assert.rejects(() => createOwnerWan30EditCurrentOriginalProbe({ ffprobePath: other.binary }).probe(input()));
+    }
+  });
 
 test("returns an immutable nominal receipt bound to a private byte copy without granting generation",
   { skip: process.platform === "win32" ? "POSIX fixture; real ffprobe.exe coverage NOT_RUN" : false }, async () => {

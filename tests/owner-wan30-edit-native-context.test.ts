@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { nodeScriptExecutable } from "./helpers/node-script-executable.js";
 import test, { type TestContext } from "node:test";
 import { SyntxChatHttpClient } from "../src/adapter/syntx/chat-http-client.js";
 import {
@@ -9,11 +10,12 @@ import {
   readOwnerWan30EditPrivateWireBinding,
   releaseOwnerWan30EditGenerationContext,
   releaseOwnerWan30EditVideoInput,
+  validateOwnerWan30EditCurrentVideoInput,
   validateOwnerWan30EditVideoInput
 } from "../src/adapter/syntx/owner-wan30-edit-native-context.js";
 import type { OwnerWan30EditUploadedVideo } from "../src/adapter/syntx/owner-wan30-edit-native-context.js";
 import {
-  createOwnerWan30EditOriginalProbe,
+  createOwnerWan30EditCurrentOriginalProbe, createOwnerWan30EditOriginalProbe,
   isTrustedOwnerWan30EditOriginalProbeResult
 } from "../src/adapter/syntx/owner-wan30-edit-original-probe.js";
 import { normalizeOwnerWan30EditGenerationIntent } from "../src/application/owner-wan30-edit-generation-parameters.js";
@@ -45,18 +47,37 @@ function contextInput(chatId: string, referenceVideo: OwnerWan30EditUploadedVide
 async function makeProbeReceipt(t: TestContext, probeOutput = {
   streams: [{ codec_type: "video", width: 854, height: 480, duration: "2.000000", avg_frame_rate: "30/1", r_frame_rate: "30/1", nb_frames: "60" }],
   format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "2.000000" }
-}) {
+}, current = false) {
   const directory = await mkdtemp(join(tmpdir(), "syntx-wan30-edit-native-test-"));
   t.after(async () => rm(directory, { recursive: true, force: true }));
   const ffprobePath = join(directory, "ffprobe-fixture");
   const output = JSON.stringify(probeOutput);
-  const fixture = `#!${process.execPath}\nconst fs=require("node:fs");const path=process.argv.at(-1);if(!path||!fs.statSync(path).isFile()||fs.readFileSync(path).length<16)process.exit(2);process.stdout.write(${JSON.stringify(output)});\n`;
+  const fixture = nodeScriptExecutable(`#!${process.execPath}\nconst fs=require("node:fs");const path=process.argv.at(-1);if(!path||!fs.statSync(path).isFile()||fs.readFileSync(path).length<16)process.exit(2);process.stdout.write(${JSON.stringify(output)});\n`);
   await writeFile(ffprobePath, fixture, { mode: 0o700 });
   await chmod(ffprobePath, 0o700);
-  return createOwnerWan30EditOriginalProbe({ ffprobePath }).probe({
+  return (current ? createOwnerWan30EditCurrentOriginalProbe : createOwnerWan30EditOriginalProbe)({ ffprobePath }).probe({
     filename: "input.mp4", mime_type: "video/mp4", bytes: INPUT_BYTES
   });
 }
+
+test("current edit video input requires the separate nominal probe and retains measured duration", LOCAL_EXECUTABLE_FIXTURE, async (t) => {
+  const data = { streams: [{ codec_type: "video", width: 854, height: 480, duration: "10.250000", avg_frame_rate: "30/1", r_frame_rate: "30/1", nb_frames: "307" }],
+    format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "10.250000" } };
+  const receipt = await makeProbeReceipt(t, data, true);
+  assert.throws(() => validateOwnerWan30EditVideoInput(receipt));
+  const validated = validateOwnerWan30EditCurrentVideoInput(receipt);
+  assert.equal(validated.duration_seconds, 10.25);
+  assert.equal(validated.generation_permit, false);
+  const { client } = makeClient();
+  const uploaded = await client.uploadWan30EditVideo(validated);
+  assert.equal(uploaded.upload_profile_confidence, "CURRENT_FORM_SOURCE_NOT_PROVIDER_OBSERVED");
+  assert.throws(() => createOwnerWan30EditGenerationContext(client, contextInput("edit-chat-1", uploaded)));
+  assert.equal(releaseOwnerWan30EditVideoInput(validated), false);
+  const legacy = await makeProbeReceipt(t);
+  assert.throws(() => validateOwnerWan30EditCurrentVideoInput(legacy));
+  const oldValidated = validateOwnerWan30EditVideoInput(legacy);
+  assert.equal(releaseOwnerWan30EditVideoInput(oldValidated), true);
+});
 
 type AckMode = "exact_text_video" | "exact_video_text" | "duplicate_text" | "duplicate_child_id" | "extra_object" |
   "wrong_prompt" | "wrong_url" | "wrong_model" | "wrong_ack_id" | "wrong_author" | "wrong_child_message_id";

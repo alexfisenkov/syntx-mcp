@@ -1,14 +1,13 @@
 import { types } from "node:util";
-import { copyTrustedOwnerKlingMotionControlVideoBytes, createOwnerKlingMotionControlVideoProbe,
-  isTrustedOwnerKlingMotionControlVideoProbeResult, releaseTrustedOwnerKlingMotionControlVideoProbeResult,
-  type OwnerKlingMotionControlVideoMimeType } from "./owner-kling-motion-control-video-probe.js";
+import { isAbsolute } from "node:path";
+import { probeOwnerCurrentVideoMetadata, type OwnerCurrentVideoMetadata } from "./owner-current-video-metadata.js";
 
 const LOCAL_MAX_BYTES = 100 * 1024 * 1024;
 const MIN_DIMENSION = 400;
 const MAX_DIMENSION = 2_160;
 const MAX_PIXELS = 52_500_000;
 const VALIDATED = new WeakMap<object, State>();
-export type OwnerHappyHorseEditVideoMimeType = OwnerKlingMotionControlVideoMimeType;
+export type OwnerHappyHorseEditVideoMimeType = "video/mp4" | "video/quicktime";
 export interface ValidatedOwnerHappyHorseEditVideo {
   readonly status: "LOCALLY_PROBED_SOURCE_VIDEO_NOT_UPLOAD_AUTHORITY";
   readonly model_id: "happy_horse_edit";
@@ -20,7 +19,7 @@ export interface ValidatedOwnerHappyHorseEditVideo {
   readonly height: number;
   readonly measured_duration_seconds: number;
   readonly probe_confidence: "FFPROBE_METADATA_NOT_DECODED_PIXELS";
-  readonly local_video_duration_ceiling_seconds: 30;
+  readonly local_video_duration_ceiling_seconds: 60;
   readonly local_limit_confidence: "CONSERVATIVE_LOCAL_PROBE_CEILING_NOT_PROVIDER_LIMIT";
   readonly generation_permit: false;
 }
@@ -31,25 +30,24 @@ export class OwnerHappyHorseEditVideoPolicyError extends Error {
 }
 
 export function createOwnerHappyHorseEditVideoValidator(ffprobePath: string) {
-  const probe = createOwnerKlingMotionControlVideoProbe({ ffprobePath });
+  if (typeof ffprobePath !== "string" || !isAbsolute(ffprobePath) || ffprobePath !== ffprobePath.trim() || ffprobePath.includes("\0")) invalid();
   return Object.freeze({ validate: async (input: unknown, signal?: AbortSignal) => {
-    let raw: Readonly<import("./owner-kling-motion-control-video-probe.js").OwnerKlingMotionControlVideoProbeResult> | undefined;
+    let raw: OwnerCurrentVideoMetadata | undefined;
     let bytes: Uint8Array | undefined;
     try {
       const fields = exact(input);
       if (fields.mime_type !== "video/mp4" && fields.mime_type !== "video/quicktime") invalid();
-      raw = await probe.probe({ filename: fields.filename, mime_type: fields.mime_type, bytes: fields.bytes }, { ...(signal ? { signal } : {}) });
-      if (!isTrustedOwnerKlingMotionControlVideoProbeResult(raw)) invalid();
-      const metadata = raw.metadata;
-      if (raw.bytes_copied < 16 || raw.bytes_copied > LOCAL_MAX_BYTES || metadata.width < MIN_DIMENSION || metadata.height < MIN_DIMENSION ||
+      raw = await probeOwnerCurrentVideoMetadata({ mime_type: fields.mime_type, bytes: fields.bytes }, { ffprobePath, maximumBytes: LOCAL_MAX_BYTES }, signal);
+      const metadata = raw;
+      if (raw.size < 16 || raw.size > LOCAL_MAX_BYTES || metadata.width < MIN_DIMENSION || metadata.height < MIN_DIMENSION ||
           metadata.width > MAX_DIMENSION || metadata.height > MAX_DIMENSION || metadata.width * metadata.height > MAX_PIXELS ||
-          metadata.duration_seconds < 3 || metadata.duration_seconds > 30) localLimit();
-      bytes = copyTrustedOwnerKlingMotionControlVideoBytes(raw);
-      if (bytes.byteLength !== raw.bytes_copied) invalid();
+          metadata.duration_seconds < 3 || metadata.duration_seconds > 60) localLimit();
+      bytes = new Uint8Array(raw.bytes);
+      if (bytes.byteLength !== raw.size) invalid();
       const context = Object.freeze({ status: "LOCALLY_PROBED_SOURCE_VIDEO_NOT_UPLOAD_AUTHORITY" as const,
-        model_id: "happy_horse_edit" as const, filename: raw.filename, mime_type: raw.mime_type, size: raw.bytes_copied,
-        sha256: raw.source_sha256, width: metadata.width, height: metadata.height, measured_duration_seconds: metadata.duration_seconds,
-        probe_confidence: "FFPROBE_METADATA_NOT_DECODED_PIXELS" as const, local_video_duration_ceiling_seconds: 30 as const,
+        model_id: "happy_horse_edit" as const, filename: fields.filename, mime_type: fields.mime_type, size: raw.size,
+        sha256: raw.sha256, width: metadata.width, height: metadata.height, measured_duration_seconds: metadata.duration_seconds,
+        probe_confidence: "FFPROBE_METADATA_NOT_DECODED_PIXELS" as const, local_video_duration_ceiling_seconds: 60 as const,
         local_limit_confidence: "CONSERVATIVE_LOCAL_PROBE_CEILING_NOT_PROVIDER_LIMIT" as const, generation_permit: false as const });
       VALIDATED.set(context, { bytes: Buffer.from(bytes), context });
       return context;
@@ -60,7 +58,7 @@ export function createOwnerHappyHorseEditVideoValidator(ffprobePath: string) {
       fail("VIDEO_PROBE_FAILED");
     } finally {
       bytes?.fill(0);
-      if (raw) { try { releaseTrustedOwnerKlingMotionControlVideoProbeResult(raw); } catch { /* receipt copy is already isolated */ } }
+      raw?.bytes.fill(0);
     }
   } });
 }

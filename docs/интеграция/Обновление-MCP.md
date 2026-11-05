@@ -3,7 +3,8 @@
 ## Установка и обновление кода (2026-10-29)
 
 Для исходной установки нужны Git и Node.js 22.13 или новее; рекомендуем Node.js
-24. Команда `npm` поставляется с Node.js:
+24.21.x. Для HTTPS-шлюза используйте проверенный Node.js 24.21.x.
+Команда `npm` поставляется с Node.js:
 
 ```sh
 git clone https://github.com/alexfisenkov/syntx-mcp.git
@@ -16,14 +17,23 @@ npm run build
 компилятора. Ограничение действует только во время сборки/проверки и не меняет
 память работающего MCP-сервера.
 
+Профиль `--include-all-supported-media` явно задаёт
+`SYNTX_STDIO_MAX_BUFFER_BYTES=201326592` (192 MiB на сообщение), чтобы Base64
+видео/аудио проходил через stdio. Базовый transport сохраняет 10 MiB по
+умолчанию. Для уже установленного all-supported подключения добавьте этот
+ключ в его `env` или повторно получите шаблон printer-командой. Ограничения
+файлов конкретной модели действуют отдельно. После обновления проверьте и пути кодеков: существующий абсолютный путь к старой
+сборке может перестать запускаться после изменения её библиотек. Команды
+`ffmpeg -version` и `ffprobe -version` должны завершаться успешно.
+
 В MCP-клиенте используйте owner-stdio entrypoint этой установки. В примере
 настройки замените путь к `dist/src/transports/stdio-owner.js` на свой. Git
 checkout должен сохранять origin `https://github.com/alexfisenkov/syntx-mcp.git`
 и оставаться чистым; форки и локально изменённые копии self-update не принимает.
 
-## ChatGPT: загрузка reference image и получение результата
+## ChatGPT: файлы на входе и получение результата
 
-В текущем source release официальный MCP file-input контракт подключён только к
+В локальном owner-stdio официальный MCP file-input контракт подключён к
 `syntx_upload_standard_image_reference`, для standard Banana/GPT Image variants.
 В ChatGPT приложите одно изображение к сообщению, которое просит использовать его
 как reference, и вызовите этот инструмент. Если этот MCP host не передал вложение
@@ -32,6 +42,13 @@ image-family tools пока используйте их существующие
 где оно предусмотрено; официальное описание file parameters — в
 [OpenAI Plugins reference](https://developers.openai.com/plugins/reference).
 
+Отдельный HTTPS-шлюз добавляет `fileParams` ко всем разрешённым инструментам
+бинарного ввода — изображениям, видео, аудио и поддержанным reference-файлам.
+Точный состав и обязательные поля смотрите в фактическом `tools/list` этого
+шлюза. Он преобразует вложение в канонические байты исходного инструмента,
+сохраняя его ограничения, условия и проверки владельца. Произвольный путь
+к файлу компьютера в облачном подключении не используется.
+
 File object содержит `download_url` и `file_id`; `mime_type` и `file_name` могут
 отсутствовать. `download_url` временный: обработайте файл сразу, не сохраняйте и
 не публикуйте ссылку. Текущая локальная политика разрешает только HTTPS на точном
@@ -39,8 +56,8 @@ origin `files.oaiusercontent.com`, не следует redirect и не отпр
 Authorization headers. Это консервативное ограничение реализации, а не гарантия
 OpenAI, что все допустимые файлы будут приходить с этого хоста; официальная
 спецификация не подтверждает этот hostname или полное поведение download URL.
-Никакие реальные ChatGPT-вложения и скачивания этим source-level тестом не
-подтверждены.
+Source-level тесты не являются подтверждением реальной передачи вложения
+конкретным ChatGPT-подключением.
 
 После image generation MCP-ответ может содержать preview и `resource_link` для
 image artifact URL, если соответствующий tool вернул такой URL. Это подключено к
@@ -61,15 +78,18 @@ InMemory transport выполнили одну
 ChatGPT fileParams download, другие модели, tunnel и ChatGPT cloud-inline delivery
 этим кейсом не проверены.
 
-Эта поддержка реализована и описана для локального owner-stdio процесса. Текущий
-owner HTTP transport остаётся локальным и read-only; generation deployment,
-OAuth и готовое подключение из облачного ChatGPT не подтверждены. Официальная
-документация ChatGPT предлагает для custom MCP server публичный HTTPS endpoint
+Старый owner HTTP transport остаётся локальным и read-only. Для облачного
+подключения добавлен отдельный private-owner HTTPS gateway: Streamable HTTP,
+OAuth DCR/PKCE, одобрение владельцем через CLI и обычный SYNTX Telegram login.
+Развёртывание и обновление описаны в
+[инструкции HTTPS для ChatGPT и VPS](../../deploy/README.md).
+Работа конкретного deployment и ChatGPT проверяется отдельно от его кода.
+Официальная документация ChatGPT предлагает для custom MCP server HTTPS endpoint
 или [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels),
 который связывает private/local stdio или HTTP MCP через customer-run
 [OpenAI tunnel-client](https://github.com/openai/tunnel-client). Это внешний
-компонент, не зависимость проекта; tunnel-client и connector для SYNTX здесь не
-установлены и не проверены. Альтернатива — отдельный HTTPS endpoint. Для обоих
+компонент, не зависимость проекта. Его установка и проверка не выполняются
+генератором конфигурации этого репозитория. Для обоих
 путей нужны настройка ChatGPT connection, разрешения аккаунта/workspace и
 read-back списка tools. Документация OpenAI предупреждает, что аккаунтные и
 workspace policies применяются к custom MCP connections.

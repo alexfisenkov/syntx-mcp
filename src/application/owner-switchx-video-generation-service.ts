@@ -29,10 +29,16 @@ import {
 import { OwnerSwitchxVideoPolicyError } from "./owner-switchx-video-policy.js";
 import { readOwnerSwitchxVideoChatState, type OwnerSwitchxVideoUploadContext, type OwnerSwitchxVideoChatContext } from "../adapter/syntx/owner-switchx-video-native-context.js";
 
+import { OWNER_SWITCHX_CURRENT_CONTROLS } from "./owner-switchx-current-controls.js";
+import { OwnerSwitchxReferenceService, type OwnerSwitchxReferenceUploadInput } from "./owner-switchx-reference-service.js";
+import type { OwnerSwitchxSegment } from "./owner-switchx-segment.js";
+
 const MODEL_ID = OWNER_SWITCHX_VIDEO_MODEL_ID;
 const AI_NAME = OWNER_SWITCHX_VIDEO_AI_NAME;
 const CATALOG_VERSION = "sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json";
 const CATALOG_CANONICAL_SHA256 = "sha256:92c31dba26eb9c0ccf68cdf92a105e6e808c92b187286e4fb366debe051982e1";
+const CURRENT_CATALOG_VERSION = "sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json";
+const CURRENT_CATALOG_SHA256 = "sha256:11f085ad9b0dd97435d6ebece623fa85bce2870e714e876e6fbb041c562fb438";
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const RECOVERY = /^switchx_video_recovery_[0-9a-f-]{36}$/u;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
@@ -80,8 +86,8 @@ export interface OwnerSwitchxVideoGenerationResult {
   readonly cost_cap_enforced: false;
   readonly recovery_id: string;
   readonly model_id: typeof MODEL_ID;
-  readonly source_binding: Readonly<{ public_catalog_version: typeof CATALOG_VERSION; profile_sha256: string;
-    source_sha256: string; input_size: number; width: number; height: number; video_duration: 5; frame_rate: 24 }>;
+  readonly source_binding: Readonly<{ public_catalog_version: typeof CATALOG_VERSION | typeof CURRENT_CATALOG_VERSION; profile_sha256: string;
+    source_sha256: string; input_size: number; width: number; height: number; video_duration: number; frame_rate: number }>;
   readonly artifacts: readonly OwnerSwitchxVideoArtifact[];
   readonly diagnostics: OwnerSwitchxVideoDiagnostic;
 }
@@ -99,7 +105,10 @@ export interface OwnerSwitchxVideoGenerationServiceOptions {
   readonly linkService: PerUserLinkService;
   readonly catalog: DiscoveryCatalogRepository;
   readonly catalog_version: string;
+  readonly current_catalog: DiscoveryCatalogRepository;
+  readonly createCurrentModelAccessService: (attemptId: string) => ModelAccessService;
   readonly ffprobePath: string;
+  readonly ffmpegPath?: string;
   readonly uploadDestination: "uploaded" | "hidden";
   readonly resolveChatClient: (attemptId: string) => unknown;
   readonly createAccountStatusService: (attemptId: string) => AccountStatusService;
@@ -114,6 +123,8 @@ export interface OwnerSwitchxVideoGenerateInput {
   readonly filename: string;
   readonly mime_type: OwnerSwitchxVideoMimeType;
   readonly content_base64: string;
+  readonly resolution?: "720P" | "1080P"; readonly mask_mode?: "auto" | "fill" | "image" | "video";
+  readonly style_image_handle?: string; readonly mask_handle?: string; readonly segment?: OwnerSwitchxSegment;
 }
 
 export interface OwnerSwitchxVideoReconcileInput { readonly attemptId: string; readonly recovery_id: string; }
@@ -129,11 +140,11 @@ export class OwnerSwitchxVideoGenerationServiceError extends Error {
     readonly diagnostics?: OwnerSwitchxVideoDiagnostic) {
     super(code === "OUTCOME_UNKNOWN" ? "Switchx generation may have been dispatched; use GET-only reconciliation and do not retry."
       : code === "INPUT_VIDEO_NOT_IN_INITIAL_SLICE"
-        ? "The Switchx initial source slice requires exactly 1280×720 pixels, 5 seconds, and 24 fps."
+        ? "The Switchx foreground requires at most240 measured frames; select an explicit segment if necessary."
         : code === "INVALID_VIDEO"
-          ? "The Switchx input could not be validated. The enabled initial slice accepts 1280×720, exactly 5 seconds, at 24 fps."
+          ? "The Switchx input could not be validated against its current measured media bounds."
           : code === "LOCAL_LIMIT_EXCEEDED"
-            ? "The Switchx input exceeds the local 10 MiB validation or upload limit."
+            ? "The Switchx input exceeds the100MiB public/local resource bound."
             : "The owner Switchx video operation could not be completed safely.");
     this.name = "OwnerSwitchxVideoGenerationServiceError";
   }
@@ -159,7 +170,9 @@ export class OwnerSwitchxVideoGenerationService {
   readonly #resolveChatClient: OwnerSwitchxVideoGenerationServiceOptions["resolveChatClient"];
   readonly #createAccount: OwnerSwitchxVideoGenerationServiceOptions["createAccountStatusService"];
   readonly #createAccess: OwnerSwitchxVideoGenerationServiceOptions["createModelAccessService"];
+  readonly #currentCatalog: DiscoveryCatalogRepository; readonly #createCurrentAccess: OwnerSwitchxVideoGenerationServiceOptions["createCurrentModelAccessService"];
   readonly #validator: ReturnType<typeof createOwnerSwitchxVideoValidator>;
+  readonly #references: OwnerSwitchxReferenceService;
   readonly #now: () => number; readonly #timeoutMs: number;
   readonly #claims = new Map<string, string>(); readonly #recoveries = new Map<string, Recovery>();
   readonly #active = new Set<ActiveRun>(); readonly #clientsByAttempt = new Map<string, SyntxChatHttpClient>();
@@ -167,7 +180,7 @@ export class OwnerSwitchxVideoGenerationService {
 
   constructor(optionsInput: OwnerSwitchxVideoGenerationServiceOptions | unknown) {
     const options = exact(optionsInput, ["binding", "linkService", "catalog", "catalog_version", "ffprobePath", "uploadDestination",
-      "resolveChatClient", "createAccountStatusService", "createModelAccessService"], ["now", "timeoutMs"]);
+      "resolveChatClient", "createAccountStatusService", "createModelAccessService", "current_catalog", "createCurrentModelAccessService"], ["now", "timeoutMs", "ffmpegPath"]);
     if (!genuineMethods(options.linkService, PerUserLinkService, ["getStatus"]) || !(options.catalog instanceof DiscoveryCatalogRepository) ||
         options.catalog_version !== CATALOG_VERSION || typeof options.ffprobePath !== "string" || !options.ffprobePath.trim() ||
         (options.uploadDestination !== "uploaded" && options.uploadDestination !== "hidden") ||
@@ -178,9 +191,14 @@ export class OwnerSwitchxVideoGenerationService {
     this.#binding = snapshotBinding(options.binding); this.#links = options.linkService; this.#catalog = options.catalog;
     this.#catalogVersion = options.catalog_version; this.#destination = options.uploadDestination;
     this.#resolveChatClient = options.resolveChatClient; this.#createAccount = options.createAccountStatusService;
-    this.#createAccess = options.createModelAccessService; this.#validator = createOwnerSwitchxVideoValidator(options.ffprobePath);
+    this.#createAccess = options.createModelAccessService;
+    if (!(options.current_catalog instanceof DiscoveryCatalogRepository) || options.current_catalog.source_hashes.models !== CURRENT_CATALOG_SHA256 ||
+        typeof options.createCurrentModelAccessService !== "function" || types.isProxy(options.createCurrentModelAccessService)) invalid();
+    this.#currentCatalog = options.current_catalog; this.#createCurrentAccess = options.createCurrentModelAccessService; this.#validator = createOwnerSwitchxVideoValidator(options.ffprobePath, options.ffmpegPath);
     this.#now = options.now === undefined ? Date.now : options.now;
     this.#timeoutMs = bounded(options.timeoutMs, 1_000, 300_000, DEFAULT_TIMEOUT_MS);
+    this.#references = new OwnerSwitchxReferenceService({ binding: this.#binding, linkService: this.#links, ffprobePath: options.ffprobePath,
+      uploadDestination: this.#destination, resolveChatClient: (attemptId) => this.#nativeClient(attemptId), now: this.#now });
     this.#assertCatalog(); SERVICES.add(this); Object.freeze(this);
   }
 
@@ -214,6 +232,7 @@ export class OwnerSwitchxVideoGenerationService {
     for (const run of active) run.controller.abort();
     await Promise.allSettled(active.map((run) => run.promise));
     for (const [id, recovery] of this.#recoveries) if (recovery.attemptId === attemptId) this.#recoveries.delete(id);
+    await this.#references.invalidateAttempt(attemptId);
     this.#clientsByAttempt.delete(attemptId); this.#invalidating.delete(attemptId);
   }
 
@@ -222,12 +241,14 @@ export class OwnerSwitchxVideoGenerationService {
     for (const run of this.#active) run.controller.abort();
     this.#closing = (async () => {
       await Promise.allSettled([...this.#active].map((run) => run.promise));
+      await this.#references.close();
       this.#active.clear(); this.#recoveries.clear(); this.#claims.clear(); this.#clientsByAttempt.clear();
     })();
     return this.#closing;
   }
 
-  getSourceProfile() { this.#assertOpen(); return OWNER_SWITCHX_VIDEO_SOURCE_PROFILE; }
+  getSourceProfile() { this.#assertOpen(); return Object.freeze({ ...OWNER_SWITCHX_VIDEO_SOURCE_PROFILE, current_source_controls: OWNER_SWITCHX_CURRENT_CONTROLS }); }
+  uploadReference(input: OwnerSwitchxReferenceUploadInput, signal?: AbortSignal) { this.#assertOpen(); return this.#references.upload(input, signal); }
 
   async #generate(request: Readonly<OwnerSwitchxVideoGenerateInput>, signal: AbortSignal): Promise<OwnerSwitchxVideoGenerationResult> {
     const deadline = new AbsoluteRequestDeadline(this.#timeoutMs, signal, () => serviceError("OUTCOME_UNKNOWN"));
@@ -236,11 +257,15 @@ export class OwnerSwitchxVideoGenerationService {
     let recovery: Recovery | undefined;
     try {
       deadline.throwIfAborted(); const principal = await this.#await(deadline, () => this.#principal(request.attemptId));
+      const selectedReferences: Awaited<ReturnType<OwnerSwitchxReferenceService["resolve"]>>[] = [];
+      if (request.style_image_handle) selectedReferences.push(await this.#references.resolve(request.attemptId, request.style_image_handle, "style_image"));
+      if (request.mask_handle) selectedReferences.push(await this.#references.resolve(request.attemptId, request.mask_handle, request.mask_mode === "image" ? "image_mask" : "video_mask"));
+      for (const reference of selectedReferences) if (!sameGenerationPrincipal(principal, reference.principal)) fail("PRINCIPAL_NOT_LINKED");
       originalBytes = decodeCanonicalBase64(request.content_base64);
       validated = await this.#await(deadline, () => this.#validator.validate({ filename: request.filename,
-        mime_type: request.mime_type, bytes: originalBytes! }, deadline.signal));
-      const input = normalizeOwnerSwitchxVideoInput({ attemptId: request.attemptId, prompt: request.prompt, video: validated });
-      semantic = intentKey(principal, input);
+        mime_type: request.mime_type, bytes: originalBytes! }, deadline.signal, request.segment));
+      const input = normalizeOwnerSwitchxVideoInput({ attemptId: request.attemptId, prompt: request.prompt, video: validated, resolution: request.resolution, mask_mode: request.mask_mode, has_style_image: !!request.style_image_handle });
+      semantic = intentKey(principal, input, selectedReferences.map(reference => [reference.role, reference.sha256]));
       if (this.#claims.has(semantic)) fail("INTENT_ALREADY_CLAIMED");
       if (this.#claims.size >= MAX_RECOVERIES) fail("SERVICE_BUSY");
       this.#claims.set(semantic, "UPLOAD_PENDING");
@@ -267,6 +292,10 @@ export class OwnerSwitchxVideoGenerationService {
       await this.#checkPrincipal(request.attemptId, principal);
       await this.#preflight(request.attemptId, input, deadline);
       await this.#checkPrincipal(request.attemptId, principal);
+      const currentReferences: Awaited<ReturnType<OwnerSwitchxReferenceService["resolve"]>>[] = [];
+      if (request.style_image_handle) currentReferences.push(await this.#references.resolve(request.attemptId, request.style_image_handle, "style_image"));
+      if (request.mask_handle) currentReferences.push(await this.#references.resolve(request.attemptId, request.mask_handle, request.mask_mode === "image" ? "image_mask" : "video_mask"));
+      if (currentReferences.some((reference, i) => reference.native !== selectedReferences[i]!.native || reference.client !== client)) fail("PRINCIPAL_NOT_LINKED");
       recovery = this.#newRecovery(request.attemptId, principal, client, chat, input);
       this.#recoveries.set(recovery.recovery_id, recovery);
       this.#claims.set(semantic, recovery.recovery_id);
@@ -274,7 +303,7 @@ export class OwnerSwitchxVideoGenerationService {
       let ack: MediaGenerationReceipt;
       try {
         ack = await this.#await(deadline, () => Reflect.apply(CLIENT_START, client, [Object.freeze({ context: chat,
-          attempt_id: request.attemptId, principal, prompt: request.prompt }), deadline.signal]) as Promise<MediaGenerationReceipt>);
+          attempt_id: request.attemptId, principal, prompt: request.prompt, controls: Object.freeze({ resolution: input.settings.resolution, mask_mode: input.settings.mask_mode, references: Object.freeze(currentReferences.map(reference => reference.native)) }) }), deadline.signal]) as Promise<MediaGenerationReceipt>);
       } catch { throw unknownError(recovery); }
       if (!validReceipt(ack, chat.chat_uuid)) throw unknownError(recovery);
       recovery.owner_echo_message_id = ack.message_id; recovery.diagnostics.owner_ack_known = true; recovery.diagnostics.phase = "ACK_KNOWN";
@@ -312,7 +341,6 @@ export class OwnerSwitchxVideoGenerationService {
 
   async #observe(recovery: Recovery, deadline: AbsoluteRequestDeadline): Promise<OwnerSwitchxVideoGenerationResult> {
     deadline.throwIfAborted(); await this.#checkPrincipal(recovery.attemptId, recovery.principal);
-    if (!recovery.owner_echo_message_id) throw unknownError(recovery);
     let context: ReturnType<typeof readOwnerSwitchxVideoChatState>;
     try { context = readOwnerSwitchxVideoChatState(recovery.client, recovery.chat); }
     catch { recovery.diagnostics.gaps = ["CHAT_CONTEXT_UNVERIFIED"]; throw unknownError(recovery); }
@@ -320,7 +348,9 @@ export class OwnerSwitchxVideoGenerationService {
         !sameGenerationPrincipal(context.principal, recovery.principal) || !context.dispatch_attempted ||
         context.metadata.sha256 !== recovery.input.source_sha256 || context.metadata.size !== recovery.input.source_size ||
         context.metadata.width !== recovery.input.source_width || context.metadata.height !== recovery.input.source_height ||
-        context.metadata.duration_seconds !== 5 || context.metadata.frame_rate !== 24) {
+        context.metadata.duration_seconds !== recovery.input.video_duration || context.metadata.frame_rate !== recovery.input.frame_rate ||
+        !context.sent_controls || context.sent_controls.resolution !== recovery.input.settings.resolution || context.sent_controls.mask_mode !== recovery.input.settings.mask_mode ||
+        !context.reference_file_hashes || context.reference_file_hashes.length > 2) {
       recovery.diagnostics.gaps = ["CHAT_CONTEXT_BINDING_MISMATCH"]; throw unknownError(recovery);
     }
 
@@ -340,9 +370,10 @@ export class OwnerSwitchxVideoGenerationService {
         [recovery.chat.chat_uuid, deadline.signal]) as Promise<unknown>);
       await this.#checkPrincipal(recovery.attemptId, recovery.principal);
     } catch { recovery.diagnostics.gaps = ["HISTORY_READ_UNVERIFIED"]; throw unknownError(recovery); }
-    const history = validateSwitchxHistory(rawHistory, recovery, providerChatId, context.reference_url_sha256);
+    const history = validateSwitchxHistory(rawHistory, recovery, providerChatId, context.reference_url_sha256, context.reference_file_hashes);
     if (!history) { recovery.diagnostics.gaps = ["HISTORY_BINDING_UNVERIFIED"]; throw unknownError(recovery); }
 
+    recovery.owner_echo_message_id = history.owner_message_id;
     const details = [];
     for (const messageId of [recovery.owner_echo_message_id, history.provider_message_id]) {
       recovery.diagnostics.phase = "RESULT_GET"; recovery.diagnostics.result_get_calls++;
@@ -356,7 +387,7 @@ export class OwnerSwitchxVideoGenerationService {
       details.push(detail);
     }
     const ownerDetail = validateSwitchxDetail(details[0], recovery.owner_echo_message_id, providerChatId, history.owner_author_id,
-      recovery.input.prompt, context.reference_url_sha256, history.owner_objects);
+      recovery.input.prompt, context.reference_url_sha256, history.owner_objects, context.reference_file_hashes);
     const botArtifacts = validateSwitchxBotDetail(details[1], history.provider_message_id, providerChatId, history.bot_objects);
     if (!ownerDetail || !botArtifacts) { recovery.diagnostics.gaps = ["DETAIL_BINDING_UNVERIFIED"]; throw unknownError(recovery); }
     recovery.artifacts = Object.freeze(botArtifacts.map((url) => Object.freeze({ url })));
@@ -369,7 +400,7 @@ export class OwnerSwitchxVideoGenerationService {
     let account: AccountStatusService, access: ModelAccessService;
     try {
       account = Reflect.apply(this.#createAccount, undefined, [attemptId]) as AccountStatusService;
-      access = Reflect.apply(this.#createAccess, undefined, [attemptId]) as ModelAccessService;
+      access = Reflect.apply(input.legacy_tuple ? this.#createAccess : this.#createCurrentAccess, undefined, [attemptId]) as ModelAccessService;
     } catch { fail("PREFLIGHT_FAILED"); }
     if (!(account! instanceof AccountStatusService) || !genuineMethods(account!, AccountStatusService, ["getAccountStatus"]) ||
         !(access! instanceof ModelAccessService) || !genuineMethods(access!, ModelAccessService, ["getModelAccess"])) fail("PREFLIGHT_FAILED");
@@ -379,11 +410,12 @@ export class OwnerSwitchxVideoGenerationService {
       quote = await this.#await(deadline, () => Reflect.apply(MODEL_ACCESS_GET, access!, [Object.freeze({ model_id: MODEL_ID,
         cost_parameters: input.cost_parameters }), deadline.signal]) as Promise<ModelAccessResult>);
     } catch { fail("PREFLIGHT_FAILED"); }
-    const now = this.#readNow(), model = this.#catalog.getModel(MODEL_ID);
+    const catalog = input.legacy_tuple ? this.#catalog : this.#currentCatalog;
+    const now = this.#readNow(), model = catalog.getModel(MODEL_ID);
     const cost = quote!.discount_cost ?? quote!.cost;
     const available = accountResult!.balance.available === null ? null : Number(accountResult!.balance.available);
     if (!validAccount(accountResult!, now) || quote!.catalog_kind !== "OFFICIAL_PUBLIC_API_SNAPSHOT" ||
-        quote!.catalog_version !== `${this.#catalog.fetched_at}.${this.#catalog.source_hashes.models.slice(7, 19)}` ||
+        quote!.catalog_version !== `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}` ||
         quote!.model_id !== MODEL_ID || quote!.ai_name !== AI_NAME || quote!.model_type !== MODEL_ID || quote!.account_read_live !== true ||
         quote!.access !== true || quote!.parameters_redacted !== true || !sameStrings(quote!.parameter_keys, ["frame_rate", "resolution", "video_duration"]) ||
         !finiteNonnegative(cost) || available === null || !Number.isFinite(available) || available < cost || !freshIso(quote!.observed_at, now) || !model.active) {
@@ -393,6 +425,9 @@ export class OwnerSwitchxVideoGenerationService {
 
   #assertCatalog(): void {
     try {
+      const current = this.#currentCatalog.getModel(MODEL_ID);
+      if (current.id !== MODEL_ID || current.upstream_id !== MODEL_ID || current.ai_name !== AI_NAME || !current.active ||
+          current.settings?.uploadable !== true || current.settings.max_prompt_length !== 2000 || !sameStrings(current.settings.get_cost_params, ["resolution", "video_duration", "frame_rate"])) fail("MODEL_BINDING_MISMATCH");
       const model = this.#catalog.getModel(MODEL_ID), settings = model.settings;
       if (this.#catalogVersion !== CATALOG_VERSION || this.#catalog.source_hashes.models !== CATALOG_CANONICAL_SHA256 ||
           model.id !== MODEL_ID || model.upstream_id !== MODEL_ID || model.ai_name !== AI_NAME || model.active !== true ||
@@ -460,11 +495,17 @@ export function isOwnerSwitchxVideoGenerationService(value: unknown): value is O
 }
 
 function snapshotGenerate(value: unknown): Readonly<OwnerSwitchxVideoGenerateInput> {
-  const row = exact(value, ["attemptId", "prompt", "filename", "mime_type", "content_base64"]);
+  const row = exact(value, ["attemptId", "prompt", "filename", "mime_type", "content_base64"], ["resolution", "mask_mode", "style_image_handle", "mask_handle", "segment"]);
   if (typeof row.attemptId !== "string" || !ATTEMPT.test(row.attemptId) || typeof row.prompt !== "string" ||
       typeof row.filename !== "string" || typeof row.mime_type !== "string" ||
       (row.mime_type !== "video/mp4" && row.mime_type !== "video/quicktime") || typeof row.content_base64 !== "string") invalid();
-  return Object.freeze({ attemptId: row.attemptId, prompt: row.prompt, filename: row.filename, mime_type: row.mime_type, content_base64: row.content_base64 });
+  if (row.resolution !== undefined && !["720P", "1080P"].includes(row.resolution) || row.mask_mode !== undefined && !["auto", "fill", "image", "video"].includes(row.mask_mode)) invalid();
+  for (const key of ["style_image_handle", "mask_handle"]) if (row[key] !== undefined && (typeof row[key] !== "string" || !/^switchx_reference_[0-9a-f-]{36}$/u.test(row[key]))) invalid();
+  const masked = row.mask_mode === "image" || row.mask_mode === "video";
+  if (masked !== (row.mask_handle !== undefined) || row.style_image_handle !== undefined && row.style_image_handle === row.mask_handle) invalid();
+  const segment = row.segment === undefined ? undefined : exact(row.segment, ["start_seconds", "end_seconds"]);
+  if (segment && (typeof segment.start_seconds !== "number" || typeof segment.end_seconds !== "number" || !Number.isFinite(segment.start_seconds) || !Number.isFinite(segment.end_seconds))) invalid();
+  return Object.freeze({ ...row, ...(segment === undefined ? {} : { segment: Object.freeze(segment) }) }) as Readonly<OwnerSwitchxVideoGenerateInput>;
 }
 function snapshotRecovery(value: unknown): Readonly<OwnerSwitchxVideoReconcileInput> {
   const row = exact(value, ["attemptId", "recovery_id"]);
@@ -477,22 +518,22 @@ function snapshotList(value: unknown): Readonly<{ attemptId: string; limit: numb
   return Object.freeze({ attemptId: row.attemptId, limit: row.limit === undefined ? 20 : row.limit });
 }
 function decodeCanonicalBase64(value: string): Buffer {
-  if (!value || value.length > 14_000_000 || !isCanonicalBase64(value, 14_000_000)) invalid();
-  const bytes = Buffer.from(value, "base64"); if (bytes.length < 16 || bytes.length > 10 * 1024 * 1024 || bytes.toString("base64") !== value) {
+  if (!value || value.length > 139_810_136 || !isCanonicalBase64(value, 139_810_136)) invalid();
+  const bytes = Buffer.from(value, "base64"); if (bytes.length < 16 || bytes.length > 100 * 1024 * 1024 || bytes.toString("base64") !== value) {
     bytes.fill(0); fail("INVALID_REQUEST");
   }
   return bytes;
 }
-function intentKey(principal: Readonly<GenerationPrincipalRef>, input: Readonly<OwnerSwitchxNormalizedVideoInput>): string {
+function intentKey(principal: Readonly<GenerationPrincipalRef>, input: Readonly<OwnerSwitchxNormalizedVideoInput>, references: unknown[]): string {
   return createHash("sha256").update(JSON.stringify([principal.tenant_id, principal.subject_id, MODEL_ID,
-    input.prompt, input.source_sha256, input.source_size, "720P", "auto", 5, 24])).digest("hex");
+    input.prompt, input.source_sha256, input.source_size, input.settings.resolution, input.settings.mask_mode, input.video_duration, input.frame_rate, ...references])).digest("hex");
 }
 function resultFromRecovery(row: Recovery): OwnerSwitchxVideoGenerationResult {
   return Object.freeze({ status: "completed", status_semantics: "LOCAL_OBSERVED_AVAILABILITY_ONLY", backend_acceptance: "UNPROVEN",
     provider_terminal_status: "UNPROVEN", cost_cap_enforced: false, recovery_id: row.recovery_id, model_id: MODEL_ID,
-    source_binding: Object.freeze({ public_catalog_version: CATALOG_VERSION, profile_sha256: OWNER_SWITCHX_VIDEO_SOURCE_PROFILE.source_pins.form_sha256,
+    source_binding: Object.freeze({ public_catalog_version: row.input.legacy_tuple ? CATALOG_VERSION : CURRENT_CATALOG_VERSION, profile_sha256: row.input.legacy_tuple ? OWNER_SWITCHX_VIDEO_SOURCE_PROFILE.source_pins.form_sha256 : OWNER_SWITCHX_CURRENT_CONTROLS.form_sha256,
       source_sha256: row.input.source_sha256, input_size: row.input.source_size, width: row.input.source_width, height: row.input.source_height,
-      video_duration: 5, frame_rate: 24 }), artifacts: Object.freeze([...row.artifacts]), diagnostics: snapshotDiagnostic(row.diagnostics) });
+      video_duration: row.input.video_duration, frame_rate: row.input.frame_rate }), artifacts: Object.freeze([...row.artifacts]), diagnostics: snapshotDiagnostic(row.diagnostics) });
 }
 function snapshotDiagnostic(row: MutableDiagnostic): OwnerSwitchxVideoDiagnostic {
   return Object.freeze({ phase: row.phase, upload_attempted: row.upload_attempted, chat_created: row.chat_created,
@@ -508,7 +549,7 @@ function validReceipt(value: unknown, chat: string): value is MediaGenerationRec
 }
 interface SwitchxHistoryObject { readonly id: string; readonly message_id: string; readonly object_type: string; readonly model_type: string | null;
   readonly completed: boolean | null; readonly object_url?: string | null; readonly object_text?: string | null }
-interface SwitchxHistoryProof { readonly provider_message_id: string; readonly owner_author_id: number; readonly owner_objects: readonly SwitchxHistoryObject[];
+interface SwitchxHistoryProof { readonly owner_message_id: string; readonly provider_message_id: string; readonly owner_author_id: number; readonly owner_objects: readonly SwitchxHistoryObject[];
   readonly bot_objects: readonly SwitchxHistoryObject[] }
 function safeRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) return null;
@@ -566,7 +607,7 @@ function switchxIndexChatId(value: unknown, chatUuid: string): string | null {
       !Number.isFinite(Date.parse(row.created_at))) return null;
   return providerChatId;
 }
-function validateSwitchxHistory(value: unknown, recovery: Recovery, providerChatId: string, referenceUrlSha256: string): SwitchxHistoryProof | null {
+function validateSwitchxHistory(value: unknown, recovery: Recovery, providerChatId: string, referenceUrlSha256: string, extraReferences: readonly { type: string; url_sha256: string }[]): SwitchxHistoryProof | null {
   const history = safeRecord(value), pagination = safeRecord(history?.pagination), messages = history?.messages;
   if (!Array.isArray(messages) || messages.length !== 2 || messages.length > 10 || !pagination || pagination.page !== 1 || pagination.page_size !== 10 ||
       pagination.total_count !== messages.length || pagination.total_pages !== 1 || pagination.has_next !== false || pagination.has_previous !== false) return null;
@@ -578,23 +619,23 @@ function validateSwitchxHistory(value: unknown, recovery: Recovery, providerChat
   });
   if (parsed.some((row) => row === null)) return null;
   const rows = parsed as Array<{ id: string; chat_id: string; author_id: number; objects: readonly SwitchxHistoryObject[] }>;
-  const ownerRows = rows.filter((row) => row.id === recovery.owner_echo_message_id && row.author_id > 0);
+  const ownerRows = rows.filter((row) => (recovery.owner_echo_message_id === null || row.id === recovery.owner_echo_message_id) && row.author_id > 0);
   const botRows = rows.filter((row) => row.author_id === -1 && row.id !== recovery.owner_echo_message_id);
-  if (ownerRows.length !== 1 || botRows.length !== 1 || rows.some((row) => row.id !== recovery.owner_echo_message_id && row.author_id !== -1)) return null;
+  if (ownerRows.length !== 1 || botRows.length !== 1 || rows.some((row) => row.id !== ownerRows[0]?.id && row.author_id !== -1)) return null;
   const ownerObjects = ownerRows[0]!.objects, botObjects = botRows[0]!.objects;
-  if (ownerObjects.length !== 2 || botObjects.length !== 2) return null;
+  if (ownerObjects.length !== 2 + extraReferences.length || botObjects.length !== 2) return null;
   const promptObjects = ownerObjects.filter((object) => object.object_type === "text"), inputObjects = ownerObjects.filter((object) => object.object_type === "video");
-  if (promptObjects.length !== 1 || inputObjects.length !== 1 || ownerObjects.some((object) => object.model_type !== MODEL_ID || object.completed !== true) ||
+  if (promptObjects.length !== 1 || inputObjects.length !== 1 || !matchesReferences(ownerObjects, extraReferences) || ownerObjects.some((object) => object.model_type !== MODEL_ID || object.completed !== true) ||
       promptObjects[0]!.object_text !== recovery.input.prompt || !safeR2ArtifactUrl(inputObjects[0]!.object_url)) return null;
   const referenceHash = createHash("sha256").update(inputObjects[0]!.object_url!, "utf8").digest("hex");
   if (referenceHash !== referenceUrlSha256) return null;
   const botIds = botObjects.map((object) => object.id), botUrls = botObjects.map((object) => object.object_url);
   if (botObjects.some((object) => object.object_type !== "video" || object.model_type !== MODEL_ID || object.completed !== true || !safeR2ArtifactUrl(object.object_url)) ||
-      new Set(botIds).size !== 2 || new Set(botUrls).size !== 2 || new Set([...ownerObjects, ...botObjects].map((object) => object.id)).size !== 4) return null;
-  return Object.freeze({ provider_message_id: botRows[0]!.id, owner_author_id: ownerRows[0]!.author_id, owner_objects: ownerObjects, bot_objects: botObjects });
+      new Set(botIds).size !== 2 || new Set(botUrls).size !== 2 || new Set([...ownerObjects, ...botObjects].map((object) => object.id)).size !== 4 + extraReferences.length) return null;
+  return Object.freeze({ owner_message_id: ownerRows[0]!.id, provider_message_id: botRows[0]!.id, owner_author_id: ownerRows[0]!.author_id, owner_objects: ownerObjects, bot_objects: botObjects });
 }
 function validateSwitchxDetail(value: unknown, messageId: string, providerChatId: string, ownerAuthorId: number, prompt: string, referenceUrlSha256: string,
-  historyObjects: readonly SwitchxHistoryObject[]): boolean {
+  historyObjects: readonly SwitchxHistoryObject[], extraReferences: readonly { type: string; url_sha256: string }[]): boolean {
   const detail = safeRecord(value); if (!detail || switchxProviderId(detail.id) !== messageId || switchxProviderId(detail.chat_id) !== providerChatId ||
       !Number.isSafeInteger(detail.author_id) || detail.author_id !== ownerAuthorId || ownerAuthorId <= 0) return false;
   const objects = switchxObjects(detail.message_object, messageId); if (!objects || objects.length !== historyObjects.length ||
@@ -603,11 +644,17 @@ function validateSwitchxDetail(value: unknown, messageId: string, providerChatId
         object.object_text !== historyObjects[index]!.object_text || object.object_url !== historyObjects[index]!.object_url)) return false;
   if (messageId === historyObjects[0]?.message_id && detail.author_id === ownerAuthorId) {
     const text = objects.filter((object) => object.object_type === "text"), video = objects.filter((object) => object.object_type === "video");
-    return detail.author_id > 0 && text.length === 1 && video.length === 1 && text[0]!.object_text === prompt && safeR2ArtifactUrl(video[0]!.object_url) &&
+    return detail.author_id > 0 && text.length === 1 && video.length === 1 && matchesReferences(objects, extraReferences) && text[0]!.object_text === prompt && safeR2ArtifactUrl(video[0]!.object_url) &&
       createHash("sha256").update(video[0]!.object_url!, "utf8").digest("hex") === referenceUrlSha256;
   }
   return false;
 }
+function matchesReferences(objects: readonly SwitchxHistoryObject[], expected: readonly { type: string; url_sha256: string }[]): boolean {
+  const extras = objects.filter(object => object.object_type !== "text" && object.object_type !== "video");
+  return extras.length === expected.length && expected.every(reference => extras.filter(object => object.object_type === reference.type && safeR2ArtifactUrl(object.object_url) &&
+    createHash("sha256").update(object.object_url!, "utf8").digest("hex") === reference.url_sha256).length === 1);
+}
+
 function validateSwitchxBotDetail(value: unknown, messageId: string, providerChatId: string,
   historyObjects: readonly SwitchxHistoryObject[]): readonly string[] | null {
   const detail = safeRecord(value);

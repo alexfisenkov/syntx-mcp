@@ -49,7 +49,7 @@ test("2281 rejects unsafe captured URLs, invalid source hashes, geometry, and ma
     { ...IMAGE, url: "https://example.invalid/private.png" },
     { ...IMAGE, url: "https://user@r2.syntx.ai/private.png" },
     { ...IMAGE, sha256: "not-a-digest" },
-    { ...IMAGE, width: 90, height: 90 },
+    { ...IMAGE, width: 0, height: 90 },
     { ...IMAGE, width: 8_401, height: 1 },
     { ...IMAGE, width: Number.POSITIVE_INFINITY },
     { ...IMAGE, extra: "unexpected" }
@@ -58,4 +58,13 @@ test("2281 rejects unsafe captured URLs, invalid source hashes, geometry, and ma
   const accessor = { ...IMAGE };
   Object.defineProperty(accessor, "sha256", { enumerable: true, get: () => { throw new Error("accessor must not run"); } });
   assert.throws(() => candidate(parameters(), accessor), { code: "INVALID_WIRE_CANDIDATE" });
+});
+
+test("Current Grok geometry changes provenance without relabeling historical 16:9 tuple", () => {
+  const legacy = candidate(), portrait = candidate(parameters(), { ...IMAGE, width: 90, height: 160 });
+  assert.equal(legacy.profile_sha256, normalizeOwnerGrokI2vParameters(parameters()).profile_sha256);
+  assert.notEqual(portrait.profile_sha256, legacy.profile_sha256);
+  assert.notEqual(portrait.intent_fingerprint, legacy.intent_fingerprint);
+  assert.deepEqual(portrait.source_image_context, { sha256: IMAGE.sha256, width: 90, height: 160, authority: "CAPTURED_UPLOAD_METADATA_NOT_DECODED_PIXELS" });
+  assert.equal(portrait.wire.settings.aspect_ratio, "16:9");
 });

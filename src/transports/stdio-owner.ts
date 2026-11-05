@@ -5,6 +5,7 @@ import type { GenerationContractRegistry } from "../domain/generation-contract.j
 import type { GenerationContractRegistryV2 } from "../domain/generation-contract-v2.js";
 import { createMcpServer } from "../mcp/server.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { readOwnerStdioMaxBufferBytes } from "./owner-stdio-buffer.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { Readable } from "node:stream";
 import {
@@ -253,13 +254,13 @@ export function readOwnerElevenLabsStsFlag(value: string | undefined): boolean {
 
 /** Trusted local STS operator settings; both values are mandatory when enabled. */
 export function readOwnerElevenLabsStsOperatorConfiguration(enabled: boolean, ffprobePath: string | undefined,
-  destination: string | undefined): Readonly<{ ffprobePath: string; destination: "uploaded" | "hidden" }> | undefined {
+  destination: string | undefined, ffmpegPath?: string): Readonly<{ ffprobePath: string; destination: "uploaded" | "hidden"; ffmpegPath?:string }> | undefined {
   if (!enabled) return undefined;
   if (typeof ffprobePath !== "string" || ffprobePath.length === 0 || !isAbsolute(ffprobePath) ||
-      (destination !== "uploaded" && destination !== "hidden")) {
+      (destination !== "uploaded" && destination !== "hidden") || (ffmpegPath!==undefined && (!isAbsolute(ffmpegPath) || ffmpegPath!==ffmpegPath.trim() || /[\u0000-\u001f\u007f]/u.test(ffmpegPath)))) {
     throw new Error("Invalid SYNTX_OWNER_ELEVENLABS_STS operator configuration.");
   }
-  return Object.freeze({ ffprobePath, destination });
+  return Object.freeze({ ffprobePath, destination, ...(ffmpegPath===undefined?{}:{ffmpegPath}) });
 }
 
 /** Strict default-off gate for the pinned private Suno generation composition. */
@@ -456,6 +457,12 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
     reviewedMediaFlagValue("SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES")
   );
   const ownerWanT2vVideosEnabled = readOwnerWanT2vVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN_T2V_VIDEOS"));
+  const ownerWanT2vAudioFfprobePath = ownerWanT2vVideosEnabled
+    ? resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_WAN_T2V_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH) : undefined;
+  if (ownerWanT2vAudioFfprobePath !== undefined && (!isAbsolute(ownerWanT2vAudioFfprobePath) ||
+      ownerWanT2vAudioFfprobePath.trim() !== ownerWanT2vAudioFfprobePath || /[\u0000-\u001f]/u.test(ownerWanT2vAudioFfprobePath))) {
+    throw new Error("Invalid WAN T2V audio ffprobe configuration.");
+  }
   const ownerWan30FirstLastVideosEnabled = readOwnerWan30FirstLastVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN30_FIRST_LAST_VIDEOS"));
   const ownerWan30ReferenceVideosEnabled = readOwnerWan30ReferenceVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN30_REFERENCE_VIDEOS"));
   const ownerWan30OmniVideosEnabled = readOwnerWan30OmniVideosFlag(reviewedMediaFlagValue("SYNTX_OWNER_WAN30_OMNI_VIDEOS"));
@@ -469,7 +476,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerElevenLabsStsOperatorConfiguration = readOwnerElevenLabsStsOperatorConfiguration(
     ownerElevenLabsStsEnabled,
     resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_ELEVENLABS_STS_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
-    process.env.SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION
+    process.env.SYNTX_OWNER_ELEVENLABS_STS_UPLOAD_DESTINATION,
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_ELEVENLABS_STS_FFMPEG_PATH,process.env.SYNTX_MEDIA_FFMPEG_PATH)
   );
   const ownerSunoGenerationEnabled = readOwnerSunoGenerationFlag(reviewedMediaFlagValue("SYNTX_OWNER_SUNO_GENERATION"));
   const ownerSunoFfprobePath = ownerSunoGenerationEnabled
@@ -545,7 +553,8 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
     process.env.SYNTX_OWNER_KLING_MEDIA_UPLOAD_DESTINATION,resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_KLING_MEDIA_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH));
   const ownerSwitchxVideoEnabled=readOwnerFlag("SYNTX_OWNER_SWITCHX_VIDEO");
   const ownerSwitchxVideoOperator=readOwnerSwitchxVideoOperatorConfiguration(ownerSwitchxVideoEnabled,
-    process.env.SYNTX_OWNER_SWITCHX_VIDEO_UPLOAD_DESTINATION,resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_SWITCHX_VIDEO_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH));
+    process.env.SYNTX_OWNER_SWITCHX_VIDEO_UPLOAD_DESTINATION,resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_SWITCHX_VIDEO_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH),
+    resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_SWITCHX_VIDEO_FFMPEG_PATH,process.env.SYNTX_MEDIA_FFMPEG_PATH));
   const ownerActTwoEnabled = readOwnerActTwoFlag(reviewedMediaFlagValue("SYNTX_OWNER_ACTTWO"));
   const ownerActTwoOperator = readOwnerActTwoOperatorConfiguration(ownerActTwoEnabled,
     process.env.SYNTX_OWNER_ACTTWO_UPLOAD_DESTINATION, resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_ACTTWO_FFPROBE_PATH, process.env.SYNTX_MEDIA_FFPROBE_PATH));
@@ -557,6 +566,10 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const ownerGrokT2vEnabled = readOwnerFlag("SYNTX_OWNER_GROK_T2V");
   const ownerHailuoLiveT2vEnabled = readOwnerFlag("SYNTX_OWNER_HAILUO_LIVE_T2V");
   const ownerVideo2AudioEnabled = readOwnerVideo2AudioFlag(reviewedMediaFlagValue("SYNTX_OWNER_VIDEO2AUDIO"));
+  const ownerCurrentVideoReferencesEnabled=readOwnerFlag("SYNTX_OWNER_CURRENT_VIDEO_REFERENCES");
+  const ownerCurrentVideoFfprobePath=ownerCurrentVideoReferencesEnabled?resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_CURRENT_VIDEO_FFPROBE_PATH,process.env.SYNTX_MEDIA_FFPROBE_PATH):undefined;
+  const ownerCurrentVideoFfmpegPath=ownerCurrentVideoReferencesEnabled?resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_CURRENT_VIDEO_FFMPEG_PATH,process.env.SYNTX_MEDIA_FFMPEG_PATH):undefined;
+  const ownerVideo2AudioFfprobePath = ownerVideo2AudioEnabled ? resolveReviewedMediaBinaryPath(process.env.SYNTX_OWNER_VIDEO2AUDIO_FFPROBE_PATH,process.env.SYNTX_MEDIA_FFPROBE_PATH) : undefined;
   const ownerFluxImageReferencesEnabled = readOwnerFluxImageReferencesFlag(
     reviewedMediaFlagValue("SYNTX_OWNER_FLUX_IMAGE_REFERENCES")
   );
@@ -595,7 +608,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
   const generateImageEnabled = readOwnerFlag("SYNTX_OWNER_GENERATE_IMAGE");
   const generateVideoEnabled = readOwnerFlag("SYNTX_OWNER_GENERATE_VIDEO");
   if (ownerDurableGenerationEnabled &&
-      (ownerSeedanceEditorEnabled || ownerRunwayI2vEnabled || ownerGrokI2vEnabled || ownerWan25T2vEnabled || ownerHiggsfieldDopEnabled || ownerHailuoInitialEnabled || ownerHappyHorseEnabled || ownerWan27I2vEnabled || ownerKlingMediaEnabled || ownerSwitchxVideoEnabled || ownerActTwoEnabled || ownerHeygen4Enabled || ownerWan27VideoEditEnabled || ownerKling4Enabled || ownerVeoOmniReferencesEnabled || ownerContractMediaEnabled || generateImageEnabled || generateVideoEnabled || ownerImageReferencesEnabled ||
+      (ownerCurrentVideoReferencesEnabled || ownerSeedanceEditorEnabled || ownerRunwayI2vEnabled || ownerGrokI2vEnabled || ownerWan25T2vEnabled || ownerHiggsfieldDopEnabled || ownerHailuoInitialEnabled || ownerHappyHorseEnabled || ownerWan27I2vEnabled || ownerKlingMediaEnabled || ownerSwitchxVideoEnabled || ownerActTwoEnabled || ownerHeygen4Enabled || ownerWan27VideoEditEnabled || ownerKling4Enabled || ownerVeoOmniReferencesEnabled || ownerContractMediaEnabled || generateImageEnabled || generateVideoEnabled || ownerImageReferencesEnabled ||
         ownerGrokImageReferencesEnabled || ownerGrokT2iImageReferencesEnabled || ownerUniImageReferencesEnabled || ownerClarityUpscaleEnabled || ownerMagnificUpscaleEnabled ||
         ownerKontextImageReferencesEnabled || ownerWanImageReferencesEnabled || ownerStandardImageReferencesEnabled ||
         ownerRunwayImageReferencesEnabled || ownerSeedreamImageReferencesEnabled || ownerSeedreamEditorImageReferencesEnabled ||
@@ -665,6 +678,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerSeedreamImageReferencesEnabled,
       ownerSeedreamEditorImageReferencesEnabled,
       ownerWanT2vVideosEnabled,
+      ...(ownerWanT2vAudioFfprobePath === undefined ? {} : {ownerWanT2vAudioFfprobePath}),
       ownerWan30FirstLastVideosEnabled,
       ownerWan30ReferenceVideosEnabled,
       ownerWan30OmniVideosEnabled,
@@ -679,6 +693,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         ownerElevenLabsStsFfprobePath: ownerElevenLabsStsOperatorConfiguration.ffprobePath,
         ownerElevenLabsStsUploadDestination: ownerElevenLabsStsOperatorConfiguration.destination
       }),
+      ...(ownerElevenLabsStsOperatorConfiguration?.ffmpegPath===undefined?{}:{ownerElevenLabsStsFfmpegPath:ownerElevenLabsStsOperatorConfiguration.ffmpegPath}),
       ownerSunoGenerationEnabled,
       ...(ownerSunoFfprobePath === undefined ? {} : { ownerSunoFfprobePath }),
       ownerTopazAstraEnabled,
@@ -755,6 +770,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ...(ownerKlingMediaOperator===undefined?{}:{ownerKlingMediaUploadDestination:ownerKlingMediaOperator.uploadDestination,ownerKlingMediaFfprobePath:ownerKlingMediaOperator.ffprobePath}),
       ownerSwitchxVideoEnabled,
       ...(ownerSwitchxVideoOperator===undefined?{}:{ownerSwitchxVideoUploadDestination:ownerSwitchxVideoOperator.uploadDestination,ownerSwitchxVideoFfprobePath:ownerSwitchxVideoOperator.ffprobePath}),
+      ...(ownerSwitchxVideoOperator?.ffmpegPath===undefined?{}:{ownerSwitchxVideoFfmpegPath:ownerSwitchxVideoOperator.ffmpegPath}),
       ownerActTwoEnabled,
       ...(ownerActTwoOperator === undefined ? {} : { ownerActTwoUploadDestination: ownerActTwoOperator.uploadDestination,
         ownerActTwoFfprobePath: ownerActTwoOperator.ffprobePath }),
@@ -769,6 +785,10 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       ownerGrokT2vEnabled,
       ownerHailuoLiveT2vEnabled,
       ownerVideo2AudioEnabled,
+      ownerCurrentVideoReferencesEnabled,
+      ...(ownerCurrentVideoFfprobePath===undefined?{}:{ownerCurrentVideoFfprobePath}),
+      ...(ownerCurrentVideoFfmpegPath===undefined?{}:{ownerCurrentVideoFfmpegPath}),
+      ...(ownerVideo2AudioFfprobePath===undefined?{}:{ownerVideo2AudioFfprobePath}),
       ownerFluxImageReferencesEnabled,
       ownerIdeogramImageReferencesEnabled,
       ownerBananaInpaintImageReferencesEnabled,
@@ -861,7 +881,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       }
       const serverOptions = { ...runtime.serverOptions, ...localImageFileTransport, selfUpdateApply: isSelfUpdateEnabled() };
       const server = createMcpServer(runtime.application, serverOptions);
-      profileTransport = withOmittedAuthArguments(new StdioServerTransport(input));
+      profileTransport = withOmittedAuthArguments(new StdioServerTransport(input, process.stdout, { maxBufferSize: readOwnerStdioMaxBufferBytes(process.env.SYNTX_STDIO_MAX_BUFFER_BYTES) }));
       closeOwnerImageReferences = closeOwnerReadServicesOnTransportEof(
         profileTransport,
         referenceService,
@@ -914,7 +934,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.ownerTopazAstraLifecycle,
         runtime.ownerHailuo02I2vLifecycle,
         runtime.ownerWan27R2vLifecycle,
-        combineOwnerServiceLifecycles(runtime.ownerExpandedT2vLifecycle, runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle, runtime.ownerRunwayI2vLifecycle, runtime.ownerGrokI2vLifecycle,runtime.ownerWan25T2vLifecycle,runtime.ownerHiggsfieldDopLifecycle,runtime.ownerHailuoInitialLifecycle,runtime.ownerHappyHorseLifecycle,runtime.ownerWan27I2vLifecycle,runtime.ownerSeedance25T2vLifecycle,runtime.ownerKlingMediaLifecycle,runtime.ownerSwitchxVideoLifecycle,runtime.ownerActTwoLifecycle,runtime.ownerHeygen4Lifecycle,runtime.ownerExistingVideoRecoveryLifecycle),
+        combineOwnerServiceLifecycles(runtime.ownerExpandedT2vLifecycle, runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle, runtime.ownerRunwayI2vLifecycle, runtime.ownerGrokI2vLifecycle,runtime.ownerWan25T2vLifecycle,runtime.ownerHiggsfieldDopLifecycle,runtime.ownerHailuoInitialLifecycle,runtime.ownerHappyHorseLifecycle,runtime.ownerWan27I2vLifecycle,runtime.ownerSeedance25T2vLifecycle,runtime.ownerKlingMediaLifecycle,runtime.ownerSwitchxVideoLifecycle,runtime.ownerActTwoLifecycle,runtime.ownerHeygen4Lifecycle,runtime.ownerExistingVideoRecoveryLifecycle,runtime.ownerCurrentVideoLifecycle),
         runtime.ownerWan26I2vLifecycle,
         runtime.ownerWan25I2vPreviewLifecycle,
         runtime.ownerWan26R2vLifecycle,
@@ -953,7 +973,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       };
     }
     const server = createMcpServer(runtime.application, serverOptions);
-    profileTransport = withOmittedAuthArguments(new StdioServerTransport(input));
+    profileTransport = withOmittedAuthArguments(new StdioServerTransport(input, process.stdout, { maxBufferSize: readOwnerStdioMaxBufferBytes(process.env.SYNTX_STDIO_MAX_BUFFER_BYTES) }));
     if (durableManager === undefined) {
       const referenceService = runtime.serverOptions.ownerImageReferences;
       const grokReferenceService = runtime.serverOptions.ownerGrokImageReferences;
@@ -1083,7 +1103,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerTopazAstraLifecycle,
           runtime.ownerHailuo02I2vLifecycle,
           runtime.ownerWan27R2vLifecycle,
-          combineOwnerServiceLifecycles(runtime.ownerExpandedT2vLifecycle, runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle, runtime.ownerRunwayI2vLifecycle, runtime.ownerGrokI2vLifecycle,runtime.ownerWan25T2vLifecycle,runtime.ownerHiggsfieldDopLifecycle,runtime.ownerHailuoInitialLifecycle,runtime.ownerHappyHorseLifecycle,runtime.ownerWan27I2vLifecycle,runtime.ownerSeedance25T2vLifecycle,runtime.ownerKlingMediaLifecycle,runtime.ownerSwitchxVideoLifecycle,runtime.ownerActTwoLifecycle,runtime.ownerHeygen4Lifecycle,runtime.ownerExistingVideoRecoveryLifecycle),
+          combineOwnerServiceLifecycles(runtime.ownerExpandedT2vLifecycle, runtime.ownerKlingKeyframesLifecycle, runtime.ownerKlingMotionControlLifecycle, runtime.ownerKling4Lifecycle, runtime.ownerWan27VideoEditLifecycle, runtime.ownerSeedanceEditorLifecycle, runtime.ownerRunwayI2vLifecycle, runtime.ownerGrokI2vLifecycle,runtime.ownerWan25T2vLifecycle,runtime.ownerHiggsfieldDopLifecycle,runtime.ownerHailuoInitialLifecycle,runtime.ownerHappyHorseLifecycle,runtime.ownerWan27I2vLifecycle,runtime.ownerSeedance25T2vLifecycle,runtime.ownerKlingMediaLifecycle,runtime.ownerSwitchxVideoLifecycle,runtime.ownerActTwoLifecycle,runtime.ownerHeygen4Lifecycle,runtime.ownerExistingVideoRecoveryLifecycle,runtime.ownerCurrentVideoLifecycle),
           runtime.ownerWan26I2vLifecycle,
           runtime.ownerWan25I2vPreviewLifecycle,
           runtime.ownerWan26R2vLifecycle,
@@ -1177,6 +1197,7 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
           runtime.ownerActTwoLifecycle,
           runtime.ownerHeygen4Lifecycle,
           runtime.ownerExistingVideoRecoveryLifecycle,
+          runtime.ownerCurrentVideoLifecycle,
         runtime.ownerSeedance25T2vLifecycle,
         runtime.ownerKlingMediaLifecycle,
         runtime.ownerSwitchxVideoLifecycle,

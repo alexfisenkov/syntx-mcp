@@ -4,6 +4,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { OwnerElevenLabsVoiceReferenceService, OwnerElevenLabsVoiceReferenceServiceError,
   type OwnerElevenLabsVoiceReferenceServiceErrorCode } from "../application/owner-elevenlabs-voice-reference-service.js";
+import { OWNER_ELEVENLABS_VOICE_CURSOR } from "../application/owner-elevenlabs-voice-discovery.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const VOICE_REF = /^owner_elevenlabs_voice_[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -11,13 +12,22 @@ const NATIVE_LIST_VOICES = OwnerElevenLabsVoiceReferenceService.prototype.listVo
 const attemptSchema = z.string().regex(ATTEMPT).describe("Exact current owner-link attempt; it cannot select another account.");
 
 export const SYNTX_OWNER_LIST_ELEVENLABS_VOICE_REFERENCES_TOOL_NAME = "syntx_owner_list_elevenlabs_voice_references" as const;
-export const OWNER_ELEVENLABS_VOICE_LIST_INPUT_SCHEMA = z.object({ link_attempt_id: attemptSchema }).strict();
+const voiceFilter = (maximum: number) => z.string().max(maximum).refine((value) => !/[\u0000-\u001f\u007f]/u.test(value));
+export const OWNER_ELEVENLABS_VOICE_LIST_INPUT_SCHEMA = z.object({ link_attempt_id: attemptSchema,
+  page: z.literal(1).optional(), page_size: z.union([z.literal(10), z.literal(20)]).optional(), cursor: z.string().regex(OWNER_ELEVENLABS_VOICE_CURSOR).optional(),
+  search: voiceFilter(500).optional(), gender: voiceFilter(256).optional(), age: voiceFilter(256).optional(), use_case: voiceFilter(256).optional(),
+  accent: voiceFilter(256).optional(), language: voiceFilter(256).optional(), sort_by: voiceFilter(256).optional(), sort_direction: voiceFilter(256).optional()
+}).strict();
 export const OWNER_ELEVENLABS_VOICE_LIST_OUTPUT_SCHEMA = z.object({
-  status: z.literal("available"), page: z.literal(1), page_size: z.literal(10), total: z.number().int().nonnegative().nullable(),
+  status: z.literal("available"), page: z.number().int().min(1).max(1000), page_size: z.union([z.literal(10), z.literal(20)]), total: z.number().int().nonnegative().nullable(),
+  next_cursor: z.string().regex(OWNER_ELEVENLABS_VOICE_CURSOR).nullable().optional(),
+  filter_options: z.object({ gender: z.array(z.string().min(1).max(256)).max(100).optional(), age: z.array(z.string().min(1).max(256)).max(100).optional(),
+    use_case: z.array(z.string().min(1).max(256)).max(100).optional(), accent: z.array(z.string().min(1).max(256)).max(100).optional(),
+    language: z.array(z.string().min(1).max(256)).max(100).optional(), sort_by: z.array(z.string().min(1).max(256)).max(100).optional(), sort_direction: z.array(z.string().min(1).max(256)).max(100).optional() }).strict().optional(),
   has_more: z.boolean().nullable(), coverage: z.literal("PARTIAL_PAGE_ONLY"), source_confidence: z.literal("CURRENT_SOURCE_ROUTE"),
   ownership_confidence: z.literal("UNPROVEN"),
   voices: z.array(z.object({ voice_ref: z.string().regex(VOICE_REF), name: z.string().min(1).max(256),
-    expires_in_seconds: z.number().int().min(0).max(900) }).strict()).max(10)
+    expires_in_seconds: z.number().int().min(0).max(900) }).strict()).max(20)
 }).strict();
 
 const VOICE_MESSAGES: Record<OwnerElevenLabsVoiceReferenceServiceErrorCode, string> = {
@@ -38,14 +48,15 @@ export function registerSyntxOwnerElevenLabsVoiceTools(server: McpServer, servic
   if (!isOwnerElevenLabsVoiceReferenceService(serviceInput)) throw new Error("ELEVENLABS_VOICE_SERVICE_COMPOSITION_INVALID");
   const service = serviceInput;
   server.registerTool(SYNTX_OWNER_LIST_ELEVENLABS_VOICE_REFERENCES_TOOL_NAME, {
-    title: "List owner ElevenLabs voice references", description: "Lists one bounded owner-authorized page. Returns expiring opaque references and display names, never provider voice IDs or preview URLs.",
+    title: "List owner ElevenLabs voice references", description: "Read one bounded account voice page with source-backed search/gender/age/use_case/accent/language/sort filters. Omitted options preserve page1/size10; size20 matches current UI. Follow next_cursor explicitly without changing its filters; cursor is owner/attempt-bound and expires15min. No automatic crawling or whole-library claim. Returns expiring opaque voice references/display names, never provider IDs/preview URLs. Local128-reference budget is nonevicting; narrow search or wait for expiry when full. Favorites are UI-only and not modified.",
     inputSchema: OWNER_ELEVENLABS_VOICE_LIST_INPUT_SCHEMA, outputSchema: OWNER_ELEVENLABS_VOICE_LIST_OUTPUT_SCHEMA,
     annotations: { title: "List ElevenLabs voice references", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }
   }, async (input, { signal }) => {
     const parsed = OWNER_ELEVENLABS_VOICE_LIST_INPUT_SCHEMA.safeParse(snapshotSafeInput(input));
     if (!parsed.success) return voiceErrorResult(undefined, "INVALID_REQUEST");
     try {
-      const result = await service.listVoices({ attemptId: parsed.data.link_attempt_id, signal });
+      const { link_attempt_id: attemptId, ...query } = parsed.data;
+      const result = await service.listVoices({ attemptId, ...query, signal });
       const safe = { ...result, voices: result.voices.map(({ voice_ref, name, expires_in_seconds }) => ({ voice_ref, name, expires_in_seconds })) };
       return structured(parseOutput(OWNER_ELEVENLABS_VOICE_LIST_OUTPUT_SCHEMA, safe));
     } catch (error) { return voiceErrorResult(error, "VOICE_LIST_UNAVAILABLE"); }

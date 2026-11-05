@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join } from "node:path";
 import { types } from "node:util";
 
+import { readPreparedOwnerElevenLabsStsAudio } from "./owner-elevenlabs-sts-wav-preparation.js";
+
 const MAX_BYTES = 50 * 1024 * 1024;
 const MAX_STDOUT_BYTES = 64 * 1024;
 const PROBE_TIMEOUT_MS = 15_000;
@@ -15,6 +17,7 @@ export interface OwnerElevenLabsStsOriginalProbeInput {
   readonly filename: string;
   readonly mime_type: "audio/mpeg";
   readonly bytes: Uint8Array;
+  readonly prepared_audio?: unknown;
 }
 
 export interface OwnerElevenLabsStsOriginalProbeResult {
@@ -150,7 +153,12 @@ async function probeOriginal(
 
     const stdout = await runFfprobe(ffprobePath, inputPath, signal);
     const metadata = parseProbe(stdout);
-    if (metadata.durationSeconds < 5 || metadata.durationSeconds > 300) limit();
+    const prepared = request.prepared_audio === undefined ? null : readPreparedOwnerElevenLabsStsAudio(request.prepared_audio, sourceSha256);
+    if (request.prepared_audio !== undefined && (!prepared || prepared.size !== source.byteLength || prepared.filename !== request.filename ||
+        metadata.sampleRate !== prepared.preparation.sample_rate || metadata.channels !== prepared.preparation.channels ||
+        metadata.durationSeconds < prepared.preparation.uploaded_duration_seconds || metadata.durationSeconds - prepared.preparation.uploaded_duration_seconds > 0.1)) invalid();
+    const durationSeconds = prepared?.preparation.uploaded_duration_seconds ?? metadata.durationSeconds;
+    if (durationSeconds < 5 || durationSeconds > 300) limit();
     const after = await lstat(inputPath);
     if (!after.isFile() || after.isSymbolicLink() || after.size !== source.byteLength) invalid();
 
@@ -165,7 +173,7 @@ async function probeOriginal(
       bytes_copied: source.byteLength,
       metadata: Object.freeze({
         container: "MP3" as const, codec_name: "mp3" as const, sample_rate: metadata.sampleRate,
-        channels: metadata.channels, duration_seconds: metadata.durationSeconds, decoded_frame_count: metadata.frameCount
+        channels: metadata.channels, duration_seconds: durationSeconds, decoded_frame_count: metadata.frameCount
       }),
       dispatch_allowed: false as const,
       runtime_usable: false as const,
@@ -277,8 +285,8 @@ function exactInput(input: unknown): OwnerElevenLabsStsOriginalProbeInput {
   const descriptors = Object.getOwnPropertyDescriptors(input);
   const keys = Reflect.ownKeys(descriptors);
   const required = ["filename", "mime_type", "bytes"];
-  if ((Object.getPrototypeOf(input) !== Object.prototype && Object.getPrototypeOf(input) !== null) || keys.length !== required.length ||
-      keys.some((key) => typeof key !== "string" || !required.includes(key) || !Object.hasOwn(descriptors[key]!, "value") ||
+  if ((Object.getPrototypeOf(input) !== Object.prototype && Object.getPrototypeOf(input) !== null) || required.some(key => !keys.includes(key)) ||
+      keys.some((key) => typeof key !== "string" || !required.includes(key) && key !== "prepared_audio" || !Object.hasOwn(descriptors[key]!, "value") ||
         descriptors[key]!.enumerable !== true)) invalid();
   const result = Object.create(null) as Record<string, unknown>;
   for (const key of keys as string[]) result[key] = descriptors[key]!.value;

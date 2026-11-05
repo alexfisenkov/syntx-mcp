@@ -166,6 +166,53 @@ Do not carry account-private observations into it. Static source evidence or a
 visited-control status is not rendered-UI observation, provider acceptance, or
 proof of a generated result.
 
+## Effective controls, media inputs, and advertised MCP schemas
+
+For each changed model, compare the effective controls with the implemented
+normalizer and wire, not just the presence of a source inventory row. Resolve
+the reachable selector values, computed filters, watchers and `v-if`/`v-show`
+ancestors before calling a branch available. A literal option in an unreachable
+version branch is not a current setting. Check version, mode and model ID
+separately; aliases and an omitted version can have different wire meanings.
+
+Trace manual input as well as slider behavior. A widget's step does not impose
+quantization when its input field accepts intermediate finite values. Preserve
+an explicit zero seed unless the actual sender replaces it; a random toggle's
+null is a separate choice. Keep UI defaults, saved preferences, runtime defaults
+and historical successful tuples separate.
+
+Audit media cardinality and roles per mode. A main upload's allowed types do not
+describe a separate auxiliary-reference input; conversely, a generic form's
+video fallback does not make video reachable in an image-only preset. Follow
+the active reference-card preset and sender. Compare ordered image/video/audio
+collections, duplicate rules and known prompt-reference expansion, not only a
+single successful image. Resolve provider URLs only from genuine handles bound
+to the current owner, client, model and attempt; include every source in the
+result/history correlation. Keep measured input duration, selected clip and
+output duration separate. A prepared mask, frame or clip can represent a local
+editor action without reproducing its canvas widget.
+
+After changing schemas, inspect the actual SDK `tools/list` result. In-process
+normalization success does not prove that a client received the fields of a
+top-level union. Validate representative arguments against the advertised
+schema and through the canonical parser, including mutually exclusive modes.
+For a remote file facade, enumerate every exposed byte-input tool, project the
+file alternative through conditional schemas, retain non-file requirements and
+fixed MIME rules, and verify the real remote schema rather than an internal
+object. Do not infer full file coverage from upload-tool names alone.
+
+When current controls require a new wire or input profile, bind cost, access,
+generation and recovery to that source identity. Keep the old observed tuple
+and legacy behavior intact; do not attach new parameters to its proof. Mark
+any unimplemented effective control or collection as an explicit gap even when
+the model already has a generation route. Codec/path changes also require the
+affected real OS/binary check; a POSIX script fixture or local preflight is not
+Windows executable evidence.
+For installation checks, run the selected trusted codec's version command:
+an existing absolute binary can fail after its shared libraries change. Keep
+that environment failure separate from invalid user media. Repair the affected
+MCP's operator paths without silently changing unrelated tools or global codecs.
+
 ## Continuous learning and run closure
 
 Keep run-specific learning in the project's redacted facts, impact map, and

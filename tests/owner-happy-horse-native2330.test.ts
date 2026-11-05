@@ -69,7 +69,7 @@ test("2330 MCP SDK executes one first-frame image and one locally probed edit-vi
   const videoPath = join(directory, "edit-source.mp4");
   let videoBytes: Buffer;
   try {
-    execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=blue:s=640x480:r=24:d=3.4",
+    execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=blue:s=640x480:r=24:d=5",
       "-vf", "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709", "-an", "-pix_fmt", "yuv420p", "-c:v", "libx264",
       "-movflags", "+faststart", "-y", videoPath]);
     videoBytes = await readFile(videoPath);

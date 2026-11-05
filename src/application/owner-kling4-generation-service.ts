@@ -1,3 +1,4 @@
+import { isKlingFractionalDuration, loadKlingManualDurationCurrentCatalog, KLING_MANUAL_DURATION_CURRENT_CATALOG } from "./owner-kling-duration-current-source.js";
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { AbsoluteRequestDeadline } from "../adapter/syntx/request-deadline.js";
@@ -25,7 +26,7 @@ import {
   createOwnerKling4OneShotPermit, revalidateOwnerKling4OneShotPermit, type OwnerKling4OneShotPermit,
   OwnerKling4OneShotPolicyError
 } from "./owner-kling4-one-shot-policy.js";
-import { getOwnerKling4SourceProfile, normalizeOwnerKling4Parameters, type OwnerKling4ParametersModelId } from "./owner-kling4-parameters.js";
+import { getOwnerKling4SourceProfile, getOwnerKling4EffectiveProfileHash, normalizeOwnerKling4Parameters, type OwnerKling4ParametersModelId } from "./owner-kling4-parameters.js";
 
 const MODEL_IDS = Object.freeze(["kling_4_keyframes", "kling_4_omni"] as const);
 const AI_NAME = "kling" as const;
@@ -84,9 +85,9 @@ export interface OwnerKling4GenerationServiceOptions {
   readonly catalog_version: string; readonly preparer: OwnerKling4RequestPreparer; readonly referenceService: OwnerKling4ReferenceService;
   readonly resolveChatClient: (attemptId: string) => unknown;
   readonly createAccountStatusService: (attemptId: string) => AccountStatusService;
-  readonly createModelAccessService: (attemptId: string) => ModelAccessService;
+  readonly createModelAccessService: (attemptId: string, catalogOverride?: DiscoveryCatalogRepository) => ModelAccessService;
   readonly resolveSubscription: (attemptId: string, signal?: AbortSignal) => Promise<SyntxSubscription>;
-  readonly now?: () => number;
+  readonly now?: () => number; readonly catalogDirectory?: string;
 }
 export interface OwnerKling4GenerateInput {
   readonly attemptId: string; readonly model_id: OwnerKling4ParametersModelId; readonly prompt: string; readonly version: "4.0";
@@ -136,7 +137,7 @@ interface Recovery {
 /** Two live paid-plan/quote/balance gates, one native GEN attempt, then GET-only recovery. */
 export class OwnerKling4GenerationService {
   readonly #binding: Readonly<AuthBinding>; readonly #links: PerUserLinkService; readonly #catalog: DiscoveryCatalogRepository;
-  readonly #catalogVersion: string; readonly #preparer: OwnerKling4RequestPreparer; readonly #referenceService: OwnerKling4ReferenceService;
+  readonly #catalogVersion: string; readonly #catalogDirectory: string | undefined; readonly #preparer: OwnerKling4RequestPreparer; readonly #referenceService: OwnerKling4ReferenceService;
   readonly #resolveClient: OwnerKling4GenerationServiceOptions["resolveChatClient"];
   readonly #createAccount: OwnerKling4GenerationServiceOptions["createAccountStatusService"];
   readonly #createAccess: OwnerKling4GenerationServiceOptions["createModelAccessService"];
@@ -148,7 +149,7 @@ export class OwnerKling4GenerationService {
 
   constructor(optionsInput: OwnerKling4GenerationServiceOptions | unknown) {
     const o = exact(optionsInput, ["binding", "linkService", "catalog", "catalog_version", "preparer", "referenceService", "resolveChatClient",
-      "createAccountStatusService", "createModelAccessService", "resolveSubscription"], ["now"]);
+      "createAccountStatusService", "createModelAccessService", "resolveSubscription"], ["now", "catalogDirectory"]);
     if (!genuineLinks(o.linkService) || !(o.catalog instanceof DiscoveryCatalogRepository) || types.isProxy(o.catalog) ||
         !isOwnerKling4ReferenceService(o.referenceService) || !isOwnerKling4RequestPreparer(o.preparer) ||
         !Reflect.apply(PREPARER_BOUND, o.preparer as OwnerKling4RequestPreparer, [o.referenceService]) ||
@@ -158,7 +159,7 @@ export class OwnerKling4GenerationService {
         typeof o.resolveSubscription !== "function" || types.isProxy(o.resolveSubscription) ||
         (o.now !== undefined && (typeof o.now !== "function" || types.isProxy(o.now)))) invalid();
     this.#binding = snapshotBinding(o.binding); this.#links = o.linkService as PerUserLinkService;
-    this.#catalog = o.catalog as DiscoveryCatalogRepository; this.#catalogVersion = o.catalog_version as string;
+    this.#catalog = o.catalog as DiscoveryCatalogRepository; this.#catalogVersion = o.catalog_version as string; this.#catalogDirectory = o.catalogDirectory as string | undefined;
     this.#preparer = o.preparer as OwnerKling4RequestPreparer; this.#referenceService = o.referenceService as OwnerKling4ReferenceService;
     this.#resolveClient = o.resolveChatClient as OwnerKling4GenerationServiceOptions["resolveChatClient"];
     this.#createAccount = o.createAccountStatusService as OwnerKling4GenerationServiceOptions["createAccountStatusService"];
@@ -307,7 +308,7 @@ export class OwnerKling4GenerationService {
     candidate: OwnerKling4PreparedCandidate, binding: Readonly<OwnerKling4CandidateBinding>, deadline: AbsoluteRequestDeadline, epoch: number): Promise<void> {
     deadline.throwIfAborted(); const current = Reflect.apply(PREPARER_INSPECT, this.#preparer, [candidate]) as OwnerKling4CandidateBinding | undefined;
     if (!current || schemaHash(current) !== schemaHash(binding) || binding.attempt_id !== req.attemptId || binding.model_id !== req.model_id ||
-        binding.profile_sha256 !== getOwnerKling4SourceProfile(req.model_id).source_sha256 || !sameGenerationPrincipal(binding.principal, principal) ||
+        binding.profile_sha256 !== getOwnerKling4EffectiveProfileHash(req.model_id, req.video_duration) || !sameGenerationPrincipal(binding.principal, principal) ||
         binding.expires_at <= this.#readNow() || (this.#epochs.get(req.attemptId) ?? 0) !== epoch) fail("PREFLIGHT_FAILED");
     this.#assertModel(); this.#assertCatalogModel(req.model_id);
     let sub: Readonly<SyntxSubscription>;
@@ -318,9 +319,10 @@ export class OwnerKling4GenerationService {
     } catch { fail("SUBSCRIPTION_STATUS_UNVERIFIED"); }
     if (sub!.active === false || (sub!.plan_type !== null && sub!.plan_type.trim().toUpperCase() === "FREE")) fail("SUBSCRIPTION_REQUIRED");
     if (sub!.active !== true || typeof sub!.plan_type !== "string" || !sub!.plan_type.trim()) fail("SUBSCRIPTION_STATUS_UNVERIFIED");
+    const selectedCatalog = isKlingFractionalDuration(req.video_duration) ? loadKlingManualDurationCurrentCatalog(this.#catalogDirectory) : this.#catalog;
     let account: AccountStatusService, access: ModelAccessService;
     try { account = Reflect.apply(this.#createAccount, undefined, [req.attemptId]) as AccountStatusService;
-      access = Reflect.apply(this.#createAccess, undefined, [req.attemptId]) as ModelAccessService; }
+      access = Reflect.apply(this.#createAccess, undefined, [req.attemptId, selectedCatalog]) as ModelAccessService; }
     catch { fail("PREFLIGHT_FAILED"); }
     if (!genuineAccount(account!) || this.#usedAccounts.has(account!) || !genuineAccess(access!) || this.#usedAccess.has(access!)) fail("PREFLIGHT_FAILED");
     this.#usedAccounts.add(account!); this.#usedAccess.add(access!);
@@ -335,11 +337,11 @@ export class OwnerKling4GenerationService {
       let value: ModelAccessResult; try { value = await Reflect.apply(ACCESS_GET, access!, [{ model_id: model, cost_parameters: params }, signal]) as ModelAccessResult; }
       catch { fail("PREFLIGHT_FAILED"); } await this.#checkCurrent(req.attemptId, principal, client, signal, epoch); return value!;
     };
-    const resolver = createOwnerKling4BudgetedModelAccessResolver({ catalog: this.#catalog, resolveAccountStatus, resolveModelAccess, now: this.#now });
+    const resolver = createOwnerKling4BudgetedModelAccessResolver({ catalog: selectedCatalog, resolveAccountStatus, resolveModelAccess, now: this.#now });
     let result: ModelAccessResult; try { result = await this.#await(deadline, () => resolver(req.attemptId, req.model_id, costParameters, deadline.signal)); }
     catch { fail("PREFLIGHT_FAILED"); }
     await this.#checkCurrent(req.attemptId, principal, client, deadline.signal, epoch);
-    if (result!.catalog_kind !== "OFFICIAL_PUBLIC_API_SNAPSHOT" || result!.catalog_version !== this.#modelAccessVersion() || result!.model_id !== req.model_id ||
+    if (result!.catalog_kind !== "OFFICIAL_PUBLIC_API_SNAPSHOT" || result!.catalog_version !== `${selectedCatalog.fetched_at}.${selectedCatalog.source_hashes.models.slice(7,19)}` || result!.model_id !== req.model_id ||
         result!.ai_name !== AI_NAME || result!.model_type !== req.model_id || result!.account_read_live !== true || result!.parameters_redacted !== true ||
         result!.access !== true || !sameStrings(result!.parameter_keys, Object.keys(costParameters).sort()) ||
         !finite(result!.discount_cost ?? result!.cost) || !fresh(result!.observed_at, this.#readNow()) || binding.expires_at <= this.#readNow()) fail("PREFLIGHT_FAILED");
@@ -402,7 +404,7 @@ export class OwnerKling4GenerationService {
   #candidateBinding(candidate: unknown, req: OwnerKling4GenerateInput, principal: Readonly<GenerationPrincipalRef>): Readonly<OwnerKling4CandidateBinding> {
     if (!isOwnerKling4PreparedCandidate(candidate)) fail("PRE_DISPATCH_FAILED");
     const b = Reflect.apply(PREPARER_INSPECT, this.#preparer, [candidate]) as OwnerKling4CandidateBinding | undefined;
-    if (!b || b.attempt_id !== req.attemptId || b.model_id !== req.model_id || b.profile_sha256 !== getOwnerKling4SourceProfile(req.model_id).source_sha256 ||
+    if (!b || b.attempt_id !== req.attemptId || b.model_id !== req.model_id || b.profile_sha256 !== getOwnerKling4EffectiveProfileHash(req.model_id, req.video_duration) ||
         !sameGenerationPrincipal(b.principal, principal) || b.expires_at <= this.#readNow() || !/^sha256:[a-f0-9]{64}$/u.test(b.request_fingerprint) ||
         !/^sha256:[a-f0-9]{64}$/u.test(b.intent_fingerprint) || candidate.status !== "blocked" || candidate.dispatch_allowed !== false ||
         candidate.backend_acceptance !== "UNPROVEN" || candidate.request_fingerprint !== b.request_fingerprint || candidate.intent_fingerprint !== b.intent_fingerprint ||
@@ -433,7 +435,6 @@ export class OwnerKling4GenerationService {
           p.model_id !== modelId || p.source_sha256.length !== 71) fail("MODEL_BINDING_MISMATCH");
     } catch { fail("MODEL_BINDING_MISMATCH"); }
   }
-  #modelAccessVersion(): string { return `${this.#catalog.fetched_at}.${this.#catalog.source_hashes.models.slice(7, 19)}`; }
   #client(attemptId: string): SyntxChatHttpClient {
     let value: unknown; try { value = Reflect.apply(this.#resolveClient, undefined, [attemptId]); } catch { fail("PRINCIPAL_NOT_LINKED"); }
     if (!nativeClient(value)) fail("MODEL_BINDING_MISMATCH"); const prior = this.#clients.get(attemptId);
@@ -495,11 +496,11 @@ function snapshotRecovery(v: unknown): OwnerKling4ReconcileInput { const f=exact
 function snapshotList(v: unknown): Readonly<{attemptId:string;limit:number}>{const f=exact(v,["attemptId"],["limit"]);if(typeof f.attemptId!=="string"||!ATTEMPT.test(f.attemptId))invalid();return Object.freeze({attemptId:f.attemptId,limit:bounded(f.limit,1,RECOVERY_LIMIT,20)});}
 function snapshotPage(v: unknown): Readonly<{attemptId:string;recovery_id:string;offset:number}>{const f=exact(v,["attemptId","recovery_id"],["offset"]);if(typeof f.attemptId!=="string"||!ATTEMPT.test(f.attemptId)||typeof f.recovery_id!=="string"||!RECOVERY.test(f.recovery_id))invalid();return Object.freeze({attemptId:f.attemptId,recovery_id:f.recovery_id,offset:bounded(f.offset,0,MAX_RESULTS,0)});}
 function snapshotSubscription(v: unknown): Readonly<SyntxSubscription>{const f=exact(v,["active","plan_type","end_date","end_date_kind"]);if(!(f.active===true||f.active===false||f.active===null)||!(f.plan_type===null||typeof f.plan_type==="string")||!(f.end_date===null||typeof f.end_date==="string")||!(f.end_date_kind===null||["DATE_ONLY","LOCAL_DATETIME","OFFSET_DATETIME"].includes(String(f.end_date_kind))))fail("SUBSCRIPTION_STATUS_UNVERIFIED");return Object.freeze({active:f.active as boolean|null,plan_type:f.plan_type as string|null,end_date:f.end_date as string|null,end_date_kind:f.end_date_kind as SyntxSubscription["end_date_kind"]});}
-function snapshotCostParameters(value: unknown, req: OwnerKling4GenerateInput): Readonly<Record<string,SyntxCostParameter>>{const keys=req.model_id===MODEL_IDS[0]?["mode","version","video_duration"]:["duration","mode","version","video_duration"];const f=exact(value,keys);if(f.mode!==req.mode||f.version!==req.version||f.video_duration!==req.video_duration||typeof f.video_duration!=="number"||!Number.isSafeInteger(f.video_duration)||f.video_duration<3||f.video_duration>30)fail("PREFLIGHT_FAILED");if(req.model_id===MODEL_IDS[1]&&!(f.duration===0||typeof f.duration==="string"&&/^(?:0|[1-9][0-9]*)\.[0-9]{2}$/u.test(f.duration)))fail("PREFLIGHT_FAILED");return Object.freeze(Object.fromEntries(keys.map(k=>[k,f[k]])) as Record<string,SyntxCostParameter>);}
+function snapshotCostParameters(value: unknown, req: OwnerKling4GenerateInput): Readonly<Record<string,SyntxCostParameter>>{const keys=req.model_id===MODEL_IDS[0]?["mode","version","video_duration"]:["duration","mode","version","video_duration"];const f=exact(value,keys);if(f.mode!==req.mode||f.version!==req.version||f.video_duration!==req.video_duration||typeof f.video_duration!=="number"||!Number.isFinite(f.video_duration)||f.video_duration<3||f.video_duration>30)fail("PREFLIGHT_FAILED");if(req.model_id===MODEL_IDS[1]&&!(f.duration===0||typeof f.duration==="string"&&/^(?:0|[1-9][0-9]*)\.[0-9]{2}$/u.test(f.duration)))fail("PREFLIGHT_FAILED");return Object.freeze(Object.fromEntries(keys.map(k=>[k,f[k]])) as Record<string,SyntxCostParameter>);}
 function validNativeContext(c: NativeResultContext, r: Recovery): boolean {return !!c&&c.chat_uuid===r.chat.chat_uuid&&c.attempt_id===r.attemptId&&c.model_id===r.model_id&&c.profile_sha256===r.binding.profile_sha256&&c.request_fingerprint===r.binding.request_fingerprint&&c.intent_fingerprint===r.binding.intent_fingerprint&&c.owner_echo_message_id===r.owner_echo_message_id&&safeId(c.message_id)&&/^\d{1,16}$/u.test(c.provider_chat_id)&&Array.isArray(c.message_object_ids)&&c.message_object_ids.length>0&&c.message_object_ids.length<=PAGE_SIZE&&new Set(c.message_object_ids).size===c.message_object_ids.length;}
 function validArtifact(a: NativeResult["artifacts"][number], c: NativeResultContext): boolean{return a.object_type==="video"&&Number.isSafeInteger(a.object_index)&&a.object_index>=0&&c.message_object_ids.includes(a.message_object_id)&&safeId(a.message_object_id)&&isSafeUploadReferenceUrl(a.object_url)&&(a.mime_type===null||a.mime_type==="video/mp4"||a.mime_type==="video/quicktime")&&a.mime_source===(a.mime_type===null?"UNKNOWN":"URL_EXTENSION");}
 function sameArtifact(a: OwnerKling4GenerationArtifact,b: NativeResult["artifacts"][number]):boolean{return a.object_index===b.object_index&&a.message_object_id===b.message_object_id&&a.object_url===b.object_url&&a.object_type===b.object_type&&a.mime_type===b.mime_type&&a.mime_source===b.mime_source;}
-function page(r:Recovery,offset:number):OwnerKling4GenerationResult{const all=[...r.artifacts.values()],artifacts=Object.freeze(all.slice(offset,offset+PAGE_SIZE)),next=offset+artifacts.length;return Object.freeze({status:"completed",status_semantics:"LOCAL_OBSERVED_AVAILABILITY_ONLY",backend_acceptance:"UNPROVEN",provider_terminal_status:"UNPROVEN",cost_cap_enforced:false,output_count:"UNKNOWN",recovery_id:r.recovery_id,model_id:r.model_id,source_binding:Object.freeze({public_catalog_version:getOwnerKling4SourceProfile(r.model_id).source_catalog_version,profile_sha256:r.binding.profile_sha256,request_fingerprint:r.binding.request_fingerprint,intent_fingerprint:r.binding.intent_fingerprint}),observed_artifact_count:all.length,offset,page_size:PAGE_SIZE,artifacts,has_more:next<all.length,next_offset:next<all.length?next:null,diagnostic:diagnostic(r.d)});}
+function page(r:Recovery,offset:number):OwnerKling4GenerationResult{const all=[...r.artifacts.values()],artifacts=Object.freeze(all.slice(offset,offset+PAGE_SIZE)),next=offset+artifacts.length;return Object.freeze({status:"completed",status_semantics:"LOCAL_OBSERVED_AVAILABILITY_ONLY",backend_acceptance:"UNPROVEN",provider_terminal_status:"UNPROVEN",cost_cap_enforced:false,output_count:"UNKNOWN",recovery_id:r.recovery_id,model_id:r.model_id,source_binding:Object.freeze({public_catalog_version:isKlingFractionalDuration(r.binding.cost_parameters.video_duration)?KLING_MANUAL_DURATION_CURRENT_CATALOG:getOwnerKling4SourceProfile(r.model_id).source_catalog_version,profile_sha256:r.binding.profile_sha256,request_fingerprint:r.binding.request_fingerprint,intent_fingerprint:r.binding.intent_fingerprint}),observed_artifact_count:all.length,offset,page_size:PAGE_SIZE,artifacts,has_more:next<all.length,next_offset:next<all.length?next:null,diagnostic:diagnostic(r.d)});}
 function diagnostic(d:Recovery["d"]):OwnerKling4GenerationDiagnostic{return Object.freeze({...d,gaps:Object.freeze(d.gaps.slice(0,32))});}
 function recoveryItem(r:Recovery):OwnerKling4RecoveryListItem{return Object.freeze({recovery_id:r.recovery_id,created_at:r.created_at,model_id:r.model_id,status:r.status,observed_artifact_count:r.artifacts.size,diagnostic:diagnostic(r.d)});}
 function unknown(r:Recovery):OwnerKling4GenerationServiceError{return new OwnerKling4GenerationServiceError("OUTCOME_UNKNOWN",r.recovery_id,diagnostic(r.d));}

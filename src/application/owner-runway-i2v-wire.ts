@@ -2,7 +2,6 @@ import { types } from "node:util";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import { schemaHash } from "../domain/generation-contract.js";
 import {
-  getOwnerRunwayI2vSourceProfile,
   normalizeOwnerRunwayI2vParameters,
   type OwnerRunwayI2vNormalizedParameters,
   type OwnerRunwayI2vAspectRatio
@@ -28,7 +27,7 @@ export interface OwnerRunwayI2vWireInput {
     readonly model_type: typeof MODEL_IDS[number];
     readonly aspect_ratio: string;
     readonly video_duration: "5.0" | "8.0" | "10.0";
-    readonly seed: null;
+    readonly seed: number | null;
     readonly file_urls: readonly Readonly<{ readonly type: "image"; readonly url: string }>[];
   }>;
 }
@@ -68,7 +67,7 @@ export function buildOwnerRunwayI2vWire(input: unknown, capturedInput: unknown):
       captured.width * captured.height > OWNER_RUNWAY_I2V_IMAGE_POLICY.max_pixels ||
       captured.width * ratioHeight !== captured.height * ratioWidth) invalidWire();
 
-  const profileSha256 = getOwnerRunwayI2vSourceProfile().source_sha256;
+  const profileSha256 = normalized.profile_sha256;
   const file_urls = Object.freeze([Object.freeze({ type: "image" as const, url: captured.url })]);
   const settings = Object.freeze({
     model_type: normalized.source_parameters.model_type,
@@ -87,7 +86,7 @@ export function buildOwnerRunwayI2vWire(input: unknown, capturedInput: unknown):
     prompt: normalized.intent.prompt,
     aspect_ratio: normalized.intent.aspect_ratio,
     video_duration: normalized.intent.video_duration,
-    seed: null,
+    seed: normalized.intent.seed,
     source_profile_sha256: profileSha256,
     source_image_sha256: captured.sha256,
     source_image_width: captured.width,

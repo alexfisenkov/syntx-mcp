@@ -20,8 +20,8 @@ test("HappyHorse narrow candidate accepts only explicit initial controls and bot
 });
 
 test("HappyHorse normalizer rejects injected values, unsupported settings and accessors", () => {
-  assert.throws(() => normalizeOwnerHappyHorseParameters({ ...tuple("happy_horse_first_frame"), seed: 1 }));
-  assert.throws(() => normalizeOwnerHappyHorseParameters({ ...tuple("happy_horse_first_frame"), resolution: "1080P" }));
+  assert.throws(() => normalizeOwnerHappyHorseParameters({ ...tuple("happy_horse_first_frame"), seed: 2147483648 }));
+  assert.throws(() => normalizeOwnerHappyHorseParameters({ ...tuple("happy_horse_first_frame"), resolution: "4K" }));
   assert.throws(() => normalizeOwnerHappyHorseParameters({ ...tuple("happy_horse_first_frame"), extra: true }));
   const accessor = Object.defineProperty(tuple("happy_horse_first_frame"), "prompt", { enumerable: true, get: () => "no" });
   assert.throws(() => normalizeOwnerHappyHorseParameters(accessor));
@@ -42,7 +42,7 @@ test("HappyHorse source role maps first_frame specially and references generical
 test("HappyHorse edit sends one locally measured neutral video and no images", () => {
   const video = { url: "https://r2.syntx.ai/private/source.mov", sha256: "b".repeat(64), width: 1280, height: 720,
     mime_type: "video/quicktime" as const, measured_duration_seconds: 8.25 };
-  const candidate = buildOwnerHappyHorseEditWire(tuple("happy_horse_edit"), video);
+  const candidate = buildOwnerHappyHorseEditWire({ ...tuple("happy_horse_edit"), video_duration: 8 }, video);
   assert.deepEqual(candidate.wire.settings.file_urls, [{ type: "video", url: video.url }]);
   assert.equal(candidate.wire.settings.seed, null);
   assert.equal(candidate.source_media.duration_seconds, 8.25);

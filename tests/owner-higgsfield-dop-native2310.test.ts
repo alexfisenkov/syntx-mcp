@@ -93,7 +93,7 @@ test("2310 rejects missing or invalid DOP prompt/model and controls outside the 
     {}, input({ model_id: "dop-lite-extra" }), input({ model_id: "grok_i2v" }), input({ enhance_prompt: undefined }),
     input({ prompt: "   " }), input({ prompt: "x".repeat(1_001) }), input({ prompt: "\ud800" }),
     input({ motions: [] }), input({ motions: ["cinematic"] }), input({ motions: [{ id: "motion-a", label: "Soft orbit", strength: 1 },
-      { id: "motion-a", label: "Soft orbit", strength: 1 }] }), input({ enhance_prompt: true }), input({ seed: null }),
+      { id: "motion-a", label: "Soft orbit", strength: 1 }] }), input({ enhance_prompt: "true" }), input({ seed: null }),
     input({ aspect_ratio: "16:9" }), input({ video_duration: 5 }), input({ destination: "hidden" })
   ]) assert.throws(() => normalizeOwnerHiggsfieldDopParameters(bad), invalidParameters);
 

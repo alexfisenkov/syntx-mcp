@@ -80,7 +80,7 @@ test("Topaz Enhance normalizer requires explicit exact controls and returns copi
   assert.throws(() => normalizeOwnerTopazEnhanceParameters({ ...input, parameters: { ...input.parameters, promode: 1 } }), OwnerTopazEnhanceParametersError);
   assert.throws(() => normalizeOwnerTopazEnhanceParameters({ ...input, parameters: { ...input.parameters, model: "other" } }), OwnerTopazEnhanceParametersError);
   assert.throws(() => normalizeOwnerTopazEnhanceParameters({ ...input, parameters: { ...input.parameters, upscale: 3 } }), OwnerTopazEnhanceParametersError);
-  assert.throws(() => normalizeOwnerTopazEnhanceParameters({ ...input, parameters: { ...input.parameters, prenoise: 1.5 } }), OwnerTopazEnhanceParametersError);
+  assert.equal(normalizeOwnerTopazEnhanceParameters({ ...input, parameters: { ...input.parameters, prenoise: 1.5 } }).parameters.prenoise, 1.5);
   assert.throws(() => normalizeOwnerTopazEnhanceParameters({ ...input, parameters: { ...input.parameters, blur: -101 } }), OwnerTopazEnhanceParametersError);
   assert.throws(() => normalizeOwnerTopazEnhanceParameters({ ...input, parameters: { ...input.parameters, compression: 101 } }), OwnerTopazEnhanceParametersError);
   assert.deepEqual(normalizeOwnerTopazEnhanceParameters({ ...input, parameters: { ...input.parameters, blur: -100, halo: 100, prenoise: 0 } }).parameters,
@@ -135,4 +135,17 @@ test("Topaz Enhance projection validates measured dimensions and applies only ob
     { width: 1920, height: Number.MAX_SAFE_INTEGER + 1, duration_seconds: 2 }
   ]) assert.throws(() => projectOwnerTopazEnhanceWireSettings(normalized, video), OwnerTopazEnhanceParametersError);
   assert.deepEqual(projectOwnerTopazEnhanceWireSettings(normalized, { width: 1279, height: 719, duration_seconds: 2 }).resolution, "4");
+});
+
+test("current Topaz manual numeric controls preserve every finite fractional value within source bounds", () => {
+  for (const field of ["prenoise", "compression", "details", "blur", "noise", "halo", "preblur"] as const) {
+    const minimum = field === "prenoise" ? 0 : -100;
+    for (const value of [minimum, 0.375, 99.875, 100]) {
+      const normalized = normalizeOwnerTopazEnhanceParameters({ ...validInput(), parameters: { ...validParameters, [field]: value } });
+      assert.equal(normalized.parameters[field], value);
+      assert.equal(projectOwnerTopazEnhanceWireSettings(normalized, { width: 640, height: 360, duration_seconds: 3 }).parameters[field], value);
+    }
+    for (const value of [minimum - 0.001, 100.001, NaN, Infinity, "0.375"]) assert.throws(() =>
+      normalizeOwnerTopazEnhanceParameters({ ...validInput(), parameters: { ...validParameters, [field]: value } }), OwnerTopazEnhanceParametersError);
+  }
 });

@@ -49,7 +49,8 @@ test("2312 destination configuration is default-off and requires an explicit tru
   for (const value of [undefined, "", "public", true]) assert.throws(() => readOwnerHiggsfieldDopOperatorConfiguration(true, value));
 });
 
-type FlowOptions = Readonly<{ free?: boolean; secondDenied?: boolean; loseAck?: boolean; pending?: boolean; wrongOwner?: boolean; wrongModel?: boolean }>;
+type FlowOptions = Readonly<{ free?: boolean; secondDenied?: boolean; loseAck?: boolean; pending?: boolean; wrongOwner?: boolean; wrongModel?: boolean;
+  controls?: Readonly<{ enhance_prompt: boolean; strength: number }> }>;
 async function fixture(options: FlowOptions = {}) {
   let now = Date.parse("2026-10-19T00:00:00.000Z"), attemptIndex = 0, ready = !options.pending;
   const binding = Object.freeze({ tenant_id: "higgsfield-dop2312", subject: `owner-${Math.random().toString(16).slice(2)}` });
@@ -110,7 +111,8 @@ async function fixture(options: FlowOptions = {}) {
       assert.deepEqual([...url.searchParams.keys()], ["ai_name"]);
       assert.equal(last.chat_id, `dopchat${stats.chats}`); assert.equal("chat_uuid" in last, false);
       assert.deepEqual((JSON.parse(String(init.body)) as { settings: unknown }).settings, {
-        model_type: model, enhance_prompt: false, motions: MOTIONS, file_urls: [{ type: "image", url: INPUT_URL }]
+        model_type: model, enhance_prompt: options.controls?.enhance_prompt ?? false,
+        motions: MOTIONS.map(motion => ({ ...motion, strength: options.controls?.strength ?? 1 })), file_urls: [{ type: "image", url: INPUT_URL }]
       });
       if (options.loseAck) throw new Error("synthetic lost generation ACK");
       return json({ id: "owner2312" });
@@ -159,6 +161,43 @@ test("2312 exact upload, two fresh empty-key quotes, one POST, owned history, an
     assert.equal(env.stats.histories, 2); assert.equal(env.stats.results, 2);
     assert.equal(env.capturedUpload()?.destination, "hidden"); assert.equal(env.capturedUpload()?.model_type, "dop-turbo");
   } finally { await env.close(); }
+});
+
+test("current DOP checkbox and fractional/end-point strengths survive real SDK/native HTTP dispatch and GET-only recovery", async () => {
+  for (const model_id of MODEL_IDS) for (const controls of [
+    { enhance_prompt: true, strength: 0.37 }, { enhance_prompt: false, strength: 0 }, { enhance_prompt: true, strength: 1 }
+  ]) {
+    const env = await fixture({ controls, pending: true });
+    const server = new McpServer({ name: "dop-current-controls", version: "1" });
+    registerSyntxOwnerHiggsfieldDopTools(server, { referenceService: env.references, importService: env.importer,
+      motionService: env.motionService, generationService: env.generation });
+    const client = new Client({ name: "dop-current-controls-client", version: "1" });
+    const [caller, host] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(host); await client.connect(caller);
+      const uploaded = await client.callTool({ name: OWNER_HIGGSFIELD_DOP_TOOL_NAMES[0], arguments: {
+        link_attempt_id: ATTEMPT, model_id, filename: "frame.png", mime_type: "image/png", content_base64: env.bytes.toString("base64") } });
+      assert.equal(uploaded.isError, undefined, JSON.stringify(uploaded));
+      const request = { link_attempt_id: ATTEMPT, model_id, prompt: "Current DOP explicit controls",
+        enhance_prompt: controls.enhance_prompt, motions: MOTIONS.map(motion => ({ ...motion, strength: controls.strength })),
+        reference_handle: (uploaded.structuredContent as { reference_handle: string }).reference_handle };
+      const generated = await client.callTool({ name: OWNER_HIGGSFIELD_DOP_TOOL_NAMES[3], arguments: request });
+      assert.equal(generated.isError, undefined, JSON.stringify(generated));
+      const unknown = generated.structuredContent as { status: string; recovery_id: string };
+      assert.equal(unknown.status, "outcome_unknown");
+      assert.equal(env.stats.posts, 1); assert.equal(env.stats.quotes, 2);
+      const before = { ...env.stats }; env.ready();
+      const recovered = await client.callTool({ name: OWNER_HIGGSFIELD_DOP_TOOL_NAMES[4], arguments: {
+        link_attempt_id: ATTEMPT, recovery_id: unknown.recovery_id } });
+      assert.equal(recovered.isError, undefined, JSON.stringify(recovered));
+      assert.equal((recovered.structuredContent as { status: string }).status, "completed");
+      assert.equal(env.stats.posts, before.posts); assert.equal(env.stats.uploads, before.uploads);
+      assert.equal(env.stats.chats, before.chats); assert.equal(env.stats.quotes, before.quotes);
+      assert.equal(env.stats.results, 1);
+      const duplicate = await client.callTool({ name: OWNER_HIGGSFIELD_DOP_TOOL_NAMES[3], arguments: request });
+      assert.equal(duplicate.isError, true); assert.equal(env.stats.posts, 1);
+    } finally { await client.close(); await server.close(); await env.close(); }
+  }
 });
 
 test("2312 allows duplicate-URL reuse across DOP IDs only for identical image bytes", async () => {

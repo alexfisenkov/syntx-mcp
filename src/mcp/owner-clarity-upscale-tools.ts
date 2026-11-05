@@ -1,3 +1,4 @@
+import { registerOwnerImageManualCurrentSource } from "./owner-image-manual-current-source.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
@@ -108,7 +109,7 @@ const parametersSchema = z.object({
   professional_mode: z.boolean(),
   scale_factor: z.number().min(0.01).max(6),
   strength: z.number().min(0.1).max(1),
-  cfg: z.number().int().min(2).max(9),
+  cfg: z.number().finite().min(2).max(9),
   denoise: z.number().min(0.1).max(0.7)
 }).strict();
 
@@ -122,6 +123,7 @@ export function registerSyntxOwnerClarityUpscaleTools(
   server: McpServer,
   options: RegisterSyntxOwnerClarityUpscaleToolsOptions
 ): void {
+  registerOwnerImageManualCurrentSource(server, "clarity");
   server.registerTool(SYNTX_OWNER_CLARITY_UPSCALE_UPLOAD_TOOL_NAME, {
     title: "Upload an image for Clarity upscaling",
     description: "Upload one owner-provided JPEG, PNG, AVIF, or WebP image as portable base64 for the source-reviewed Clarity upscale flow. The server validates container structure and reads dimensions from container metadata only; this does not establish decoded pixels or provider acceptance. It returns an opaque 15-minute handle. This sends image bytes to SYNTX using the exact linked owner attempt; no local path or arbitrary URL is accepted.",

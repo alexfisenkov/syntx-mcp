@@ -1,3 +1,8 @@
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -25,12 +30,15 @@ function png384(): Buffer {
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 type ApiService = { generate(input: unknown): Promise<any>; reconcile(input: unknown): Promise<any>; listRecoveries(input: unknown): Promise<readonly unknown[]>; close(): Promise<void>; invalidateAttempt(id: string): Promise<void> };
 async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAck?: boolean; pending?: boolean;
-  wrongModel?: boolean; wrongOwner?: boolean; swapResult?: boolean; generationHttpStatus?: number } = {}, uploadInitially = true) {
+  wrongModel?: boolean; wrongOwner?: boolean; swapResult?: boolean; generationHttpStatus?: number; seed?: number | null; model?: "gen4.5i2v";
+  ratio?: "16:9" | "4:3" | "1:1" | "3:4" | "9:16"; bytes?: Buffer } = {}, uploadInitially = true) {
   const [{ OwnerRunwayI2vReferenceService }, module] = await Promise.all([
     import(new URL("../src/application/owner-runway-i2v-reference-service.js", import.meta.url).href),
     import(new URL("../src/application/owner-runway-i2v-generation-service.js", import.meta.url).href)
   ]);
   assert.equal(typeof module.OwnerRunwayI2vGenerationService, "function");
+  const model = options.model ?? "turbo4genfirstframeimage", ratio = options.ratio ?? "1:1";
+  const code = { "16:9": "169", "4:3": "43", "1:1": "11", "3:4": "34", "9:16": "916" }[ratio];
   const binding = { tenant_id: "runway2261", subject: `owner-${++serial}` };
   const now = () => Date.parse("2026-10-18T00:00:00.000Z");
   const links = new PerUserLinkService({ authorizationProfile: "OBSERVED_OWNER_AUTHORIZED",
@@ -43,11 +51,11 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
   const owner = () => ({ id: "owner2261", chat_id: "provider2261", author_id: options.wrongOwner ? -1 : 17,
     message_object: [
       { id: "text2261", message_id: "owner2261", object_type: "text", object_text: last?.prompt },
-      { id: "input2261", message_id: "owner2261", object_type: "image", object_url: INPUT, model_type: "turbo4genfirstframeimage" }
+      { id: "input2261", message_id: "owner2261", object_type: "image", object_url: INPUT, model_type: model }
     ] });
   const bot = () => ({ id: "bot2261", chat_id: "provider2261", author_id: -1, message_object: [
     { id: "output2261", message_id: "bot2261", object_type: "video", object_url: OUTPUT,
-      model_type: options.wrongModel ? "other-model" : "turbo4genfirstframeimage", completed: true }
+      model_type: options.wrongModel ? "other-model" : model, completed: true }
   ] });
   const fetchImpl: typeof fetch = async (input, init = {}) => {
     const url = new URL(String(input));
@@ -56,14 +64,15 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
     if (url.pathname.endsWith("user/subscription")) { stats.subscriptions++; return json({ active: true, type: options.free ? "FREE" : "PRO", end_date: "2099-01-01" }); }
     if (url.pathname.endsWith("get_model_info")) {
       stats.quotes++;
-      assert.equal(url.searchParams.get("model_type"), "turbo4genfirstframeimage");
+      assert.equal(url.searchParams.get("model_type"), model);
       assert.equal(url.searchParams.get("ai_name"), "runway");
       assert.equal(url.searchParams.get("video_duration"), "5.0");
       assert.deepEqual([...url.searchParams.keys()].sort(), ["ai_name", "model_type", "video_duration"]);
       return json({ access: !(options.secondDenied && stats.quotes === 2), cost: 0.2, discount_cost: null,
         free_remaining_generations: 0, limit: null, show_warning: false });
     }
-    if (url.pathname.endsWith("chats/upload-files")) { stats.uploads++; return json({ files: [{ url: INPUT, status: "success", mime_type: "image/png", media_type: "image", type: "image", filename: "frame.png", size: 68 }] }); }
+    if (url.pathname.endsWith("chats/upload-files")) { stats.uploads++; const file = (init.body as FormData).get("files"); assert.ok(file instanceof File);
+      return json({ files: [{ url: INPUT, status: "success", mime_type: file.type, media_type: "image", type: "image", filename: file.name, size: file.size }] }); }
     if (url.pathname === "/api/v1/chats") {
       stats.chats++; assert.equal(JSON.parse(String(init.body)).scope, "video");
       return json({ uuid: "runwaychat2261" });
@@ -72,8 +81,8 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
       stats.posts++; last = JSON.parse(String(init.body));
       assert.equal(url.searchParams.get("ai_name"), "runway");
       assert.equal(last.chat_id, "runwaychat2261"); assert.equal(last.chat_uuid, undefined);
-      assert.deepEqual(last.settings, { model_type: "turbo4genfirstframeimage", aspect_ratio: "11",
-        video_duration: "5.0", seed: null, file_urls: [{ type: "image", url: INPUT }] });
+      assert.deepEqual(last.settings, { model_type: model, aspect_ratio: code,
+        video_duration: "5.0", seed: options.seed ?? null, file_urls: [{ type: "image", url: INPUT }] });
       if (options.generationHttpStatus) return json({ detail: "PRIVATE_RESPONSE_BODY_MUST_NOT_ESCAPE" }, options.generationHttpStatus);
       if (options.loseAck) throw new Error("synthetic lost ACK");
       return json({ id: "owner2261" });
@@ -100,9 +109,9 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
   const service: ApiService = new module.OwnerRunwayI2vGenerationService({ binding, linkService: links, referenceService: references,
     catalog, resolveChatClient: () => client, createReadClient, now });
   try {
-    const bytes = png384();
-    const upload = uploadInitially ? await references.uploadReference({ attemptId: ATTEMPT, model_id: "turbo4genfirstframeimage", filename: "frame.png", aspect_ratio: "1:1", mime_type: "image/png", bytes }) : { reference_handle: "" };
-    const request = { attemptId: ATTEMPT, model_id: "turbo4genfirstframeimage", prompt: "Synthetic Runway test", aspect_ratio: "1:1", video_duration: 5, seed: null, reference_handle: upload.reference_handle };
+    const bytes = options.bytes ?? png384();
+    const upload = uploadInitially ? await references.uploadReference({ attemptId: ATTEMPT, model_id: model, filename: "frame.png", aspect_ratio: ratio, mime_type: "image/png", bytes }) : { reference_handle: "" };
+    const request = { attemptId: ATTEMPT, model_id: model, prompt: "Synthetic Runway test", aspect_ratio: ratio, video_duration: 5, seed: options.seed ?? null, reference_handle: upload.reference_handle };
     return { service, references, bytes, client, request, stats, ready() { ready = true; }, async close() { await service.close(); await references.close(); } };
   } catch (error) { await service.close(); await references.close(); throw error; }
 }
@@ -156,7 +165,7 @@ test("2261 revoked lineage and forged dispatch contexts cause no GEN or result a
 });
 
 test("2261 real MCP SDK tools drive the genuine Runway services from bytes to result", async () => {
-  const env = await fixture({}, false);
+  const env = await fixture({ seed: 123 }, false);
   const server = createMcpServer(createDefaultApplication(), { ownerRunwayI2v: { referenceService: env.references, generationService: env.service } });
   const client = new Client({ name: "runway2261-full-sdk", version: "1.0.0" });
   const [caller, host] = InMemoryTransport.createLinkedPair();
@@ -169,7 +178,7 @@ test("2261 real MCP SDK tools drive the genuine Runway services from bytes to re
     assert.equal(JSON.stringify(uploaded).includes(INPUT), false);
     const handle = (uploaded.structuredContent as { reference_handle: string }).reference_handle;
     const generated = await client.callTool({ name: "syntx_owner_generate_runway_i2v_video", arguments: {
-      link_attempt_id: ATTEMPT, model_id: "turbo4genfirstframeimage", prompt: "Synthetic MCP SDK Runway test", aspect_ratio: "1:1", video_duration: 5, seed: null, reference_handle: handle
+      link_attempt_id: ATTEMPT, model_id: "turbo4genfirstframeimage", prompt: "Synthetic MCP SDK Runway test", aspect_ratio: "1:1", video_duration: 5, seed: 123, reference_handle: handle
     } });
     assert.equal(generated.isError, undefined, JSON.stringify(generated));
     assert.equal((generated.structuredContent as { status: string }).status, "completed");
@@ -192,4 +201,35 @@ test("2261 unknown generation preserves HTTP metadata without exposing response 
     await assert.rejects(env.service.generate(env.request), { code: "INTENT_ALREADY_CLAIMED" });
     assert.equal(env.stats.posts, 1);
   } finally { await env.close(); }
+});
+
+test("Current Gen4.5 I2V SDK preserves all five genuinely cropped PNG ratios through quote native upload GEN and owned GET", async t => {
+  const ffmpeg = process.env.SYNTX_MEDIA_FFMPEG_PATH ?? ["/opt/homebrew/bin/ffmpeg", "/usr/bin/ffmpeg"].find(existsSync);
+  if (!ffmpeg || !existsSync(ffmpeg)) { t.skip("trusted real ffmpeg unavailable for genuine Gen4.5 cropped PNGs"); return; }
+  const directory = await mkdtemp(join(tmpdir(), "syntx Gen4.5 кадры 📷 "));
+  try {
+    for (const [ratio, numerator, denominator, code] of [["16:9",16,9,"169"],["4:3",4,3,"43"],["1:1",1,1,"11"],["3:4",3,4,"34"],["9:16",9,16,"916"]] as const) {
+      const scale = 2 * Math.ceil(320 / Math.min(numerator, denominator) / 2), file = join(directory, `кадр ${code}.png`);
+      execFileSync(ffmpeg, ["-nostdin", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+        `testsrc2=size=${numerator * scale}x${denominator * scale}:rate=1`, "-frames:v", "1", "-y", file], { timeout: 20_000, stdio: "pipe" });
+      const f = await fixture({ model: "gen4.5i2v", ratio, bytes: await readFile(file) }, false);
+      const server = createMcpServer(createDefaultApplication(), { ownerRunwayI2v: { referenceService: f.references, generationService: f.service } });
+      const client = new Client({ name: "gen45-current-five-ratios", version: "1" }), [caller, host] = InMemoryTransport.createLinkedPair();
+      try {
+        await server.connect(host); await client.connect(caller);
+        const uploaded = await client.callTool({ name: "syntx_owner_upload_runway_i2v_image", arguments: { link_attempt_id: ATTEMPT,
+          model_id: "gen4.5i2v", aspect_ratio: ratio, filename: "frame.png", mime_type: "image/png", content_base64: f.bytes.toString("base64") } });
+        assert.equal(uploaded.isError, undefined, JSON.stringify(uploaded));
+        const reference_handle = (uploaded.structuredContent as { reference_handle: string }).reference_handle;
+        const args = { link_attempt_id: ATTEMPT, model_id: "gen4.5i2v", aspect_ratio: ratio, prompt: "Current cropped source ratio",
+          video_duration: 5, seed: null, reference_handle };
+        const before = { ...f.stats };
+        assert.equal((await client.callTool({ name: "syntx_owner_generate_runway_i2v_video", arguments: { ...args, aspect_ratio: "21:9" } })).isError, true);
+        assert.deepEqual(f.stats, before);
+        const result = await client.callTool({ name: "syntx_owner_generate_runway_i2v_video", arguments: args });
+        assert.equal(result.isError, undefined, JSON.stringify(result)); assert.equal((result.structuredContent as { status: string }).status, "completed");
+        assert.deepEqual(f.stats, { uploads: 1, chats: 1, posts: 1, quotes: 2, histories: 1, results: 1, balances: 2, subscriptions: 2 });
+      } finally { await client.close(); await server.close(); await f.close(); }
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });

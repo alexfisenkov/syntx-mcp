@@ -7,6 +7,8 @@ import { SyntxHttpClient, SyntxHttpError } from "../adapter/syntx/http-client.js
 import { sameGenerationPrincipal } from "../domain/generation-principal.js";
 import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
 import type { OwnerElevenLabsVoiceReference } from "./owner-elevenlabs-generation-parameters.js";
+import { OWNER_ELEVENLABS_VOICE_FILTERS, normalizeOwnerElevenLabsVoiceDiscovery, OwnerElevenLabsVoiceDiscoveryCursors,
+  type OwnerElevenLabsVoiceDiscoveryInput, type OwnerElevenLabsVoiceQuery } from "./owner-elevenlabs-voice-discovery.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const VOICE_REF = /^owner_elevenlabs_voice_[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -25,10 +27,8 @@ export interface OwnerElevenLabsVoiceReferenceServiceOptions {
   readonly now?: () => number;
 }
 
-export interface OwnerElevenLabsVoiceListRequest {
+export interface OwnerElevenLabsVoiceListRequest extends OwnerElevenLabsVoiceDiscoveryInput {
   readonly attemptId: string;
-  readonly page?: 1;
-  readonly page_size?: 10;
   readonly signal?: AbortSignal;
 }
 
@@ -40,8 +40,10 @@ export interface OwnerElevenLabsAvailableVoice {
 
 export interface OwnerElevenLabsVoiceListReceipt {
   readonly status: "available";
-  readonly page: 1;
-  readonly page_size: 10;
+  readonly page: number;
+  readonly page_size: 10 | 20;
+  readonly next_cursor: string | null;
+  readonly filter_options?: Readonly<Record<string, readonly string[]>>;
   readonly total: number | null;
   readonly has_more: boolean | null;
   readonly coverage: "PARTIAL_PAGE_ONLY";
@@ -99,7 +101,7 @@ interface Operation {
   readonly epoch: number;
 }
 
-interface ListRequest {
+interface ListRequest extends OwnerElevenLabsVoiceDiscoveryInput {
   readonly attemptId: string;
   readonly signal?: AbortSignal;
 }
@@ -110,6 +112,7 @@ interface ResolveRequest {
 }
 
 export class OwnerElevenLabsVoiceReferenceService {
+  readonly #cursors = new OwnerElevenLabsVoiceDiscoveryCursors();
   readonly #binding: Readonly<AuthBinding>;
   readonly #linkService: PerUserLinkService;
   readonly #resolveClient: (attemptId: string) => unknown;
@@ -155,13 +158,18 @@ export class OwnerElevenLabsVoiceReferenceService {
       const principal = await this.#principal(request.attemptId, operation.controller.signal);
       this.#throwIfClosedOrAborted(operation);
       if (!this.#rememberPrincipal(request.attemptId, principal)) fail("PRINCIPAL_NOT_LINKED");
+      const cursorEpoch = this.#epochs.get(request.attemptId) ?? 0;
+      const query: OwnerElevenLabsVoiceQuery | undefined = request.cursor === undefined
+        ? Object.freeze({ page: 1, page_size: request.page_size ?? 10, ...Object.fromEntries(OWNER_ELEVENLABS_VOICE_FILTERS.flatMap((key) => request[key] === undefined ? [] : [[key, request[key]]])) })
+        : this.#cursors.resolve(request.cursor, principal, cursorEpoch, this.#readNow());
+      if (!query) fail("INVALID_REQUEST");
       const client = snapshotNativeClient(this.#resolveClient(request.attemptId));
       this.#throwIfClosedOrAborted(operation);
       const nativePage = await Reflect.apply(NATIVE_LIST_VOICES, client, [
-        Object.freeze({ page: 1, page_size: 10 }), operation.controller.signal
+        query, operation.controller.signal
       ]);
       this.#throwIfClosedOrAborted(operation);
-      const rows = snapshotNativeRows(nativePage);
+      const rows = snapshotNativeRows(nativePage, query);
       const current = await this.#principal(request.attemptId, operation.controller.signal);
       this.#throwIfClosedOrAborted(operation);
       if (!sameGenerationPrincipal(principal, current)) {
@@ -192,10 +200,13 @@ export class OwnerElevenLabsVoiceReferenceService {
           expires_in_seconds: Math.floor((record.expiresAt - now) / 1000) });
       });
       if ((this.#epochs.get(request.attemptId) ?? 0) !== epoch || this.#invalidating.has(request.attemptId)) fail("VOICE_REFERENCE_UNAVAILABLE");
-      return Object.freeze({ status: "available", page: 1, page_size: 10, total: rows.total,
-        has_more: rows.total === null ? null : rows.total > rows.voices.length,
+      let nextCursor: string | null;
+      try { nextCursor = this.#cursors.next(query, rows.total, current, epoch, now); } catch { return fail("CAPACITY_EXCEEDED"); }
+      return Object.freeze({ status: "available", page: query.page, page_size: query.page_size, total: rows.total, next_cursor: nextCursor,
+        has_more: rows.total === null ? null : query.page * query.page_size < rows.total,
         coverage: "PARTIAL_PAGE_ONLY",
-        source_confidence: "CURRENT_SOURCE_ROUTE", ownership_confidence: "UNPROVEN", voices: Object.freeze(voices) });
+        source_confidence: "CURRENT_SOURCE_ROUTE", ownership_confidence: "UNPROVEN", voices: Object.freeze(voices),
+        ...(rows.filter_options === undefined ? {} : { filter_options: rows.filter_options }) });
     } catch (error) {
       if (error instanceof OwnerElevenLabsVoiceReferenceServiceError) throw error;
       if (error instanceof OwnerReferencePrincipalError) fail("PRINCIPAL_NOT_LINKED");
@@ -277,6 +288,7 @@ export class OwnerElevenLabsVoiceReferenceService {
     const pending = [...this.#pending.values()].flatMap((operations) => [...operations].map((operation) => operation.done));
     this.#closing = Promise.allSettled([...invalidations, ...pending]).then(() => {
       this.#records.clear(); this.#selections.clear(); this.#principals.clear(); this.#pending.clear();
+      this.#cursors.clear();
       this.#epochs.clear(); this.#listClaims.clear(); this.#invalidatedAttempts.clear();
       this.#invalidating.clear(); this.#invalidations.clear();
     });
@@ -358,6 +370,7 @@ export class OwnerElevenLabsVoiceReferenceService {
     if (this.#invalidatedAttempts.has(attemptId)) return Promise.resolve();
     if (!this.#activeAttempts().has(attemptId)) return Promise.resolve();
     this.#invalidatedAttempts.add(attemptId);
+    this.#cursors.invalidateAttempt(attemptId);
     this.#invalidating.add(attemptId);
     this.#epochs.set(attemptId, (this.#epochs.get(attemptId) ?? 0) + 1);
     for (const record of [...this.#records.values()]) if (record.attemptId === attemptId) this.#dropRecord(record);
@@ -405,11 +418,12 @@ export class OwnerElevenLabsVoiceReferenceService {
 }
 
 function snapshotListRequest(input: unknown): ListRequest {
-  const fields = exactRecord(input, ["attemptId"], ["page", "page_size", "signal"]);
+  const fields = exactRecord(input, ["attemptId"], ["page", "page_size", "cursor", "signal", ...OWNER_ELEVENLABS_VOICE_FILTERS]);
   const attemptId = safeAttempt(fields.attemptId);
-  if ((fields.page !== undefined && fields.page !== 1) || (fields.page_size !== undefined && fields.page_size !== 10) ||
-      (fields.signal !== undefined && (!(fields.signal instanceof AbortSignal) || types.isProxy(fields.signal)))) fail("INVALID_REQUEST");
-  return Object.freeze({ attemptId, ...(fields.signal === undefined ? {} : { signal: fields.signal as AbortSignal }) });
+  if (fields.signal !== undefined && (!(fields.signal instanceof AbortSignal) || types.isProxy(fields.signal))) fail("INVALID_REQUEST");
+  let discovery: OwnerElevenLabsVoiceDiscoveryInput;
+  try { discovery = normalizeOwnerElevenLabsVoiceDiscovery(fields); } catch { return fail("INVALID_REQUEST"); }
+  return Object.freeze({ attemptId, ...discovery, ...(fields.signal === undefined ? {} : { signal: fields.signal as AbortSignal }) });
 }
 
 function snapshotResolveRequest(input: unknown): ResolveRequest {
@@ -429,9 +443,9 @@ function snapshotNativeClient(input: unknown): SyntxHttpClient {
   return input as SyntxHttpClient;
 }
 
-function snapshotNativeRows(input: unknown): { readonly total: number | null; readonly voices: readonly { readonly voice_id: string; readonly name: string }[] } {
-  const fields = exactRecord(input, ["page", "page_size", "total", "has_more", "voices"]);
-  if (fields.page !== 1 || fields.page_size !== 10 ||
+function snapshotNativeRows(input: unknown, query: OwnerElevenLabsVoiceQuery): { readonly total: number | null; readonly voices: readonly { readonly voice_id: string; readonly name: string }[]; readonly filter_options?: Readonly<Record<string, readonly string[]>> } {
+  const fields = exactRecord(input, ["page", "page_size", "total", "has_more", "voices"], ["filter_options"]);
+  if (fields.page !== query.page || fields.page_size !== query.page_size ||
       !(fields.total === null || (typeof fields.total === "number" && Number.isSafeInteger(fields.total) && fields.total >= 0)) ||
       !(fields.has_more === null || typeof fields.has_more === "boolean") || !Array.isArray(fields.voices) || fields.voices.length > 100) {
     fail("VOICE_LIST_UNAVAILABLE");
@@ -447,7 +461,17 @@ function snapshotNativeRows(input: unknown): { readonly total: number | null; re
     seen.add(row.voice_id);
     return Object.freeze({ voice_id: row.voice_id, name: row.name });
   });
-  return Object.freeze({ total: fields.total as number | null, voices: Object.freeze(voices) });
+  let filterOptions: Readonly<Record<string, readonly string[]>> | undefined;
+  if (fields.filter_options !== undefined) {
+    const options = exactRecord(fields.filter_options, [], OWNER_ELEVENLABS_VOICE_FILTERS.filter((key) => key !== "search"));
+    const projected: Record<string, readonly string[]> = {};
+    for (const [key, values] of Object.entries(options)) {
+      if (!Array.isArray(values) || values.length > 100 || values.some((value) => typeof value !== "string" || !value.trim().length || value.length > 256 || /[\u0000-\u001f\u007f]|https?:\/\//iu.test(value))) fail("VOICE_LIST_UNAVAILABLE");
+      projected[key] = Object.freeze([...values]) as readonly string[];
+    }
+    filterOptions = Object.freeze(projected);
+  }
+  return Object.freeze({ total: fields.total as number | null, voices: Object.freeze(voices), ...(filterOptions === undefined ? {} : { filter_options: filterOptions }) });
 }
 
 function selectionKey(principal: GenerationPrincipalRef, voiceId: string): string {

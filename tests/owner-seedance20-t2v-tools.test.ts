@@ -63,7 +63,7 @@ test("Seedance 2.0 MCP exposes four tools and keeps mode server-injected", async
     assert.equal(generated.isError, undefined);
     assert.equal(generateCalls, 1);
     assert.deepEqual(observedInput, { attemptId: "link_seedance20_tools_test_0001", prompt: "A yellow duck.", resolution: "720p",
-      aspect_ratio: "16:9", video_duration: 5, generate_audio: true });
+      aspect_ratio: "16:9", video_duration: 5, generate_audio: true, version:"mini" });
 
     const attemptedMode = await client.callTool({ name: SYNTX_OWNER_GENERATE_SEEDANCE20_T2V_TOOL_NAME, arguments: {
       link_attempt_id: "link_seedance20_tools_test_0001", prompt: "A yellow duck.", resolution: "720p",

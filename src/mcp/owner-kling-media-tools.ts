@@ -1,6 +1,7 @@
 import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
+import { advertisedUnionInputSchema } from "./advertised-input-schema.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { isOwnerKlingMediaGenerationService, type OwnerKlingMediaGenerationService } from "../application/owner-kling-media-generation-service.js";
 import { isOwnerKlingMediaReferenceService, type OwnerKlingMediaReferenceService } from "../application/owner-kling-media-reference-service.js";
@@ -15,14 +16,23 @@ const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const uploadInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.enum(["kling_elements", "kling_o1_image2video", "kling_o1_video2video"]),
   filename: z.string().min(1).max(255), mime_type: z.enum([...IMAGE_MIMES, ...VIDEO_MIMES]),
   content_base64: z.string().min(4).max(Math.ceil(MAX_VIDEO_BYTES / 3) * 4).refine((value) => isCanonicalBase64Bounded(value, Math.ceil(MAX_VIDEO_BYTES / 3) * 4)) }).strict();
-const generateInput = z.discriminatedUnion("model_id", [
+const generateInput = z.union([
   z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("kling_elements"), prompt: z.string().min(1).max(1_000), version: z.literal("1.6"),
     mode: z.literal("hd"), aspect_ratio: z.literal("16:9"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(HANDLE) }).strict(),
   z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("kling_o1_image2video"), prompt: z.string().min(1).max(1_000), version: z.literal("1.6"),
     mode: z.literal("hd"), aspect_ratio: z.literal("16:9"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(HANDLE) }).strict(),
   z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("kling_o1_video2video"), prompt: z.string().min(1).max(1_000), version: z.literal("1.6"),
-    mode: z.literal("hd"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(HANDLE) }).strict()
+    mode: z.literal("hd"), video_duration: z.literal(5), native_audio: z.literal(false), reference_handle: z.string().regex(HANDLE) }).strict(),
+  z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("kling_elements"), prompt: z.string().min(1).max(1000), version: z.literal("3.0"),
+    mode: z.enum(["standart", "hd", "4K"]), aspect_ratio: z.enum(["16:9", "1:1", "9:16"]), video_duration: z.number().finite().min(3).max(15),
+    native_audio: z.boolean(), multi_shots: z.boolean(), reference_handles: currentHandles(7) }).strict(),
+  z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("kling_o1_image2video"), prompt: z.string().min(1).max(1000), mode: z.literal("hd"),
+    aspect_ratio: z.enum(["16:9", "1:1", "9:16"]), video_duration: z.number().finite().min(3).max(10), reference_handles: currentHandles(4) }).strict(),
+  z.object({ link_attempt_id: z.string().regex(ATTEMPT), model_id: z.literal("kling_o1_video2video"), prompt: z.string().min(1).max(1000), mode: z.literal("hd"),
+    reference_handles: currentHandles(5) }).strict()
 ]);
+function currentHandles(maximum: number) { return z.array(z.string().regex(HANDLE)).min(1).max(maximum)
+  .refine(value => new Set(value).size === value.length).meta({ uniqueItems: true }); }
 const resultInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), recovery_id: z.string().regex(RECOVERY) }).strict();
 const listInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT) }).strict();
 const artifact = z.object({ message_object_id: z.string().min(1).max(160), object_type: z.literal("video"), object_url: z.string().url().max(4096),
@@ -52,21 +62,19 @@ export function registerSyntxOwnerKlingMediaTools(server: McpServer, input: unkn
     inputSchema: uploadInput, outputSchema: uploadOutput, annotations: { title: "Upload Kling media reference", readOnlyHint: false,
       destructiveHint: false, idempotentHint: false, openWorldHint: true } }, async (raw, { signal }) => {
     let bytes: Buffer | undefined;
-    try { const data = uploadInput.parse(snapshot(raw)); const image = data.model_id !== "kling_o1_video2video";
+    try { const data = uploadInput.parse(snapshot(raw)); const image = (IMAGE_MIMES as readonly string[]).includes(data.mime_type);
       if (image && (!(IMAGE_MIMES as readonly string[]).includes(data.mime_type) || data.content_base64.length > Math.ceil(MAX_IMAGE_BYTES / 3) * 4)) throw new Error("INVALID_REQUEST");
-      if (!image && !(VIDEO_MIMES as readonly string[]).includes(data.mime_type)) throw new Error("INVALID_REQUEST");
+      if (!image && (data.model_id !== "kling_o1_video2video" || !(VIDEO_MIMES as readonly string[]).includes(data.mime_type))) throw new Error("INVALID_REQUEST");
       bytes = decode(data.content_base64, image ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES);
       const out = await options.referenceService.upload({ attemptId: data.link_attempt_id, model_id: data.model_id, filename: data.filename,
         mime_type: data.mime_type, bytes }, signal); return success(uploadOutput, out);
     } catch (error) { return safeError(error); } finally { bytes?.fill(0); }
   });
   server.registerTool(OWNER_KLING_MEDIA_TOOL_NAMES[1], { title: "Generate one owner Kling media video",
-    description: "Submits one explicit Kling Elements or O1 I2V/V2V tuple. Unknown POST outcomes remain GET-only; price quotes do not cap provider cost.",
-    inputSchema: generateInput, outputSchema: resultOutput, annotations: { title: "Generate Kling media video", readOnlyHint: false,
+    description: "Current source: Elements3.0 supports1..7 owned images, explicit3..15s/standart|hd|4K/ratios/audio/multi_shots. O1I2V accepts1..4 images and3..10s/ratios; O1V2V accepts exactly1 video plus0..4 images, deriving rounded duration from trusted video metadata. O1 version is omitted and modehd fixed. Use reference_handles for current branches; explicit1.6/reference_handle retains the historical single-source tuple. Unknown POST outcomes remain GET-only; quotes are not spending caps.",
+    inputSchema: advertisedUnionInputSchema(generateInput), outputSchema: resultOutput, annotations: { title: "Generate Kling media video", readOnlyHint: false,
       destructiveHint: false, idempotentHint: false, openWorldHint: true } }, async (raw, { signal }) => {
-    try { const d = generateInput.parse(snapshot(raw)); const out = await options.generationService.generate({ attemptId: d.link_attempt_id,
-      model_id: d.model_id, prompt: d.prompt, version: d.version, mode: d.mode, ...(d.model_id === "kling_o1_video2video" ? {} : { aspect_ratio: d.aspect_ratio }),
-      video_duration: d.video_duration, native_audio: d.native_audio, reference_handle: d.reference_handle }, signal); return success(resultOutput, out);
+    try { const { link_attempt_id, ...fields } = raw; const out = await options.generationService.generate({ attemptId: link_attempt_id, ...fields }, signal); return success(resultOutput, out);
     } catch (error) { return safeError(error); }
   });
   server.registerTool(OWNER_KLING_MEDIA_TOOL_NAMES[2], { title: "Read an owner Kling media result",

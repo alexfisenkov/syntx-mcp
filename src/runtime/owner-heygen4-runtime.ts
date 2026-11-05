@@ -1,4 +1,5 @@
 import { types } from "node:util";
+import { isAbsolute } from "node:path";
 import type { AuthBinding } from "../auth/types.js";
 import type { PerUserLinkService } from "../auth/link-service.js";
 import type { SyntxChatHttpClient } from "../adapter/syntx/chat-http-client.js";
@@ -10,6 +11,7 @@ import { OwnerHeygen4ReferenceService } from "../application/owner-heygen4-refer
 import { OwnerHeygen4GenerationService } from "../application/owner-heygen4-generation-service.js";
 
 const CATALOG_VERSION = "sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json";
+const CURRENT_CATALOG_VERSION = "sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json";
 const CLEANUPS = new WeakMap<object, Promise<void>>();
 export interface OwnerHeygen4RuntimeOptions { readonly binding: AuthBinding; readonly linkService: PerUserLinkService;
   readonly createReadClient: (attemptId: string) => SyntxHttpClient; readonly createChatClient: (attemptId: string) => SyntxChatHttpClient;
@@ -19,9 +21,10 @@ export function createOwnerHeygen4Runtime(input: OwnerHeygen4RuntimeOptions | un
   const row = exact(input, ["binding", "linkService", "createReadClient", "createChatClient", "now", "ffprobePath"], ["catalogDirectory"]);
   if (!row.linkService || types.isProxy(row.linkService) || typeof row.createReadClient !== "function" || types.isProxy(row.createReadClient) ||
       typeof row.createChatClient !== "function" || types.isProxy(row.createChatClient) || typeof row.now !== "function" || types.isProxy(row.now) ||
-      typeof row.ffprobePath !== "string" || !row.ffprobePath.startsWith("/") || row.ffprobePath.includes("\0") ||
+      typeof row.ffprobePath !== "string" || !isAbsolute(row.ffprobePath) || row.ffprobePath !== row.ffprobePath.trim() || row.ffprobePath.includes("\0") ||
       (row.catalogDirectory !== undefined && typeof row.catalogDirectory !== "string")) throw new Error("OWNER_HEYGEN4_RUNTIME_CONFIGURATION_INVALID");
   const selected = loadSelectedDiscoveryCatalog(CATALOG_VERSION, row.catalogDirectory as string | undefined);
+  const currentSelected = loadSelectedDiscoveryCatalog(CURRENT_CATALOG_VERSION, row.catalogDirectory as string | undefined);
   const clients = new Map<string, Readonly<{ chat: SyntxChatHttpClient; read: SyntxHttpClient }>>();
   const pairFor = (attemptId: string) => { let pair = clients.get(attemptId); if (!pair) {
     pair = Object.freeze({ chat: Reflect.apply(row.createChatClient as Function, undefined, [attemptId]) as SyntxChatHttpClient,
@@ -32,10 +35,11 @@ export function createOwnerHeygen4Runtime(input: OwnerHeygen4RuntimeOptions | un
     references = new OwnerHeygen4ReferenceService({ binding: row.binding as AuthBinding, linkService: row.linkService as PerUserLinkService,
       resolveClient: (attemptId: string) => pairFor(attemptId).chat, ffprobePath: row.ffprobePath as string, now: row.now as () => number });
     service = new OwnerHeygen4GenerationService({ binding: row.binding as AuthBinding, linkService: row.linkService as PerUserLinkService,
-      catalog: selected.discoveryCatalog, catalog_version: CATALOG_VERSION, referenceService: references,
+      catalog: selected.discoveryCatalog, catalog_version: CATALOG_VERSION, current_catalog: currentSelected.discoveryCatalog, referenceService: references,
       resolveChatClient: (attemptId: string) => pairFor(attemptId).chat,
       createAccountStatusService: (attemptId: string) => new AccountStatusService(pairFor(attemptId).read, row.now as () => number),
       createModelAccessService: (attemptId: string) => new ModelAccessService(selected.discoveryCatalog, pairFor(attemptId).read, row.now as () => number),
+      createCurrentModelAccessService: (attemptId: string) => new ModelAccessService(currentSelected.discoveryCatalog, pairFor(attemptId).read, row.now as () => number),
       now: row.now as () => number });
   } catch (error) { const cleanup = Promise.resolve().then(() => clients.clear()); if (error && typeof error === "object") CLEANUPS.set(error, cleanup); void cleanup.catch(() => {}); throw error; }
   const generationService = service, referenceService = references; let closing: Promise<void> | undefined;

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { types } from "node:util";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import {
-  getOwnerKling4SourceProfile,
+  getOwnerKling4EffectiveProfileHash,
   normalizeOwnerKling4Parameters,
   type NormalizedOwnerKling4Parameters,
   type OwnerKling4AspectRatio,
@@ -93,7 +93,7 @@ export function buildOwnerKling4Wire(input: unknown, references: unknown): Reado
     file_urls: fileUrls
   });
   const costParameters = buildCostParameters(normalized, records);
-  const profileSha256 = getOwnerKling4SourceProfile(normalized.model_id).source_sha256;
+  const profileSha256 = getOwnerKling4EffectiveProfileHash(normalized.model_id, normalized.video_duration);
   const wireFingerprint = fingerprint([
     "owner-kling4-reference-wire-v1",
     profileSha256,

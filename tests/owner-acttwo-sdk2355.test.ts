@@ -40,11 +40,12 @@ function safeToolError(result: unknown): string {
   return JSON.stringify({ isError: row.isError === true, code: text || "NO_TEXT_CONTENT" });
 }
 
-test("ActTwo MCP SDK uploads one image and one measured MP4, preflights twice, and dispatches one owned operation", async t => {
+for (const selected of [{ duration: 5, expression: undefined, expectedExpression: 3, seed: undefined, expectedSeed: null }, { duration: 10, expression: 2.5, expectedExpression: 2.5, seed: 123, expectedSeed: 123 }] as const) {
+test(`ActTwo SDK preserves measured${selected.duration}s and expression${selected.expectedExpression} with one owned operation`, async t => {
   if (!existsSync(FFMPEG) || !existsSync(FFPROBE)) { t.skip("local ffmpeg/ffprobe pair unavailable for synthetic ActTwo SDK fixture"); return; }
   const directory = await mkdtemp(join(tmpdir(), "syntx-acttwo-sdk-2355-"));
   const videoPath = join(directory, "performance.mp4");
-  execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=teal:s=640x480:r=24:d=5",
+  execFileSync(FFMPEG, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `color=c=teal:s=640x480:r=24:d=${selected.duration}`,
     "-vf", "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709", "-an", "-pix_fmt", "yuv420p", "-c:v", "libx264",
     "-movflags", "+faststart", "-y", videoPath]);
   const imageBytes = png640(), videoBytes = await readFile(videoPath);
@@ -68,7 +69,7 @@ test("ActTwo MCP SDK uploads one image and one measured MP4, preflights twice, a
     if (url.pathname.endsWith("get_model_info")) {
       counts.quotes += 1; assert.equal(url.searchParams.get("ai_name"), "runway"); assert.equal(url.searchParams.get("model_type"), "acttwo");
       assert.deepEqual([...url.searchParams.keys()].sort(), ["ai_name", "model_type", "video_duration"]);
-      assert.equal(url.searchParams.get("video_duration"), "5");
+      assert.equal(url.searchParams.get("video_duration"), String(selected.duration));
       return json({ access: true, cost: 0.2, discount_cost: null, free_remaining_generations: 0, limit: null, show_warning: false });
     }
     if (url.pathname.endsWith("chats/upload-files")) {
@@ -90,7 +91,7 @@ test("ActTwo MCP SDK uploads one image and one measured MP4, preflights twice, a
       counts.posts += 1; assert.equal(url.searchParams.get("ai_name"), "runway"); assert.deepEqual([...url.searchParams.keys()], ["ai_name"]);
       const body = JSON.parse(String(init.body)) as { chat_id: string; prompt: string; settings: Record<string, unknown> };
       assert.equal(body.prompt, "");
-      assert.deepEqual(body.settings, { model_type: "acttwo", aspect_ratio: "11", video_duration: 5, seed: null, expression: 3,
+      assert.deepEqual(body.settings, { model_type: "acttwo", aspect_ratio: "11", video_duration: selected.duration, seed: selected.expectedSeed, expression: selected.expectedExpression,
         file_urls: [{ type: "video", url: VIDEO_URL }, { type: "image", url: IMAGE_URL }] });
       assert.equal(body.chat_id, `acttwochat${counts.posts}`);
       operations.set(`acttwochat${counts.posts}`, { chat: body.chat_id, imageUrl: IMAGE_URL, videoUrl: VIDEO_URL });
@@ -143,8 +144,12 @@ test("ActTwo MCP SDK uploads one image and one measured MP4, preflights twice, a
       filename: "performance.mp4", mime_type: "video/mp4", content_base64: videoBytes.toString("base64") } });
     assert.equal(performance.isError, undefined, `ActTwo performance video upload error: ${safeToolError(performance)}`);
     const videoHandle = (performance.structuredContent as { reference_handle: string }).reference_handle;
+    assert.equal((performance.structuredContent as { measured_duration_seconds: number }).measured_duration_seconds, selected.duration);
+    const invalidExpression = await client.callTool({ name: OWNER_ACTTWO_TOOL_NAMES[2], arguments: { link_attempt_id: ATTEMPT, model_id: "acttwo", aspect_ratio: "1:1", seed: null,
+      expression: 6, character_image_handle: imageHandle, performance_video_handle: videoHandle } });
+    assert.equal(invalidExpression.isError, true); assert.equal(counts.posts, 0); assert.equal(counts.quotes, 0);
     const generated = await client.callTool({ name: OWNER_ACTTWO_TOOL_NAMES[2], arguments: { link_attempt_id: ATTEMPT, model_id: "acttwo",
-      aspect_ratio: "1:1", seed: null, expression: 3, character_image_handle: imageHandle, performance_video_handle: videoHandle } });
+      aspect_ratio: "1:1", ...(selected.seed === undefined ? {} : { seed: selected.seed }), ...(selected.expression === undefined ? {} : { expression: selected.expression }), character_image_handle: imageHandle, performance_video_handle: videoHandle } });
     assert.equal(generated.isError, undefined, `ActTwo generation error: ${safeToolError(generated)}`);
     assert.equal((generated.structuredContent as { status: string }).status, "completed");
     assert.equal((generated.structuredContent as { backend_acceptance: string }).backend_acceptance, "UNPROVEN");
@@ -156,3 +161,4 @@ test("ActTwo MCP SDK uploads one image and one measured MP4, preflights twice, a
     imageBytes.fill(0); videoBytes.fill(0); await rm(directory, { recursive: true, force: true });
   }
 });
+}

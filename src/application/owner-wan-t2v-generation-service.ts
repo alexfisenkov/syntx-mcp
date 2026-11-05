@@ -38,11 +38,27 @@ import {
 import { AccountStatusService, type AccountStatusResult } from "./account-status.js";
 import { ModelAccessService, type ModelAccessResult } from "./model-access.js";
 import { loadPublicCatalogVersion } from "../catalog/public-catalog-history.js";
+import { WAN30_CURRENT_ADAPTIVE_SOURCE } from "./owner-wan30-t2v-current-adaptive.js";
+import { isWanT2vAudioProbeRunner, releaseWanT2vAudioProbe, WAN_T2V_AUDIO_UPLOAD_SOURCE,
+  type WanT2vAudioProbeRunner, type WanT2vAudioProbeResult } from "./owner-wan-t2v-audio-probe.js";
+import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 
 const MODELS = Object.freeze(["wan_26_t2v", "wan_27_t2v", "wan_30_t2v"] as const);
 const PUBLIC_CATALOG_VERSION = "sha256-b06698c84a002f5cc7d379e5d3ead94974b0e279fae45c8bb83fa803b0d895b9.json" as const;
 const PUBLIC_MODELS_SHA256 = "sha256:7ffbeff2ef1efa9d617d6e26e3e1c11e1d355cc45b34a2a427159f7e91fa4667" as const;
 const ATTEMPT_PATTERN = /^link_[A-Za-z0-9_-]{20,120}$/u;
+const AUDIO_HANDLE = /^wan_t2v_audio_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const AUDIO_UPLOAD = SyntxChatHttpClient.prototype.uploadOwnerWanT2vAudio;
+const AUDIO_START = SyntxChatHttpClient.prototype.startOwnerWanT2vAudioOperation;
+interface WanAudioRecord { readonly handle:string; readonly attempt:string; readonly principal:Readonly<GenerationPrincipalRef>;
+  readonly model:"wan_26_t2v"|"wan_27_t2v"; readonly client:SyntxChatHttpClient; readonly url:string;
+  readonly sha256:string; readonly duration:number; readonly expiresAt:number }
+const AUDIO_OPERATIONS = new WeakMap<object, { client:SyntxChatHttpClient; consume:() => Promise<Readonly<{chat_id:string;body:Record<string,unknown>}>> }>();
+export async function consumeOwnerWanT2vAudioOperation(client:SyntxChatHttpClient, token:unknown): Promise<Readonly<{chat_id:string;body:Record<string,unknown>}>> {
+  if (!token || typeof token !== "object" || types.isProxy(token)) invalid();
+  const state = AUDIO_OPERATIONS.get(token); if (!state || state.client !== client) invalid();
+  AUDIO_OPERATIONS.delete(token); return state.consume();
+}
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
 const MAX_PROMPT_UTF8_BYTES = 65_536;
 // Local memory bound only. This is not a provider output limit or proof that
@@ -161,11 +177,13 @@ export interface OwnerWanT2vRecoveryListItem {
 
 export type OwnerWanT2vGenerationServiceErrorCode =
   | "INVALID_REQUEST" | "SERVICE_CLOSED" | "SERVICE_BUSY" | "PRINCIPAL_NOT_LINKED" | "MODEL_BINDING_MISMATCH"
-  | "PREFLIGHT_FAILED" | "INTENT_ALREADY_CLAIMED" | "PRE_DISPATCH_FAILED" | "OUTCOME_UNKNOWN" | "RECOVERY_NOT_FOUND";
+  | "PREFLIGHT_FAILED" | "INTENT_ALREADY_CLAIMED" | "PRE_DISPATCH_FAILED" | "OUTCOME_UNKNOWN" | "RECOVERY_NOT_FOUND"
+  | "UPLOAD_DISABLED" | "UPLOAD_OUTCOME_UNKNOWN" | "REFERENCE_UNAVAILABLE";
 
 export const OWNER_WAN_T2V_GENERATION_ERROR_CODES = Object.freeze([
   "INVALID_REQUEST", "SERVICE_CLOSED", "SERVICE_BUSY", "PRINCIPAL_NOT_LINKED", "MODEL_BINDING_MISMATCH",
-  "PREFLIGHT_FAILED", "INTENT_ALREADY_CLAIMED", "PRE_DISPATCH_FAILED", "OUTCOME_UNKNOWN", "RECOVERY_NOT_FOUND"
+  "PREFLIGHT_FAILED", "INTENT_ALREADY_CLAIMED", "PRE_DISPATCH_FAILED", "OUTCOME_UNKNOWN", "RECOVERY_NOT_FOUND",
+  "UPLOAD_DISABLED", "UPLOAD_OUTCOME_UNKNOWN", "REFERENCE_UNAVAILABLE"
 ] as const satisfies readonly OwnerWanT2vGenerationServiceErrorCode[]);
 
 export interface OwnerWanT2vGenerationServiceOptions {
@@ -181,11 +199,13 @@ export interface OwnerWanT2vGenerationServiceOptions {
   readonly timeoutMs?: number;
   readonly pollDelayMs?: number;
   readonly maxPollAttempts?: number;
+  readonly audioProbe?: WanT2vAudioProbeRunner;
 }
 
 export interface OwnerWanT2vGenerateInput {
   readonly attemptId: string;
   readonly input: OwnerWanAnyT2vIntent;
+  readonly audio_handle?: string;
 }
 
 export interface OwnerWanT2vReconcileInput {
@@ -238,6 +258,7 @@ interface Recovery {
   readonly semantic_key: string;
   readonly chat_uuid: string;
   readonly created_at: string;
+  readonly current_audio: boolean;
   owner_echo_message_id: string | null;
   status: "outcome_unknown" | "partial_results" | "completed";
   artifacts: readonly OwnerWanT2vVideoArtifact[];
@@ -258,6 +279,7 @@ export class OwnerWanT2vGenerationService {
   readonly #catalogVersion: string;
   readonly #catalogDirectory: string | undefined;
   #wan30Catalog: DiscoveryCatalogRepository | undefined;
+  #wan30CurrentCatalog: DiscoveryCatalogRepository | undefined;
   readonly #resolveChatClient: OwnerWanT2vGenerationServiceOptions["resolveChatClient"];
   readonly #createAccountStatusService: OwnerWanT2vGenerationServiceOptions["createAccountStatusService"];
   readonly #createModelAccessService: OwnerWanT2vGenerationServiceOptions["createModelAccessService"];
@@ -273,6 +295,9 @@ export class OwnerWanT2vGenerationService {
   readonly #runs = new Set<ActiveRun>();
   readonly #controllersByAttempt = new Map<string, Set<AbortController>>();
   readonly #invalidatingAttempts = new Set<string>();
+  readonly #audioProbe: WanT2vAudioProbeRunner | undefined;
+  readonly #audioRefs = new Map<string,WanAudioRecord>();
+  readonly #audioClaims = new Map<string, WanAudioRecord | null>();
   #closed = false;
   #closing: Promise<void> | undefined;
   #lastNow = -1;
@@ -282,7 +307,7 @@ export class OwnerWanT2vGenerationService {
     const options = readExactRecord(optionsInput, [
       "binding", "linkService", "catalog", "catalog_version", "resolveChatClient",
       "createAccountStatusService", "createModelAccessService"
-    ], ["catalogDirectory", "now", "timeoutMs", "pollDelayMs", "maxPollAttempts"]);
+    ], ["catalogDirectory", "now", "timeoutMs", "pollDelayMs", "maxPollAttempts", "audioProbe"]);
     this.#binding = snapshotBinding(options.binding);
     this.#linkService = snapshotLinkService(options.linkService);
     if (!isExactInstance(options.catalog, DiscoveryCatalogRepository) || options.catalog_version !== PUBLIC_CATALOG_VERSION ||
@@ -290,7 +315,7 @@ export class OwnerWanT2vGenerationService {
         typeof options.createAccountStatusService !== "function" || types.isProxy(options.createAccountStatusService) ||
         typeof options.createModelAccessService !== "function" || types.isProxy(options.createModelAccessService) ||
         (options.catalogDirectory !== undefined && (typeof options.catalogDirectory !== "string" ||
-          options.catalogDirectory.trim() === ""))) invalid();
+          options.catalogDirectory.trim() === "")) || (options.audioProbe !== undefined && !isWanT2vAudioProbeRunner(options.audioProbe))) invalid();
     this.#catalog = options.catalog;
     this.#catalogVersion = options.catalog_version;
     this.#catalogDirectory = options.catalogDirectory as string | undefined;
@@ -301,6 +326,7 @@ export class OwnerWanT2vGenerationService {
     this.#timeoutMs = bounded(options.timeoutMs, 1_000, 5 * 60_000, DEFAULT_TIMEOUT_MS);
     this.#pollDelayMs = bounded(options.pollDelayMs, 0, 15_000, DEFAULT_POLL_DELAY_MS);
     this.#maxPollAttempts = bounded(options.maxPollAttempts, 1, 8, DEFAULT_POLL_ATTEMPTS);
+    this.#audioProbe = options.audioProbe as WanT2vAudioProbeRunner | undefined;
     this.#assertSourceCatalog();
     Object.freeze(this);
     OWNER_WAN_T2V_SERVICES.add(this);
@@ -309,6 +335,53 @@ export class OwnerWanT2vGenerationService {
   async generate(input: OwnerWanT2vGenerateInput | unknown, signal?: AbortSignal): Promise<OwnerWanT2vGenerationResult> {
     const request = snapshotGenerate(input);
     return await this.#run(request.attemptId, signal, (runSignal) => this.#generate(request, runSignal));
+  }
+
+  isAudioUploadEnabled(): boolean { return this.#audioProbe !== undefined; }
+
+  async uploadAudioReference(input: unknown, signal?: AbortSignal): Promise<Readonly<{ status:"uploaded"; audio_handle:string;
+    model_id:"wan_26_t2v"|"wan_27_t2v"; mime_type:"audio/mpeg"|"audio/wav"; size:number; sha256:string;
+    duration_seconds:number; expires_in_seconds:number; provider_acceptance:"UNPROVEN" }>> {
+    const row = readExactRecord(input, ["attemptId", "request"]), attemptId = safeAttempt(row.attemptId);
+    if (!this.#audioProbe) fail("UPLOAD_DISABLED");
+    return this.#run(attemptId, signal, async runSignal => {
+      let probe: Readonly<WanT2vAudioProbeResult> | undefined, invoked = false;
+      try {
+        const principal = await this.#resolvePrincipal(attemptId);
+        probe = await this.#audioProbe!.probe(row.request, runSignal);
+        this.#validateAudioModel(probe.model_id);
+        const key = JSON.stringify([principal.tenant_id, principal.subject_id, probe.model_id, probe.sha256]);
+        if (this.#audioClaims.has(key)) {
+          const prior = this.#audioClaims.get(key);
+          if (!prior || prior.attempt !== attemptId || !sameGenerationPrincipal(prior.principal, principal) ||
+              this.#audioRefs.get(prior.handle) !== prior || prior.expiresAt <= this.#readNow()) fail("REFERENCE_UNAVAILABLE");
+          return Object.freeze({status:"uploaded" as const,audio_handle:prior.handle,model_id:prior.model,
+            mime_type:probe.mime_type,size:probe.size,sha256:probe.sha256,duration_seconds:prior.duration,
+            expires_in_seconds:Math.floor((prior.expiresAt-this.#readNow())/1000),provider_acceptance:"UNPROVEN" as const});
+        }
+        if (this.#audioClaims.size >= 128 || this.#audioRefs.size >= 128) fail("SERVICE_BUSY");
+        const client = this.#resolveNativeClient(attemptId);
+        if (SyntxChatHttpClient.prototype.uploadOwnerWanT2vAudio !== AUDIO_UPLOAD || Object.hasOwn(client,"uploadOwnerWanT2vAudio") ||
+            Reflect.get(client,"uploadOwnerWanT2vAudio") !== AUDIO_UPLOAD || runSignal.aborted) fail("PRINCIPAL_NOT_LINKED");
+        const issued = this.#readNow(); this.#audioClaims.set(key,null); invoked = true;
+        const native = await Reflect.apply(AUDIO_UPLOAD, client, [probe,runSignal]);
+        const after = await this.#resolvePrincipal(attemptId);
+        if (runSignal.aborted || this.#invalidatingAttempts.has(attemptId) || !sameGenerationPrincipal(principal,after) ||
+            this.#resolveNativeClient(attemptId) !== client || !native || !isSafeUploadReferenceUrl(native.url)) fail("UPLOAD_OUTCOME_UNKNOWN");
+        const ack = this.#readNow(), expiresAt = issued + 900_000;
+        if (!Number.isSafeInteger(expiresAt) || expiresAt - ack < 1000 ||
+            [...this.#audioRefs.values()].some(existing => existing.url === native.url &&
+              (existing.sha256 !== probe!.sha256 || existing.model !== probe!.model_id || !sameGenerationPrincipal(existing.principal,principal)))) fail("UPLOAD_OUTCOME_UNKNOWN");
+        const handle = `wan_t2v_audio_${randomUUID()}`;
+        const record:WanAudioRecord = Object.freeze({handle,attempt:attemptId,principal,model:probe.model_id,client,url:native.url,
+          sha256:probe.sha256,duration:probe.duration_seconds,expiresAt});
+        this.#audioRefs.set(handle,record); this.#audioClaims.set(key,record);
+        return Object.freeze({status:"uploaded" as const,audio_handle:handle,model_id:probe.model_id,mime_type:probe.mime_type,
+          size:probe.size,sha256:probe.sha256,duration_seconds:probe.duration_seconds,
+          expires_in_seconds:Math.floor((expiresAt-ack)/1000),provider_acceptance:"UNPROVEN" as const});
+      } catch (error) { if (invoked) fail("UPLOAD_OUTCOME_UNKNOWN"); throw error; }
+      finally { if (probe) releaseWanT2vAudioProbe(probe); }
+    });
   }
 
   async reconcile(input: OwnerWanT2vReconcileInput | unknown, signal?: AbortSignal): Promise<OwnerWanT2vGenerationResult> {
@@ -361,6 +434,7 @@ export class OwnerWanT2vGenerationService {
       this.#recoveries.delete(recoveryId);
       this.#intentToRecovery.delete(recovery.semantic_key);
     }
+    for (const [handle, ref] of this.#audioRefs) if (ref.attempt === attemptId) this.#audioRefs.delete(handle);
   }
 
   close(): Promise<void> {
@@ -372,6 +446,7 @@ export class OwnerWanT2vGenerationService {
       this.#recoveries.clear();
       this.#intentToRecovery.clear();
       this.#reservedIntents.clear();
+      this.#audioRefs.clear(); this.#audioClaims.clear();
       this.#runs.clear();
       this.#controllersByAttempt.clear();
       this.#invalidatingAttempts.clear();
@@ -390,7 +465,10 @@ export class OwnerWanT2vGenerationService {
       validateLocalPromptResourceLimit(normalized.intent.prompt);
       const source = this.#assertSourceCatalog(normalized.intent.model_id);
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
-      const semanticKey = semanticIntentKey(principal, normalized);
+      const audioClient = request.audio_handle ? this.#resolveNativeClient(request.attemptId) : undefined;
+      const audio = request.audio_handle && audioClient ? this.#resolveAudio(request.audio_handle,request.attemptId,normalized.intent.model_id,principal,audioClient) : undefined;
+      if (audio) this.#validateAudioModel(audio.model);
+      const semanticKey = semanticIntentKey(principal, normalized, audio?.sha256);
       const existingRecoveryId = this.#intentToRecovery.get(semanticKey);
       if (existingRecoveryId) {
         const existing = this.#recoveries.get(existingRecoveryId);
@@ -406,10 +484,11 @@ export class OwnerWanT2vGenerationService {
       this.#reservedIntents.add(semanticKey);
       reservationKey = semanticKey;
 
-      this.#validateModelProfile(normalized.intent.model_id);
-      await this.#runPreflight(request.attemptId, normalized, deadline);
-      this.#validateModelProfile(normalized.intent.model_id);
+      this.#validateModelProfile(normalized.intent.model_id, isCurrentAdaptive(normalized.intent) || !!audio);
+      await this.#runPreflight(request.attemptId, normalized, deadline, !!audio);
+      this.#validateModelProfile(normalized.intent.model_id, isCurrentAdaptive(normalized.intent) || !!audio);
       const client = this.#resolveNativeClient(request.attemptId);
+      if (audio && (client !== audioClient || this.#resolveAudio(audio.handle,request.attemptId,normalized.intent.model_id,principal,client) !== audio)) fail("REFERENCE_UNAVAILABLE");
       deadline.throwIfAborted();
       const chat = await this.#await(deadline, () => Reflect.apply(CHAT_CREATE, client,
         ["video", `owner-wan-t2v-${randomUUID()}`, deadline.signal]) as Promise<{ chat_uuid: string }>);
@@ -417,15 +496,16 @@ export class OwnerWanT2vGenerationService {
 
       const principalAfterChat = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, principalAfterChat)) fail("PRINCIPAL_NOT_LINKED");
-      this.#validateModelProfile(normalized.intent.model_id);
-      await this.#runPreflight(request.attemptId, normalized, deadline);
+      this.#validateModelProfile(normalized.intent.model_id, isCurrentAdaptive(normalized.intent) || !!audio);
+      await this.#runPreflight(request.attemptId, normalized, deadline, !!audio);
       const principalBeforePost = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, principalBeforePost) || this.#invalidatingAttempts.has(request.attemptId)) fail("PRINCIPAL_NOT_LINKED");
-      this.#validateModelProfile(normalized.intent.model_id);
+      this.#validateModelProfile(normalized.intent.model_id, isCurrentAdaptive(normalized.intent) || !!audio);
+      if (audio && this.#resolveAudio(audio.handle,request.attemptId,normalized.intent.model_id,principal,client) !== audio) fail("REFERENCE_UNAVAILABLE");
 
       const now = this.#readNow();
       if (!Number.isFinite(new Date(now).getTime())) fail("SERVICE_BUSY");
-      recovery = createRecovery({ attemptId: request.attemptId, principal, normalized, source,
+      recovery = createRecovery({ attemptId: request.attemptId, principal, normalized, source, currentAudio: !!audio,
         chatUuid: chat.chat_uuid, now, semanticKey });
       this.#recoveries.set(recovery.recovery_id, recovery);
       this.#intentToRecovery.set(semanticKey, recovery.recovery_id);
@@ -433,17 +513,28 @@ export class OwnerWanT2vGenerationService {
       reservationKey = undefined;
 
       const candidate = projectGenerationWireCandidate(normalized);
-      const settings = Object.freeze({ ...candidate.settings_candidate });
+      const settings = Object.freeze({ ...candidate.settings_candidate, ...(audio ? {file_urls:Object.freeze([Object.freeze({type:"audio",url:audio.url})])} : {}) });
       const prompt = "prompt_candidate" in candidate ? candidate.prompt_candidate : normalized.intent.prompt;
       recovery.diagnostic.phase = "GENERATION_POST";
       recovery.diagnostic.post_started = true;
       postStarted = true;
-      const receipt = await this.#await(deadline, () => Reflect.apply(VIDEO_START, client, [Object.freeze({
-        ai_name: "wan_video",
-        chat_id: chat.chat_uuid,
-        prompt,
-        settings
-      }), deadline.signal]) as Promise<MediaGenerationReceipt>);
+      let receipt: MediaGenerationReceipt;
+      if (audio) {
+        if (SyntxChatHttpClient.prototype.startOwnerWanT2vAudioOperation !== AUDIO_START || Object.hasOwn(client,"startOwnerWanT2vAudioOperation") ||
+            Reflect.get(client,"startOwnerWanT2vAudioOperation") !== AUDIO_START) fail("PRE_DISPATCH_FAILED");
+        const token = Object.freeze({});
+        AUDIO_OPERATIONS.set(token,{client,consume:async()=>{
+          const latest = await this.#resolvePrincipal(request.attemptId);
+          if (!sameGenerationPrincipal(latest,principal)) fail("PRINCIPAL_NOT_LINKED");
+          if (this.#resolveAudio(audio.handle,request.attemptId,normalized.intent.model_id,principal,client) !== audio) fail("REFERENCE_UNAVAILABLE");
+          return Object.freeze({chat_id:chat.chat_uuid,body:Object.freeze({chat_id:chat.chat_uuid,prompt,settings})});
+        }});
+        receipt = await this.#await(deadline, () => Reflect.apply(AUDIO_START,client,[token,deadline.signal]) as Promise<MediaGenerationReceipt>);
+      } else {
+        receipt = await this.#await(deadline, () => Reflect.apply(VIDEO_START, client, [Object.freeze({
+          ai_name: "wan_video", chat_id: chat.chat_uuid, prompt, settings
+        }), deadline.signal]) as Promise<MediaGenerationReceipt>);
+      }
       if (!validReceipt(receipt, chat.chat_uuid)) fail("OUTCOME_UNKNOWN");
       recovery.owner_echo_message_id = receipt.message_id;
       recovery.diagnostic.ack_known = true;
@@ -471,7 +562,7 @@ export class OwnerWanT2vGenerationService {
       if (!recovery || recovery.attemptId !== request.attemptId) fail("RECOVERY_NOT_FOUND");
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, recovery.principal) || this.#invalidatingAttempts.has(request.attemptId)) throw unknownError(recovery);
-      this.#validateModelProfile(recovery.intent.model_id);
+      this.#validateModelProfile(recovery.intent.model_id, isCurrentAdaptive(recovery.intent) || recovery.current_audio);
       if (recovery.status === "completed") return pageResult(recovery, 0);
       return await this.#observe(recovery, this.#resolveNativeClient(request.attemptId), deadline);
     } catch (error) {
@@ -617,15 +708,15 @@ export class OwnerWanT2vGenerationService {
     throw unknownError(recovery);
   }
 
-  async #runPreflight(attemptId: string, normalized: OwnerWanAnyT2vNormalized, deadline: AbsoluteRequestDeadline): Promise<void> {
+  async #runPreflight(attemptId: string, normalized: OwnerWanAnyT2vNormalized, deadline: AbsoluteRequestDeadline, currentAudio = false): Promise<void> {
     if (deadline.signal.aborted) fail("PREFLIGHT_FAILED");
     let accountService: AccountStatusService;
     let accessService: ModelAccessService;
     try {
       accountService = Reflect.apply(this.#createAccountStatusService, undefined, [attemptId]) as AccountStatusService;
       const accessArgs = normalized.intent.model_id === "wan_30_t2v"
-        ? [attemptId, this.#getWan30Catalog()]
-        : [attemptId];
+        ? [attemptId, isCurrentAdaptive(normalized.intent) ? this.#getWan30CurrentCatalog() : this.#getWan30Catalog()]
+        : currentAudio ? [attemptId,this.#getWan30CurrentCatalog()] : [attemptId];
       accessService = Reflect.apply(this.#createModelAccessService, undefined, accessArgs) as ModelAccessService;
     } catch { fail("PREFLIGHT_FAILED"); }
     if (!isExactService(accountService, AccountStatusService, ["getAccountStatus"]) || this.#usedAccountServices.has(accountService) ||
@@ -641,7 +732,7 @@ export class OwnerWanT2vGenerationService {
         cost_parameters: normalized.cost_query_candidate.values
       }), deadline.signal]) as Promise<ModelAccessResult>);
     } catch { fail("PREFLIGHT_FAILED"); }
-    const modelCatalog = normalized.intent.model_id === "wan_30_t2v" ? this.#getWan30Catalog() : this.#catalog;
+    const modelCatalog = normalized.intent.model_id === "wan_30_t2v" ? (isCurrentAdaptive(normalized.intent) ? this.#getWan30CurrentCatalog() : this.#getWan30Catalog()) : currentAudio ? this.#getWan30CurrentCatalog() : this.#catalog;
     assertFreshPreflight(account, access, normalized, modelCatalog, this.#readNow());
   }
 
@@ -678,11 +769,43 @@ export class OwnerWanT2vGenerationService {
     return catalog;
   }
 
-  #validateModelProfile(modelId: OwnerWanAnyT2vModel): void {
+  #getWan30CurrentCatalog(): DiscoveryCatalogRepository {
+    if (this.#wan30CurrentCatalog) return this.#wan30CurrentCatalog;
+    let catalog: DiscoveryCatalogRepository;
+    try { catalog = new DiscoveryCatalogRepository(loadPublicCatalogVersion(WAN30_CURRENT_ADAPTIVE_SOURCE.source_pins.public_catalog_version, this.#catalogDirectory)); }
+    catch { fail("MODEL_BINDING_MISMATCH"); }
+    if (catalog.source_hashes.models !== "sha256:11f085ad9b0dd97435d6ebece623fa85bce2870e714e876e6fbb041c562fb438") fail("MODEL_BINDING_MISMATCH");
+    this.#wan30CurrentCatalog = catalog; return catalog;
+  }
+
+  #validateAudioModel(modelId: "wan_26_t2v" | "wan_27_t2v"): void {
+    const catalog = this.#getWan30CurrentCatalog(), model = catalog.getModel(modelId);
+    const maxFiles = model.settings?.max_file_size, count = model.settings?.file_count_limit;
+    if (!model.active || model.id !== modelId || model.upstream_id !== modelId || model.ai_name !== "wan_video" ||
+        !model.settings || !Array.isArray(model.settings.accepted_file_types) ||
+        !["audio/mp3", "audio/mpeg", "audio/wav", "audio/x-wav"].every(x => model.settings!.accepted_file_types!.includes(x)) ||
+        !maxFiles || typeof maxFiles !== "object" || Array.isArray(maxFiles) || (maxFiles as Record<string,unknown>).audios !== 15_728_640 ||
+        !(count === 1 || !!count && typeof count === "object" && !Array.isArray(count) && (count as Record<string,unknown>).audios === 1) ||
+        model.settings.max_audio_total_duration !== 30 || model.settings.min_audio_total_duration !== (modelId === "wan_26_t2v" ? 3 : 2) ||
+        !Array.isArray(model.settings.get_cost_params) ||
+        !sameStrings(model.settings.get_cost_params, ["video_duration", "resolution"])) fail("MODEL_BINDING_MISMATCH");
+  }
+
+  #resolveAudio(handle: string, attempt: string, modelId: OwnerWanAnyT2vModel,
+    principal: Readonly<GenerationPrincipalRef>, client: SyntxChatHttpClient): WanAudioRecord {
+    this.#assertOpen();
+    const ref = this.#audioRefs.get(handle);
+    if (!ref || !AUDIO_HANDLE.test(handle) || ref.attempt !== attempt || ref.model !== modelId ||
+        ref.client !== client || !sameGenerationPrincipal(ref.principal,principal) || ref.expiresAt <= this.#readNow() ||
+        !isSafeUploadReferenceUrl(ref.url) || this.#invalidatingAttempts.has(attempt)) fail("REFERENCE_UNAVAILABLE");
+    return ref;
+  }
+
+  #validateModelProfile(modelId: OwnerWanAnyT2vModel, currentAdaptive = false): void {
     this.#assertSourceCatalog(modelId);
     if (!MODELS.includes(modelId)) fail("MODEL_BINDING_MISMATCH");
     const isWan30 = modelId === "wan_30_t2v";
-    const catalog = isWan30 ? this.#getWan30Catalog() : this.#catalog;
+    const catalog = isWan30 ? (currentAdaptive ? this.#getWan30CurrentCatalog() : this.#getWan30Catalog()) : currentAdaptive ? this.#getWan30CurrentCatalog() : this.#catalog;
     const model = catalog.getModel(modelId);
     if (isWan30) {
       const declaredCostKeys = model.settings?.get_cost_params;
@@ -784,6 +907,7 @@ function createRecovery(input: {
   readonly chatUuid: string;
   readonly now: number;
   readonly semanticKey: string;
+  readonly currentAudio: boolean;
 }): Recovery {
   const recoveryId = `wan_t2v_recovery_${randomUUID()}`;
   return {
@@ -791,12 +915,13 @@ function createRecovery(input: {
     attemptId: input.attemptId,
     principal: input.principal,
     intent: input.normalized.intent,
-    source_binding: Object.freeze({ profile_id: "profile_id" in input.source
-      ? input.source.profile_id : "owner-wan-t2v-current-b066-1b48",
-      source_pins: Object.freeze({ ...input.source.source_pins }) }),
+    source_binding: Object.freeze(input.currentAudio ? {profile_id:"owner-wan-t2v-audio-current-source-v1",
+      source_pins:Object.freeze({...WAN_T2V_AUDIO_UPLOAD_SOURCE})} : { profile_id: "source_profile_id" in input.normalized
+      ? input.normalized.source_profile_id : "owner-wan-t2v-current-b066-1b48", source_pins: Object.freeze({ ...input.normalized.source_pins }) }),
     semantic_key: input.semanticKey,
     chat_uuid: input.chatUuid,
     created_at: new Date(input.now).toISOString(),
+    current_audio: input.currentAudio,
     owner_echo_message_id: null,
     status: "outcome_unknown",
     artifacts: Object.freeze([]),
@@ -855,11 +980,13 @@ function bindT2vHistory(snapshotInput: unknown, recovery: Recovery):
         if (recovery.owner_echo_message_id === null || row.message_id !== recovery.owner_echo_message_id) {
           return { status: "INVALID", reason: "OWNER_ACK_MISMATCH" };
         }
+        let audioCount = 0;
         for (const rawAckObject of row.objects as unknown[]) {
           const ackObject = readExactRecord(rawAckObject, ["message_object_id", "object_type", "model_type"]);
           if (!isSafeId(ackObject.message_object_id)) return { status: "INVALID", reason: "HISTORY_SHAPE_INVALID" };
           if (objectIds.has(ackObject.message_object_id)) return { status: "INVALID", reason: "RESULT_OBJECT_DUPLICATE" };
-          if (ackObject.object_type !== "text") return { status: "INVALID", reason: "RESULT_OBJECT_TYPE_MISMATCH" };
+          if (ackObject.object_type === "audio" && recovery.current_audio) audioCount++;
+          else if (ackObject.object_type !== "text") return { status: "INVALID", reason: "RESULT_OBJECT_TYPE_MISMATCH" };
           if (ackObject.model_type !== null && typeof ackObject.model_type !== "string") {
             return { status: "INVALID", reason: "HISTORY_SHAPE_INVALID" };
           }
@@ -868,6 +995,7 @@ function bindT2vHistory(snapshotInput: unknown, recovery: Recovery):
           }
           objectIds.add(ackObject.message_object_id);
         }
+        if (recovery.current_audio && audioCount !== 1) return { status: "INVALID", reason: "RESULT_OBJECT_TYPE_MISMATCH" };
         continue;
       }
       const normalizedObjects = [];
@@ -976,11 +1104,16 @@ function validateLocalPromptResourceLimit(prompt: string): void {
   if (Buffer.byteLength(prompt, "utf8") > MAX_PROMPT_UTF8_BYTES) invalid();
 }
 
-function semanticIntentKey(principal: Readonly<GenerationPrincipalRef>, normalized: OwnerWanAnyT2vNormalized): string {
+function semanticIntentKey(principal: Readonly<GenerationPrincipalRef>, normalized: OwnerWanAnyT2vNormalized, audioSha?: string): string {
   const profileId = "source_profile_id" in normalized ? normalized.source_profile_id : "owner-wan-t2v-current-b066-1b48";
   const payload = JSON.stringify({ principal: { tenant_id: principal.tenant_id, subject_id: principal.subject_id },
-    source: { profile_id: profileId, source_pins: normalized.source_pins }, intent: normalized.intent });
+    source: { profile_id: profileId, source_pins: normalized.source_pins }, intent: normalized.intent,
+    ...(audioSha === undefined ? {} : { audio_sha256: audioSha, audio_source: WAN_T2V_AUDIO_UPLOAD_SOURCE }) });
   return createHash("sha256").update(payload).digest("hex");
+}
+
+function isCurrentAdaptive(intent: OwnerWanAnyT2vNormalized["intent"]): boolean {
+  return intent.model_id === "wan_30_t2v" && intent.parameters.aspect_ratio === "adaptive";
 }
 
 function isSafeVideoArtifactUrl(value: string): boolean {
@@ -1012,11 +1145,13 @@ function isExactInstance<T extends object>(value: unknown, ctor: new (...args: n
 
 function snapshotGenerate(value: unknown): Readonly<OwnerWanT2vGenerateInput> {
   try {
-    const row = readExactRecord(value, ["attemptId", "input"]);
+    const row = readExactRecord(value, ["attemptId", "input"], ["audio_handle"]);
     const attemptId = safeAttempt(row.attemptId);
     const normalized = normalizeGenerationIntent(row.input);
     validateLocalPromptResourceLimit(normalized.intent.prompt);
-    return Object.freeze({ attemptId, input: normalized.intent });
+    if (row.audio_handle !== undefined && (typeof row.audio_handle !== "string" || !AUDIO_HANDLE.test(row.audio_handle) ||
+        normalized.intent.model_id === "wan_30_t2v")) invalid();
+    return Object.freeze({ attemptId, input: normalized.intent, ...(row.audio_handle === undefined ? {} : {audio_handle: row.audio_handle as string}) });
   } catch (error) {
     if (error instanceof OwnerWanT2vGenerationServiceError) throw error;
     if (error instanceof OwnerWanT2vGenerationParametersError || error instanceof OwnerWan30T2vGenerationParametersError) fail("INVALID_REQUEST");

@@ -4,7 +4,7 @@ import type { DiscoveryCatalogRepository, DiscoveryModelRecord } from "./discove
 import type { RuntimeCapabilityCatalog, RuntimeCapabilityRecord } from "./runtime-capability-catalog.js";
 import { z } from "zod/v4";
 
-export const MEDIA_COVERAGE_VERSION = "5.0.0" as const;
+export const MEDIA_COVERAGE_VERSION = "6.0.0" as const;
 
 export interface MediaCoverageRecord {
   readonly model_id: string;
@@ -51,23 +51,47 @@ const nativeAliasBindingSchema = z.object({
 }).strict();
 
 const routeSnapshotSchema = z.object({
-  schema_version: z.literal("5.0.0"),
+  schema_version: z.literal("6.0.0"),
   captured_date: z.iso.date(),
   public_catalog_version: z.string().min(1),
   public_source_hashes: z.object({ ai: z.string().min(1), llm_models: z.string().min(1), models: z.string().min(1) }).strict(),
   owner_tool_schema_profile_catalog_version: z.string().min(1),
   owner_tool_count: z.null(),
   owner_tool_count_status: z.literal("UNVERIFIED_FOR_ROUTE_EXTENSION"),
-  route_method: z.literal("REUSED_V4_CODE_BINDINGS_PLUS_SUNO_UPLOAD_NO_PROVIDER_PROOF"),
-  route_provenance: z.object({ source_v4: z.literal("catalog/media-coverage/owner-tool-routes-v4.json"),
-    source_v4_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
-    suno_upload: z.literal("SOURCE_CODE_INSPECTION_REQUIRES_SUNO_FFPROBE_AND_OWNER_GENERATION_OPT_IN"),
-    limitations: z.literal("NO_NEW_TOOLS_LIST_CAPTURE_OR_PROVIDER_ACCEPTANCE_OR_FULL_SETTINGS_PROOF") }).strict(),
+  route_method: z.literal("REUSED_V5_WITH_CURRENT_MEDIA_SOURCE_BINDINGS_NO_PROVIDER_PROOF"),
+  route_provenance: z.object({ source_v5: z.literal("catalog/media-coverage/owner-tool-routes-v5.json"),
+    source_v5_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+    settings_inventory_version: z.string().regex(/^sha256-[a-f0-9]{64}\.json$/u),
+    frontend_build_id: z.literal("1793890358"),
+    editor_frame: z.object({ tool_name: z.literal("syntx_owner_upload_seedance_editor_frame"),
+      public_model_id: z.literal("seedance-2.5"), form_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+      policy_source: z.literal("src/application/owner-seedance-editor-frame-policy.ts") }).strict(),
+    current_profile_catalog_version: z.string().regex(/^sha256-[a-f0-9]{64}\.json$/u),
+    current_reference: z.object({ model_ids: z.array(z.string().min(1)).min(1),
+      operator_flag: z.literal("SYNTX_OWNER_CURRENT_VIDEO_REFERENCES"),
+      common_policy_tool: z.literal("syntx_get_current_video_reference_policy"),
+      upload_model_ids: z.array(z.string().min(1)).min(1),
+      source_paths: z.array(z.string().regex(/^src\//u)).min(1) }).strict(),
+    additional_input_routes: z.array(z.object({ model_ids: z.array(z.string().min(1)).min(1), tool_name: z.string().min(1),
+      operator_flag: z.string().regex(/^SYNTX_OWNER_[A-Z0-9_]+$/u), source_path: z.string().regex(/^src\//u) }).strict()).min(1),
+    current_manual_sources: z.array(z.object({ model_ids: z.array(z.string().min(1)).min(1), tool_name: z.string().min(1),
+      source_path: z.literal("src/mcp/owner-image-manual-current-source.ts"), pricing_catalog_version: z.string().min(1) }).strict()).length(3),
+    limitations: z.literal("CODE_BINDINGS_ONLY_NO_PROVIDER_ALL_SETTINGS_OR_TOOLS_COUNT_CLAIM") }).strict(),
+  source_only_model_ids: z.tuple([z.literal("gpt-image-2.6-flare"), z.literal("gpt-image-2.6-sunburst")]),
+  source_census: z.object({ non_text: z.literal(127), active: z.literal(120), active_code_mapped: z.literal(119),
+    active_selectors: z.literal(1), image: z.literal(48), video: z.literal(71), audio: z.literal(8) }).strict(),
   routes: z.record(z.string().min(1), z.array(z.string().min(1)).min(1)),
   native_alias_bindings: z.array(nativeAliasBindingSchema).min(1)
 }).strict();
 
 const GENERATOR_FLAGS: Readonly<Record<string, string>> = Object.freeze({
+  syntx_owner_generate_wan_current: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
+  syntx_owner_generate_seedance_current_video: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
+  syntx_owner_generate_hailuo3_current: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
+  syntx_owner_generate_luma_current: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
+  syntx_owner_generate_veo3_current: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
+  syntx_owner_generate_flux3_current_video: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
+
   syntx_owner_generate_acttwo_video: "SYNTX_OWNER_ACTTWO",
   syntx_owner_generate_clarity_upscale_image: "SYNTX_OWNER_CLARITY_UPSCALE",
   syntx_owner_generate_elevenlabs_dialogue: "SYNTX_OWNER_ELEVENLABS_DIALOGUE",
@@ -137,11 +161,17 @@ const GENERATOR_FLAGS: Readonly<Record<string, string>> = Object.freeze({
 });
 
 function loadReviewedOwnerRoutes(discovery: DiscoveryCatalogRepository) {
-  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v5.json", import.meta.url));
+  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v6.json", import.meta.url));
   const raw: unknown = JSON.parse(readFileSync(routePath, "utf8"));
   const snapshot = routeSnapshotSchema.parse(raw);
   if (JSON.stringify(snapshot.public_source_hashes) !== JSON.stringify(discovery.source_hashes)) {
     throw new TypeError("MEDIA_COVERAGE_OWNER_ROUTE_SOURCE_MISMATCH");
+  }
+  for (const modelId of snapshot.source_only_model_ids) {
+    if (discovery.getModel(modelId).active || snapshot.routes[modelId] !== undefined ||
+        snapshot.native_alias_bindings.some(binding => binding.public_model_ids.includes(modelId))) {
+      throw new TypeError("MEDIA_COVERAGE_SOURCE_ONLY_ROUTE_INVALID");
+    }
   }
   const records = new Map<string, { tools: string[]; flags: string[] }>();
   const toolSets = new Map<string, Set<string>>();
@@ -206,7 +236,7 @@ export class MediaCoverageCatalog {
       source_hashes: this.#sourceHashes, total: records.length, offset, limit,
       next_offset: offset + items.length < records.length ? offset + items.length : null,
       census: census(records),
-      interpretation_notes: ["Route bindings are reused from v4 with a Suno upload code mapping; no new tools/list or provider result is asserted.", "Suno audio upload registration requires the Suno owner opt-in and a configured ffprobe path.", "Hailuo Minimax is a selector root, not a generator profile.", "Seedance Editor is an operation attached to seedance-2.5; it is not a separate public model ID."],
+      interpretation_notes: ["Route bindings are reused from v5 with a source-bound Seedance Editor frame upload mapping; code mapping does not establish provider acceptance or full settings coverage.", "Suno audio upload registration requires the Suno owner opt-in and a configured ffprobe path.", "Hailuo Minimax is a selector root, not a generator profile.", "Seedance Editor is an operation attached to seedance-2.5; it is not a separate public model ID.", "The two new inactive GPT Image 2.6 identities are source-only; no generation route or native-profile promotion is implied."],
       items
     };
   }

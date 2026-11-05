@@ -1,3 +1,4 @@
+import { ownerImageManualCurrentProfileHash } from "./owner-image-manual-current-controls.js";
 import { types } from "node:util";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import { schemaHash } from "../domain/generation-contract.js";
@@ -203,8 +204,9 @@ export function prepareOwnerClarityUpscaleRequest(input: PrepareOwnerClarityUpsc
     settings: deepFreeze(settings)
   });
   const requestQuery = Object.freeze({ ai_name: PROFILE.ai_name });
+  const profileSchemaHash = ownerImageManualCurrentProfileHash("clarity", PROFILE_SCHEMA_HASH, settings);
   const requestFingerprint = schemaHash({
-    profile_schema_hash: PROFILE_SCHEMA_HASH,
+    profile_schema_hash: profileSchemaHash,
     principal,
     attempt_id: request.attempt_id,
     prompt: prompt ?? null,
@@ -217,7 +219,7 @@ export function prepareOwnerClarityUpscaleRequest(input: PrepareOwnerClarityUpsc
     dispatch_allowed: false as const,
     backend_acceptance: PROFILE.backend_acceptance,
     profile_id: PROFILE.profile_id,
-    profile_schema_hash: PROFILE_SCHEMA_HASH,
+    profile_schema_hash: profileSchemaHash,
     source_binding: PROFILE.source_binding,
     model_id: PROFILE.model_id,
     ai_name: PROFILE.ai_name,
@@ -320,11 +322,9 @@ function normalizeParameters(value: unknown, width: number, height: number): Rea
     ? isStepValue(record.scale_factor, PROFILE.settings.professional_scale_factor.minimum, maximumFactor,
       PROFILE.settings.professional_scale_factor.step)
     : (PROFILE.settings.ordinary_scale_factors as readonly number[]).includes(record.scale_factor) && record.scale_factor <= maximumFactor;
-  if (!validScale || !isStepValue(record.strength, PROFILE.settings.strength.minimum,
-    PROFILE.settings.strength.maximum, PROFILE.settings.strength.step) ||
-      !Number.isInteger(record.cfg) || record.cfg < PROFILE.settings.cfg.minimum || record.cfg > PROFILE.settings.cfg.maximum ||
-      !isStepValue(record.denoise, PROFILE.settings.denoise.minimum,
-        PROFILE.settings.denoise.maximum, PROFILE.settings.denoise.step)) fail("PARAMETERS_INVALID");
+  if (!validScale || !Number.isFinite(record.strength) || record.strength < PROFILE.settings.strength.minimum || record.strength > PROFILE.settings.strength.maximum ||
+      !Number.isFinite(record.cfg) || record.cfg < PROFILE.settings.cfg.minimum || record.cfg > PROFILE.settings.cfg.maximum ||
+      !Number.isFinite(record.denoise) || record.denoise < PROFILE.settings.denoise.minimum || record.denoise > PROFILE.settings.denoise.maximum) fail("PARAMETERS_INVALID");
   return Object.freeze({
     professional_mode: record.professional_mode,
     scale_factor: record.scale_factor,

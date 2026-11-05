@@ -88,7 +88,7 @@ test("exposes distinct source-bound profiles without promoting runtime or unreso
 test("requires explicit K4 version, allowed mode, ratio, duration, and audio branch", () => {
   for (const patch of [
     { version: "3.0-turbo" }, { version: "" }, { mode: "4k" }, { aspect_ratio: "4:3" },
-    { video_duration: 2 }, { video_duration: 31 }, { video_duration: 3.5 }, { native_audio: false }
+    { video_duration: 2 }, { video_duration: 31 }, { video_duration: NaN }, { native_audio: false }
   ]) expectInvalid(candidate(patch));
 
   const omni = normalizeOwnerKling4Parameters(candidate({ model_id: "kling_4_omni", native_audio: false }));

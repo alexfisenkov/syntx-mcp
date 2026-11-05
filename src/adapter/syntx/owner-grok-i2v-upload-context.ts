@@ -102,8 +102,7 @@ function readMetadata(value: unknown): Readonly<{ model_id: OwnerGrokI2vImageMod
         typeof f.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(f.sha256) ||
         !Number.isSafeInteger(f.width) || (f.width as number) < 1 || (f.width as number) > 8_400 ||
         !Number.isSafeInteger(f.height) || (f.height as number) < 1 || (f.height as number) > 8_400 ||
-        (f.width as number) * (f.height as number) > 52_500_000 ||
-        (f.model_id === "grok_i2v" && (f.width as number) * 9 !== (f.height as number) * 16)) return null;
+        (f.width as number) * (f.height as number) > 52_500_000) return null;
     return Object.freeze({ model_id: f.model_id as OwnerGrokI2vImageModelId, destination: f.destination as OwnerGrokI2vUploadDestination,
       mime_type: f.mime_type as OwnerGrokI2vImageMimeType, size: f.size as number, sha256: f.sha256,
       width: f.width as number, height: f.height as number });

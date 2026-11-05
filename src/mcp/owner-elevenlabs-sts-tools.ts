@@ -16,6 +16,8 @@ const MAX_UPLOAD_BYTES = 52_428_800;
 const MAX_BASE64_CHARS = Math.ceil(MAX_UPLOAD_BYTES / 3) * 4;
 const MAX_RESULTS = 4_096;
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
+import { OWNER_ELEVENLABS_STS_CURRENT_INPUTS } from "../application/owner-elevenlabs-sts-wav-preparation.js";
+
 const ORIGINAL = /^elevenlabs_sts_original_[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const VOICE = /^owner_elevenlabs_voice_[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const RECOVERY = /^elevenlabs_sts_recovery_[0-9a-f-]{36}$/u;
@@ -41,8 +43,8 @@ const originalSchema = z.string().regex(ORIGINAL);
 const voiceSchema = z.string().regex(VOICE).describe("Opaque owner voice reference from the shared ElevenLabs voice-list tool.");
 const recoverySchema = z.string().regex(RECOVERY);
 const parametersInput = z.object({}).strict();
-const uploadInput = z.object({ link_attempt_id: attemptSchema, filename: z.string().min(1).max(255).regex(/^[^\u0000-\u001f\\/:*?"<>|]+\.mp3$/iu),
-  mime_type: z.literal("audio/mpeg"), content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)) }).strict();
+const uploadInput = z.object({ link_attempt_id: attemptSchema, filename: z.string().min(1).max(255).regex(/^[^\u0000-\u001f\\/:*?"<>|]+\.(?:mp3|wav)$/iu),
+  mime_type: z.enum(["audio/mpeg", "audio/mp3", "audio/wav"]), content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)) }).strict();
 const generateInput = z.object({ link_attempt_id: attemptSchema, model_id: z.literal(OWNER_ELEVENLABS_STS_MODEL_ID),
   mode: z.literal(OWNER_ELEVENLABS_STS_MODE), audio_original_handle: originalSchema, voice_ref: voiceSchema }).strict();
 const reconcileInput = z.object({ link_attempt_id: attemptSchema, recovery_id: recoverySchema }).strict();
@@ -72,14 +74,17 @@ const resultSchema = z.object({ status: z.literal("completed"), status_semantics
   });
 const uploadOutput = z.object({ status: z.literal("uploaded"), audio_original_handle: originalSchema,
   sha256: z.string().regex(/^[a-f0-9]{64}$/u), size: z.number().int().min(1).max(MAX_UPLOAD_BYTES), mime_type: z.literal("audio/mpeg"),
-  duration_seconds: z.number().positive().max(300), expires_in_seconds: z.number().int().min(0).max(900) }).strict();
+  duration_seconds: z.number().positive().max(300), expires_in_seconds: z.number().int().min(0).max(900), preparation: z.object({ kind: z.literal("WAV_TO_MP3_LOCAL_FULL_AUDIO"),
+    original_mime_type: z.literal("audio/wav"), original_sha256: z.string().regex(/^[a-f0-9]{64}$/u), original_size: z.number().int().positive().max(MAX_UPLOAD_BYTES),
+    original_duration_seconds: z.number().min(5).max(300), uploaded_duration_seconds: z.number().min(5).max(300), sample_rate: z.literal(48000), channels: z.number().int().min(1).max(2),
+    duration_basis: z.literal("ACTUAL_DECODED_PRESENTATION_SAMPLES_NOT_MP3_CONTAINER_PADDING"), direct_wav_upload: z.literal(false) }).strict().optional() }).strict();
 const recoveryItem = z.object({ recovery_id: recoveryId, created_at: z.iso.datetime(), model_id: z.literal(OWNER_ELEVENLABS_STS_MODEL_ID),
   status: z.enum(["outcome_unknown", "completed"]), observed_artifact_count: z.number().int().min(0).max(MAX_RESULTS), diagnostic: diagnosticSchema }).strict();
 const recoveryListOutput = z.object({ recoveries: z.array(recoveryItem).max(128) }).strict();
 const parametersOutput = z.object({ status: z.literal("PARTIAL_SOURCE_REPORT"), model_id: z.literal(OWNER_ELEVENLABS_STS_MODEL_ID),
   mode: z.literal(OWNER_ELEVENLABS_STS_MODE), source_scope: z.literal("PARTIAL_SOURCE_REPORT_ONLY"),
   original: z.object({ mime_type: z.literal("audio/mpeg"), minimum_duration_seconds: z.literal(5), maximum_duration_seconds: z.literal(300),
-    maximum_bytes: z.literal(MAX_UPLOAD_BYTES) }).strict(), runtime_usable: z.literal(false), generation_allowed: z.literal(false),
+    maximum_bytes: z.literal(MAX_UPLOAD_BYTES) }).strict(), current_input_compatibility: z.record(z.string(), z.unknown()), runtime_usable: z.literal(false), generation_allowed: z.literal(false),
   backend_acceptance: z.literal("UNPROVEN") }).strict();
 
 export interface RegisterSyntxOwnerElevenLabsStsToolsOptions {
@@ -97,7 +102,7 @@ export function registerSyntxOwnerElevenLabsStsTools(server: McpServer, optionsI
   }, async () => structured(parseOutput(parametersOutput, parameterProjection())));
 
   server.registerTool(SYNTX_OWNER_UPLOAD_ELEVENLABS_STS_ORIGINAL_TOOL_NAME, { title: "Upload owner ElevenLabs STS original",
-    description: "Validates and uploads one bounded MP3 source for the exact linked owner attempt. An uncertain upload must not be repeated.",
+    description: "Validates one owner audio source5..300s/50MiB. MP3 (audio/mpeg or audio/mp3) remains byte-identical. WAV requires configured trusted operator ffmpeg and is locally converted in full to48kHz MP3, at most2channels, with decoded presentation sample count; preparation metadata is returned. No trimming or direct WAV provider acceptance claim. An uncertain upload must not be repeated.",
     inputSchema: uploadInput, outputSchema: uploadOutput,
     annotations: { title: "Upload STS original audio", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => {
@@ -115,7 +120,7 @@ export function registerSyntxOwnerElevenLabsStsTools(server: McpServer, optionsI
       }
       try {
         const result = await options.originalReferenceService.uploadOriginal({ attemptId: parsed.data.link_attempt_id,
-          filename: parsed.data.filename, mime_type: "audio/mpeg", bytes }, signal);
+          filename: parsed.data.filename, mime_type: parsed.data.mime_type, bytes }, signal);
         return structured(parseOutput(uploadOutput, result));
       } finally { bytes.fill(0); }
     } catch (error) { return originalError(error, "PROBE_REJECTED"); }
@@ -173,7 +178,7 @@ const GENERATION_MESSAGES: Record<OwnerElevenLabsStsGenerationServiceErrorCode, 
 const ORIGINAL_MESSAGES: Record<OwnerElevenLabsStsOriginalReferenceServiceErrorCode, string> = {
   INVALID_REQUEST: "The STS original upload request is invalid.", PRINCIPAL_NOT_LINKED: "A currently linked owner attempt is required.",
   REQUEST_ABORTED: "The STS original upload was cancelled.", SERVICE_BUSY: "The STS original service is busy.", CAPACITY_EXCEEDED: "The STS original service is full.",
-  SERVICE_CLOSED: "The STS original service is closed.", PROBE_REJECTED: "The source was not accepted as a valid MP3.", UPLOAD_REJECTED: "The upload was rejected.",
+  SERVICE_CLOSED: "The STS original service is closed.", PROBE_REJECTED: "The source was not accepted as valid MP3 or configured WAV preparation.", UPLOAD_REJECTED: "The upload was rejected.",
   UPLOAD_OUTCOME_UNKNOWN: "The upload outcome is unknown; do not repeat it.", REFERENCE_UNAVAILABLE: "The uploaded original is unavailable.", REFERENCE_EXPIRED: "The uploaded original has expired."
 };
 
@@ -194,6 +199,7 @@ function isOriginalService(value: unknown): value is OwnerElevenLabsStsOriginalR
 function parameterProjection() {
   const p = getOwnerElevenLabsStsParameterProfile();
   return { status: "PARTIAL_SOURCE_REPORT", model_id: p.model_id, mode: p.mode, source_scope: p.source_scope,
+    current_input_compatibility: OWNER_ELEVENLABS_STS_CURRENT_INPUTS,
     original: { mime_type: p.input_boundary.mime_type, minimum_duration_seconds: p.input_boundary.minimum_duration_seconds,
       maximum_duration_seconds: p.input_boundary.maximum_duration_seconds, maximum_bytes: p.input_boundary.maximum_bytes },
     runtime_usable: false, generation_allowed: false, backend_acceptance: p.backend_acceptance };

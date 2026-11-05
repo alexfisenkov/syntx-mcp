@@ -29,13 +29,15 @@ export const OWNER_SEEDANCE_EDITOR_TOOL_NAMES = Object.freeze([
   "syntx_owner_upload_seedance_editor_video",
   "syntx_owner_generate_seedance_editor_video",
   "syntx_owner_reconcile_seedance_editor_video",
-  "syntx_owner_list_seedance_editor_recoveries"
+  "syntx_owner_list_seedance_editor_recoveries",
+  "syntx_owner_upload_seedance_editor_frame"
 ] as const);
 
 export interface OwnerSeedanceEditorToolOptions {
   readonly maxVideoFileBytes?: number;
   readonly referenceService: {
     uploadReference(input: unknown, signal?: AbortSignal): Promise<unknown>;
+    uploadFrame?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   };
   readonly generationService: {
     generate(input: unknown, signal?: AbortSignal): Promise<unknown>;
@@ -59,8 +61,15 @@ const uploadInput = z.object({
 });
 const generateInput = z.object({
   link_attempt_id: attempt, model_id: z.literal(MODEL_ID), prompt: z.string().min(1).max(5_000).refine(isWellFormedUnicode),
-  resolution: z.enum(["480p", "720p", "1080p"]), reference_handle: handle
+  resolution: z.enum(["480p", "720p", "1080p"]), reference_handle: handle,
+  frame_handles: z.array(z.string().regex(/^seedance_editor_frame_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u)).max(30).optional()
 }).strict().refine(value => value.prompt.trim().length > 0, "Prompt must not be blank.");
+const frameInput = z.object({ link_attempt_id: attempt, model_id: z.literal(MODEL_ID), reference_handle: handle,
+  filename: z.string().min(1).max(128).regex(/\.png$/iu), mime_type: z.literal("image/png"),
+  content_base64: z.string().min(4).max(Math.ceil(20 * 1024 * 1024 / 3) * 4)
+    .refine(v => isCanonicalBase64Bounded(v, Math.ceil(20 * 1024 * 1024 / 3) * 4)), time_seconds: z.number().finite().min(0).max(30) }).strict();
+const frameOutput = z.object({ status: z.literal("uploaded"), frame_handle: z.string().regex(/^seedance_editor_frame_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u),
+  time_seconds: z.number().finite().min(0).max(30), expires_in_seconds: z.number().int().min(0).max(900) }).strict();
 const reconcileInput = z.object({ link_attempt_id: attempt, recovery_id: recoveryId }).strict();
 const listInput = z.object({ link_attempt_id: attempt }).strict();
 
@@ -152,14 +161,15 @@ export function registerSyntxOwnerSeedanceEditorTools(server: McpServer, options
 
   server.registerTool(OWNER_SEEDANCE_EDITOR_TOOL_NAMES[1], {
     title: "Generate one Seedance Editor video",
-    description: "Experimental no-frame request using an opaque owner-uploaded source video. The current static source removes n and initializes generate_audio=true; the same wire choices are sent here. The earlier UI received HTTP 400, so provider acceptance and the cause are unproven. Resolution and prompt are explicit. Cost is not capped; reconcile uncertain dispatch and never repeat generation.",
+    description: "Experimental request using an opaque owner-uploaded video and optional frame handles tied to that same video. Frames are appended as timestamped mentions. The source removes n and initializes generate_audio=true. Provider acceptance of frames is unproven; cost is not capped. Reconcile uncertain dispatch and never repeat generation.",
     inputSchema: generateInput, outputSchema: resultSchema,
     annotations: { title: "Generate one Seedance Editor video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => {
     try {
       const data = generateInput.parse(snapshotInput(input));
       const result = await options.generationService.generate({ attemptId: data.link_attempt_id, model_id: MODEL_ID,
-        prompt: data.prompt, resolution: data.resolution, reference_handle: data.reference_handle }, signal);
+        prompt: data.prompt, resolution: data.resolution, reference_handle: data.reference_handle,
+        ...(data.frame_handles === undefined ? {} : { frame_handles: data.frame_handles }) }, signal);
       return success(resultSchema, result, "OUTCOME_UNKNOWN");
     } catch (error) { return safeError(error); }
   });
@@ -188,6 +198,26 @@ export function registerSyntxOwnerSeedanceEditorTools(server: McpServer, options
       const result = await options.generationService.listRecoveries({ attemptId: data.link_attempt_id });
       return success(recoveriesOutput, { recoveries: result });
     } catch (error) { return safeError(error); }
+  });
+
+  server.registerTool(OWNER_SEEDANCE_EDITOR_TOOL_NAMES[4], {
+    title: "Upload a Seedance Editor frame",
+    description: "Upload a PNG frame (local limit 20 MiB; structural metadata checked, pixels not decoded) for an already uploaded source video, bound to the same owner, attempt, video and time. Provide seconds within the video's duration. Returns a short-lived opaque handle; do not retry an uncertain upload. Provider acceptance is unproven.",
+    inputSchema: frameInput, outputSchema: frameOutput,
+    annotations: { title: "Upload a Seedance Editor frame", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
+  }, async (input, { signal }) => {
+    let bytes: Buffer | undefined;
+    try {
+      const data = frameInput.parse(snapshotInput(input));
+      if (typeof options.referenceService.uploadFrame !== "function") return errorResult("SERVICE_CLOSED");
+      bytes = Buffer.from(data.content_base64, "base64");
+      if (bytes.length < 1 || bytes.length > 20 * 1024 * 1024 || bytes.toString("base64") !== data.content_base64) return errorResult("INVALID_REQUEST");
+      const value = await options.referenceService.uploadFrame({ attemptId: data.link_attempt_id, model_id: MODEL_ID,
+        reference_handle: data.reference_handle, filename: data.filename, mime_type: data.mime_type, bytes, time_seconds: data.time_seconds }, signal);
+      const result = frameOutput.safeParse(value);
+      if (!result.success || result.data.time_seconds !== data.time_seconds) return errorResult("UPLOAD_OUTCOME_UNKNOWN");
+      return success(frameOutput, result.data, "UPLOAD_OUTCOME_UNKNOWN");
+    } catch (error) { return safeError(error); } finally { bytes?.fill(0); }
   });
 }
 
@@ -226,7 +256,15 @@ function snapshotInput(value: unknown): unknown {
     const descriptors = Object.getOwnPropertyDescriptors(value), result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
     for (const key of Reflect.ownKeys(descriptors)) {
       if (typeof key !== "string" || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true) return undefined;
-      result[key] = descriptors[key]!.value;
+      const value = descriptors[key]!.value;
+      if (key === "frame_handles") {
+        if (!Array.isArray(value) || types.isProxy(value) || Object.getPrototypeOf(value) !== Array.prototype) return undefined;
+        const d = Object.getOwnPropertyDescriptors(value) as unknown as PropertyDescriptorMap, n = d.length?.value;
+        if (!Number.isSafeInteger(n) || n < 0 || n > 30 || Reflect.ownKeys(d).length !== n + 1) return undefined;
+        const handles: string[] = [];
+        for (let i = 0; i < n; i++) { const item = d[String(i)]; if (!item || !("value" in item) || !item.enumerable || typeof item.value !== "string") return undefined; handles.push(item.value); }
+        result[key] = handles;
+      } else result[key] = value;
     }
     return result;
   } catch { return undefined; }

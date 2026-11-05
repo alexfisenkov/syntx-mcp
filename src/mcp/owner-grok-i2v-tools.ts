@@ -73,7 +73,7 @@ const generateInput = z.object({
   model_id: modelId,
   prompt: z.string().min(1).max(5_000).refine(isWellFormedUnicode),
   aspect_ratio: z.enum(ASPECT_RATIOS),
-  video_duration: z.number().int().min(1).max(15),
+  video_duration: z.number().finite().min(1).max(15),
   resolution: z.enum(RESOLUTIONS),
   reference_handle: handle
 }).strict().superRefine((value, context) => {

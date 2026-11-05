@@ -1,3 +1,4 @@
+import { normalizeOwnerKlingMediaCurrentParameters, type OwnerKlingMediaCurrentParametersInput, type OwnerKlingMediaCurrentSourceParameters } from "./owner-kling-media-current-controls.js";
 import { types } from "node:util";
 import { schemaHash } from "../domain/generation-contract.js";
 
@@ -60,17 +61,18 @@ const SOURCE_PROFILE = deepFreeze({ ...SOURCE_FACTS, source_sha256: schemaHash(S
 
 type CommonInput<M extends OwnerKlingMediaModelId> = { readonly model_id: M; readonly prompt: string; readonly version: "1.6";
   readonly mode: "hd"; readonly video_duration: 5; readonly native_audio: false };
-export type OwnerKlingMediaParametersInput =
+type OwnerKlingMediaLegacyParametersInput =
   | (CommonInput<"kling_elements"> & { readonly aspect_ratio: "16:9" })
   | (CommonInput<"kling_o1_image2video"> & { readonly aspect_ratio: "16:9" })
   | CommonInput<"kling_o1_video2video">;
+export type OwnerKlingMediaParametersInput = OwnerKlingMediaLegacyParametersInput | OwnerKlingMediaCurrentParametersInput;
 type SourceParameters =
   | { readonly model_type: "kling_elements"; readonly version: "1.6"; readonly mode: "hd"; readonly aspect_ratio: "16:9"; readonly video_duration: 5; readonly native_audio: false }
   | { readonly model_type: "kling_o1_image2video"; readonly version: "1.6"; readonly mode: "hd"; readonly aspect_ratio: "16:9"; readonly video_duration: 5; readonly native_audio: false }
   | { readonly model_type: "kling_o1_video2video"; readonly version: "1.6"; readonly mode: "hd"; readonly video_duration: 5; readonly native_audio: false };
 export interface OwnerKlingMediaNormalizedParameters {
   readonly status: "SOURCE_PARAMETERS_ONLY_NOT_DISPATCH_AUTHORITY"; readonly intent: Readonly<OwnerKlingMediaParametersInput>;
-  readonly source_parameters: Readonly<SourceParameters>; readonly source_profile_sha256: string; readonly cost_query_keys: readonly string[];
+  readonly source_parameters: Readonly<SourceParameters | OwnerKlingMediaCurrentSourceParameters>; readonly source_profile_sha256: string; readonly cost_query_keys: readonly string[];
   readonly prompt_limit_confidence: "CONSERVATIVE_LOCAL_BOUND_NOT_PROVIDER_LIMIT"; readonly prompt_maximum_utf16_length: 1_000;
   readonly dispatch_allowed: false; readonly upload_authority: false; readonly backend_acceptance: "UNPROVEN";
 }
@@ -81,6 +83,9 @@ export function getOwnerKlingMediaSourceProfile(): DeepReadonly<typeof SOURCE_PR
 
 export function normalizeOwnerKlingMediaParameters(input: unknown): Readonly<OwnerKlingMediaNormalizedParameters> {
   const fields = exactRecord(input), modelId = fields.model_id, prompt = fields.prompt;
+  if (!Object.hasOwn(fields, "version") || fields.version === "3.0") {
+    try { return normalizeOwnerKlingMediaCurrentParameters(fields, SOURCE_PROFILE.source_sha256); } catch { return invalid(); }
+  }
   if (!isOwnerKlingMediaModelId(modelId) || typeof prompt !== "string" || prompt.trim().length === 0 || !wellFormedUnicode(prompt) || prompt.length > 1_000) invalid();
   let sourceParameters: SourceParameters;
   if (modelId === "kling_elements" || modelId === "kling_o1_image2video") {

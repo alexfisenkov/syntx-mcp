@@ -3,7 +3,7 @@ import { types } from "node:util";
 import type { GenerationPrincipalRef } from "../../domain/generation-operation.js";
 import { snapshotGenerationPrincipal } from "../../domain/generation-principal.js";
 import { isSafeUploadReferenceUrl, type InternalUploadReference } from "./upload-reference-bridge.js";
-import type { SyntxChatHttpClient } from "./chat-http-client.js";
+import { consumeOwnerSwitchxVideoUploadAuthorization, type SyntxChatHttpClient } from "./chat-http-client.js";
 
 const MODEL_ID = "switchx" as const;
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -18,8 +18,8 @@ interface VideoMetadata {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
-  readonly duration_seconds: 5;
-  readonly frame_rate: 24;
+  readonly duration_seconds: number;
+  readonly frame_rate: number;
 }
 
 interface UploadState {
@@ -36,6 +36,8 @@ interface UploadState {
 interface ChatState extends UploadState {
   readonly chat_uuid: string;
   dispatch_attempted: boolean;
+  sent_controls?: Readonly<{resolution:"720P"|"1080P";mask_mode:"auto"|"fill"|"image"|"video"}>;
+  reference_file_hashes?: readonly Readonly<{type:"image"|"mask";url_sha256:string}>[];
 }
 
 export interface OwnerSwitchxVideoUploadContext {
@@ -49,8 +51,8 @@ export interface OwnerSwitchxVideoUploadContext {
   readonly sha256: string;
   readonly width: number;
   readonly height: number;
-  readonly duration_seconds: 5;
-  readonly frame_rate: 24;
+  readonly duration_seconds: number;
+  readonly frame_rate: number;
   readonly generation_permit: false;
   readonly provider_acceptance: "UNPROVEN";
 }
@@ -69,7 +71,8 @@ export class OwnerSwitchxVideoNativeContextError extends Error {
 }
 
 export function createOwnerSwitchxVideoUploadContext(input: unknown): Readonly<OwnerSwitchxVideoUploadContext> {
-  const row = exact(input, ["client", "attempt_id", "principal", "destination", "reference", "metadata"]);
+  const row = exact(input, ["client", "attempt_id", "principal", "destination", "reference", "metadata", "authorization"]);
+  if (!consumeOwnerSwitchxVideoUploadAuthorization(row.authorization,row)) invalid();
   if (!isClient(row.client) || typeof row.attempt_id !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(row.attempt_id) ||
       (row.destination !== "uploaded" && row.destination !== "hidden") || !isUploadReference(row.reference) || !isMetadata(row.metadata)) invalid();
   const principal = snapshotGenerationPrincipal(row.principal);
@@ -78,7 +81,7 @@ export function createOwnerSwitchxVideoUploadContext(input: unknown): Readonly<O
   const context: OwnerSwitchxVideoUploadContext = Object.freeze({ status: "uploaded", model_id: MODEL_ID,
     attempt_id: row.attempt_id, destination: row.destination, filename: metadata.filename, mime_type: metadata.mime_type,
     size: metadata.size, sha256: metadata.sha256, width: metadata.width, height: metadata.height,
-    duration_seconds: 5, frame_rate: 24, generation_permit: false, provider_acceptance: "UNPROVEN" });
+    duration_seconds: metadata.duration_seconds, frame_rate: metadata.frame_rate, generation_permit: false, provider_acceptance: "UNPROVEN" });
   UPLOADS.set(context, { client: row.client, attempt_id: row.attempt_id, principal, destination: row.destination,
     url: row.reference.url, ...(row.reference.file_id === undefined ? {} : { file_id: row.reference.file_id }), metadata, chat_creation_started: false });
   return context;
@@ -141,12 +144,24 @@ export function consumeOwnerSwitchxVideoStartContext(client: unknown, contextInp
 
 export function readOwnerSwitchxVideoChatState(client: unknown, contextInput: unknown): Readonly<{
   chat_uuid: string; attempt_id: string; principal: Readonly<GenerationPrincipalRef>; metadata: VideoMetadata; reference_url_sha256: string;
+  sent_controls?: Readonly<{resolution:"720P"|"1080P";mask_mode:"auto"|"fill"|"image"|"video"}>;
+  reference_file_hashes?: readonly Readonly<{type:"image"|"mask";url_sha256:string}>[];
   dispatch_attempted: boolean;
 }> {
   const state = stateFromChat(client, contextInput);
   return Object.freeze({ chat_uuid: state.chat_uuid, attempt_id: state.attempt_id, principal: state.principal,
     metadata: state.metadata, reference_url_sha256: createHash("sha256").update(state.url, "utf8").digest("hex"),
-    dispatch_attempted: state.dispatch_attempted });
+    dispatch_attempted: state.dispatch_attempted, ...(state.sent_controls ? {sent_controls:state.sent_controls} : {}),
+    ...(state.reference_file_hashes ? {reference_file_hashes:state.reference_file_hashes} : {}) });
+}
+
+export function recordOwnerSwitchxVideoSentControls(client: unknown, contextInput: unknown,
+  controls: Readonly<{resolution:"720P"|"1080P";mask_mode:"auto"|"fill"|"image"|"video"}>,
+  references: readonly Readonly<{type:"image"|"mask";url:string}>[]): void {
+  const state = stateFromChat(client, contextInput);
+  if (!state.dispatch_attempted || state.sent_controls || state.reference_file_hashes) invalid();
+  state.sent_controls=Object.freeze({...controls});
+  state.reference_file_hashes=Object.freeze(references.map(reference=>Object.freeze({type:reference.type,url_sha256:createHash("sha256").update(reference.url,"utf8").digest("hex")})));
 }
 
 export function isOwnerSwitchxVideoUploadContext(value: unknown): value is Readonly<OwnerSwitchxVideoUploadContext> {
@@ -178,7 +193,7 @@ function contextDescriptorsValid(value: object, status: "uploaded" | "created"):
     const row = value as Record<string, unknown>;
     return row.status === status && row.model_id === MODEL_ID && row.generation_permit === false && row.provider_acceptance === "UNPROVEN" &&
       typeof row.attempt_id === "string" && SHA256.test(row.sha256 as string) &&
-      Number.isSafeInteger(row.size) && (row.size as number) > 0 && row.duration_seconds === 5 && row.frame_rate === 24 &&
+      Number.isSafeInteger(row.size) && (row.size as number) > 0 && typeof row.duration_seconds === "number" && Number.isFinite(row.duration_seconds) && row.duration_seconds>=1 && row.duration_seconds<=10 && typeof row.frame_rate === "number" && Number.isFinite(row.frame_rate) && row.frame_rate>=1 && row.frame_rate<=240 &&
       (status === "uploaded" || (typeof row.chat_uuid === "string" && SAFE_ID.test(row.chat_uuid) && row.dispatch_attempted === false));
   } catch { return false; }
 }
@@ -194,7 +209,7 @@ function isMetadata(value: unknown): value is VideoMetadata {
   return typeof row.filename === "string" && row.filename.length > 0 &&
     (row.mime_type === "video/mp4" || row.mime_type === "video/quicktime") && Number.isSafeInteger(row.size) && (row.size as number) > 0 &&
     typeof row.sha256 === "string" && SHA256.test(row.sha256) && Number.isSafeInteger(row.width) && (row.width as number) > 0 &&
-    Number.isSafeInteger(row.height) && (row.height as number) > 0 && row.duration_seconds === 5 && row.frame_rate === 24;
+    Number.isSafeInteger(row.height) && (row.height as number) > 0 && typeof row.duration_seconds === "number" && Number.isFinite(row.duration_seconds) && row.duration_seconds>=1 && row.duration_seconds<=10 && typeof row.frame_rate === "number" && Number.isFinite(row.frame_rate) && row.frame_rate>=1 && row.frame_rate<=240;
 }
 function isClient(value: unknown): value is SyntxChatHttpClient {
   return !!value && typeof value === "object" && !types.isProxy(value);

@@ -22,8 +22,8 @@ test("current media coverage pages the complete non-text census including inacti
     if (page.next_offset === null) break;
     offset = page.next_offset;
   }
-  assert.equal(pages.length, 125);
-  assert.equal(new Set(pages.map((row) => row.model_id)).size, 125);
+  assert.equal(pages.length, 127);
+  assert.equal(new Set(pages.map((row) => row.model_id)).size, 127);
   assert.equal(pages.filter((row) => row.active).length, 120);
   assert.equal(pages.filter((row) => row.active && row.runtime_status === "CODE_MAPPED").length, 119);
   assert.equal(pages.filter((row) => row.runtime_status === "CODE_MAPPED").every((row) => row.mcp_tool_names.some((name) => /^syntx_owner_(?:generate|cover|extend)_/u.test(name))), true);
@@ -31,11 +31,11 @@ test("current media coverage pages the complete non-text census including inacti
   assert.deepEqual(tupleOnlyIds, []);
   const mixedIds = pages.filter((row) => row.settings_status === "MIXED_LIMITED_AND_NATIVE").map((row) => row.model_id).sort();
   assert.deepEqual(mixedIds, ["banana", "banana-2.1", "flux-1", "flux3_t2v", "gpt-image-1", "gpt-image-1.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "grok_imagine_2", "grok_imagine_quality", "grok_t2i", "grok_t2i_pro", "happy_horse_t2v", "ideogram", "kling_text2video", "ray-3.14", "runway_frames", "seedance-1.5-pro", "seedance-2.0", "seedance_pro", "seedance_pro-fast", "seedream-4", "seedream-4.5", "seedream-5", "seedream-5.0-pro", "text2video-4.5", "uni-1", "wan_26_t2i", "wan_26_t2v", "wan_27_t2v"]);
-  assert.deepEqual(pages.filter((row) => row.runtime_status !== "CODE_MAPPED").map((row) => row.model_id).sort(), ["hailuo-minimax", "higgsfield-soul-train", "wan_30", "wan_30_prime"]);
+  assert.deepEqual(pages.filter((row) => row.runtime_status !== "CODE_MAPPED").map((row) => row.model_id).sort(), ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst", "hailuo-minimax", "higgsfield-soul-train", "wan_30", "wan_30_prime"]);
   assert.deepEqual(pages.reduce((counts, row) => {
     for (const modality of row.modalities) counts[modality] = (counts[modality] ?? 0) + 1;
     return counts;
-  }, {} as Record<string, number>), { image: 46, video: 71, audio: 8 });
+  }, {} as Record<string, number>), { image: 48, video: 71, audio: 8 });
   assert.equal(pages.some((row) => row.model_id === "wan_30" && !row.active), true);
   assert.equal(pages.some((row) => row.model_id === "wan_30_prime" && !row.active), true);
   assert.equal(pages.find((row) => row.model_id === "hailuo-minimax")?.operation_role, "SELECTOR");
@@ -76,6 +76,7 @@ test("current media coverage pages the complete non-text census including inacti
   assert.ok(pages.find((row) => row.model_id === "seedance-2.5")?.settings?.accepted_file_types?.includes("audio/mpeg"));
   const seedanceEditor = pages.find((item) => item.model_id === "seedance-2.5");
   assert.ok(seedanceEditor?.mcp_tool_names.includes("syntx_owner_generate_seedance_editor_video"));
+  assert.ok(seedanceEditor?.mcp_tool_names.includes("syntx_owner_upload_seedance_editor_frame"));
   assert.equal(seedanceEditor?.mcp_tool_names.includes("seedance-2.5-editor"), false);
   assert.ok(seedanceEditor?.operator_flags?.includes("SYNTX_OWNER_SEEDANCE_EDITOR"));
   assert.equal(pages.every((row) => row.result_status !== "HISTORICAL_RESULT" || (row.historical_evidence !== "NONE" && row.provider_case_status === "HISTORICAL_CASE")), true);
@@ -134,7 +135,7 @@ test("MCP media coverage tool exposes a read-only page with source version and n
     const result = await client.callTool({ name: SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME, arguments: { limit: 2 } });
     assert.equal(result.isError, undefined);
     const value = result.structuredContent as Record<string, unknown>;
-    assert.equal(value.coverage_version, "5.0.0");
+    assert.equal(value.coverage_version, "6.0.0");
     assert.equal(value.total, 120);
     assert.equal(value.next_offset, 2);
     assert.equal(value.runtime_usable, false);
@@ -148,7 +149,7 @@ test("media coverage preserves unknowns and rejects invalid paging bounds", () =
   const selected = loadCurrentDiscoveryReadCatalog();
   const catalog = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
   const first = catalog.page({ limit: 3, include_inactive: true });
-  assert.equal(first.total, 125);
+  assert.equal(first.total, 127);
   assert.equal(first.next_offset, 3);
   assert.throws(() => catalog.page({ offset: -1 }), /MEDIA_COVERAGE_PAGE_INVALID/);
   assert.throws(() => catalog.page({ limit: 101 }), /MEDIA_COVERAGE_PAGE_INVALID/);
@@ -184,4 +185,52 @@ test("v5 extends only the two Suno routes and pins immutable v4 bytes", () => {
   const rows = [...page.items, ...catalog.page({ offset: 100, limit: 100, include_inactive: true }).items];
   for (const id of ["V6", "V6_wild"]) assert.ok(rows.find(row => row.model_id === id)?.mcp_tool_names.includes("syntx_owner_upload_suno_audio_reference"));
   assert.ok(page.interpretation_notes.some(note => note.includes("configured ffprobe")));
+});
+
+test("v6 adds source-bound current media routes and keeps inactive GPT2.6 source-only", () => {
+  const historicalHashes = [
+    "698416fa0a54168595c42da32fa8e8353e4d10da6149ef3d73549edea67a1dff",
+    "546478d0ae1456f54f082c918f97e73fcd2e562b46e345b73aa2b86cf0563103",
+    "209e4c7a6a7d9dcd1639e29da83e542892afddfed2ef0cbd5d366e958a06297c",
+    "2847eb6ca45ac5c820a8b51dfa6d622b382097e25310346588979c4fe94897e7",
+    "2a0da329494ae60a35f1df82b9d04e66dcd4c3cadda7cbbb49baaef07ee20790"
+  ];
+  historicalHashes.forEach((sha256, index) => assert.equal(createHash("sha256")
+    .update(readFileSync(resolve(process.cwd(), `catalog/media-coverage/owner-tool-routes-v${index + 1}.json`)))
+    .digest("hex"), sha256));
+  const v5Bytes = readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v5.json"));
+  const v5 = JSON.parse(v5Bytes.toString());
+  const v6 = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v6.json"), "utf8"));
+  assert.equal(v6.schema_version, "6.0.0");
+  assert.equal(v6.owner_tool_count, null);
+  assert.equal(v6.public_catalog_version, "sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json");
+  assert.equal(v6.route_provenance.source_v5_sha256, "sha256:" + createHash("sha256").update(v5Bytes).digest("hex"));
+  const expectedCurrentRoutes = structuredClone(v5.routes);
+  const currentGroups = [[["seedance-2.0", "seedance-2.5", "seedance_pro", "seedance_pro-fast", "seedance-1.5-pro"], ["syntx_owner_get_seedance_current_source", "syntx_owner_generate_seedance_current_video", "syntx_owner_get_seedance_current_result", "syntx_owner_list_seedance_current_recoveries"]], [["hailuo-3.0"], ["syntx_owner_get_hailuo3_current_source", "syntx_owner_generate_hailuo3_current", "syntx_owner_get_hailuo3_current_result", "syntx_owner_list_hailuo3_current_recoveries"]], [["ray-3.14"], ["syntx_owner_get_luma_current_source", "syntx_owner_generate_luma_current", "syntx_owner_get_luma_current_result", "syntx_owner_list_luma_current_recoveries"]], [["veo3", "veo3fast", "veo3fast_r"], ["syntx_owner_get_veo3_current_source", "syntx_owner_generate_veo3_current", "syntx_owner_get_veo3_current_result", "syntx_owner_list_veo3_current_recoveries"]], [["wan_30_reference", "wan_30_omni", "wan_30_edit", "wan_30_first_last_frame", "wan_25_t2v_preview", "wan_25_i2v_preview", "wan_27_i2v", "wan_27_r2v", "wan_27_videoedit", "wan_30_t2v"], ["syntx_owner_get_wan_current_source", "syntx_owner_generate_wan_current", "syntx_owner_get_wan_current_result", "syntx_owner_list_wan_current_recoveries"]], [["flux3_t2v", "flux3_i2v", "flux3_v2v"], ["syntx_owner_get_flux3_current_source", "syntx_owner_generate_flux3_current_video", "syntx_owner_get_flux3_current_result", "syntx_owner_list_flux3_current_recoveries"]]] as const;
+  for (const [ids, names] of currentGroups) for (const id of ids) {
+    const common = ["syntx_get_current_video_reference_policy"];
+    if (!["flux3_t2v", "wan_30_t2v"].includes(id)) common.push("syntx_owner_upload_current_video_reference");
+    expectedCurrentRoutes[id] = [...new Set([...expectedCurrentRoutes[id], ...common, ...names])].sort();
+  }
+  for (const id of ["wan_26_t2v", "wan_27_t2v"]) expectedCurrentRoutes[id] = [...new Set([...expectedCurrentRoutes[id], "syntx_owner_upload_wan_t2v_audio"])].sort();
+  expectedCurrentRoutes.switchx = [...new Set([...expectedCurrentRoutes.switchx, "syntx_owner_upload_switchx_reference"])].sort();
+  for (const [ids, name] of [[["clarity"], "syntx_owner_get_clarity_current_manual_source"], [["creative", "precision_v1", "precision_v2"], "syntx_owner_get_magnific_current_manual_source"], [["higgsfield-soul"], "syntx_owner_get_soul_current_manual_source"]] as const) for (const id of ids) expectedCurrentRoutes[id] = [...new Set([...expectedCurrentRoutes[id], name])].sort();
+  assert.deepEqual(v6.routes, expectedCurrentRoutes);
+  const aliases = structuredClone(v5.native_alias_bindings);
+  const editor = aliases.find((binding: { operator_flag: string }) => binding.operator_flag === "SYNTX_OWNER_SEEDANCE_EDITOR");
+  editor.tool_names.push("syntx_owner_upload_seedance_editor_frame");
+  editor.route_evidence_sources.push("src/application/owner-seedance-editor-frame-policy.ts");
+  assert.deepEqual(v6.native_alias_bindings, aliases);
+  assert.deepEqual(v6.source_only_model_ids, ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst"]);
+  const selected = loadCurrentDiscoveryReadCatalog();
+  const catalog = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
+  const rows = [...catalog.page({ limit: 100, include_inactive: true }).items,
+    ...catalog.page({ offset: 100, limit: 100, include_inactive: true }).items];
+  for (const id of v6.source_only_model_ids) {
+    const row = rows.find(item => item.model_id === id);
+    assert.equal(row?.active, false);
+    assert.equal(row?.runtime_status, "SOURCE_ONLY");
+    assert.deepEqual(row?.mcp_tool_names, []);
+    assert.equal(row?.provider_case_status, "UNKNOWN");
+  }
 });

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
+import { isAbsolute } from "node:path";
 import type { AuthBinding } from "../auth/types.js";
 import type { PerUserLinkService } from "../auth/link-service.js";
 import { resolveOwnerReferencePrincipal } from "../auth/owner-reference-principal.js";
@@ -44,7 +45,7 @@ export class OwnerHeygen4ReferenceService {
     const row = exact(options, ["binding", "linkService", "resolveClient", "ffprobePath"], ["now"]);
     if (!row.linkService || typeof row.linkService !== "object" || types.isProxy(row.linkService) ||
         typeof row.resolveClient !== "function" || types.isProxy(row.resolveClient) || typeof row.ffprobePath !== "string" ||
-        !row.ffprobePath.startsWith("/") || row.ffprobePath.includes("\0") ||
+        !isAbsolute(row.ffprobePath) || row.ffprobePath !== row.ffprobePath.trim() || row.ffprobePath.includes("\0") ||
         (row.now !== undefined && (typeof row.now !== "function" || types.isProxy(row.now)))) fail("INVALID_REQUEST");
     this.#binding = snapshotBinding(row.binding); this.#links = row.linkService as Pick<PerUserLinkService, "getStatus">;
     this.#resolveClient = row.resolveClient as (attemptId: string) => unknown; this.#audioProbe = createOwnerHeygen4AudioProbe(row.ffprobePath as string);

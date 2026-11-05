@@ -4,7 +4,7 @@ import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
 import { sameGenerationPrincipal, snapshotGenerationPrincipal } from "../domain/generation-principal.js";
 import { schemaHash } from "../domain/generation-contract.js";
 import {
-  getOwnerKling4SourceProfile, normalizeOwnerKling4Parameters,
+  getOwnerKling4SourceProfile, getOwnerKling4EffectiveProfileHash, normalizeOwnerKling4Parameters,
   type NormalizedOwnerKling4Parameters, type OwnerKling4ParameterCandidateInput, type OwnerKling4ParametersModelId
 } from "./owner-kling4-parameters.js";
 import {
@@ -166,7 +166,7 @@ export function createOwnerKling4RequestPreparer(optionsInput: unknown): OwnerKl
     try {
       if (state.expired || invalidations.has(state.binding.attempt_id) || now() >= state.binding.expires_at ||
           state.epoch !== (epochs.get(state.binding.attempt_id) ?? 0) ||
-          getOwnerKling4SourceProfile(state.binding.model_id).source_sha256 !== state.binding.profile_sha256) fail("CANDIDATE_EXPIRED");
+          getOwnerKling4EffectiveProfileHash(state.binding.model_id, state.input.video_duration) !== state.binding.profile_sha256) fail("CANDIDATE_EXPIRED");
       const current = capture(state.resolution, state.input);
       if (current.client !== state.capture.client || schemaHash(current.wire) !== state.wireHash) fail("CANDIDATE_EXPIRED");
       return state;

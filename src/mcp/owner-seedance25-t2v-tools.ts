@@ -8,6 +8,7 @@ import {
   type OwnerSeedance25T2vGenerationService
 } from "../application/owner-reviewed-no-reference-t2v-service.js";
 import { OWNER_SEEDANCE25_T2V_CONTRACT_VARIANT_ID, type OwnerSeedance25T2vSourceContract } from "../application/owner-seedance25-t2v-profile.js";
+import { SEEDANCE25_CURRENT_VARIANT } from "../application/owner-seedance25-t2v-current-profile.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const RECOVERY = /^recovery_[0-9a-f-]{36}$/u;
@@ -34,16 +35,17 @@ const sourceOutput = z.object({
   source_pins: z.record(z.string(), z.unknown()), identity: z.record(z.string(), z.unknown()), controls: z.record(z.string(), z.unknown()),
   form_validation: z.record(z.string(), z.unknown()), wire_observation: z.record(z.string(), z.unknown()),
   cost_projection: z.record(z.string(), z.unknown()), public_bounds: z.record(z.string(), z.unknown()),
-  defaults: z.literal("FORM_INITIALIZER_CANDIDATE_NOT_EFFECTIVE_DEFAULT_PROOF"), backend_acceptance: z.literal("UNPROVEN")
+  defaults: z.literal("FORM_INITIALIZER_CANDIDATE_NOT_EFFECTIVE_DEFAULT_PROOF"), backend_acceptance: z.literal("UNPROVEN"),
+  current_controls: z.json().optional()
 }).strict() as unknown as z.ZodType<OwnerSeedance25T2vSourceContract>;
 const artifact = z.object({ url: z.string().url().max(4_096), mime_type: z.enum(["video/mp4", "video/quicktime"]).optional(),
   byte_size: z.number().int().nonnegative().optional(), width: z.number().int().positive().optional(), height: z.number().int().positive().optional(),
   duration_seconds: z.number().nonnegative().optional() }).strict();
 const generationOutput = z.object({ status: z.literal("reviewed"), confidence_scope: z.literal("exact_result_only"),
   model_id: z.literal("seedance-2.5"), operation_id: z.literal("generate-video"), modality: z.literal("video"),
-  variant_id: z.literal(OWNER_SEEDANCE25_T2V_CONTRACT_VARIANT_ID), artifacts: z.array(artifact).max(16) }).strict();
+  variant_id: z.enum([OWNER_SEEDANCE25_T2V_CONTRACT_VARIANT_ID, SEEDANCE25_CURRENT_VARIANT]), artifacts: z.array(artifact).max(16) }).strict();
 const recoveryList = z.object({ recoveries: z.array(z.object({ recovery_id: recoveryId, model_id: z.literal("seedance-2.5"),
-  operation_id: z.literal("generate-video"), variant_id: z.literal(OWNER_SEEDANCE25_T2V_CONTRACT_VARIANT_ID),
+  operation_id: z.literal("generate-video"), variant_id: z.enum([OWNER_SEEDANCE25_T2V_CONTRACT_VARIANT_ID, SEEDANCE25_CURRENT_VARIANT]),
   created_at: z.iso.datetime() }).strict()).max(20) }).strict();
 
 export function registerSyntxOwnerSeedance25T2vTools(server: McpServer, optionsInput: RegisterSyntxOwnerSeedance25T2vToolsOptions | unknown): void {
@@ -59,9 +61,10 @@ export function registerSyntxOwnerSeedance25T2vTools(server: McpServer, optionsI
   });
 
   const generateInput = z.object({ link_attempt_id: attemptId, prompt: z.string().min(1).max(PROMPT_MAX),
-    resolution: z.literal("720p"), aspect_ratio: z.literal("16:9"), video_duration: z.literal(5), generate_audio: z.literal(true) }).strict();
+    resolution: z.enum(["480p", "720p", "1080p"]).default("720p"), aspect_ratio: z.enum(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16", "adaptive"]).default("16:9"),
+    video_duration: z.union([z.literal(0), z.number().int().min(4).max(30)]).default(5), generate_audio: z.boolean().default(true) }).strict();
   server.registerTool(OWNER_SEEDANCE25_T2V_TOOL_NAMES[1], { title: "Generate one Seedance 2.5 omni-references T2V video",
-    description: "Runs one owner Seedance 2.5 text-to-video candidate using the model-watcher omni-references mode with 720p, 16:9, 5 seconds, audio on, and no files. The mode is fixed internally; callers cannot select it. This explicit tuple is not a claim of the full post-watcher UI state or confirmed no-media validation. No uploads or caller file URLs are accepted. A local 5,000 UTF-16 prompt bound is not a provider limit. Price amount and backend/provider acceptance remain unproven; do not retry an uncertain GEN.",
+    description: "Runs one owner Seedance 2.5 omni-references candidate with no files. Resolution, aspect ratio, duration and audio can be selected; omitted fields use the earlier 720p/16:9/5s/audio-on tuple as local compatibility values. Duration 0 is the UI auto value. No-media validation and provider acceptance remain unproven; no uploads or caller file URLs are accepted. Do not retry an uncertain GEN.",
     inputSchema: generateInput, outputSchema: generationOutput,
     annotations: { title: "Generate Seedance 2.5 omni-references T2V", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {

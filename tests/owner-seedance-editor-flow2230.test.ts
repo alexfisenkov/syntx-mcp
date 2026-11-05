@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
@@ -34,11 +34,17 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
   }, new InMemoryAuthLinkStore(now), { now, attemptIdGenerator: () => ATTEMPT });
   await links.createAttempt(binding); await links.issueHandoff(binding, ATTEMPT); await links.checkAttempt(binding, ATTEMPT);
   const directory = await mkdtemp(join(tmpdir(), "syntx-editor-flow2230-"));
-  const interpreter = join(directory, "node"), probe = join(directory, "probe");
-  await symlink(process.execPath, interpreter);
-  await writeFile(probe, `#!${interpreter}\nprocess.stdout.write(${JSON.stringify(JSON.stringify({ streams: [
+  const interpreter = join(directory, "node");
+  const nativeProbe = process.env.SYNTX_EDITOR_NATIVE_FFPROBE_PATH;
+  const nativeVideo = process.env.SYNTX_EDITOR_NATIVE_VIDEO_PATH;
+  assert.equal(Boolean(nativeProbe), Boolean(nativeVideo), "native acceptance requires both trusted probe and genuine video");
+  const probe = nativeProbe ?? join(directory, "probe");
+  if (!nativeProbe) {
+    await symlink(process.execPath, interpreter);
+    await writeFile(probe, `#!${interpreter}\nprocess.stdout.write(${JSON.stringify(JSON.stringify({ streams: [
     { codec_type: "video", width: 1280, height: 720, avg_frame_rate: "25/1", start_time: "0", duration: "4.25", duration_ts: 4250, time_base: "1/1000" }
-  ], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2" } }))});\n`, { mode: 0o700, flag: "wx" });
+    ], format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2" } }))});\n`, { mode: 0o700, flag: "wx" });
+  }
   const stats = { uploads: 0, chats: 0, posts: 0, quotes: 0, histories: 0, results: 0, balances: 0, subscriptions: 0 };
   let last: any, ready = !options.pending;
   const owner = () => ({ id: "owner2230", chat_id: "provider2230", author_id: options.wrongOwner ? -1 : 17,
@@ -101,7 +107,8 @@ async function fixture(options: { free?: boolean; secondDenied?: boolean; loseAc
   const service: ApiService = new module.OwnerSeedanceEditorGenerationService({ binding, linkService: links, referenceService: references,
     catalog, resolveChatClient: () => client, createReadClient, now });
   try {
-    const bytes = Buffer.alloc(24); bytes.writeUInt32BE(24); bytes.write("ftyp", 4); bytes.write("isom", 8); bytes.write("isom", 16); bytes.write("mp42", 20);
+    const bytes = nativeVideo ? await readFile(nativeVideo) : Buffer.alloc(24);
+    if (!nativeVideo) { bytes.writeUInt32BE(24); bytes.write("ftyp", 4); bytes.write("isom", 8); bytes.write("isom", 16); bytes.write("mp42", 20); }
     const upload = uploadInitially ? await references.uploadReference({ attemptId: ATTEMPT, model_id: "seedance-2.5-editor", filename: "source.mp4", mime_type: "video/mp4", bytes }) : { reference_handle: "" };
     const request = { attemptId: ATTEMPT, model_id: "seedance-2.5-editor", prompt: "Synthetic Editor test", resolution: "480p", reference_handle: upload.reference_handle };
     return { service, references, bytes, client, request, stats, ready() { ready = true; }, async close() { await service.close(); await references.close(); await rm(directory, { recursive: true, force: true }); } };

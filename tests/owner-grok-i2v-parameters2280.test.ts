@@ -50,10 +50,17 @@ test("2280 rejects implicit defaults, foreign controls, unsupported ratios and d
     input({ video_duration: 5 }), input({ video_duration: 10.5 }), input({ video_duration: 0 }),
     input({ resolution: "1080p" }), input({ seed: null }),
     input({ model_id: "grok_15_i2v", video_duration: 0 }), input({ model_id: "grok_15_i2v", video_duration: 16 }),
-    input({ model_id: "grok_15_i2v", video_duration: 1.2 }), input({ model_id: "grok_15_i2v", aspect_ratio: "2:1" }),
+    input({ model_id: "grok_15_i2v", video_duration: NaN }), input({ model_id: "grok_15_i2v", aspect_ratio: "2:1" }),
     input({ model_id: "grok_15_i2v", prompt: "x".repeat(2_001) }), input({ prompt: "x".repeat(5_001) }),
     input({ prompt: "\ud800" })
   ]) assert.throws(() => normalizeOwnerGrokI2vParameters(invalid), withCode("INVALID_PARAMETERS"));
+});
+
+test("Current Grok1.5 manual duration retains finite fractions with separate source provenance", () => {
+  const fraction = normalizeOwnerGrokI2vParameters(input({ model_id: "grok_15_i2v", video_duration: 1.2 }));
+  const integer = normalizeOwnerGrokI2vParameters(input({ model_id: "grok_15_i2v", video_duration: 2 }));
+  assert.equal(fraction.source_parameters.video_duration, 1.2);
+  assert.notEqual(fraction.profile_sha256, integer.profile_sha256);
 });
 
 test("2280 rejects proxies and accessors without invoking getters", () => {

@@ -174,6 +174,14 @@ import type { OwnerWan30OmniGenerationService } from "../application/owner-wan30
 import type { OwnerWan30EditGenerationService } from "../application/owner-wan30-edit-generation-service.js";
 import { registerSyntxOwnerWan30OmniVideoTools, type RegisterSyntxOwnerWan30OmniVideoToolsOptions } from "./owner-wan30-omni-video-tools.js";
 import { registerSyntxOwnerWan30EditVideoTools, type RegisterSyntxOwnerWan30EditVideoToolsOptions } from "./owner-wan30-edit-video-tools.js";
+import { registerOwnerCurrentVideoReferenceTools } from "./owner-current-video-reference-tools.js";
+import type { OwnerCurrentVideoReferenceStore } from "../application/owner-current-video-reference-store.js";
+import { registerSyntxOwnerHailuo3CurrentTools } from "./owner-hailuo3-current-tools.js";
+import { registerSyntxOwnerLumaCurrentTools } from "./owner-luma-current-tools.js";
+import { registerSyntxOwnerVeo3CurrentTools } from "./owner-veo3-current-tools.js";
+import { registerOwnerWanCurrentTools } from "./owner-wan-current-tools.js";
+import { registerOwnerSeedanceCurrentTools } from "./owner-seedance-current-tools.js";
+import { registerOwnerFlux3CurrentTools } from "./owner-flux3-current-tools.js";
 import { registerSyntxOwnerWan26I2vTools, type OwnerWan26I2vServiceComposition } from "./owner-wan26-i2v-tools.js";
 import { registerSyntxOwnerWan26R2vTools, type OwnerWan26R2vServiceComposition } from "./owner-wan26-r2v-tools.js";
 import { registerSyntxOwnerWan25I2vPreviewTools, type OwnerWan25I2vPreviewServiceComposition } from "./owner-wan25-i2v-tools.js";
@@ -413,7 +421,7 @@ export interface OwnerWanT2iImageServiceComposition extends RegisterSyntxOwnerWa
 /** Explicit owner-local WAN T2V generation/result tools; omitted from default and HTTP servers. */
 export interface OwnerWanT2vVideoServiceComposition extends RegisterSyntxOwnerWanT2vVideoToolsOptions {
   readonly generationService: Pick<OwnerWanT2vGenerationService,
-    "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "invalidateAttempt" | "close">;
+    "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "invalidateAttempt" | "close" | "isAudioUploadEnabled" | "uploadAudioReference">;
 }
 
 /** Explicit owner-local WAN 3.0 First/Last upload, generation, and recovery tools; omitted from default and HTTP servers. */
@@ -599,6 +607,14 @@ export interface CreateMcpServerOptions {
   ownerDurableGeneration?: OwnerDurableLiveGenerationServicePort | undefined;
   /** Explicit local-owner image-reference flow; only injected by opted-in owner stdio. */
   ownerImageReferences?: OwnerImageReferenceServicePort | undefined;
+  /** Explicit opt-in current multi-reference upload store. */
+  ownerCurrentVideoReferences?: OwnerCurrentVideoReferenceStore | undefined;
+  ownerHailuo3Current?: Parameters<typeof registerSyntxOwnerHailuo3CurrentTools>[1] | undefined;
+  ownerLumaCurrent?: Parameters<typeof registerSyntxOwnerLumaCurrentTools>[1] | undefined;
+  ownerVeo3Current?: Parameters<typeof registerSyntxOwnerVeo3CurrentTools>[1] | undefined;
+  ownerWanCurrent?: Parameters<typeof registerOwnerWanCurrentTools>[1] | undefined;
+  ownerSeedanceCurrent?: Parameters<typeof registerOwnerSeedanceCurrentTools>[1] | undefined;
+  ownerFlux3Current?: Parameters<typeof registerOwnerFlux3CurrentTools>[1] | undefined;
   /** Explicit source-reviewed Grok reference tools; only injected by opted-in owner stdio. */
   ownerGrokImageReferences?: OwnerGrokImageReferenceService | undefined;
   /** Explicit owner-local opt-in to a read-only Soul list shape diagnostic. */
@@ -829,7 +845,7 @@ const estimateOutputSchema = z
       .object({
         purpose: z.literal("start_generation"),
         status: z.enum(["unavailable", "test_only", "available"]),
-        reference: z.string().startsWith("urn:syntx-mcp:"),
+        reference: z.string().regex(/^urn:syntx-mcp:/u),
         approval_url: z
           .url()
           .nullable()
@@ -846,7 +862,7 @@ export function createMcpServer(
   options: CreateMcpServerOptions = {}
 ): McpServer {
   if (options.ownerDurableGeneration &&
-      (options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerRunwayI2v || options.ownerGrokI2v || options.ownerWan25T2v || options.ownerHiggsfieldDop || options.ownerHailuoInitial || options.ownerHappyHorse || options.ownerWan27I2v || options.ownerKlingMedia || options.ownerSwitchxVideo || options.ownerActTwo || options.ownerHeygen4 || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
+      (options.ownerCurrentVideoReferences || options.ownerHailuo3Current || options.ownerLumaCurrent || options.ownerVeo3Current || options.ownerWanCurrent || options.ownerSeedanceCurrent || options.ownerFlux3Current || options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerRunwayI2v || options.ownerGrokI2v || options.ownerWan25T2v || options.ownerHiggsfieldDop || options.ownerHailuoInitial || options.ownerHappyHorse || options.ownerWan27I2v || options.ownerKlingMedia || options.ownerSwitchxVideo || options.ownerActTwo || options.ownerHeygen4 || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
         options.ownerGrokImageReferences || options.ownerClarityUpscale || options.ownerMagnificUpscale ||
         options.ownerKontextImageReferences || options.ownerWanImageReferences || options.ownerStandardImageReferences ||
         options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
@@ -864,7 +880,7 @@ export function createMcpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
       instructions:
-        "This server exposes a dated official-public SYNTX catalog snapshot. Public records are not account entitlement; paid upstream operations remain fail-closed in the default profile."
+        "This server exposes a dated official-public SYNTX catalog snapshot. Public records are not account entitlement; paid upstream operations remain fail-closed in the default profile. Registered owner-native tools may execute after the owner's Telegram link and account-access checks. Use syntx_get_media_coverage and the relevant family parameter or source getters to select an available native action; generic registry availability is separate. For pending or unknown outcomes, never retry a mutation; use the existing GET reconciliation tools."
     }
   );
 
@@ -1388,6 +1404,13 @@ export function createMcpServer(
   if (options.ownerSeedance25T2v) {
     registerSyntxOwnerSeedance25T2vTools(server, {service:options.ownerSeedance25T2v.generationService});
   }
+  if(options.ownerCurrentVideoReferences)registerOwnerCurrentVideoReferenceTools(server,options.ownerCurrentVideoReferences);
+  if(options.ownerHailuo3Current)registerSyntxOwnerHailuo3CurrentTools(server,options.ownerHailuo3Current);
+  if(options.ownerLumaCurrent)registerSyntxOwnerLumaCurrentTools(server,options.ownerLumaCurrent);
+  if(options.ownerVeo3Current)registerSyntxOwnerVeo3CurrentTools(server,options.ownerVeo3Current);
+  if(options.ownerWanCurrent)registerOwnerWanCurrentTools(server,options.ownerWanCurrent);
+  if(options.ownerSeedanceCurrent)registerOwnerSeedanceCurrentTools(server,options.ownerSeedanceCurrent);
+  if(options.ownerFlux3Current)registerOwnerFlux3CurrentTools(server,options.ownerFlux3Current);
   if(options.ownerKlingMedia)registerSyntxOwnerKlingMediaTools(server,options.ownerKlingMedia);
   if(options.ownerSwitchxVideo)registerSyntxOwnerSwitchxVideoTools(server,options.ownerSwitchxVideo);
   if (options.ownerActTwo) registerSyntxOwnerActTwoTools(server, options.ownerActTwo);

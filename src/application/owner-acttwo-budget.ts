@@ -1,4 +1,5 @@
 import { types } from "node:util";
+import { isOwnerActTwoCurrentDuration } from "./owner-actor-current-controls.js";
 import { ACCOUNT_CONTRACT_EVIDENCE, ACCOUNT_SOURCE_BUILD } from "../adapter/syntx/account-decoder.js";
 const COST_KEYS = Object.freeze(["video_duration"] as const);
 const FRESH_MS = 15_000;
@@ -30,7 +31,7 @@ export function evaluateOwnerActTwoBudget(input: unknown): Readonly<OwnerActTwoB
         !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\.[a-f0-9]{12}$/u.test(row.expected_catalog_version) ||
         !Number.isSafeInteger(row.now) || (row.now as number) < 0) fail();
     const now = row.now as number, cost = exact(row.cost_parameters, COST_KEYS);
-    if (cost.video_duration !== 5) fail();
+    if (!isOwnerActTwoCurrentDuration(cost.video_duration)) fail();
     const access = exact(row.access, ACCESS_KEYS), keys = stringArray(access.parameter_keys);
     if (access.catalog_kind !== "OFFICIAL_PUBLIC_API_SNAPSHOT" || access.catalog_version !== row.expected_catalog_version ||
         access.model_id !== "acttwo" || access.model_type !== "acttwo" || access.ai_name !== "runway" ||

@@ -6,6 +6,7 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
+import { nodeScriptExecutable } from "./helpers/node-script-executable.js";
 import {
   copyTrustedOwnerWan26R2vOriginalBytes,
   createOwnerWan26R2vOriginalProbe,
@@ -57,7 +58,7 @@ function tinyMp4(): Uint8Array {
 
 async function executableProbe(directory: string, body: string): Promise<string> {
   const binary = join(directory, "operator-ffprobe");
-  await writeFile(binary, `#!${process.execPath}\n${body}\n`, { mode: 0o700, flag: "wx" });
+  await writeFile(binary, nodeScriptExecutable(`#!${process.execPath}\n${body}\n`), { mode: 0o700, flag: "wx" });
   return binary;
 }
 

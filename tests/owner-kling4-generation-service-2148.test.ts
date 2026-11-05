@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { chmod, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { deflateSync } from "node:zlib";
 import { join, resolve } from "node:path";
+import { nodeScriptExecutable } from "./helpers/node-script-executable.js";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -17,7 +18,7 @@ import { DiscoveryCatalogRepository } from "../src/catalog/discovery-catalog.js"
 import { loadPublicCatalogVersion } from "../src/catalog/public-catalog-history.js";
 import { AccountStatusService } from "../src/application/account-status.js";
 import { ModelAccessService } from "../src/application/model-access.js";
-import { getOwnerKling4SourceProfile } from "../src/application/owner-kling4-parameters.js";
+import { getOwnerKling4SourceProfile, getOwnerKling4EffectiveProfileHash } from "../src/application/owner-kling4-parameters.js";
 
 const ATTEMPT = "link_kling4_generation_2148_0123456789abcdef";
 const BINDING: AuthBinding = Object.freeze({ tenant_id: "kling4-generation-2148", subject: "synthetic-owner" });
@@ -81,7 +82,7 @@ async function ffprobeFixture(): Promise<{ directory: string; binary: string }> 
   const result = JSON.stringify({ streams: [{ codec_type: "video", codec_name: "h264", width: 700, height: 700,
     start_time: "0.000000", duration: "4.250000", disposition: { attached_pic: 0 } }],
     format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "4.250000" } });
-  await writeFile(binary, `#!${process.execPath}\nprocess.stdout.write(${JSON.stringify(result)});\n`, { mode: 0o700, flag: "wx" });
+  await writeFile(binary, nodeScriptExecutable(`#!${process.execPath}\nprocess.stdout.write(${JSON.stringify(result)});\n`), { mode: 0o700, flag: "wx" });
   await chmod(binary, 0o700); return { directory, binary: await realpath(binary) };
 }
 
@@ -92,7 +93,7 @@ function expectedWire(modelId: ModelId) {
 }
 
 async function createRuntime(modelId: ModelId, overrides: { free?: boolean; lowBalance?: boolean; loseAck?: boolean; skipInitialUpload?: boolean;
-  staleSecondQuote?: boolean; initiallyPending?: boolean } = {}): Promise<TestRuntime> {
+  staleSecondQuote?: boolean; initiallyPending?: boolean; duration?: number } = {}): Promise<TestRuntime> {
   const [generationApi, referenceApi, preparerApi, native] = await Promise.all([
     import(new URL("../src/application/owner-kling4-generation-service.js", import.meta.url).href),
     import(new URL("../src/application/owner-kling4-reference-service.js", import.meta.url).href),
@@ -156,7 +157,7 @@ async function createRuntime(modelId: ModelId, overrides: { free?: boolean; lowB
     if (url.pathname === "/api/v1/video/generate" && method === "POST") {
       counts.gens += 1; assert.equal(url.search, "?ai_name=kling");
       const body = JSON.parse(String(init.body)) as { chat_id: string; prompt: string; settings: unknown };
-      assert.equal(body.chat_id, chat); assert.deepEqual(body.settings, expectedWire(modelId)); dispatchedPrompt = body.prompt;
+      assert.equal(body.chat_id, chat); assert.deepEqual(body.settings, {...expectedWire(modelId),video_duration:overrides.duration??8}); dispatchedPrompt = body.prompt;
       if (overrides.loseAck) throw new Error("synthetic lost acknowledgement");
       return json({ id: ownerMessage });
     }
@@ -197,7 +198,7 @@ async function createRuntime(modelId: ModelId, overrides: { free?: boolean; lowB
     const bytes = modelId === KEYFRAMES ? png() : mp4();
     const uploaded = overrides.skipInitialUpload ? undefined : await store.uploadReference({ attemptId: ATTEMPT, model_id: modelId, filename, mime_type: mime, bytes });
     const createAccountStatusService = () => new AccountStatusService(newHttpClient(), now);
-    const createModelAccessService = () => new ModelAccessService(catalog, newHttpClient(), now);
+    const createModelAccessService = (_attemptId:string,override?:DiscoveryCatalogRepository) => new ModelAccessService(override??catalog, newHttpClient(), now);
     const catalogVersion = profile.source_catalog_version;
     generation = new api.OwnerKling4GenerationService({ binding: BINDING, linkService: links, catalog, catalog_version: catalogVersion,
       preparer, referenceService: store, resolveChatClient: () => chatClient, createAccountStatusService,
@@ -276,9 +277,9 @@ test("expired input handles do not block same-owner GET reconciliation", async (
   } finally { await runtime.close(); }
 });
 
-test("genuine K4 core passes SDK upload to generation and owned result for both model IDs", async () => {
+test("genuine K4 finite manual duration core passes SDK upload to generation and owned result for both model IDs", async () => {
   for (const modelId of [KEYFRAMES, OMNI] as const) {
-    const runtime = await createRuntime(modelId, { skipInitialUpload: true });
+    const runtime = await createRuntime(modelId, { skipInitialUpload: true, duration:8.375 });
     const server = new McpServer({ name: "k4-genuine-sdk-2148", version: "1.0.0" });
     registerSyntxOwnerKling4Tools(server, {
       referenceService: { async uploadReference(value, signal) { return runtime.referenceService.uploadReference(value, signal); } },
@@ -303,11 +304,13 @@ test("genuine K4 core passes SDK upload to generation and owned result for both 
       assert.notEqual(uploaded.isError, true, JSON.stringify(uploaded));
       assert.doesNotMatch(JSON.stringify(uploaded), /r2\.syntx\.ai/u);
       const handle = (uploaded.structuredContent as { reference_handle: string }).reference_handle;
-      const { attemptId, ...request } = input(modelId, [handle], runtime.prompt);
+      const { attemptId, ...request } = {...input(modelId, [handle], runtime.prompt),video_duration:8.375};
       const generated = await client.callTool({ name: OWNER_KLING4_TOOL_NAMES[2], arguments: { ...request, link_attempt_id: attemptId } });
       assert.notEqual(generated.isError, true, JSON.stringify(generated));
       const result = generated.structuredContent as { recovery_id: string; model_id: string; artifacts: Array<{ object_url: string }> };
       assert.equal(result.model_id, modelId); assert.equal(result.artifacts[0]?.object_url, OUTPUT_URL);
+      assert.equal((generated.structuredContent as any).source_binding.profile_sha256,getOwnerKling4EffectiveProfileHash(modelId,8.375));
+      assert.equal(runtime.quoteParameters[0]?.video_duration,"8.375");
       assert.deepEqual([runtime.counts.uploads, runtime.counts.chats, runtime.counts.gens, runtime.counts.quotes, runtime.counts.balances], [1, 1, 1, 2, 2]);
       const readsBefore = runtime.counts.history + runtime.counts.results;
       for (const index of [3, 4, 5] as const) {

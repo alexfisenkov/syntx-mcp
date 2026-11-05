@@ -19,11 +19,12 @@ export const OWNER_SWITCHX_VIDEO_TOOL_NAMES = Object.freeze([
   "syntx_owner_get_switchx_video_source",
   "syntx_owner_generate_switchx_video",
   "syntx_owner_reconcile_switchx_video",
-  "syntx_owner_list_switchx_video_recoveries"
+  "syntx_owner_list_switchx_video_recoveries",
+  "syntx_owner_upload_switchx_reference"
 ] as const);
 
 export interface RegisterSyntxOwnerSwitchxVideoToolsOptions {
-  readonly service: Pick<OwnerSwitchxVideoGenerationService, "getSourceProfile" | "generate" | "reconcile" | "listRecoveries">;
+  readonly service: Pick<OwnerSwitchxVideoGenerationService, "getSourceProfile" | "generate" | "reconcile" | "listRecoveries" | "uploadReference">;
 }
 
 const sourceOutput = z.object({
@@ -33,6 +34,7 @@ const sourceOutput = z.object({
   cost_parameter_keys: z.array(z.string()), cost_parameter_sources: z.record(z.string(), z.unknown()),
   prompt: z.record(z.string(), z.unknown()), public_video_bounds: z.record(z.string(), z.unknown()),
   input_binding: z.string(), settings: z.record(z.string(), z.unknown()), upload_transport: z.record(z.string(), z.unknown()),
+  current_source_controls: z.record(z.string(), z.unknown()),
   source_gaps: z.array(z.string()), local_probe_scope: z.string(), provider_acceptance: z.literal("UNPROVEN")
 }).strict();
 const artifact = z.object({ url: OUTPUT_URL, mime_type: z.enum(["video/mp4", "video/quicktime"]).optional(),
@@ -45,10 +47,10 @@ const diagnostic = z.object({ phase: z.enum(["VALIDATE", "UPLOAD", "PREFLIGHT_CH
 const resultOutput = z.object({ status: z.literal("completed"), status_semantics: z.literal("LOCAL_OBSERVED_AVAILABILITY_ONLY"),
   backend_acceptance: z.literal("UNPROVEN"), provider_terminal_status: z.literal("UNPROVEN"), cost_cap_enforced: z.literal(false),
   recovery_id: z.string().regex(RECOVERY), model_id: z.literal("switchx"), source_binding: z.object({
-    public_catalog_version: z.literal("sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json"),
+    public_catalog_version: z.enum(["sha256-1d8e35274b0e0c6198cc60ea58899c35b32bd94fd3ea28911c6b2be5747e30a0.json", "sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json"]),
     profile_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u), source_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
-    input_size: z.number().int().positive().max(10 * 1024 * 1024), width: z.number().int().positive(), height: z.number().int().positive(),
-    video_duration: z.literal(5), frame_rate: z.literal(24)
+    input_size: z.number().int().positive().max(100 * 1024 * 1024), width: z.number().int().positive(), height: z.number().int().positive(),
+    video_duration: z.number().int().min(1).max(10), frame_rate: z.number().int().min(1).max(240)
   }).strict(), artifacts: z.array(artifact).min(1).max(16), diagnostics: diagnostic }).strict();
 const recoveryList = z.object({ recoveries: z.array(z.object({ recovery_id: z.string().regex(RECOVERY), model_id: z.literal("switchx"),
   status: z.enum(["outcome_unknown", "completed"]), observed_artifact_count: z.number().int().nonnegative(), diagnostics: diagnostic }).strict()).max(20) }).strict();
@@ -56,7 +58,7 @@ const recoveryList = z.object({ recoveries: z.array(z.object({ recovery_id: z.st
 export function registerSyntxOwnerSwitchxVideoTools(server: McpServer, optionsInput: RegisterSyntxOwnerSwitchxVideoToolsOptions | unknown): void {
   const service = snapshotOptions(optionsInput).service;
   server.registerTool(OWNER_SWITCHX_VIDEO_TOOL_NAMES[0], { title: "Get Switchx measured-video source profile",
-    description: "Returns the exact source-bounded Switchx initial video slice: 1280×720 input, 720P output, auto mask, 5 seconds, and 24 fps, plus measured cost keys. It does not prove UI-store parity, backend/provider acceptance, or a quote amount.",
+    description: "Returns the historical source profile plus separately pinned current controls: auto/fill/image/video masks, optional style image, measured duration/fps, conditional1080 and240-frame segment policy. Source review does not prove provider acceptance or saved UI defaults.",
     inputSchema: z.object({}).strict(), outputSchema: sourceOutput,
     annotations: { title: "Get Switchx measured-video source profile", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async (): Promise<CallToolResult> => {
@@ -65,20 +67,39 @@ export function registerSyntxOwnerSwitchxVideoTools(server: McpServer, optionsIn
     } catch { return safeError(new OwnerSwitchxVideoGenerationServiceError("MODEL_BINDING_MISMATCH")); }
   });
 
-  const generationInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), prompt: z.string().min(1).max(1_000),
+  const generationInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), prompt: z.string().max(2_000),
     filename: z.string().min(1).max(255), mime_type: z.enum(["video/mp4", "video/quicktime"]),
-    content_base64: z.string().min(1).max(14_000_000) }).strict();
+    content_base64: z.string().min(1).max(139_810_136), resolution: z.enum(["720P", "1080P"]).optional(),
+    mask_mode: z.enum(["auto", "fill", "image", "video"]).optional(), style_image_handle: z.string().regex(/^switchx_reference_[0-9a-f-]{36}$/u).optional(),
+    mask_handle: z.string().regex(/^switchx_reference_[0-9a-f-]{36}$/u).optional(), segment: z.object({ start_seconds: z.number().finite().nonnegative(), end_seconds: z.number().finite().positive() }).strict().optional() }).strict();
   server.registerTool(OWNER_SWITCHX_VIDEO_TOOL_NAMES[1], { title: "Generate one Switchx video from an owned source clip",
-    description: "Uses exactly one locally probed owner MP4/MOV for Switchx. The initial source slice requires 1280×720 input, exactly 5 seconds and 24 fps; output is fixed to 720P with auto mask. Other source dimensions or duration/frame-rate combinations are not enabled by this slice. The local 10 MiB transport and 1,000 UTF-16 prompt limits are not provider limits. Upload destination is trusted runtime configuration, not caller input. One upload and one non-idempotent GEN only; uncertain GEN must use GET-only reconciliation.",
+    description: "One owner MP4/MOV foreground, at most10 seconds/100MiB and240 measured frames. Duration/fps are rounded from trusted local measurements; optional segment explicitly transcodes only the selected window using operator ffmpeg and remeasures it. No segment preserves original bytes.720P default;1080P requires foreground minimum side1080. auto/fill require no mask; image/video require same-owner image_mask/video_mask handle. Optional style_image handle permits empty prompt; otherwise prompt required (max2000). Mask is not a background. Uploaded handles expire15min. One GEN; unknown POST is GET-only, never retried.",
     inputSchema: generationInput, outputSchema: resultOutput,
     annotations: { title: "Generate one Switchx video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {
     try {
       const data = generationInput.parse(snapshotInput(input));
       const result = await service.generate({ attemptId: data.link_attempt_id, prompt: data.prompt, filename: data.filename,
-        mime_type: data.mime_type, content_base64: data.content_base64 }, signal);
+        mime_type: data.mime_type, content_base64: data.content_base64, resolution: data.resolution, mask_mode: data.mask_mode,
+        style_image_handle: data.style_image_handle, mask_handle: data.mask_handle, segment: data.segment }, signal);
       return structuredSuccess(result);
     } catch (error) { return safeError(error); }
+  });
+
+  const referenceInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), role: z.enum(["style_image", "image_mask", "video_mask"]),
+    filename: z.string().min(1).max(255), mime_type: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp", "video/mp4", "video/quicktime"]),
+    content_base64: z.string().min(1).max(139_810_136) }).strict();
+  const referenceOutput = z.object({ reference_handle: z.string().regex(/^switchx_reference_[0-9a-f-]{36}$/u), model_id: z.literal("switchx"),
+    role: z.enum(["style_image", "image_mask", "video_mask"]), mime_type: z.string(), bytes: z.number().int().positive().max(104857600),
+    width: z.number().int().positive(), height: z.number().int().positive(), expires_at: z.string(), generation_permit: z.literal(false), source_confidence: z.string() }).strict();
+  server.registerTool(OWNER_SWITCHX_VIDEO_TOOL_NAMES[4], { title: "Upload an owned Switchx style or mask reference",
+    description: "Uploads a style_image (JPEG/PNG/WEBP max27,525,120B), image_mask (already prepared binary/inverted PNG mask), or video_mask (MP4/MOV max10s/100MiB). A mask is not a background image. Returns a role/owner/client-bound process-local15min handle, no private URL. Container metadata validation does not prove mask pixel semantics or provider acceptance. Does not generate.",
+    inputSchema: referenceInput, outputSchema: referenceOutput, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+  }, async (input, { signal }): Promise<CallToolResult> => {
+    try { const data = referenceInput.parse(snapshotInput(input)); const result = referenceOutput.parse(await service.uploadReference({ attemptId: data.link_attempt_id,
+      role: data.role, filename: data.filename, mime_type: data.mime_type, content_base64: data.content_base64 }, signal));
+      return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result };
+    } catch { return safeError(new OwnerSwitchxVideoGenerationServiceError("INVALID_REQUEST")); }
   });
 
   const recoveryInput = z.object({ link_attempt_id: z.string().regex(ATTEMPT), recovery_id: z.string().regex(RECOVERY) }).strict();
@@ -139,8 +160,8 @@ function safeError(error: unknown): CallToolResult {
   return { isError: true, content: [{ type: "text", text: JSON.stringify({ error: { code,
     message: code === "OUTCOME_UNKNOWN" ? "Generation may have been dispatched; do not retry. Use GET-only reconciliation."
       : code === "INPUT_VIDEO_NOT_IN_INITIAL_SLICE" || code === "INVALID_VIDEO"
-        ? "Switchx accepts only the enabled 1280×720 input slice at exactly 5 seconds and 24 fps; INVALID_VIDEO can also mean the local video could not be validated."
-        : code === "LOCAL_LIMIT_EXCEEDED" ? "The input exceeds the local 10 MiB validation or upload limit."
+        ? "Switchx requires valid measured input at most10 seconds/240 frames; use an explicit selected segment for longer frame counts."
+        : code === "LOCAL_LIMIT_EXCEEDED" ? "The input exceeds the100MiB public/local resource bound."
           : "The Switchx video operation could not be completed safely.",
     ...(error instanceof OwnerSwitchxVideoGenerationServiceError && error.recovery_id ? { recovery_id: error.recovery_id } : {}),
     ...(error instanceof OwnerSwitchxVideoGenerationServiceError && error.diagnostics ? { diagnostics: error.diagnostics } : {}) } }) }] };

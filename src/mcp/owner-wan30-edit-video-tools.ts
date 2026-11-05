@@ -1,4 +1,5 @@
 import { types } from "node:util";
+import {WAN30_CURRENT_FORM_SOURCE} from "../application/owner-wan30-current-form-source.js";
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -23,6 +24,18 @@ import {
 } from "../application/owner-wan30-edit-generation-parameters.js";
 
 const SOURCE = getOwnerWan30EditGenerationSourceContract();
+const CURRENT_CONTROLS = Object.freeze({
+  provenance: "FORM_SOURCE_REVIEWED_NOT_PROVIDER_OBSERVED",
+  aspect_ratio: Object.freeze(["16:9", "9:16", "1:1", "4:3", "3:4", "adaptive"]),
+  resolution: Object.freeze(["480P", "720P", "1080P"]),
+  video_duration: Object.freeze({ minimum: 2, maximum: 15, local_guard: "this compatibility tool accepts integers; syntx_owner_generate_wan_current admits source finite slider values", condition: "at most floor of the input duration rounded to two decimals, with a minimum of 2" }),
+  duration: "uploaded measured duration in seconds, rounded to two decimals",
+  prompt_extend: "boolean", seed: "null or integer 0..2147483647", native_audio: "boolean",
+  rendering_speed: Object.freeze(["basic", "prime"]), fixed_fields: Object.freeze({ shot_type: "single", audio_setting: "auto" }),
+  input: Object.freeze({ media: "one owner-bound MP4", duration_seconds: "1..15", local_max_bytes: 30 * 1024 * 1024,
+    trimming: "NOT_IMPLEMENTED", additional_references: "NOT_IMPLEMENTED" }),
+  provider_acceptance: "UNPROVEN"
+});
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const RECOVERY_ID = /^wan_edit_recovery_[0-9a-f-]{36}$/u;
 const VIDEO_HANDLE = /^wan30_edit_video_[0-9a-f-]{36}$/u;
@@ -62,18 +75,25 @@ const uploadInputSchema = z.object({
     context.addIssue({ code: "custom", path: ["filename"], message: "Filename extension must match video/mp4." });
   }
 });
-const parametersSchema = z.object({
+const observedParametersSchema = z.object({
   aspect_ratio: z.literal("16:9"), resolution: z.literal("480P"), video_duration: z.literal(2), prompt_extend: z.literal(true),
   shot_type: z.literal("single"), audio_setting: z.literal("auto"), seed: z.null(), native_audio: z.literal(true),
   duration: z.literal(2), rendering_speed: z.literal("basic")
 }).strict();
+const parametersSchema = z.object({aspect_ratio:z.enum(["16:9","9:16","1:1","4:3","3:4","adaptive"]).default("16:9"),
+ resolution:z.enum(["480P","720P","1080P"]).default("480P"),video_duration:z.number().int().min(2).max(15).default(2),prompt_extend:z.boolean().default(true),
+ shot_type:z.literal("single").default("single"),audio_setting:z.literal("auto").default("auto"),seed:z.number().int().min(0).max(2147483647).nullable().default(null),
+ native_audio:z.boolean().default(true),duration:z.number().min(1).max(15).default(2).describe("Use uploaded duration_seconds rounded to two decimal places."),rendering_speed:z.enum(["basic","prime"]).default("basic")}).strict();
+const parametersOutputSchema = z.object({aspect_ratio:z.enum(["16:9","9:16","1:1","4:3","3:4","adaptive"]),resolution:z.enum(["480P","720P","1080P"]),
+ video_duration:z.number().int().min(2).max(15),prompt_extend:z.boolean(),shot_type:z.literal("single"),audio_setting:z.literal("auto"),seed:z.number().int().min(0).max(2147483647).nullable(),
+ native_audio:z.boolean(),duration:z.number().min(1).max(15),rendering_speed:z.enum(["basic","prime"])}).strict();
 const promptSchema = z.string().min(1).max(20_000).refine((value) => isWellFormedUnicode(value) && value.trim().length > 0,
   "Prompt must be nonblank and within the local input safety bound.");
 const generateInputSchema = z.object({
   link_attempt_id: attemptSchema, prompt: promptSchema, parameters: parametersSchema, video_handle: videoHandleSchema
 }).strict().superRefine((input, context) => {
   try { normalizeOwnerWan30EditGenerationIntent({ prompt: input.prompt, parameters: input.parameters }); }
-  catch { context.addIssue({ code: "custom", path: ["parameters"], message: "The one observed WAN 3.0 Edit tuple is required." }); }
+  catch { context.addIssue({ code: "custom", path: ["parameters"], message: "WAN 3.0 Edit parameters must satisfy the current form bounds." }); }
 });
 const reconcileInputSchema = z.object({ link_attempt_id: attemptSchema, recovery_id: recoveryIdSchema }).strict();
 const listRecoveriesInputSchema = z.object({ link_attempt_id: attemptSchema, limit: z.number().int().min(1).max(128).optional() }).strict();
@@ -101,9 +121,9 @@ const artifactSchema = z.object({
 const generationOutputSchema = z.object({
   status: z.enum(["completed", "partial_results"]), status_semantics: z.literal("LOCAL_OBSERVED_AVAILABILITY_ONLY"),
   backend_acceptance: z.literal("UNPROVEN"), provider_terminal_status: z.literal("UNPROVEN"), model_id: z.literal("wan_30_edit"),
-  parameters: parametersSchema,
-  cost_inputs: z.object({ resolution: z.literal("480P"), video_duration: z.literal(2), duration: z.literal(2), rendering_speed: z.literal("basic") }).strict(),
-  cost_input_confidence: z.literal("UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING"),
+  parameters: parametersOutputSchema,
+  cost_inputs: z.object({ resolution:z.enum(["480P","720P","1080P"]),video_duration:z.number().int().min(2).max(15),duration:z.number().min(1).max(15),rendering_speed:z.enum(["basic","prime"]) }).strict(),
+  cost_input_confidence: z.enum(["UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING","CURRENT_STATIC_SOURCE_NOT_BILLING"]),
   recovery_id: recoveryIdSchema, observed_artifact_count: z.number().int().min(0).max(MAX_RESULTS),
   offset: z.number().int().min(0).max(MAX_RESULTS), page_size: z.literal(PAGE_SIZE), artifacts: z.array(artifactSchema).max(PAGE_SIZE),
   has_more: z.boolean(), next_offset: z.number().int().min(1).max(MAX_RESULTS).nullable(), diagnostic: diagnosticSchema
@@ -117,10 +137,10 @@ const generationOutputSchema = z.object({
 const uploadOutputSchema = z.object({
   status: z.literal("uploaded"), video_handle: videoHandleSchema, model_id: z.literal("wan_30_edit"), mime_type: z.literal("video/mp4"),
   size: z.number().int().min(1).max(MAX_VIDEO_BYTES), sha256: z.string().regex(SHA256), width: z.number().int().min(1).max(8_000),
-  height: z.number().int().min(1).max(8_000), duration_seconds: z.number().min(1.999).max(2.001),
+  height: z.number().int().min(1).max(8_000), duration_seconds: z.number().min(1).max(15),
   fps: z.number().min(16).max(120), frame_count: z.number().int().min(1).nullable(), expires_in_seconds: z.number().int().min(0).max(3_600),
   metadata_confidence: z.literal("LOCAL_FFPROBE_METADATA_ONLY"),
-  upload_binding_confidence: z.literal("UI_MULTIPART_FIELDS_OBSERVED_SINGLE_CASE")
+  upload_binding_confidence: z.enum(["UI_MULTIPART_FIELDS_OBSERVED_SINGLE_CASE", "CURRENT_FORM_SOURCE_NOT_PROVIDER_OBSERVED"])
 }).strict();
 const recoveryItemSchema = z.object({ recovery_id: recoveryIdSchema, created_at: z.iso.datetime(), model_id: z.literal("wan_30_edit"),
   status: z.enum(["outcome_unknown", "partial_results"]), observed_artifact_count: z.number().int().min(0).max(MAX_RESULTS), diagnostic: diagnosticSchema }).strict();
@@ -149,14 +169,14 @@ const sourceOutputSchema = z.object({
     observed_keys: z.tuple([z.literal("resolution"), z.literal("video_duration"), z.literal("duration"), z.literal("rendering_speed")]),
     observed_values: z.object({ resolution: z.literal("480P"), video_duration: z.literal(2), duration: z.literal(2), rendering_speed: z.literal("basic") }).strict(),
     billing_semantics: z.literal("UNPROVEN") }).strict(),
-  controls: z.object({ observed_values: parametersSchema, valid_combinations: z.literal("UNPROVEN"), effective_defaults: z.literal("UNKNOWN") }).strict(),
+  controls: z.object({ observed_values: observedParametersSchema, valid_combinations: z.literal("UNPROVEN"), effective_defaults: z.literal("UNKNOWN") }).strict(),
   historical_pre_upload_ui_state: z.object({ evidence: z.literal("BEFORE_OWN_VIDEO_UPLOAD"), native_audio: z.literal(false),
     duration: z.literal(0), default_semantics: z.literal("NOT_ESTABLISHED") }).strict(),
   profile_scope: z.object({ supported_input_case: z.literal("ONE_TRUSTED_OWN_UPLOADED_MP4_OBSERVED_AT_TWO_SECONDS"),
     accepted_input_source: z.literal("NATIVE_OWN_UPLOAD_WITNESS_ONLY"), other_formats_and_durations: z.literal("UNKNOWN"),
     other_settings: z.literal("UNKNOWN") }).strict(),
   prompt_limit: z.object({ maximum_utf16_length: z.literal(20_000), source: z.literal("LOCAL_SAFETY_BOUND_NOT_OBSERVED_UI_OR_PROVIDER_LIMIT") }).strict(),
-  dispatch_allowed: z.literal(false), runtime_usable: z.literal(false), backend_acceptance: z.literal("UNPROVEN")
+  dispatch_allowed: z.literal(false), runtime_usable: z.literal(false), backend_acceptance: z.literal("UNPROVEN"),current_source:z.unknown().optional(),current_controls:z.unknown().optional()
 }).strict();
 
 export const OWNER_WAN30_EDIT_TOOL_INPUT_SCHEMAS = Object.freeze({ parameters: emptyInputSchema, upload: uploadInputSchema,
@@ -172,11 +192,11 @@ export function registerSyntxOwnerWan30EditVideoTools(server: McpServer, options
   const options = snapshotOptions(optionsInput);
   server.registerTool(SYNTX_GET_WAN30_EDIT_PARAMETERS_TOOL_NAME, {
     title: "Get WAN 3.0 Edit parameters",
-    description: "Returns the single observed owner-upload Edit request and selected-mode quote. It does not claim other inputs, provider acceptance, or billing.",
+    description: "Returns the historical observed Edit tuple and separate source-reviewed current controls and local input limits. Provider acceptance and billing are unproven.",
     inputSchema: emptyInputSchema, outputSchema: sourceOutputSchema,
     annotations: { title: "Get WAN 3.0 Edit parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async (input) => !emptyInputSchema.safeParse(snapshotSafeInput(input)).success
-    ? errorResult({ error: { code: "INVALID_REQUEST", message: ERROR_MESSAGES.INVALID_REQUEST } }) : structured(parseSafeOutput(sourceOutputSchema, SOURCE)));
+    ? errorResult({ error: { code: "INVALID_REQUEST", message: ERROR_MESSAGES.INVALID_REQUEST } }) : structured(parseSafeOutput(sourceOutputSchema, {...SOURCE,current_source:WAN30_CURRENT_FORM_SOURCE,current_controls:CURRENT_CONTROLS})));
 
   server.registerTool(SYNTX_OWNER_UPLOAD_WAN30_EDIT_VIDEO_TOOL_NAME, {
     title: "Upload WAN 3.0 Edit video",
@@ -197,7 +217,7 @@ export function registerSyntxOwnerWan30EditVideoTools(server: McpServer, options
 
   server.registerTool(SYNTX_OWNER_GENERATE_WAN30_EDIT_VIDEO_TOOL_NAME, {
     title: "Generate WAN 3.0 Edit video",
-    description: "Submits the one observed Edit tuple against an opaque owner video handle after fresh account/access checks. Outcomes may be paid and are never replayed; reconcile uncertainty.",
+    description: "Generates against an owner-bound video handle after fresh account/access checks. Set duration to the uploaded measured duration rounded to two decimals; video_duration is an integer from 2 through the rounded input duration's floor (minimum 2). Current settings are source-reviewed, not provider-observed. Outcomes may be paid and are never replayed; reconcile uncertainty.",
     inputSchema: generateInputSchema, outputSchema: generationOutputSchema,
     annotations: { title: "Generate WAN 3.0 Edit video", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }) => {

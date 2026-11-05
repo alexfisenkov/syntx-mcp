@@ -54,7 +54,7 @@ test("source contract pins the Reference UI POST, selected-mode quote, and one o
   assert.equal(source.backend_acceptance, "UNPROVEN");
 });
 
-test("normalizer preserves prompt verbatim but rejects delimiters, excess length, and any other tuple", () => {
+test("normalizer preserves prompt verbatim but rejects delimiters, excess length and out-of-range values", () => {
   const prompt = ` ${"x".repeat(19_998)} `;
   const result = normalizeOwnerWan30ReferenceGenerationIntent({ ...VALID, prompt });
   assert.equal(result.intent.model_id, "wan_30_reference");
@@ -67,9 +67,9 @@ test("normalizer preserves prompt verbatim but rejects delimiters, excess length
   rejects({ ...VALID, prompt: "text <<<reference>>>" });
   rejects({ ...VALID, prompt: "invalid-\ud800" });
   rejects({ ...VALID, prompt: "   " });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, resolution: "720P" } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, resolution: "4K" } });
   rejects({ ...VALID, parameters: { ...VALID.parameters, audio_setting: "basic" } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, seed: 1 } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, seed: -1 } });
   rejects({ ...VALID, parameters: { ...VALID.parameters, unknown_setting: true } });
 });
 

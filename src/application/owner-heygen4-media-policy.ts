@@ -2,7 +2,7 @@ import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } 
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, join, isAbsolute } from "node:path";
 import { tmpdir } from "node:os";
 import { types } from "node:util";
 import { inspectBoundedOwnerImageBytesWithMax } from "./owner-image-reference-input-validator.js";
@@ -253,7 +253,7 @@ function exact(value: unknown, keys: readonly string[]): Record<string, any> {
 }
 function safeFilename(value: string): boolean { return value === value.trim() && value.length > 0 && value !== "." && value !== ".." &&
   Buffer.byteLength(value, "utf8") <= 255 && !/[\\/\p{Cc}\p{Cf}\p{Cs}]/u.test(value); }
-function isAbsoluteCleanPath(value: string): boolean { return value === value.trim() && value.startsWith("/") && !value.includes("\0"); }
+function isAbsoluteCleanPath(value: string): boolean { return value === value.trim() && isAbsolute(value) && !value.includes("\0"); }
 function positiveInteger(value: unknown): number | undefined { if (typeof value === "string" && /^\d+$/u.test(value)) value = Number(value); return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined; }
 function finitePositive(value: unknown): number | undefined { if (typeof value === "string" && value.trim()) value = Number(value); return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined; }
 function ascii(bytes: Uint8Array, offset: number, length: number): string { return Buffer.from(bytes.buffer, bytes.byteOffset + offset, length).toString("ascii"); }

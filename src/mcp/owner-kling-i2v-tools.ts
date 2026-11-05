@@ -1,5 +1,6 @@
 import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
+import { OWNER_KLING_CURRENT_MANUAL_CONTROLS } from "../application/owner-kling-current-controls.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
@@ -34,7 +35,7 @@ const IMAGE_HANDLE = /^kling_i2v_image_[0-9a-f-]{36}$/u;
 const RECOVERY_ID = /^kling_i2v_generation_recovery_[0-9a-f-]{36}$/u;
 const MAX_IMAGE_BYTES = OWNER_KLING_I2V_IMAGE_INPUT_POLICY.local_max_bytes;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
-const VERSIONS = ["1.5", "1.6", "2.1-master", "2.5-turbo", "2.6", "3.0", "3.0-turbo"] as const;
+const VERSIONS = ["1.5", "1.6", "2.1-master", "2.5-turbo", "2.5", "2.6", "3.0", "3.0-turbo"] as const;
 const MODES = ["standart", "hd", "4K"] as const;
 const PIN_VALUE_SCHEMA = z.union([z.string(), z.number().finite()]);
 const sourceRecordSchema = z.record(z.string(), z.unknown());
@@ -45,7 +46,7 @@ const sourceOutputSchema = z.object({
   source_pins: z.record(z.string(), PIN_VALUE_SCHEMA), controls: sourceRecordSchema,
   settings: sourceRecordSchema, references: sourceRecordSchema, cost_projection: sourceRecordSchema, wire: sourceRecordSchema,
   effective_defaults: z.literal("UNKNOWN"), runtime_usable: z.literal(false), dispatch_allowed: z.literal(false),
-  backend_acceptance: z.literal("UNPROVEN")
+  backend_acceptance: z.literal("UNPROVEN"), current_controls: z.json().optional()
 }).strict();
 
 const attemptSchema = z.string().regex(ATTEMPT).describe("Exact currently linked owner attempt.");
@@ -71,7 +72,7 @@ const generateInputSchema = z.object({
   prompt: z.string().optional(),
   version: z.enum(VERSIONS),
   mode: z.enum(MODES),
-  video_duration: z.number().int(),
+  video_duration: z.number().finite(),
   native_audio: z.boolean(),
   temperature: z.number().finite().min(0).max(1),
   multi_shots: z.boolean().optional()
@@ -87,7 +88,7 @@ const generateInputSchema = z.object({
     context.addIssue({ code: "custom", path: ["mode"], message: "4K mode is source-listed only for Kling 3.0." });
   }
   const durationAllowed = version === "3.0" || version === "3.0-turbo"
-    ? Number.isSafeInteger(input.video_duration) && input.video_duration >= 3 && input.video_duration <= 15
+    ? Number.isFinite(input.video_duration) && input.video_duration >= 3 && input.video_duration <= 15
     : input.video_duration === 5 || input.video_duration === 10;
   if (!durationAllowed) {
     context.addIssue({ code: "custom", path: ["video_duration"], message: "The selected Kling I2V version does not support this duration." });
@@ -97,9 +98,6 @@ const generateInputSchema = z.object({
   }
   if (input.native_audio && version === "2.6" && input.mode !== "hd") {
     context.addIssue({ code: "custom", path: ["mode"], message: "Kling 2.6 native audio requires hd mode." });
-  }
-  if (Math.abs(input.temperature * 10 - Math.round(input.temperature * 10)) > 1e-9) {
-    context.addIssue({ code: "custom", path: ["temperature"], message: "Temperature must use 0.1 increments." });
   }
   if (version === "3.0" ? typeof input.multi_shots !== "boolean" : input.multi_shots !== undefined) {
     context.addIssue({ code: "custom", path: ["multi_shots"], message: "Provide an explicit boolean only for version 3.0." });
@@ -144,7 +142,7 @@ export function registerSyntxOwnerKlingI2vTools(server: McpServer, options: Regi
     inputSchema: z.object({}).strict(), outputSchema: sourceOutputSchema,
     annotations: { title: "Get Kling I2V parameters and source", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }, async (): Promise<CallToolResult> => {
-    try { return structuredResult(sourceOutputSchema.parse(options.generationService.getParametersSource())); }
+    try { return structuredResult(sourceOutputSchema.parse({ ...options.generationService.getParametersSource(), current_controls: OWNER_KLING_CURRENT_MANUAL_CONTROLS })); }
     catch { return unavailable("SOURCE_UNAVAILABLE", "The pinned Kling I2V source profile is unavailable."); }
   });
 

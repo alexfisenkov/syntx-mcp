@@ -1,3 +1,4 @@
+import { isKlingFractionalDuration, loadKlingManualDurationCurrentCatalog } from "./owner-kling-duration-current-source.js";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { SyntxChatHttpClient, type MediaGenerationReceipt } from "../adapter/syntx/chat-http-client.js";
@@ -94,7 +95,8 @@ export interface OwnerKlingI2vGenerationServiceOptions {
   readonly referenceService: KlingReferenceService;
   readonly resolveChatClient: (attemptId: string) => unknown;
   readonly createAccountStatusService: (attemptId: string) => AccountStatusService;
-  readonly createModelAccessService: (attemptId: string) => ModelAccessService;
+  readonly createModelAccessService: (attemptId: string, catalogOverride?: DiscoveryCatalogRepository) => ModelAccessService;
+  readonly catalogDirectory?: string;
   readonly now?: () => number;
   readonly timeoutMs?: number;
   readonly pollDelayMs?: number;
@@ -165,18 +167,21 @@ export class OwnerKlingI2vGenerationService {
   readonly #usedAccountServices = new WeakSet<object>();
   readonly #usedAccessServices = new WeakSet<object>();
   readonly #runs = new Set<ActiveRun>();
+  readonly #catalogDirectory: string | undefined;
   readonly #invalidating = new Set<string>();
   #closed = false;
   #closing: Promise<void> | undefined;
 
   constructor(optionsInput: OwnerKlingI2vGenerationServiceOptions | unknown) {
     const options = exactRecord(optionsInput, ["binding", "linkService", "catalog", "referenceService", "resolveChatClient",
-      "createAccountStatusService", "createModelAccessService"], ["now", "timeoutMs", "pollDelayMs", "maxGetPasses"]);
+      "createAccountStatusService", "createModelAccessService"], ["now", "timeoutMs", "pollDelayMs", "maxGetPasses", "catalogDirectory"]);
     if (!isExactService(options.linkService, PerUserLinkService, ["getStatus"]) ||
         !isExactService(options.catalog, DiscoveryCatalogRepository, ["getModel"]) ||
         !isReferenceService(options.referenceService) || typeof options.resolveChatClient !== "function" || types.isProxy(options.resolveChatClient) ||
         typeof options.createAccountStatusService !== "function" || types.isProxy(options.createAccountStatusService) ||
         typeof options.createModelAccessService !== "function" || types.isProxy(options.createModelAccessService)) invalid();
+    if(options.catalogDirectory !== undefined && typeof options.catalogDirectory !== "string") invalid();
+    this.#catalogDirectory = options.catalogDirectory as string | undefined;
     this.#binding = snapshotBinding(options.binding);
     this.#linkService = options.linkService as Pick<PerUserLinkService, "getStatus">;
     this.#catalog = options.catalog as DiscoveryCatalogRepository;
@@ -441,10 +446,11 @@ export class OwnerKlingI2vGenerationService {
 
   async #preflight(attemptId: string, parameters: OwnerKlingI2vNormalizedParameters, deadline: AbsoluteRequestDeadline): Promise<void> {
     deadline.throwIfAborted();
+    const selectedCatalog = isKlingFractionalDuration(parameters.intent.video_duration) ? loadKlingManualDurationCurrentCatalog(this.#catalogDirectory) : this.#catalog;
     let accountService: AccountStatusService; let accessService: ModelAccessService;
     try {
       accountService = Reflect.apply(this.#createAccountStatusService, undefined, [attemptId]) as AccountStatusService;
-      accessService = Reflect.apply(this.#createModelAccessService, undefined, [attemptId]) as ModelAccessService;
+      accessService = Reflect.apply(this.#createModelAccessService, undefined, [attemptId, selectedCatalog]) as ModelAccessService;
     } catch { fail("PREFLIGHT_FAILED"); }
     if (!isExactService(accountService!, AccountStatusService, ["getAccountStatus"]) || this.#usedAccountServices.has(accountService!) ||
         !isExactService(accessService!, ModelAccessService, ["getModelAccess"]) || this.#usedAccessServices.has(accessService!)) fail("PREFLIGHT_FAILED");
@@ -456,7 +462,7 @@ export class OwnerKlingI2vGenerationService {
         model_id: "kling_image2video", cost_parameters: Object.freeze({ ...parameters.cost_query_candidate.values })
       }, deadline.signal]) as Promise<ModelAccessResult>);
     } catch { fail("PREFLIGHT_FAILED"); }
-    assertPreflight(account!, access!, parameters, this.#catalog, this.#readNow());
+    assertPreflight(account!, access!, parameters, selectedCatalog, this.#readNow());
   }
 
   async #resolvePrincipal(attemptId: string, signal?: AbortSignal): Promise<Readonly<GenerationPrincipalRef>> {

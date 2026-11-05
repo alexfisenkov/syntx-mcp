@@ -1,3 +1,4 @@
+import { isKlingFiniteDuration, isKlingFractionalDuration, OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } from "./owner-kling-duration-current-source.js";
 import { types } from "node:util";
 
 const MODEL_ID = "kling_keyframes" as const;
@@ -143,6 +144,7 @@ export interface OwnerKlingKeyframesParametersSource {
 
 export interface OwnerKlingKeyframesNormalizedParameters {
   readonly status: "SOURCE_REVIEWED_EXPLICIT_INTENT";
+  readonly current_duration_source?: typeof OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE;
   readonly source_pins: typeof OWNER_KLING_KEYFRAMES_SOURCE_PINS;
   readonly intent: Readonly<{
     model_id: typeof MODEL_ID;
@@ -186,7 +188,7 @@ export function normalizeOwnerKlingKeyframesParameters(input: unknown): OwnerKli
   const fields = exactRecord(input, INPUT_KEYS);
   if (fields.model_id !== MODEL_ID || typeof fields.version !== "string" ||
       !VERSIONS.includes(fields.version as OwnerKlingKeyframesVersion) || typeof fields.mode !== "string" ||
-      !MODES.includes(fields.mode as OwnerKlingKeyframesMode) || !Number.isSafeInteger(fields.video_duration) ||
+      !MODES.includes(fields.mode as OwnerKlingKeyframesMode) || !isKlingFiniteDuration(fields.video_duration, 3, 15) ||
       typeof fields.native_audio !== "boolean" ||
       !(fields.aspect_ratio === null || (typeof fields.aspect_ratio === "string" &&
         ASPECT_RATIOS.includes(fields.aspect_ratio as typeof ASPECT_RATIOS[number])))) invalid();
@@ -195,12 +197,13 @@ export function normalizeOwnerKlingKeyframesParameters(input: unknown): OwnerKli
   const mode = fields.mode as OwnerKlingKeyframesMode;
   const videoDuration = fields.video_duration as number;
   if ((mode === "standart" && version !== "3.0") || (mode === "4K" && version !== "3.0") ||
-      (version === "3.0" ? !LONG_DURATIONS.includes(videoDuration) : !STANDARD_DURATIONS.some((duration) => duration === videoDuration)) ||
+      (version === "3.0" ? !isKlingFiniteDuration(videoDuration, 3, 15) : !STANDARD_DURATIONS.some((duration) => duration === videoDuration)) ||
       (fields.native_audio === true && version !== "3.0")) invalid();
 
   return Object.freeze({
     status: "SOURCE_REVIEWED_EXPLICIT_INTENT" as const,
     source_pins: OWNER_KLING_KEYFRAMES_SOURCE_PINS,
+    ...(isKlingFractionalDuration(videoDuration) ? { current_duration_source: OWNER_KLING_MANUAL_DURATION_CURRENT_SOURCE } : {}),
     intent: Object.freeze({
       model_id: MODEL_ID,
       version,

@@ -24,6 +24,7 @@ import {
   type OwnerWan30ReferenceValidatedImage
 } from "../adapter/syntx/owner-wan30-reference-native-context.js";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
+import {WAN30_CURRENT_FORM_SOURCE,WAN30_REFERENCE_CURRENT_PROFILE_ID} from "./owner-wan30-current-form-source.js";
 import { ACCOUNT_CONTRACT_EVIDENCE, ACCOUNT_SOURCE_BUILD } from "../adapter/syntx/account-decoder.js";
 import type { AuthBinding } from "../auth/types.js";
 import { PerUserLinkService } from "../auth/link-service.js";
@@ -132,8 +133,8 @@ export interface OwnerWan30ReferenceGenerationResult {
   readonly provider_terminal_status: "UNPROVEN";
   readonly model_id: typeof MODEL_ID;
   readonly parameters: OwnerWan30ReferenceGenerationParameters;
-  readonly cost_inputs: typeof COST_INPUTS;
-  readonly cost_input_confidence: "UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING";
+  readonly cost_inputs: Readonly<{resolution:string;video_duration:number;duration:0;rendering_speed:string}>;
+  readonly cost_input_confidence: "UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING" | "CURRENT_STATIC_SOURCE_NOT_BILLING";
   readonly recovery_id: string;
   readonly observed_artifact_count: number;
   readonly offset: number;
@@ -252,6 +253,7 @@ export class OwnerWan30ReferenceGenerationService {
   readonly #usedAccounts = new WeakSet<object>();
   readonly #usedAccess = new WeakSet<object>();
   #referenceCatalog: DiscoveryCatalogRepository | undefined;
+  #currentCatalog: DiscoveryCatalogRepository | undefined;
   #closed = false;
   #closing: Promise<void> | undefined;
   #lastNow = -1;
@@ -314,7 +316,7 @@ export class OwnerWan30ReferenceGenerationService {
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       const recovery = this.#recoveries.get(request.recovery_id);
       if (!recovery || recovery.attemptId !== request.attemptId || !sameGenerationPrincipal(recovery.principal, principal)) fail("RECOVERY_NOT_FOUND");
-      if (this.#assertSource().profile_id !== PROFILE_ID || !samePins(recovery.source_pins, this.#assertSource().source_pins)) throw unknown(recovery);
+      if (!samePins(recovery.source_pins, this.#assertGenerationSource(recovery.source_pins).source_pins)) throw unknown(recovery);
       if (recovery.status === "outcome_unknown") throw unknown(recovery);
       return page(recovery, request.offset);
     });
@@ -419,11 +421,12 @@ export class OwnerWan30ReferenceGenerationService {
     let context: OwnerWan30ReferenceGenerationContext | undefined;
     let recovery: Recovery | undefined;
     const normalized = normalizeOwnerWan30ReferenceGenerationIntent({ prompt: request.input.prompt, parameters: request.input.parameters });
-    const intent = normalized.intent, source = this.#assertSource();
+    const intent = normalized.intent, source = this.#assertGenerationSource(normalized.source_pins);
     const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
     const client = this.#resolveNativeClient(request.attemptId);
     const image = this.#getImageRecord(request.image_handle);
     this.#assertImageBinding(image, request.attemptId, principal, client);
+    if(source.profile_id===WAN30_REFERENCE_CURRENT_PROFILE_ID && (image.image.width<240||image.image.height<240||image.image.width>8000||image.image.height>8000)) fail("REFERENCE_UNAVAILABLE");
     const semanticKey = semanticGenerationKey(principal, intent, image, source);
     const claim = this.#claims.get(semanticKey);
     if (claim !== undefined) {
@@ -440,13 +443,13 @@ export class OwnerWan30ReferenceGenerationService {
     if (this.#claims.size >= MAX_RECOVERIES) fail("SERVICE_BUSY");
     this.#claims.set(semanticKey, Object.freeze({ attemptId: request.attemptId, recovery_id: null }));
     try {
-      await this.#preflight(request.attemptId, deadline);
+      await this.#preflight(request.attemptId, deadline,intent.parameters,source.profile_id===WAN30_REFERENCE_CURRENT_PROFILE_ID);
       await this.#assertOwnerAndImage(request, image, principal, client, deadline);
       const chat = await this.#await(deadline, () => Reflect.apply(CHAT_CREATE, client,
         ["video", `owner-wan30-reference-${randomUUID()}`, deadline.signal]) as Promise<{ chat_uuid: string }>);
       if (!chat || !safeId(chat.chat_uuid)) fail("PRE_DISPATCH_FAILED");
       await this.#assertOwnerAndImage(request, image, principal, client, deadline);
-      await this.#preflight(request.attemptId, deadline);
+      await this.#preflight(request.attemptId, deadline,intent.parameters,source.profile_id===WAN30_REFERENCE_CURRENT_PROFILE_ID);
       await this.#assertOwnerAndImage(request, image, principal, client, deadline);
       context = createOwnerWan30ReferenceGenerationContext(client, Object.freeze({ attempt_id: request.attemptId,
         principal, chat_id: chat.chat_uuid, intent, reference_image: image.image }));
@@ -485,7 +488,7 @@ export class OwnerWan30ReferenceGenerationService {
     try {
       const principal = await this.#await(deadline, () => this.#resolvePrincipal(request.attemptId));
       if (!sameGenerationPrincipal(principal, recovery.principal) || this.#invalidating.has(request.attemptId)) throw unknown(recovery);
-      const source = this.#assertSource();
+      const source = this.#assertGenerationSource(recovery.source_pins);
       if (!samePins(recovery.source_pins, source.source_pins)) throw unknown(recovery);
       if (recovery.status === "completed") return page(recovery, 0);
       return await this.#observe(recovery, this.#resolveNativeClient(request.attemptId), deadline);
@@ -607,9 +610,9 @@ export class OwnerWan30ReferenceGenerationService {
         !sameGenerationPrincipal(native.principal, recovery.principal)) throw unknown(recovery);
   }
 
-  async #preflight(attemptId: string, deadline: AbsoluteRequestDeadline): Promise<void> {
+  async #preflight(attemptId: string, deadline: AbsoluteRequestDeadline, parameters:OwnerWan30ReferenceGenerationParameters,current:boolean): Promise<void> {
     deadline.throwIfAborted();
-    const catalog = this.#getReferenceCatalog();
+    const catalog = current?this.#getCurrentCatalog():this.#getReferenceCatalog();
     let accountService: AccountStatusService, accessService: ModelAccessService;
     try {
       accountService = Reflect.apply(this.#createAccount, undefined, [attemptId]) as AccountStatusService;
@@ -622,7 +625,7 @@ export class OwnerWan30ReferenceGenerationService {
     try {
       account = await this.#await(deadline, () => Reflect.apply(ACCOUNT_GET, accountService, [deadline.signal]) as Promise<AccountStatusResult>);
       access = await this.#await(deadline, () => Reflect.apply(ACCESS_GET, accessService, [Object.freeze({ model_id: MODEL_ID,
-        cost_parameters: COST_INPUTS }), deadline.signal]) as Promise<ModelAccessResult>);
+        cost_parameters: costInputs(parameters) }), deadline.signal]) as Promise<ModelAccessResult>);
     } catch { fail("PREFLIGHT_FAILED"); }
     if (!freshPreflight(account, access, catalog, this.#readNow())) fail("PREFLIGHT_FAILED");
   }
@@ -647,6 +650,19 @@ export class OwnerWan30ReferenceGenerationService {
     this.#assertCatalog(catalog); this.#referenceCatalog = catalog; return catalog;
   }
   #assertSource() { const source = getOwnerWan30ReferenceGenerationSourceContract(); this.#assertCatalog(this.#getReferenceCatalog()); return source; }
+  #getCurrentCatalog():DiscoveryCatalogRepository{
+    if(this.#currentCatalog)return this.#currentCatalog;let catalog:DiscoveryCatalogRepository;
+    try{catalog=new DiscoveryCatalogRepository(loadPublicCatalogVersion(WAN30_CURRENT_FORM_SOURCE.public_catalog_version,this.#catalogDirectory));}catch{fail("MODEL_BINDING_MISMATCH");}
+    const model=catalog.getModel(MODEL_ID),count=model.settings?.file_count_limit,max=model.settings?.max_file_size;
+    if(catalog.source_hashes.models!==WAN30_CURRENT_FORM_SOURCE.public_models_sha256||!model.active||model.id!==MODEL_ID||model.upstream_id!==MODEL_ID||model.ai_name!=="wan_video"||
+      model.settings?.min_side!==240||model.settings?.max_side!==8000||!count||typeof count!=="object"||(count as Record<string,unknown>).images!==10||
+      !max||typeof max!=="object"||(max as Record<string,unknown>).images!==20971520||!sameStrings(model.settings?.get_cost_params,Object.keys(COST_INPUTS)))fail("MODEL_BINDING_MISMATCH");
+    this.#currentCatalog=catalog;return catalog;
+  }
+  #assertGenerationSource(pins:object):Readonly<{profile_id:string;source_pins:object}>{
+    if(samePins(pins,WAN30_CURRENT_FORM_SOURCE)){this.#getCurrentCatalog();return Object.freeze({profile_id:WAN30_REFERENCE_CURRENT_PROFILE_ID,source_pins:WAN30_CURRENT_FORM_SOURCE});}
+    const source=this.#assertSource();if(!samePins(pins,source.source_pins))fail("MODEL_BINDING_MISMATCH");return source;
+  }
   #resolveNativeClient(attemptId: string): SyntxChatHttpClient {
     let client: unknown;
     try { client = Reflect.apply(this.#resolveClient, undefined, [attemptId]); } catch { fail("MODEL_BINDING_MISMATCH"); }
@@ -790,9 +806,12 @@ function semanticUploadKey(attemptId: string, principal: Readonly<GenerationPrin
     profile_id: source.profile_id, source_pins: source.source_pins, sha256: image.sha256, size: image.size, mime_type: image.mime_type })).digest("hex");
 }
 function semanticGenerationKey(principal: Readonly<GenerationPrincipalRef>, intent: OwnerWan30ReferenceGenerationIntent,
-  image: ImageRecord, source: ReturnType<typeof getOwnerWan30ReferenceGenerationSourceContract>): string {
+  image: ImageRecord, source: Readonly<{profile_id:string;source_pins:object}>): string {
   return createHash("sha256").update(JSON.stringify({ tenant_id: principal.tenant_id, subject_id: principal.subject_id,
     profile_id: source.profile_id, source_pins: source.source_pins, intent, reference_sha256: image.image.sha256 })).digest("hex");
+}
+function costInputs(p:OwnerWan30ReferenceGenerationParameters):Readonly<{resolution:string;video_duration:number;duration:0;rendering_speed:string}>{
+  return Object.freeze({resolution:p.resolution,video_duration:p.video_duration,duration:0,rendering_speed:p.rendering_speed});
 }
 function uploadReceipt(record: ImageRecord, now: number): OwnerWan30ReferenceImageUploadReceipt {
   return Object.freeze({ status: "uploaded", image_handle: record.image_handle, model_id: MODEL_ID,
@@ -895,7 +914,7 @@ function page(recovery: Recovery, offset: number): OwnerWan30ReferenceGeneration
   const artifacts = Object.freeze(recovery.artifacts.slice(offset, offset + PAGE_SIZE)), next = offset + artifacts.length;
   return Object.freeze({ status: recovery.status as "completed" | "partial_results", status_semantics: "LOCAL_OBSERVED_AVAILABILITY_ONLY",
     backend_acceptance: "UNPROVEN", provider_terminal_status: "UNPROVEN", model_id: MODEL_ID, parameters: recovery.intent.parameters,
-    cost_inputs: COST_INPUTS, cost_input_confidence: "UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING", recovery_id: recovery.recovery_id,
+    cost_inputs: costInputs(recovery.intent.parameters), cost_input_confidence: samePins(recovery.source_pins,WAN30_CURRENT_FORM_SOURCE)?"CURRENT_STATIC_SOURCE_NOT_BILLING":"UI_QUOTE_CALLER_OBSERVED_SINGLE_TUPLE_NOT_BILLING", recovery_id: recovery.recovery_id,
     observed_artifact_count: recovery.artifacts.length, offset, page_size: PAGE_SIZE, artifacts, has_more: next < recovery.artifacts.length,
     next_offset: next < recovery.artifacts.length ? next : null, diagnostic: freezeDiagnostic(recovery.diagnostic) });
 }

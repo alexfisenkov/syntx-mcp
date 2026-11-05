@@ -1,5 +1,6 @@
 import { types } from "node:util";
 import { schemaHash } from "../domain/generation-contract.js";
+import { ownerGrokI2vWireProfile } from "./owner-grok-i2v-current-controls.js";
 
 export const OWNER_GROK_I2V_MODEL_IDS = Object.freeze(["grok_i2v", "grok_15_i2v"] as const);
 export type OwnerGrokI2vModelId = typeof OWNER_GROK_I2V_MODEL_IDS[number];
@@ -138,7 +139,7 @@ export function normalizeOwnerGrokI2vParameters(input: unknown): Readonly<OwnerG
     status: "SOURCE_PARAMETERS_ONLY_NOT_DISPATCH_AUTHORITY" as const,
     intent,
     source_parameters,
-    profile_sha256: SOURCE_PROFILE.source_sha256,
+    profile_sha256: ownerGrokI2vWireProfile(SOURCE_PROFILE.source_sha256, modelId, 16, 9, intent.video_duration),
     prompt_bound: "LOCAL_UTF16_BOUND_PUBLIC_MAXIMUM_PROVIDER_UNIT_UNPROVEN" as const,
     prompt_maximum_utf16_length: PROMPT_UTF16_LIMITS[fields.model_id],
     effective_defaults: "UNKNOWN" as const,
@@ -174,7 +175,7 @@ function isModelId(value: unknown): value is OwnerGrokI2vModelId {
   return typeof value === "string" && (OWNER_GROK_I2V_MODEL_IDS as readonly string[]).includes(value);
 }
 function isDuration(model_id: OwnerGrokI2vModelId, value: unknown): value is number {
-  if (!Number.isSafeInteger(value)) return false;
+  if (typeof value !== "number" || !Number.isFinite(value)) return false;
   return model_id === "grok_i2v" ? value === 6 || value === 10 : (value as number) >= 1 && (value as number) <= 15;
 }
 function oneOf<T extends string>(value: unknown, values: readonly T[]): value is T {

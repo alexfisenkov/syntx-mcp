@@ -65,7 +65,7 @@ test("source contract binds the one Omni UI tuple, exact wire shape, and exact o
   assert.equal(source.backend_acceptance, "UNPROVEN");
 });
 
-test("normalizer preserves prompt text including ordinary URLs and rejects delimiter injection or tuple changes", () => {
+test("normalizer preserves prompt text including ordinary URLs and rejects delimiter injection or out-of-range values", () => {
   const prompt = "Keep the existing scene; a citation such as https://example.invalid/path is plain prompt text";
   const result = normalizeOwnerWan30OmniGenerationIntent({ ...VALID, prompt });
   assert.equal(result.intent.model_id, "wan_30_omni");
@@ -79,9 +79,9 @@ test("normalizer preserves prompt text including ordinary URLs and rejects delim
   rejects({ ...VALID, prompt: "invalid-\ud800" });
   rejects({ ...VALID, prompt: "   " });
   rejects({ ...VALID, prompt: `${"x".repeat(20_000)}x` });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, resolution: "720P" } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, resolution: "4K" } });
   rejects({ ...VALID, parameters: { ...VALID.parameters, audio_setting: "basic" } });
-  rejects({ ...VALID, parameters: { ...VALID.parameters, seed: 7 } });
+  rejects({ ...VALID, parameters: { ...VALID.parameters, seed: -1 } });
   rejects({ ...VALID, parameters: { ...VALID.parameters, unknown_setting: true } });
 });
 

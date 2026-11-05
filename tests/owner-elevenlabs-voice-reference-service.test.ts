@@ -208,19 +208,20 @@ test("voice-reference capacity fails closed without evicting an earlier owner's 
   const links = await linkedService(() => now);
   const { service } = makeService(links, async () => {
     page += 1;
-    const prefix = page === 1 ? "provider_voice_first_" : "provider_voice_next_";
+    const prefix = page === 1 ? "provider_voice_first_" : `provider_voice_next_${page}_`;
     return new Response(JSON.stringify({ page: 1, total: 200, facets: {},
-      results: Array.from({ length: 100 }, (_, index) => ({ voice_id: `${prefix}${index}`, name: `Voice ${index}` })) }),
+      results: Array.from({ length: 20 }, (_, index) => ({ voice_id: `${prefix}${index}`, name: `Voice ${index}` })) }),
     { headers: { "content-type": "application/json" } });
   }, () => now);
   try {
-    const first = await service.listVoices({ attemptId: ATTEMPT });
-    assert.equal((first.voices as unknown[]).length, 100);
+    const first = await service.listVoices({ attemptId: ATTEMPT, page_size: 20 });
+    assert.equal((first.voices as unknown[]).length, 20);
     const firstRef = (first.voices as Array<Record<string, unknown>>)[0]?.voice_ref;
-    await assert.rejects(service.listVoices({ attemptId: ATTEMPT }), (error: unknown) => code(error, "CAPACITY_EXCEEDED"));
+    for (let pageIndex = 0; pageIndex < 5; pageIndex++) await service.listVoices({ attemptId: ATTEMPT, page_size: 20 });
+    await assert.rejects(service.listVoices({ attemptId: ATTEMPT, page_size: 20 }), (error: unknown) => code(error, "CAPACITY_EXCEEDED"));
     const resolved = await service.resolveVoice({ attemptId: ATTEMPT, voice_ref: firstRef });
     assert.equal(resolved.voice_id, "provider_voice_first_0");
-    assert.equal(page, 2);
+    assert.equal(page, 7);
   } finally { await service.close(); }
 });
 

@@ -17,7 +17,7 @@ import { AccountStatusService } from "./account-status.js";
 import { ModelAccessService } from "./model-access.js";
 import { evaluateOwnerRunwayI2vBudget } from "./owner-runway-i2v-budget.js";
 import { buildOwnerRunwayI2vCostParameters, loadOwnerRunwayI2vRuntimeCatalog } from "./owner-runway-i2v-cost.js";
-import { normalizeOwnerRunwayI2vParameters, getOwnerRunwayI2vSourceProfile } from "./owner-runway-i2v-parameters.js";
+import { normalizeOwnerRunwayI2vParameters } from "./owner-runway-i2v-parameters.js";
 import { buildOwnerRunwayI2vWire, type OwnerRunwayI2vWireCandidate } from "./owner-runway-i2v-wire.js";
 import { OwnerRunwayI2vReferenceService, isOwnerRunwayI2vReferenceService,
   type OwnerRunwayI2vOwnedReferences } from "./owner-runway-i2v-reference-service.js";
@@ -34,10 +34,10 @@ const OPERATIONS = new WeakMap<object, Operation>();
 const RESULTS = new WeakMap<object, { op: Operation; row: HistoryRow }>();
 const GENERATE = z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.enum(MODELS),
   prompt: z.string().min(1).max(1000), aspect_ratio: z.enum(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]),
-  video_duration: z.union([z.literal(5), z.literal(8), z.literal(10)]), seed: z.null(),
+  video_duration: z.union([z.literal(5), z.literal(8), z.literal(10)]), seed: z.number().int().min(0).max(2147483647).nullable(),
   reference_handle: z.string().regex(/^runway_i2v_reference_[0-9a-f-]{36}$/u) }).strict().superRefine((value, context) => {
     if (value.model_id === "gen4.5i2v") {
-      if (value.aspect_ratio !== "16:9") context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Gen4.5 I2V initial slice requires explicit 16:9." });
+      if (value.aspect_ratio === "21:9") context.addIssue({ code: "custom", path: ["aspect_ratio"], message: "Current Gen4.5 I2V supports16:9/4:3/1:1/3:4/9:16;21:9 is not source-listed." });
     } else if (value.video_duration !== 5 && value.video_duration !== 10) {
       context.addIssue({ code: "custom", path: ["video_duration"], message: "The legacy Runway I2V models support only 5 or 10 seconds in this slice." });
     }
@@ -121,7 +121,7 @@ export class OwnerRunwayI2vGenerationService {
       const refs = await deadline.waitFor(o.referenceService.resolveReferences({ attemptId: request.attemptId, model_id: request.model_id, aspect_ratio: request.aspect_ratio, reference_handles: [request.reference_handle] }, deadline.signal));
       if (!sameGenerationPrincipal(principal, refs.principal)) fail("PRINCIPAL_NOT_LINKED");
       const parameters = { model_id: request.model_id, prompt: request.prompt, aspect_ratio: request.aspect_ratio, video_duration: request.video_duration, seed: request.seed };
-      normalizeOwnerRunwayI2vParameters(parameters);
+      const expectedProfileHash = normalizeOwnerRunwayI2vParameters(parameters).profile_sha256;
       const captured = o.referenceService.withCapturedReferences(refs, parameters, (client, rows) => ({ client, wire: buildOwnerRunwayI2vWire(parameters, {
         url: rows[0]!.url, sha256: rows[0]!.sha256, width: rows[0]!.width, height: rows[0]!.height }) }));
       const semantic = schemaHash({ tenant: principal.tenant_id, subject: principal.subject_id, intent: captured.wire.intent_fingerprint });
@@ -137,7 +137,7 @@ export class OwnerRunwayI2vGenerationService {
                 ["createOwnerRunwayI2vChat", "isOwnerRunwayI2vChat", "startOwnerRunwayI2vOperation", "readOwnerRunwayI2vHistory", "readOwnerRunwayI2vResult"])) fail("PRINCIPAL_NOT_LINKED");
           if (op.chat && (op.chat.model_id !== request.model_id || !SyntxChatHttpClient.prototype.isOwnerRunwayI2vChat.call(op.client, op.chat, request.attemptId))) fail("PRINCIPAL_NOT_LINKED");
           if (dispatch && (!o.referenceService.isOwnedReferences(refs) || refs.expires_at <= this.#time() ||
-              op.wire.profile_sha256 !== getOwnerRunwayI2vSourceProfile().source_sha256)) fail("REFERENCE_EXPIRED");
+              op.wire.profile_sha256 !== expectedProfileHash)) fail("REFERENCE_EXPIRED");
           if (dispatch && op.phase === "READY" && (this.#time() < op.quoteAt || this.#time() - op.quoteAt > 15000)) fail("PREFLIGHT_EXPIRED");
         } };
       try {

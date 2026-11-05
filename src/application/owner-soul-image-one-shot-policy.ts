@@ -1,3 +1,4 @@
+import { ownerImageManualCurrentProfileHash } from "./owner-image-manual-current-controls.js";
 import { isDeepStrictEqual } from "node:util";
 import { isProxy } from "node:util/types";
 import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
@@ -181,7 +182,7 @@ export function consumeOwnerSoulImageOneShotPermit(input: ConsumeOwnerSoulImageO
   if (current.expiresAt !== state.candidateSnapshot.expiresAt || now >= current.expiresAt) fail("CANDIDATE_EXPIRED");
   if (current.fingerprint !== state.candidateSnapshot.fingerprint || current.requestFingerprint !== permit.request_fingerprint ||
       current.intentFingerprint !== permit.intent_fingerprint || current.profileSchemaHash !== state.profileSchemaHash ||
-      profile.profile_schema_hash !== permit.profile_schema_hash || current.expiresAt > permit.expires_at_ms ||
+      ownerImageManualCurrentProfileHash("soul", profile.profile_schema_hash, candidate.parameters) !== permit.profile_schema_hash || current.expiresAt > permit.expires_at_ms ||
       permit.candidate_fingerprint !== current.fingerprint || !isDeepStrictEqual(permit.cost_inputs, current.costInputs) ||
       !isDeepStrictEqual(permit.cost_routing, { ai_name: MODEL_ID, model_type: MODEL_ID }) ||
       permit.cost_confidence !== "SOURCE_JOINED_COST2_QUERY_FIELDS_NOT_QUOTE_BILLING_OR_HARDCAP" ||
@@ -224,7 +225,7 @@ function readProfile(candidate: OwnerSoulImagePreparedCandidate, catalog: Discov
   catch { fail("CATALOG_BINDING_MISMATCH"); }
   if (candidate.model_id !== MODEL_ID || candidate.ai_name !== MODEL_ID || candidate.model_type !== MODEL_ID ||
       candidate.catalog_version !== CATALOG_VERSION || candidate.profile_id !== profile.profile_id ||
-      candidate.profile_schema_hash !== profile.profile_schema_hash || !isDeepStrictEqual(candidate.source_binding, profile.source_binding) ||
+      candidate.profile_schema_hash !== ownerImageManualCurrentProfileHash("soul", profile.profile_schema_hash, candidate.parameters) || !isDeepStrictEqual(candidate.source_binding, profile.source_binding) ||
       candidate.dispatch_allowed !== false || candidate.backend_acceptance !== "UNPROVEN" || candidate.provider_execution !== false ||
       candidate.status !== "PREPARED_SOURCE_SHAPED" || candidate.source_projection_confidence !== "EXPLICIT_SOURCE_UI_CONTROL_PROJECTION_NOT_CURRENT_CACHED_UI_REQUEST_REPLAY" ||
       (candidate.reference_strength !== "UNRESOLVED_UNCONTROLLED_WIRE_FIELD" && candidate.reference_strength !== "EXPLICIT_SOURCE_FIXED_0_7_BACKEND_UNPROVEN") ||
@@ -293,7 +294,7 @@ function snapshotCandidate(candidate: OwnerSoulImagePreparedCandidate, profile: 
     } else {
       const strength = style.strength;
       if (typeof strength !== "number" || !Number.isFinite(strength) || strength < 0 || strength > 1 ||
-          Math.abs(strength * 10 - Math.round(strength * 10)) > 1e-9 || typeof settings.style_id !== "string" ||
+          typeof settings.style_id !== "string" ||
           settings.style_id.length === 0 || settings.style_strength !== strength) fail("CANDIDATE_MISMATCH");
     }
     if (character.kind === "none") {

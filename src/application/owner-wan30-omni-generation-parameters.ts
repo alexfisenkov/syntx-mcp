@@ -1,16 +1,17 @@
 import { types } from "node:util";
+import {WAN30_CURRENT_FORM_SOURCE,WAN30_OMNI_CURRENT_PROFILE_ID} from "./owner-wan30-current-form-source.js";
 
 export interface OwnerWan30OmniGenerationParameters {
-  readonly aspect_ratio: "16:9";
-  readonly resolution: "480P";
-  readonly video_duration: 2;
-  readonly prompt_extend: true;
+  readonly aspect_ratio: "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "adaptive";
+  readonly resolution: "480P" | "720P" | "1080P";
+  readonly video_duration: number;
+  readonly prompt_extend: boolean;
   readonly shot_type: "single";
   readonly audio_setting: "auto";
-  readonly seed: null;
-  readonly native_audio: false;
+  readonly seed: number | null;
+  readonly native_audio: boolean;
   readonly duration: 0;
-  readonly rendering_speed: "basic";
+  readonly rendering_speed: "basic" | "prime";
 }
 
 export interface OwnerWan30OmniGenerationIntent {
@@ -135,10 +136,10 @@ export interface OwnerWan30OmniGenerationSourceContract {
 }
 
 export interface OwnerWan30OmniNormalizedGeneration {
-  readonly status: "WEB_REQUEST_OBSERVED_EXPLICIT_INTENT";
+  readonly status: "WEB_REQUEST_OBSERVED_EXPLICIT_INTENT" | "FORM_SOURCE_REVIEWED_EXPLICIT_INTENT";
   readonly intent: OwnerWan30OmniGenerationIntent;
-  readonly source_profile_id: typeof PROFILE_ID;
-  readonly source_pins: typeof SOURCE_PINS;
+  readonly source_profile_id: typeof PROFILE_ID | typeof WAN30_OMNI_CURRENT_PROFILE_ID;
+  readonly source_pins: typeof SOURCE_PINS | typeof WAN30_CURRENT_FORM_SOURCE;
   readonly effective_defaults: "UNKNOWN";
   readonly runtime_usable: false;
   readonly dispatch_allowed: false;
@@ -152,16 +153,16 @@ export interface OwnerWan30OmniWireCandidate {
   readonly prompt_candidate: string;
   readonly settings_candidate: Readonly<{
     model_type: typeof MODEL_ID;
-    aspect_ratio: "16:9";
-    resolution: "480P";
-    video_duration: 2;
-    prompt_extend: true;
+    aspect_ratio: OwnerWan30OmniGenerationParameters["aspect_ratio"];
+    resolution: OwnerWan30OmniGenerationParameters["resolution"];
+    video_duration: number;
+    prompt_extend: boolean;
     shot_type: "single";
     audio_setting: "auto";
-    seed: null;
-    native_audio: false;
+    seed: number | null;
+    native_audio: boolean;
     duration: 0;
-    rendering_speed: "basic";
+    rendering_speed: "basic" | "prime";
   }>;
   readonly required_reference_slots: readonly ["image"];
   readonly reference_prompt_plan: Readonly<{
@@ -175,8 +176,8 @@ export interface OwnerWan30OmniWireCandidate {
     trusted_reference_url_required: true;
     url_source: "TRUSTED_OWNER_OMNI_IMAGE_LAYER_NOT_ACCEPTED_HERE";
   }>;
-  readonly profile_id: typeof PROFILE_ID;
-  readonly source_pins: typeof SOURCE_PINS;
+  readonly profile_id: typeof PROFILE_ID | typeof WAN30_OMNI_CURRENT_PROFILE_ID;
+  readonly source_pins: typeof SOURCE_PINS | typeof WAN30_CURRENT_FORM_SOURCE;
   readonly status: "WIRE_SHAPE_CANDIDATE_NOT_DISPATCHED";
   readonly chat_id_bound: false;
   readonly dispatch_allowed: false;
@@ -205,15 +206,19 @@ export function normalizeOwnerWan30OmniGenerationIntent(input: unknown): OwnerWa
     "aspect_ratio", "resolution", "video_duration", "prompt_extend", "shot_type", "audio_setting", "seed",
     "native_audio", "duration", "rendering_speed"
   ]);
-  if (raw.aspect_ratio !== OBSERVED_PARAMETERS.aspect_ratio || raw.resolution !== OBSERVED_PARAMETERS.resolution ||
-      raw.video_duration !== OBSERVED_PARAMETERS.video_duration || raw.prompt_extend !== OBSERVED_PARAMETERS.prompt_extend ||
+  if (!["16:9","9:16","1:1","4:3","3:4","adaptive"].includes(String(raw.aspect_ratio)) || !["480P","720P","1080P"].includes(String(raw.resolution)) ||
+      !Number.isInteger(raw.video_duration) || (raw.video_duration as number)<2 || (raw.video_duration as number)>30 || typeof raw.prompt_extend!=="boolean" ||
       raw.shot_type !== OBSERVED_PARAMETERS.shot_type || raw.audio_setting !== OBSERVED_PARAMETERS.audio_setting ||
-      raw.seed !== OBSERVED_PARAMETERS.seed || raw.native_audio !== OBSERVED_PARAMETERS.native_audio ||
-      raw.duration !== OBSERVED_PARAMETERS.duration || raw.rendering_speed !== OBSERVED_PARAMETERS.rendering_speed) invalid();
-  const parameters: OwnerWan30OmniGenerationParameters = Object.freeze({ ...OBSERVED_PARAMETERS });
+      !(raw.seed===null || Number.isSafeInteger(raw.seed) && (raw.seed as number)>=0 && (raw.seed as number)<=2147483647) || typeof raw.native_audio!=="boolean" ||
+      raw.duration !== OBSERVED_PARAMETERS.duration || (raw.rendering_speed!=="basic"&&raw.rendering_speed!=="prime")) invalid();
+  const parameters: OwnerWan30OmniGenerationParameters = Object.freeze({aspect_ratio:raw.aspect_ratio as OwnerWan30OmniGenerationParameters["aspect_ratio"],
+    resolution:raw.resolution as OwnerWan30OmniGenerationParameters["resolution"],video_duration:raw.video_duration as number,prompt_extend:raw.prompt_extend as boolean,
+    shot_type:"single",audio_setting:"auto",seed:raw.seed as number|null,native_audio:raw.native_audio as boolean,duration:0,
+    rendering_speed:raw.rendering_speed as OwnerWan30OmniGenerationParameters["rendering_speed"]});
   const intent: OwnerWan30OmniGenerationIntent = Object.freeze({ model_id: MODEL_ID, prompt: fields.prompt, parameters });
-  return Object.freeze({ status: "WEB_REQUEST_OBSERVED_EXPLICIT_INTENT", intent, source_profile_id: PROFILE_ID,
-    source_pins: SOURCE_PINS, effective_defaults: "UNKNOWN", runtime_usable: false,
+  const legacy=JSON.stringify(parameters)===JSON.stringify(OBSERVED_PARAMETERS);
+  return Object.freeze({ status: legacy?"WEB_REQUEST_OBSERVED_EXPLICIT_INTENT":"FORM_SOURCE_REVIEWED_EXPLICIT_INTENT", intent,
+    source_profile_id:legacy?PROFILE_ID:WAN30_OMNI_CURRENT_PROFILE_ID, source_pins:legacy?SOURCE_PINS:WAN30_CURRENT_FORM_SOURCE, effective_defaults: "UNKNOWN", runtime_usable: false,
     dispatch_allowed: false, backend_acceptance: "UNPROVEN" });
 }
 
@@ -225,12 +230,12 @@ export function projectOwnerWan30OmniGenerationWireCandidate(intentInput: unknow
   return Object.freeze({
     method: "POST", path: "video/generate", query_candidate: Object.freeze({ ai_name: AI_NAME }),
     prompt_candidate: normalized.intent.prompt,
-    settings_candidate: Object.freeze({ model_type: MODEL_ID, ...OBSERVED_PARAMETERS }),
+    settings_candidate: Object.freeze({ model_type: MODEL_ID, ...normalized.intent.parameters }),
     required_reference_slots: Object.freeze(["image"] as const),
     reference_prompt_plan: Object.freeze({ form: "<<<[OWN_REFERENCE_URL]>>> [PROMPT] ", reference_prefix: "<<<", reference_suffix: ">>>",
       prompt_separator: " ", trailing_space: true, file_urls_entry_type: "image", file_urls_bound: false,
       trusted_reference_url_required: true, url_source: "TRUSTED_OWNER_OMNI_IMAGE_LAYER_NOT_ACCEPTED_HERE" }),
-    profile_id: PROFILE_ID, source_pins: SOURCE_PINS, status: "WIRE_SHAPE_CANDIDATE_NOT_DISPATCHED",
+    profile_id: normalized.source_profile_id, source_pins: normalized.source_pins, status: "WIRE_SHAPE_CANDIDATE_NOT_DISPATCHED",
     chat_id_bound: false, dispatch_allowed: false, backend_acceptance: "UNPROVEN"
   });
 }

@@ -37,22 +37,19 @@ export const OWNER_SWITCHX_VIDEO_SOURCE_PROFILE = Object.freeze({
 export interface OwnerSwitchxVideoInput {
   readonly attemptId: string;
   readonly prompt: string;
+  readonly resolution?: "720P" | "1080P";
+  readonly mask_mode?: "auto" | "fill" | "image" | "video";
+  readonly has_style_image?: boolean;
   readonly video: Readonly<ValidatedOwnerSwitchxVideo>;
 }
 
 export interface OwnerSwitchxNormalizedVideoInput {
-  readonly attemptId: string;
-  readonly prompt: string;
-  readonly video: Readonly<ValidatedOwnerSwitchxVideo>;
-  readonly source_sha256: string;
-  readonly source_size: number;
-  readonly source_width: number;
-  readonly source_height: number;
-  readonly video_duration: 5;
-  readonly frame_rate: 24;
-  readonly cost_parameters: Readonly<{ resolution: "720P"; video_duration: 5; frame_rate: 24 }>;
-  readonly settings: Readonly<{ model_type: "switchx"; resolution: "720P"; mask_mode: "auto";
-    video_duration: 5; frame_rate: 24; file_urls: readonly [{ readonly type: "video" }] }>;
+  readonly attemptId: string; readonly prompt: string; readonly video: Readonly<ValidatedOwnerSwitchxVideo>;
+  readonly source_sha256: string; readonly source_size: number; readonly source_width: number; readonly source_height: number;
+  readonly video_duration: number; readonly frame_rate: number; readonly legacy_tuple: boolean;
+  readonly cost_parameters: Readonly<{ resolution: "720P" | "1080P"; video_duration: number; frame_rate: number }>;
+  readonly settings: Readonly<{ model_type: "switchx"; resolution: "720P" | "1080P"; mask_mode: "auto" | "fill" | "image" | "video";
+    video_duration: number; frame_rate: number; file_urls: readonly [{ readonly type: "video" }] }>;
 }
 
 export class OwnerSwitchxVideoParametersError extends Error {
@@ -63,9 +60,9 @@ export class OwnerSwitchxVideoParametersError extends Error {
 }
 
 export function normalizeOwnerSwitchxVideoInput(value: unknown): Readonly<OwnerSwitchxNormalizedVideoInput> {
-  const row = exact(value, ["attemptId", "prompt", "video"]);
+  const row = exact(value, ["attemptId", "prompt", "video"], ["resolution", "mask_mode", "has_style_image"]);
   if (typeof row.attemptId !== "string" || !/^link_[A-Za-z0-9_-]{20,120}$/u.test(row.attemptId) ||
-      typeof row.prompt !== "string" || row.prompt.trim().length === 0 || row.prompt.length > 1_000 || !wellFormed(row.prompt) ||
+      typeof row.prompt !== "string" || row.prompt.trim().length === 0 && row.has_style_image !== true || row.prompt.length > 2_000 || !wellFormed(row.prompt) ||
       /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(row.prompt)) {
     throw new OwnerSwitchxVideoParametersError("INVALID_REQUEST");
   }
@@ -74,21 +71,24 @@ export function normalizeOwnerSwitchxVideoInput(value: unknown): Readonly<OwnerS
       row.video.owner_upload_binding !== "NOT_ESTABLISHED" || row.video.provider_acceptance !== "UNPROVEN") {
     throw new OwnerSwitchxVideoParametersError("VIDEO_NOT_VALIDATED");
   }
-  const video = row.video;
+  const video = row.video, resolution = row.resolution ?? "720P", mask_mode = row.mask_mode ?? "auto";
+  if (!["720P", "1080P"].includes(resolution) || !["auto", "fill", "image", "video"].includes(mask_mode) ||
+      resolution === "1080P" && Math.min(video.width, video.height) < 1080 || row.has_style_image !== undefined && typeof row.has_style_image !== "boolean") throw new OwnerSwitchxVideoParametersError("INVALID_REQUEST");
   return Object.freeze({ attemptId: row.attemptId, prompt: row.prompt, video, source_sha256: video.source_sha256,
-    source_size: video.size, source_width: video.width, source_height: video.height, video_duration: 5, frame_rate: 24,
-    cost_parameters: Object.freeze({ resolution: "720P", video_duration: 5, frame_rate: 24 }),
-    settings: Object.freeze({ model_type: OWNER_SWITCHX_VIDEO_MODEL_ID, resolution: "720P", mask_mode: "auto",
-      video_duration: 5, frame_rate: 24, file_urls: Object.freeze([{ type: "video" as const }] as const) }) });
+    source_size: video.size, source_width: video.width, source_height: video.height, video_duration: video.duration_seconds, frame_rate: video.frame_rate,
+    legacy_tuple: video.preparation === "ORIGINAL_BYTES" && video.width === 1280 && video.height === 720 && video.duration_seconds === 5 && video.frame_rate === 24 && resolution === "720P" && mask_mode === "auto" && row.has_style_image !== true,
+    cost_parameters: Object.freeze({ resolution, video_duration: video.duration_seconds, frame_rate: video.frame_rate }),
+    settings: Object.freeze({ model_type: OWNER_SWITCHX_VIDEO_MODEL_ID, resolution, mask_mode,
+      video_duration: video.duration_seconds, frame_rate: video.frame_rate, file_urls: Object.freeze([{ type: "video" as const }] as const) }) });
 }
 
-function exact(value: unknown, keys: readonly string[]): Record<string, any> {
+function exact(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, any> {
   if (!value || typeof value !== "object" || Array.isArray(value) || types.isProxy(value)) throw new OwnerSwitchxVideoParametersError("INVALID_REQUEST");
   let descriptors: PropertyDescriptorMap;
   try { descriptors = Object.getOwnPropertyDescriptors(value); } catch { throw new OwnerSwitchxVideoParametersError("INVALID_REQUEST"); }
   const actual = Reflect.ownKeys(descriptors);
-  if ((Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) || actual.length !== keys.length ||
-      actual.some((key) => typeof key !== "string" || !keys.includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) {
+  if ((Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) || keys.some(key => !Object.hasOwn(descriptors, key)) ||
+      actual.some((key) => typeof key !== "string" || !keys.includes(key) && !optional.includes(key) || !Object.hasOwn(descriptors[key]!, "value") || descriptors[key]!.enumerable !== true)) {
     throw new OwnerSwitchxVideoParametersError("INVALID_REQUEST");
   }
   const out = Object.create(null) as Record<string, unknown>;

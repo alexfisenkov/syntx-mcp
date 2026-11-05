@@ -1,3 +1,4 @@
+import { registerOwnerImageManualCurrentSource } from "./owner-image-manual-current-source.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { imageArtifactContentForResult, imageArtifactResultJsonText } from "./image-artifact-content.js";
@@ -45,7 +46,7 @@ const characterOptionsInputSchema = z.object({ link_attempt_id: attemptSchema })
 const styleSelectionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("none") }).strict(),
   z.object({ kind: z.literal("selected"), style_handle: z.string().regex(STYLE_HANDLE),
-    strength: z.number().min(0).max(1).refine((value) => Math.abs(value * 10 - Math.round(value * 10)) < 1e-9) }).strict()
+    strength: z.number().finite().min(0).max(1) }).strict()
 ]);
 const characterSelectionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("none") }).strict(),
@@ -225,6 +226,7 @@ export const OWNER_SOUL_IMAGE_TOOL_OUTPUT_SCHEMAS = Object.freeze({
 
 /** Soul Character listing is a selector read only; style listing reuses its existing standalone tool. */
 export function registerSyntxOwnerSoulImageTools(server: McpServer, options: RegisterSyntxOwnerSoulImageToolsOptions): void {
+  registerOwnerImageManualCurrentSource(server, "soul");
   const generationService = options.generationService;
   if (generationService) {
   server.registerTool(SYNTX_OWNER_GENERATE_SOUL_IMAGE_TOOL_NAME, {

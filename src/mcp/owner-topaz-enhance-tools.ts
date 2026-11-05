@@ -1,3 +1,4 @@
+import { OWNER_TOPAZ_ENHANCE_CURRENT_CONTROLS } from "../application/owner-topaz-enhance-current-controls.js";
 import { isCanonicalBase64 as isCanonicalBase64Bounded } from "../application/canonical-base64.js";
 import { types } from "node:util";
 import { z } from "zod/v4";
@@ -36,17 +37,17 @@ const uploadInput = z.object({
 }).strict();
 
 const parametersInput = z.object({
-  blur: z.number().int().min(-100).max(100),
-  halo: z.number().int().min(-100).max(100),
+  blur: z.number().finite().min(-100).max(100),
+  halo: z.number().finite().min(-100).max(100),
   focus: z.enum(["off", "normal", "strong"]),
   grain: z.enum(["off", "on"]),
   model: z.enum(["ghq-5", "rhea-1", "prob-4", "iris-3", "gcg-5"]),
-  noise: z.number().int().min(-100).max(100),
-  details: z.number().int().min(-100).max(100),
-  preblur: z.number().int().min(-100).max(100),
+  noise: z.number().finite().min(-100).max(100),
+  details: z.number().finite().min(-100).max(100),
+  preblur: z.number().finite().min(-100).max(100),
   upscale: z.union([z.literal(1), z.literal(2), z.literal(4)]),
-  prenoise: z.number().int().min(0).max(100),
-  compression: z.number().int().min(-100).max(100),
+  prenoise: z.number().finite().min(0).max(100),
+  compression: z.number().finite().min(-100).max(100),
   interpolation: z.union([z.literal(24), z.literal(25), z.literal(30), z.literal(45), z.literal(50), z.literal(60)])
 }).strict();
 
@@ -107,6 +108,7 @@ const parametersOutput = z.object({
     focus: z.array(z.string()).length(3),
     grain: z.array(z.string()).length(2)
   }).strict(),
+  current_controls: z.json(),
   catalog_default_model: z.literal("rhea-1"),
   form_fallback_model: z.literal("prob-4"),
   effective_defaults: z.literal("UNKNOWN"),
@@ -210,6 +212,7 @@ export function registerSyntxOwnerTopazEnhanceTools(server: McpServer, optionsIn
         focus: [...profile.controls.focus.values],
         grain: [...profile.controls.grain.values]
       },
+      current_controls: OWNER_TOPAZ_ENHANCE_CURRENT_CONTROLS,
       catalog_default_model: profile.catalog_default_model,
       form_fallback_model: profile.form_fallback_model,
       effective_defaults: profile.effective_defaults,

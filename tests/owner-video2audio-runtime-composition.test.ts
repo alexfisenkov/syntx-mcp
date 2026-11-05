@@ -147,7 +147,7 @@ test("Video2Audio is opt-in, registers exactly six strict tools, and keeps sourc
       assert.deepEqual(names.filter((name) => !(TOOL_NAMES as readonly string[]).includes(name)).sort(), defaultNames.sort());
       for (const [toolName, expectedKeys] of [
         [TOOL_NAMES[1], ["content_base64", "filename", "link_attempt_id", "mime_type"]],
-        [TOOL_NAMES[2], ["link_attempt_id", "prompt", "video_original_handle"]],
+        [TOOL_NAMES[2], ["link_attempt_id", "negative_prompt", "prompt", "seed", "video_original_handle"]],
         [TOOL_NAMES[3], ["link_attempt_id", "recovery_id"]],
         [TOOL_NAMES[4], ["limit", "link_attempt_id"]],
         [TOOL_NAMES[5], ["link_attempt_id", "offset", "recovery_id"]]

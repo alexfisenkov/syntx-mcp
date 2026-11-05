@@ -74,7 +74,7 @@ test("rejects implicit defaults, unsupported choices, extra fields, proxies, and
   assert.throws(() => normalizeOwnerRunwayI2vParameters({}), withCode("INVALID_PARAMETERS"));
   for (const invalid of [
     input({ model_id: "text2video" }), input({ aspect_ratio: "adaptive" }),
-    input({ video_duration: 8 }), input({ video_duration: "5.0" }), input({ seed: 0 }),
+    input({ video_duration: 8 }), input({ video_duration: "5.0" }), input({ seed: -1 }),
     input({ prompt: "  " }), input({ prompt: "x".repeat(1_001) }),
     input({ prompt: "\ud800" }), input({ file_urls: [] })
   ]) assert.throws(() => normalizeOwnerRunwayI2vParameters(invalid), withCode("INVALID_PARAMETERS"));
@@ -82,4 +82,25 @@ test("rejects implicit defaults, unsupported choices, extra fields, proxies, and
   const accessor = input();
   Object.defineProperty(accessor, "prompt", { enumerable: true, get: () => "must not run" });
   assert.throws(() => normalizeOwnerRunwayI2vParameters(accessor), withCode("INVALID_PARAMETERS"));
+});
+
+test("current Runway nullable integer seed preserves zero and all source bounds while legacy null provenance stays exact", () => {
+  const legacy = normalizeOwnerRunwayI2vParameters(input());
+  for (const seed of [0, 123, 2147483647]) {
+    const current = normalizeOwnerRunwayI2vParameters(input({ seed }));
+    assert.equal(current.intent.seed, seed); assert.equal(current.source_parameters.seed, seed);
+    assert.notEqual(current.profile_sha256, legacy.profile_sha256);
+  }
+  for (const seed of [-1, 2147483648, 0.5, NaN, Infinity, "123"]) assert.throws(() => normalizeOwnerRunwayI2vParameters(input({ seed })));
+});
+
+test("current Gen4.5 uses the five source aspect codes while preserving immutable16:9 legacy profile", () => {
+  const profile = getOwnerRunwayI2vSourceProfile();
+  assert.deepEqual(profile.model_controls["gen4.5i2v"].aspect_ratios, ["16:9"]);
+  for (const [aspect_ratio, code] of [["16:9","169"],["4:3","43"],["1:1","11"],["3:4","34"],["9:16","916"]] as const) {
+    const normalized = normalizeOwnerRunwayI2vParameters(input({ model_id: "gen4.5i2v", aspect_ratio }));
+    assert.equal(normalized.source_parameters.aspect_ratio, code);
+    assert.equal(normalized.profile_sha256 === profile.source_sha256, aspect_ratio === "16:9");
+  }
+  assert.throws(() => normalizeOwnerRunwayI2vParameters(input({ model_id: "gen4.5i2v", aspect_ratio: "21:9" })));
 });

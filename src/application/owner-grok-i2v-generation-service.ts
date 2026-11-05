@@ -13,6 +13,8 @@ import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
 import { sameGenerationPrincipal } from "../domain/generation-principal.js";
 import { schemaHash } from "../domain/generation-contract.js";
 import { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
+import { loadSelectedDiscoveryCatalog } from "../catalog/selected-discovery-catalog.js";
+import { OWNER_GROK_I2V_CURRENT_CONTROLS, ownerGrokI2vWireProfile } from "./owner-grok-i2v-current-controls.js";
 import { AccountStatusService } from "./account-status.js";
 import { ModelAccessService } from "./model-access.js";
 import { evaluateOwnerGrokI2vBudget } from "./owner-grok-i2v-budget.js";
@@ -33,7 +35,7 @@ const OPERATIONS = new WeakMap<object, Operation>();
 const RESULTS = new WeakMap<object, { op: Operation; row: HistoryRow }>();
 const GENERATE = z.object({ attemptId: z.string().regex(ATTEMPT), model_id: z.enum(MODELS),
   prompt: z.string().min(1).max(5000), aspect_ratio: z.enum(["16:9", "9:16", "3:2", "2:3", "4:3", "3:4", "1:1"]),
-  video_duration: z.number().int().min(1).max(15), resolution: z.enum(["480p","720p"]),
+  video_duration: z.number().finite().min(1).max(15), resolution: z.enum(["480p","720p"]),
   reference_handle: z.string().regex(/^grok_i2v_reference_[0-9a-f-]{36}$/u) }).strict();
 const id = z.union([z.string().regex(ID), z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)]).transform(String);
 const objectSchema = z.object({ id, message_id: id, object_type: z.string().max(128),
@@ -90,6 +92,7 @@ export class OwnerGrokI2vGenerationService {
   readonly #pending = new Map<Promise<unknown>, { attempt: string; abort: AbortController }>();
   readonly #busy = new Set<string>(); readonly #epochs = new Map<string, number>();
   #lastTime = 0; #closed = false;
+  #currentCatalog: DiscoveryCatalogRepository | undefined;
   constructor(options: OwnerGrokI2vGenerationOptions) {
     if (!options || types.isProxy(options) || !isOwnerGrokI2vReferenceService(options.referenceService) ||
         !genuine(options.linkService, PerUserLinkService, ["getStatus"]) ||
@@ -130,7 +133,8 @@ export class OwnerGrokI2vGenerationService {
                 ["createOwnerGrokI2vChat", "isOwnerGrokI2vChat", "startOwnerGrokI2vOperation", "readOwnerGrokI2vHistory", "readOwnerGrokI2vResult"])) fail("PRINCIPAL_NOT_LINKED");
           if (op.chat && (op.chat.model_id !== request.model_id || !SyntxChatHttpClient.prototype.isOwnerGrokI2vChat.call(op.client, op.chat, request.attemptId))) fail("PRINCIPAL_NOT_LINKED");
           if (dispatch && (!o.referenceService.isOwnedReferences(refs) || refs.expires_at <= this.#time() ||
-              op.wire.profile_sha256 !== getOwnerGrokI2vSourceProfile().source_sha256)) fail("REFERENCE_EXPIRED");
+              op.wire.profile_sha256 !== ownerGrokI2vWireProfile(getOwnerGrokI2vSourceProfile().source_sha256,
+                request.model_id, op.wire.source_image_context.width, op.wire.source_image_context.height, request.video_duration))) fail("REFERENCE_EXPIRED");
           if (dispatch && op.phase === "READY" && (this.#time() < op.quoteAt || this.#time() - op.quoteAt > 15000)) fail("PREFLIGHT_EXPIRED");
         } };
       try {
@@ -201,9 +205,11 @@ export class OwnerGrokI2vGenerationService {
     const account = await deadline.waitFor(new AccountStatusService(read, () => this.#time()).getAccountStatus(deadline.signal));
     if (account.subscription.active !== true || !account.subscription.plan_type || account.subscription.plan_type.toUpperCase() === "FREE") fail("SUBSCRIPTION_REQUIRED");
     const parameters = buildOwnerGrokI2vCostParameters({ model_id: op.request.model_id, video_duration: op.request.video_duration, resolution: op.request.resolution }).cost_inputs;
-    const access = await deadline.waitFor(new ModelAccessService(this.#options.catalog, read, () => this.#time()).getModelAccess({
+    const catalog = op.wire.profile_sha256 === getOwnerGrokI2vSourceProfile().source_sha256 ? this.#options.catalog :
+      this.#currentCatalog ??= loadSelectedDiscoveryCatalog(OWNER_GROK_I2V_CURRENT_CONTROLS.public_catalog_version).discoveryCatalog;
+    const access = await deadline.waitFor(new ModelAccessService(catalog, read, () => this.#time()).getModelAccess({
       model_id: op.request.model_id, cost_parameters: { ...parameters } }, deadline.signal));
-    evaluateOwnerGrokI2vBudget({ model_id: op.request.model_id, expected_catalog_version: `${this.#options.catalog.fetched_at}.${this.#options.catalog.source_hashes.models.slice(7, 19)}`,
+    evaluateOwnerGrokI2vBudget({ model_id: op.request.model_id, expected_catalog_version: `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`,
       now: this.#time(), cost_parameters: parameters, access, account });
     op.quoteAt = Math.min(Date.parse(account.observed_at), Date.parse(access.observed_at));
     await this.#current(op, deadline); op.validate(true);

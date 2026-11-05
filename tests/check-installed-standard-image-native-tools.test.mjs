@@ -126,7 +126,9 @@ function validNativeTools() {
   const uploadInput = object({ link_attempt_id: attempt, variant: variants,
     content_base64: { type: "string", minLength: 4, maxLength: 44739244 },
     filename: { type: "string", description: "Portable basename; local paths and URLs are rejected." },
-    mime_type: { type: "string", enum: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif", "image/heic", "image/heif", "video/mp4", "video/webm", "video/quicktime", "video/mpeg", "video/mov", "video/3gpp", "video/x-flv", "video/x-ms-wmv", "application/pdf"] } });
+    mime_type: { type: "string", enum: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif", "image/heic", "image/heif", "video/mp4", "video/webm", "video/quicktime", "video/mpeg", "video/mov", "video/3gpp", "video/x-flv", "video/x-ms-wmv", "application/pdf"] },
+    file: object({ download_url: { type: "string", minLength: 1, maxLength: 16384 }, file_id: { type: "string", minLength: 1, maxLength: 512 },
+      mime_type: { type: "string", maxLength: 128 }, file_name: { type: "string", minLength: 1, maxLength: 255 } }, ["download_url", "file_id"]) }, ["link_attempt_id", "variant"]);
   const generationInput = object({ link_attempt_id: attempt, variant: variants,
     reference_handles: { type: "array", items: handle, maxItems: 34 },
     parameters: { anyOf: [bananaParameters, gptParameters] }, prompt: { type: "string", description: "65,536-byte local guard." } });
@@ -172,6 +174,7 @@ test("literal negative schema fixtures reject missing variant, widened base64, a
   const cases = [
     (tools) => { tools[1].inputSchema.properties.variant.enum.pop(); },
     (tools) => { tools[0].inputSchema.properties.content_base64.maxLength += 1; },
+    (tools) => { tools[0].inputSchema.properties.file.properties.download_url.maxLength += 1; },
     (tools) => { tools[0].outputSchema.properties.private_url = string; },
     (tools) => { tools[1].inputSchema.properties.parameters.anyOf[0].additionalProperties = true; }
   ];

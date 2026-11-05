@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "3d3bf7369757b1c4f800654b5a46246b6a326eae",
+  "source_commit": "10983256a4e53c9a8b7d0ebb6cf64123524cf1d1",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2249,7 +2249,7 @@
     "scripts/check-installed-seedream-editor-foundation.mjs": "25115ed766852e6578241f407a72c29e7f5e4639bdc48f4d20e377bf479e180e",
     "scripts/check-installed-seedream-editor-parameters.mjs": "90fc45540b5132402d1019d45ca34784590b97b422f5075b06278b6e15c36c51",
     "scripts/check-installed-seedream-image-native-tools.mjs": "7344e867c7e701c523cd5db908cd4db3b8ba1df9d34a810aeddfca81af76c69c",
-    "scripts/check-installed-standard-image-native-tools.mjs": "155ccc97b949a695006753cd2c4a8764c33e66c8b15d2bf35eb6c0719d1fcf09",
+    "scripts/check-installed-standard-image-native-tools.mjs": "076d5e90fbe8f4a8303f2c2fdcd5e689526fe74676716209c199ba634c44cff6",
     "scripts/check-installed-suno-generation-flow.mjs": "4d02c15402d1dc979d680ad00cf79870c60f41425f2a44d50b50bed8bc49efb1",
     "scripts/check-installed-uni-image-tools.mjs": "ce82f88448b57988fb67676a8b77b7e08163ddaf321254cf9db186e92ecaf88c",
     "scripts/check-installed-video2audio-flow.mjs": "e4365f912b2a0b8f6f90c9db2d87a9339335b6aeee1b013fcd6eb6fadbc750b8",
@@ -3129,7 +3129,7 @@
     "tests/check-installed-seedream-editor-foundation.test.mjs": "c4f4c7e47d92a83dc85dbab518be477ef50c36e057a2eb66e63ff02f0ac536da",
     "tests/check-installed-seedream-editor-parameters.test.mjs": "cb7cfc695891027e6ab3d9ff8a0fb46f33dc31e0d4ad1fffe414e852aa972055",
     "tests/check-installed-seedream-image-native-tools.test.mjs": "15a3b0c9b583d456aae27ae6f590db5bedf0402c923d04400b1b9ced87da0523",
-    "tests/check-installed-standard-image-native-tools.test.mjs": "4435a05139daf2577e3521557c050489d62a79eb89e9789a0194218b6533bf2b",
+    "tests/check-installed-standard-image-native-tools.test.mjs": "85fd49a16a80597572ba57ebf757b0192a6314c231e92ee379dd0147b3b88cfd",
     "tests/check-installed-suno-generation-flow.test.mjs": "1a07005411eb5f5941f174630380fe0c299bfc7cf993f652aebdefa0870e905e",
     "tests/check-installed-uni-image-tools.test.mjs": "b92747fb86fb7db468907b784f64aa5f88093c6a4fe84040f67cc5a701854fbe",
     "tests/check-installed-wan-t2i-image-tools.test.mjs": "aee9b735164409aa2300debdfb5c44fedb60724e826502531e96d73c69dc5993",

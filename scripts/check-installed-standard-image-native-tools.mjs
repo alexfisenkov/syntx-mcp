@@ -97,7 +97,13 @@ export function assertStandardImageToolSurface(tools, enabled, sourceParameters,
   const recoveryPattern = "^standard_image_recovery_[0-9a-f-]{36}$";
 
   assertStrictObject(upload.inputSchema,
-    ["link_attempt_id", "variant", "content_base64", "filename", "mime_type"], [], code);
+    ["link_attempt_id", "variant"], ["content_base64", "filename", "mime_type", "file"], code);
+  assertStrictObject(uploadInput.file, ["download_url", "file_id"], ["mime_type", "file_name"], code);
+  const fileInput = schemaProperties(uploadInput.file, code);
+  if (fileInput.download_url?.type !== "string" || fileInput.download_url.minLength !== 1 || fileInput.download_url.maxLength !== 16_384 ||
+      fileInput.file_id?.type !== "string" || fileInput.file_id.minLength !== 1 || fileInput.file_id.maxLength !== 512 ||
+      fileInput.mime_type?.type !== "string" || fileInput.mime_type.maxLength !== 128 ||
+      fileInput.file_name?.type !== "string" || fileInput.file_name.minLength !== 1 || fileInput.file_name.maxLength !== 255) fail(code);
   assertStrictObject(generate.inputSchema,
     ["link_attempt_id", "variant", "reference_handles", "parameters", "prompt"], [], code);
   assertStrictObject(reconcile.inputSchema, ["link_attempt_id", "recovery_id"], [], code);

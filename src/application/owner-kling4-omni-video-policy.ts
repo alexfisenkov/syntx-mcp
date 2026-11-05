@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink, type FileHandle } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join, resolve } from "node:path";
 import { types } from "node:util";
 
@@ -159,7 +158,7 @@ export async function validateOwnerKling4OmniVideo(
     const container = identifyVideoContainer(source, request.mime_type);
     const sourceSha256 = sha256(source);
 
-    directory = await mkdtemp(join(tmpdir(), TEMP_PREFIX));
+    directory = await mkdtemp(join(await localMediaTempRoot(), TEMP_PREFIX));
     await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [request.ffprobePath], actualSignal);
     inputPath = join(directory, `input${extname(request.filename).toLowerCase()}`);
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);

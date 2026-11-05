@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync, realpathSync } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join, resolve } from "node:path";
 import { types } from "node:util";
 
@@ -623,7 +622,7 @@ function identifyVideoContainer(bytes: Buffer, mime: OwnerVeoOmniReferenceMimeTy
 }
 
 async function writePrivateProbeFile(bytes: Buffer, mime: OwnerVeoOmniReferenceMimeType, ffprobePath: string, signal?: AbortSignal): Promise<ProbeTemp> {
-  const directory = await mkdtemp(join(tmpdir(), TEMP_PREFIX));
+  const directory = await mkdtemp(join(await localMediaTempRoot(), TEMP_PREFIX));
   let inputPath: string | undefined, created = false;
   try {
     await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);

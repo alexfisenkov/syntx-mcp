@@ -1,8 +1,7 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { access, chmod, mkdtemp, open, readFile, realpath, rm, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { isAbsolute, join } from "node:path";
-import { tmpdir } from "node:os";
 import { constants as fsConstants } from "node:fs";
 import { types } from "node:util";
 import { loadPublicCatalogVersion } from "../catalog/public-catalog-history.js";
@@ -174,7 +173,7 @@ async function prepareCopiedImage(
   const outputCap = targetLimit - TARGET_MARGIN;
   let directory: string | undefined;
   try {
-    directory = await mkdtemp(join(tmpdir(), "syntx-image-prepare-"));
+    directory = await mkdtemp(join(await localMediaTempRoot(), "syntx-image-prepare-"));
     await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [resolvedFfmpeg], signal);
     const sourcePath = join(directory, `source.${dimensions.mime.slice(6) === "jpeg" ? "jpg" : dimensions.mime.slice(6)}`);
     const outputPath = join(directory, "prepared.jpg");

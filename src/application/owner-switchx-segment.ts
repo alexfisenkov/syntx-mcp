@@ -1,8 +1,7 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { types } from "node:util";
 import type { OwnerCurrentVideoMetadata } from "./owner-current-video-metadata.js";
@@ -17,7 +16,7 @@ export async function prepareOwnerSwitchxSegment(source: OwnerCurrentVideoMetada
   const start = descriptors.start_seconds!.value, end = descriptors.end_seconds!.value;
   if (typeof start !== "number" || typeof end !== "number" || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || end > source.duration_seconds ||
       source.frame_rate === null || Math.ceil((end - start) * source.frame_rate) > 240 || Math.round(end - start) < 1) invalid();
-  const directory = await mkdtemp(join(tmpdir(), "syntx-switchx-segment-")); await chmod(directory, 0o700);
+  const directory = await mkdtemp(join(await localMediaTempRoot(), "syntx-switchx-segment-")); await chmod(directory, 0o700);
   const original = join(directory, "original.mp4"), selected = join(directory, "selected.mp4");
   let bytes: Buffer | undefined;
   try {

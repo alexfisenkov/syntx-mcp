@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join } from "node:path";
 import { types } from "node:util";
 import { getOwnerTopazAstraSourceProfile, type OwnerTopazAstraModelId } from "./owner-topaz-astra-source-profile.js";
@@ -153,7 +152,7 @@ async function probeOriginal(
   let createdFile = false;
   let retainedBytes: Buffer | undefined;
   try {
-    directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
+    directory = await mkdtemp(join(await localMediaTempRoot(), INPUT_PREFIX));
     await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     const suffix = request.mime_type === "video/mp4" ? ".mp4" : ".mov";
     inputPath = join(directory, `source${suffix}`);

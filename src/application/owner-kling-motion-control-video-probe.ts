@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink, type FileHandle } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join } from "node:path";
 import { types } from "node:util";
 
@@ -121,7 +120,7 @@ async function probeVideo(ffprobePath: string, input: unknown, options?: Readonl
   try {
     if (!hasMatchingBmffBrand(source, request.mime_type)) invalid();
     if (signal?.aborted) aborted();
-    directory = await mkdtemp(join(tmpdir(), "syntx-mcv-video-"));
+    directory = await mkdtemp(join(await localMediaTempRoot(), "syntx-mcv-video-"));
     await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     path = join(directory, "original" + expectedExtension);
     const file = await open(path, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);

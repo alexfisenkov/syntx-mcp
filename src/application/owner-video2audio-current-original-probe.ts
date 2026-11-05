@@ -1,8 +1,7 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { types } from "node:util";
 import { createHash } from "node:crypto";
@@ -25,7 +24,7 @@ export async function probeOwnerVideo2AudioCurrentOriginal(input: { readonly fil
   const copied = original.bytes, bytes = Buffer.from(copied); copied.fill(0);
   let directory: string | undefined, returned = false;
   try {
-    if (signal?.aborted) invalid(); directory = await mkdtemp(join(tmpdir(), "syntx-current-video2audio-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
+    if (signal?.aborted) invalid(); directory = await mkdtemp(join(await localMediaTempRoot(), "syntx-current-video2audio-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     const path = join(directory, original.mime_type === "video/webm" ? "original.webm" : original.mime_type === "video/quicktime" ? "original.mov" : "original.mp4");
     const file = await open(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600); let identity: { dev: number; ino: number };
     try { await file.chmod(0o600); await file.writeFile(bytes); await file.sync(); const stat = await file.stat(); identity = { dev: stat.dev, ino: stat.ino }; }

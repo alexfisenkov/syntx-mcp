@@ -2,10 +2,9 @@ import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } 
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync, realpathSync } from "node:fs";
 import { chmod, lstat, mkdtemp, open, readFile, realpath, rmdir, unlink, type FileHandle } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join, resolve } from "node:path";
 import { types } from "node:util";
-import { assertLocalMediaWindowsFiles, prepareLocalMediaWindowsDirectory } from "./local-media-native-permissions.js";
+import { assertLocalMediaWindowsFiles, prepareLocalMediaWindowsDirectory, localMediaTempRoot } from "./local-media-native-permissions.js";
 
 const MIME_TYPES = Object.freeze(["video/mp4", "video/quicktime"] as const);
 const MODEL_ID = "seedance-2.5-editor" as const;
@@ -26,7 +25,6 @@ const TYPED_ARRAY_BUFFER = Object.getOwnPropertyDescriptor(TYPED_ARRAY_PROTOTYPE
 const TYPED_ARRAY_SET = Uint8Array.prototype.set;
 const ABORTED_GETTER = Object.getOwnPropertyDescriptor(AbortSignal.prototype, "aborted")?.get;
 const currentUid = (): number | null => typeof process.getuid === "function" ? process.getuid() : null;
-const CANONICAL_TEMP_ROOT = realpathSync(tmpdir());
 
 export const OWNER_SEEDANCE_EDITOR_VIDEO_POLICY = Object.freeze({
   policy_id: "OWNER_SEEDANCE_EDITOR_VIDEO_INPUT_POLICY_LOCAL_CONSERVATIVE_V1",
@@ -141,7 +139,7 @@ export async function validateOwnerSeedanceEditorVideo(
     source = copyInputBytes(request.bytes, request.byte_length);
     if (!hasMatchingBmffBrand(source, request.mime_type)) invalid();
     const sourceSha256 = sha256(source);
-    directory = await mkdtemp(join(CANONICAL_TEMP_ROOT, TEMP_PREFIX));
+    directory = await mkdtemp(join(await localMediaTempRoot(), TEMP_PREFIX));
     await chmod(directory, 0o700);
     const directoryInfo = await lstat(directory);
     if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink() || (process.platform !== "win32" && (directoryInfo.mode & 0o777) !== 0o700) ||

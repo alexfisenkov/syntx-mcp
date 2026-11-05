@@ -30,7 +30,9 @@ source-профили. Доступ по вашему тарифу провер�
 ## Локальная установка: Windows, macOS, Linux
 
 Установите Git, Node.js 24.21.x или совместимую проверенную версию 24.x,
-FFmpeg и FFprobe. Затем:
+FFmpeg и FFprobe.
+
+Проверки файловой системы для медиа в Windows используют встроенный Windows PowerShell и DACL. Затем:
 
 ```sh
 git clone https://github.com/alexfisenkov/syntx-mcp.git

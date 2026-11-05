@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, isAbsolute, join } from "node:path";
 import { types } from "node:util";
 import { copyTrustedOwnerWan26R2vOriginalBytes, isTrustedOwnerWan26R2vOriginalProbeResult } from "./owner-wan26-r2v-original-probe.js";
@@ -56,7 +55,7 @@ async function crop(paths: Readonly<{ ffmpegPath: string; ffprobePath: string }>
     if (source.length > MAX_BYTES) limit();
     if (source.length !== original.bytes_copied || sha(source) !== original.source_sha256) return invalid();
     const audioCount = original.metadata.codec_streams.filter((s) => s.type === "audio").length; if (audioCount > 16) limit();
-    dir = await mkdtemp(join(tmpdir(), "syntx-wan26-r2v-crop-")); await chmod(dir, 0o700); await prepareLocalMediaWindowsDirectory(dir, [paths.ffmpegPath, paths.ffprobePath], signal);
+    dir = await mkdtemp(join(await localMediaTempRoot(), "syntx-wan26-r2v-crop-")); await chmod(dir, 0o700); await prepareLocalMediaWindowsDirectory(dir, [paths.ffmpegPath, paths.ffprobePath], signal);
     inputPath = join(dir, "source.mp4"); outputPath = join(dir, "crop.mp4"); inputCreated = true; await secureWrite(inputPath, source);
     outputCreated = true; await createPrivateOutput(outputPath);
     await assertLocalMediaWindowsFiles([inputPath, outputPath], signal);

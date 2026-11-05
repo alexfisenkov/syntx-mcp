@@ -1,11 +1,10 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { types } from "node:util";
 import { isOwnerActTwoCurrentDuration } from "./owner-actor-current-controls.js";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
 const MODEL_ID = "acttwo" as const;
@@ -81,7 +80,7 @@ async function probeActTwoPerformanceVideo(ffprobePath: string, bytes: Buffer, s
   let directory: string | undefined, path: string | undefined, created = false;
   try {
     if (signal?.aborted) aborted();
-    directory = await mkdtemp(join(tmpdir(), "syntx-acttwo-probe-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
+    directory = await mkdtemp(join(await localMediaTempRoot(), "syntx-acttwo-probe-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     path = join(directory, "original.mp4");
     const file = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
     created = true;

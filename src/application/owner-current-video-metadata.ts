@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { types } from "node:util";
 
@@ -45,7 +44,7 @@ export async function probeOwnerCurrentVideoMetadata(input: {
     if (bytes.length < 24 || bytes.toString("ascii", 4, 8) !== "ftyp" ||
         input.mime_type !== "video/mp4" && input.mime_type !== "video/quicktime" ||
         input.mime_type === "video/mp4" && bytes.toString("ascii", 8, 12) === "qt  ") fail("INVALID_VIDEO");
-    directory = await mkdtemp(join(tmpdir(), "syntx-current-video-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [config.ffprobePath], signal);
+    directory = await mkdtemp(join(await localMediaTempRoot(), "syntx-current-video-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [config.ffprobePath], signal);
     path = join(directory, input.mime_type === "video/quicktime" ? "original.mov" : "original.mp4");
     const file = await open(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600); created = true;
     let identity: { dev: number; ino: number };

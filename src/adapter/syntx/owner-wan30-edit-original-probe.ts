@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "../../application/local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "../../application/local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { access, chmod, lstat, mkdtemp, open, realpath, rmdir, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, isAbsolute, join } from "node:path";
 import { types } from "node:util";
 
@@ -137,7 +136,7 @@ async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unkn
     const sha256 = createHash("sha256").update(source).digest("hex");
     if (!hasMp4Brand(source)) invalid();
 
-    directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
+    directory = await mkdtemp(join(await localMediaTempRoot(), INPUT_PREFIX));
     await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [executablePath], request.signal);
     inputPath = join(directory, "source.mp4");
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);

@@ -1,10 +1,9 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
 import { extname, join, isAbsolute } from "node:path";
-import { tmpdir } from "node:os";
 import { types } from "node:util";
 import { inspectBoundedOwnerImageBytesWithMax } from "./owner-image-reference-input-validator.js";
 import { inspectBoundedOwnerClarityAvifBytesWithMax } from "./owner-clarity-upscale-input-validator.js";
@@ -152,7 +151,7 @@ async function validateAudio(ffprobePath: string, input: unknown, signal?: Abort
   let directory: string | undefined, inputPath: string | undefined, created = false;
   try {
     if (signal?.aborted) throw new OwnerHeygen4MediaPolicyError("PROBE_ABORTED");
-    directory = await mkdtemp(join(tmpdir(), TEMP_PREFIX)); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
+    directory = await mkdtemp(join(await localMediaTempRoot(), TEMP_PREFIX)); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     inputPath = join(directory, `source${extname(row.filename).toLowerCase()}`);
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     created = true;

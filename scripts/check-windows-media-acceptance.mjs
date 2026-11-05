@@ -23,11 +23,14 @@ for (const binary of [ffmpeg, ffprobe]) {
   assert.ok(isAbsolute(binary));
   assert.notEqual(binary, realpathSync(process.execPath), "Node is not a codec executable");
 }
-const directory = mkdtempSync(join(realpathSync(tmpdir()), "syntx Windows приёмка 🎞 "));
+const rawTemporaryRoot = tmpdir();
+const canonicalTemporaryRoot = realpathSync(rawTemporaryRoot);
+const directory = mkdtempSync(join(canonicalTemporaryRoot, "syntx Windows приёмка 🎞 "));
 const photo = join(directory, "фото референс 📷.jpg");
 const video = join(directory, "видео референс 🎞.mp4");
 const audio = join(directory, "аудио референс 🎵.wav");
 const receipt = { platform: process.platform, node: process.version,
+  raw_tmpdir_already_canonical: rawTemporaryRoot === canonicalTemporaryRoot,
   windows_os_acceptance: process.platform === "win32" ? "PASS" : "NOT_RUN_LOCAL_PREFLIGHT_ONLY",
   provider_account_acceptance: "NOT_TESTED", real_user_credentials: false, media: [] };
 const run = (binary, args, extra = {}) => execFileSync(binary, args,
@@ -253,11 +256,23 @@ try {
     ["../../tests/owner-acttwo-2355.test.mjs", "ActTwo genuinely probes1second and30second MP4s"],
     ["owner-elevenlabs-sts-wav-preparation.test.js", "^STS genuine5second and300second WAV full audio preparation"]
   ];
+  const suiteFailures = [];
   for (const [suite, pattern] of selected) {
-    const output = run(process.execPath, ["--test", "--test-reporter=tap", ...(pattern ? [`--test-name-pattern=${pattern}`] : []), `dist/tests/${suite}`], { env });
-    process.stdout.write(output);
-    assert.match(output, /# fail 0\r?\n/u); assert.match(output, /# skipped 0\r?\n/u);
+    try {
+      const output = run(process.execPath, ["--test", "--test-reporter=tap", ...(pattern ? [`--test-name-pattern=${pattern}`] : []), `dist/tests/${suite}`], { env });
+      process.stdout.write(output);
+      assert.match(output, /# fail 0\r?\n/u); assert.match(output, /# skipped 0\r?\n/u);
+    } catch (error) {
+      // These suites receive only generated media and synthetic in-process
+      // provider fixtures. Collect bounded TAP for all selected failures.
+      const output = `${typeof error.stdout === "string" ? error.stdout : ""}${typeof error.stderr === "string" ? error.stderr : ""}`;
+      process.stdout.write(output.slice(0, 1024 * 1024));
+      suiteFailures.push({ suite, pattern: pattern ?? null, status: Number.isInteger(error.status) ? error.status : null });
+    }
   }
   receipt.selected_suites = selected.length;
+  receipt.selected_suite_failures = suiteFailures;
+  if (suiteFailures.length) receipt.windows_os_acceptance = "FAILED_NATIVE_SELECTED_SUITES";
   process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
+  assert.deepEqual(suiteFailures, [], "native Windows selected suites failed; all bounded fixture failures are recorded above");
 } finally { rmSync(directory, { recursive: true, force: true }); }

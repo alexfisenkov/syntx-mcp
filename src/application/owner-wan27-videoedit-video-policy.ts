@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync, realpathSync } from "node:fs";
 import { chmod, lstat, mkdtemp, open, readFile, realpath, rmdir, unlink, type FileHandle } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join, resolve } from "node:path";
 import { types } from "node:util";
 
@@ -30,7 +29,6 @@ const TYPED_ARRAY_BUFFER = Object.getOwnPropertyDescriptor(TYPED_ARRAY_PROTOTYPE
 const TYPED_ARRAY_SET = Uint8Array.prototype.set;
 const ABORTED_GETTER = Object.getOwnPropertyDescriptor(AbortSignal.prototype, "aborted")?.get;
 const currentUid = (): number | null => typeof process.getuid === "function" ? process.getuid() : null;
-const CANONICAL_TEMP_ROOT = realpathSync(tmpdir());
 
 export const OWNER_WAN27_VIDEOEDIT_VIDEO_POLICY = Object.freeze({
   policy_id: "OWNER_WAN27_VIDEOEDIT_VIDEO_INPUT_POLICY_C19_V1",
@@ -161,7 +159,7 @@ export async function validateOwnerWan27VideoEditVideo(
     if (isAborted(actualSignal)) aborted();
     source = copyInputBytes(request.bytes, request.byte_length);
     const sourceSha256 = sha256(source);
-    directory = await mkdtemp(join(CANONICAL_TEMP_ROOT, TEMP_PREFIX));
+    directory = await mkdtemp(join(await localMediaTempRoot(), TEMP_PREFIX));
     await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [request.ffprobePath], actualSignal);
     const directoryInfo = await lstat(directory);
     if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink() || (process.platform !== "win32" && (directoryInfo.mode & 0o777) !== 0o700) ||

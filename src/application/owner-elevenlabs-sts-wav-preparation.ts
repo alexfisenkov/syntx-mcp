@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { types } from "node:util";
 
@@ -35,7 +34,7 @@ export async function prepareOwnerElevenLabsStsWav(input: { readonly bytes: Uint
   if (!["RIFF", "RIFX", "RF64"].includes(source.toString("ascii", 0, 4)) || source.toString("ascii", 8, 12) !== "WAVE") { source.fill(0); invalid(); }
   let directory: string | undefined, prepared: Buffer | undefined;
   try {
-    directory = await mkdtemp(join(tmpdir(), "syntx-sts-wav-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [config.ffprobePath, config.ffmpegPath], signal);
+    directory = await mkdtemp(join(await localMediaTempRoot(), "syntx-sts-wav-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [config.ffprobePath, config.ffmpegPath], signal);
     const original = join(directory, "original.wav"), output = join(directory, "prepared.mp3");
     await privateWrite(original, source);
     await assertLocalMediaWindowsFiles([original], signal);

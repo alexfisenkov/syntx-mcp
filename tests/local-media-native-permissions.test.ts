@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, open, readFile, rm, chmod, stat } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, chmod, stat, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assertLocalMediaWindowsAcl, assertLocalMediaWindowsFiles, prepareLocalMediaWindowsDirectory,
+import { assertLocalMediaWindowsAcl, assertLocalMediaWindowsFiles, prepareLocalMediaWindowsDirectory, localMediaTempRoot,
   type LocalMediaNativeAclSnapshot } from "../src/application/local-media-native-permissions.js";
 
 const USER = "S-1-5-21-111-222-333-1001", ADMIN = "S-1-5-32-544", SYSTEM = "S-1-5-18", FOREIGN = "S-1-1-0";
@@ -36,8 +36,10 @@ test("native media DACL policy rejects null permissions foreign writes private r
   assert.throws(() => assertLocalMediaWindowsAcl(descriptor({ access: [rule(USER, NaN)] }), "file"));
 });
 
-test("native media permissions protect only a new Unicode temp directory and validate its child with actual OS semantics", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "syntx-native-permissions проба 🎞 "));
+test("native media permissions protect only a new Unicode temp directory and validate its child with actual OS semantics", async t => {
+  const root = await localMediaTempRoot();
+  t.diagnostic(JSON.stringify({ platform: process.platform, inputTmpAlreadyCanonical: tmpdir() === await realpath(tmpdir()), creationRootCanonical: root === await realpath(root) }));
+  const directory = await mkdtemp(join(root, "syntx-native-permissions проба 🎞 "));
   const path = join(directory, "private media данные.bin"), bytes = Buffer.from("synthetic private local media");
   try {
     await chmod(directory, 0o700);

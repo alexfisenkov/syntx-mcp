@@ -1,9 +1,8 @@
-import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles, localMediaTempRoot } from "./local-media-native-permissions.js";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { chmod, mkdtemp, open, rmdir, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { extname, isAbsolute, join } from "node:path";
 import { promisify, types } from "node:util";
 import { isCanonicalBase64 } from "./canonical-base64.js";
@@ -91,7 +90,7 @@ async function probe(ffprobePath: string, input: unknown, signal?: AbortSignal):
   let directory: string | undefined, path: string | undefined;
   let createdFile = false;
   try {
-    directory = await mkdtemp(join(tmpdir(), "syntx-wan-t2v-audio-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
+    directory = await mkdtemp(join(await localMediaTempRoot(), "syntx-wan-t2v-audio-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     path = join(directory, mime === "audio/wav" || mime === "audio/x-wav" ? "source.wav" : "source.mp3");
     const file = await open(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;

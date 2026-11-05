@@ -67,7 +67,7 @@ export class OwnerCurrentVideoNativeService implements OwnerCurrentVideoNativePo
    const owner=owners[0]!,texts=owner.message_object.filter(item=>item.object_type==="text"&&item.object_text===state.wirePrompt&&item.model_type===state.description.model_id);
    const noTextAllowed=state.wirePrompt===""&&state.echoes.length>0&&owner.message_object.every(item=>item.object_type!=="text");
    const media=owner.message_object.filter(item=>item.object_type!=="text");if((!noTextAllowed&&texts.length!==1)||media.length!==state.echoes.length||owner.message_object.length!==(noTextAllowed?0:1)+state.echoes.length)return empty("unverified");
-   for(let i=0;i<state.echoes.length;i++){const ref=state.echoes[i]!,obj=media[i]!;if(obj.object_type!==ref.object_type||obj.object_url!==ref.url||obj.model_type!==state.description.model_id)return empty("unverified");}
+   const remaining=[...media];for(const ref of state.echoes){const index=remaining.findIndex(obj=>obj.object_type===ref.object_type&&obj.object_url===ref.url&&obj.model_type===state.description.model_id);if(index<0)return empty("unverified");remaining.splice(index,1);}
    state.ack=owner.id;state.phase="ACKNOWLEDGED";const candidates=rows.filter(row=>row.author_id===-1&&row.message_object.some(item=>item.object_type==="video"));if(!candidates.length)return empty("pending");
    const artifacts:Array<{url:string;mime_type:string|null;message_id:string;message_object_id:string}>=[];
    for(const candidate of candidates){await this.#authorize(state,signal);const raw=await state.client.readOwnerCurrentVideoReferenceMessage(operation,candidate.id,signal);await this.#authorize(state,signal);

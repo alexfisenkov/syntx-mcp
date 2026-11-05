@@ -149,13 +149,18 @@ export class OwnerCurrentVideoGenerationService<N extends OwnerCurrentVideoNorma
   }
   generate(value: OwnerCurrentVideoGenerateInput | unknown, signal?: AbortSignal): Promise<OwnerCurrentVideoGenerationResult> {
     const row = exact(value, ["attemptId", "input", "references"]), attempt = attemptId(row.attemptId), references = referenceSelection(row.references);
-    const normalized = this.#options.family.normalize(row.input, references.length);
+    let normalized: N;
+    try { normalized = this.#options.family.normalize(row.input, references.length); }
+    catch (error) { if (error instanceof OwnerCurrentVideoGenerationError) throw error; return fail("INVALID_REQUEST"); }
     if (!(this.#options.family.model_ids as readonly string[]).includes(normalized.model_id)) fail("SOURCE_BINDING_MISMATCH");
     return this.#run(attempt, signal, async deadline => {
       if (this.#records.size >= MAX_RECORDS) fail("CAPACITY_EXCEEDED");
       const principal = await this.#principal(attempt), selected = await deadline.waitFor(this.#options.references.prepare({ attemptId: attempt,
         model_id: normalized.model_id, mode: normalized.mode, references }, deadline.signal));
-      const intent = this.#options.family.compile(normalized, selected.metadata), description = this.#options.family.inspect(intent);
+      let intent: I;
+      try { intent = this.#options.family.compile(normalized, selected.metadata); }
+      catch (error) { if (error instanceof OwnerCurrentVideoGenerationError) throw error; return fail("INVALID_REQUEST"); }
+      const description = this.#options.family.inspect(intent);
       if (!description || inspectOwnerCurrentVideoIntent(intent) !== description || description.model_id !== normalized.model_id || description.mode !== normalized.mode ||
           description.settings.model_type !== normalized.model_id || Object.hasOwn(description.settings, "file_urls") ||
           description.source_profile_sha256 !== this.#options.family.source_profile_sha256 || !SHA.test(description.intent_fingerprint) ||

@@ -77,3 +77,44 @@ test("package smoke makes installed WAN T2V proof and summary mandatory", async 
   assert.equal(source.includes("formatWanT2vInstalledSummary"), true);
   assert.equal(source.includes("${installedWanT2vFlow}"), true);
 });
+
+
+test("installed WAN exact current schema admits only scoped audio/adaptive additions and retains legacy pins", async () => {
+  const [{ Client }, { InMemoryTransport }, runtimeModule, serverModule, parameters, wan30Parameters, tools] = await Promise.all([
+    import("@modelcontextprotocol/sdk/client/index.js"), import("@modelcontextprotocol/sdk/inMemory.js"),
+    import("../dist/src/runtime/observed-owner-runtime.js"), import("../dist/src/mcp/server.js"),
+    import("../dist/src/application/owner-wan-t2v-generation-parameters.js"), import("../dist/src/application/owner-wan30-t2v-generation-parameters.js"),
+    import("../dist/src/mcp/owner-wan-t2v-video-tools.js")
+  ]);
+  let fetches=0;
+  const runtime=runtimeModule.createObservedOwnerRuntime({ownerWanT2vVideosEnabled:true,fetchImpl:async()=>{fetches++;throw new Error("NETWORK_DISABLED");}});
+  const server=serverModule.createMcpServer(runtime.application,runtime.serverOptions),client=new Client({name:"wan-checker-current-test",version:"1"});
+  const [caller,host]=InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(host);await client.connect(caller);
+    const listed=(await client.listTools()).tools, modules={parameters,tools};
+    assert.deepEqual(checker.assertWanT2vToolSurface(listed,true,modules),{tool_count:5,closed_schemas:true,model_branches:3,parameter_schema_cases:480});
+    assert.equal(checker.assertWanT2vSourceContract({...parameters,...wan30Parameters},tools).models,3);
+    for(const mutate of [
+      a=>{a[0].outputSchema.properties.unreviewed_source={};},
+      a=>{delete a[0].outputSchema.properties.current_audio_reference_source;},
+      a=>{a[0].outputSchema.oneOf[0].properties.current_audio_reference_source.properties.form_sha256.const="sha256:"+"0".repeat(64);},
+      a=>{a[0].outputSchema.oneOf[1].properties.current_adaptive_source.additionalProperties=true;},
+      a=>{a[1].inputSchema.properties.audio_handle.pattern=".*";},
+      a=>{a[1].inputSchema.oneOf[1].properties.parameters.properties.native_audio.const=true;},
+      a=>{a[1].inputSchema.oneOf[2].properties.parameters.properties.aspect_ratio.enum.pop();},
+      a=>{a[1].annotations.idempotentHint=true;}
+    ]) {
+      const altered=TOOL_NAMES.map(name=>structuredClone(listed.find(tool=>tool.name===name)));
+      mutate(altered);
+      assert.throws(()=>checker.assertWanT2vToolSurface(altered,true,modules),error=>error instanceof checker.WanT2vFlowInstalledCheckError);
+    }
+    for(const model_id of ["wan_26_t2v","wan_30_t2v"]){
+      const reply=await client.callTool({name:TOOL_NAMES[0],arguments:{model_id}});
+      assert.notEqual(reply.isError,true);
+      const current=reply.structuredContent[model_id==="wan_30_t2v"?"current_adaptive_source":"current_audio_reference_source"];
+      assert.ok(current);assert.equal(current.provider_acceptance??current.backend_acceptance,"UNPROVEN");
+    }
+    assert.equal(fetches,0);
+  } finally {await client.close();await server.close();await runtime.ownerWanT2vLifecycle?.close();}
+});

@@ -126,7 +126,7 @@ test("current-family actual SDK uses shared native port, both account gates, sou
     const unknown = await f.tool("syntx_owner_generate_veo3_current", unknownArgs); assert.equal(unknown.isError, true); const error = contentError(unknown); assert.equal(error.code, "OUTCOME_UNKNOWN");
     const before = { ...f.counters }; f.setEcho("missing");
     const missing = await f.tool("syntx_owner_get_veo3_current_result", { recovery_id: error.recovery_id }); assert.equal((missing.structuredContent as any).status, "unverified");
-    f.setEcho("swapped"); const swapped = await f.tool("syntx_owner_get_veo3_current_result", { recovery_id: error.recovery_id }); assert.equal((swapped.structuredContent as any).status, "unverified");
+    f.setEcho("foreign-author"); const foreign = await f.tool("syntx_owner_get_veo3_current_result", { recovery_id: error.recovery_id }); assert.equal((foreign.structuredContent as any).status, "unverified");
     f.advance(); f.setEcho("normal"); const recovered = await f.tool("syntx_owner_get_veo3_current_result", { recovery_id: error.recovery_id });
     assert.notEqual(recovered.isError, true, JSON.stringify(recovered)); assert.equal((recovered.structuredContent as any).status, "completed");
     assert.equal(f.counters.posts, before.posts); assert.equal(f.counters.quotes, before.quotes); assert.equal(f.counters.uploads, before.uploads);

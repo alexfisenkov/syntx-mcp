@@ -295,13 +295,7 @@ export async function assertInstalledVideo2AudioFlow(installedPackagePath, consu
     const listed = await client.listTools();
     const names = listed.tools.map(({ name }) => name);
     if (TOOL_NAMES.some((name) => names.filter((item) => item === name).length !== 1)) fail("INSTALLED_VIDEO2AUDIO_TOOL_LIST_INVALID");
-    const schemas = new Map(listed.tools.filter(({ name }) => TOOL_NAMES.includes(name)).map(({ name, inputSchema }) => [name, inputSchema]));
-    assertInputSchema(schemas.get(TOOL_NAMES[0]), []);
-    assertInputSchema(schemas.get(TOOL_NAMES[1]), ["link_attempt_id", "content_base64", "filename", "mime_type"]);
-    assertInputSchema(schemas.get(TOOL_NAMES[2]), ["link_attempt_id", "prompt", "video_original_handle"]);
-    assertInputSchema(schemas.get(TOOL_NAMES[3]), ["link_attempt_id", "recovery_id"]);
-    assertInputSchema(schemas.get(TOOL_NAMES[4]), ["link_attempt_id"], ["limit"]);
-    assertInputSchema(schemas.get(TOOL_NAMES[5]), ["link_attempt_id", "recovery_id"], ["offset"]);
+    assertVideo2AudioInputSurface(listed.tools, false);
     if (counters.fetch_calls !== countersBeforeStartup) fail("INSTALLED_VIDEO2AUDIO_OPT_IN_STARTUP_NETWORK_ACCESS");
 
     const upload = async (attemptId, suffix) => {
@@ -511,6 +505,29 @@ export async function assertInstalledVideo2AudioFlow(installedPackagePath, consu
   if (failureCode !== undefined) fail(failureCode);
   if (proof === undefined) fail("INSTALLED_VIDEO2AUDIO_SYNTHETIC_PROOF_MISSING");
   return Object.freeze({ ...proof, cleanup: Object.freeze(cleanup), auth_store_close_returned_void: authStoreCloseReturnedVoid });
+}
+
+/** Exact installed input contract; historical and ffprobe-selected current profiles remain separate. */
+export function assertVideo2AudioInputSurface(tools, current = false) {
+  if (!Array.isArray(tools) || typeof current !== "boolean") fail("INSTALLED_VIDEO2AUDIO_INPUT_SCHEMA_INVALID");
+  const entries=TOOL_NAMES.map(name=>tools.filter(tool=>tool.name===name));
+  if(entries.some(matches=>matches.length!==1))fail("INSTALLED_VIDEO2AUDIO_INPUT_SCHEMA_INVALID");
+  const selected=entries.map(matches=>matches[0]), schemas=selected.map(tool=>tool.inputSchema);
+  assertInputSchema(schemas[0],[]);
+  assertInputSchema(schemas[1],["link_attempt_id","content_base64","filename","mime_type"]);
+  assertInputSchema(schemas[2],current?["link_attempt_id","video_original_handle"]:["link_attempt_id","prompt","video_original_handle"],current?["prompt","seed","negative_prompt"]:["seed","negative_prompt"]);
+  assertInputSchema(schemas[3],["link_attempt_id","recovery_id"]);
+  assertInputSchema(schemas[4],["link_attempt_id"],["limit"]);
+  assertInputSchema(schemas[5],["link_attempt_id","recovery_id"],["offset"]);
+  const upload=schemas[1].properties,generate=schemas[2].properties,seed=generate.seed?.anyOf;
+  if(upload.content_base64?.maxLength!==Math.ceil((current?104857600:10485760)/3)*4 ||
+    (current?!sameArray(upload.mime_type?.enum,["video/mp4","video/webm","video/quicktime","video/mov"]):upload.mime_type?.const!=="video/mp4") ||
+    generate.prompt?.maxLength!==5000 || (current?generate.prompt.default!=="":generate.prompt.minLength!==1) ||
+    seed?.[0]?.type!=="integer" || seed[0].minimum!==0 || seed[0].maximum!==2147483647 || seed[1]?.type!=="null" ||
+    generate.negative_prompt?.type!=="string" || generate.negative_prompt.maxLength!==5000)fail("INSTALLED_VIDEO2AUDIO_CURRENT_CONTROLS_INVALID");
+  for(const index of [1,2])if(selected[index].annotations?.readOnlyHint!==false||selected[index].annotations.destructiveHint!==true||selected[index].annotations.idempotentHint!==false)fail("INSTALLED_VIDEO2AUDIO_INPUT_SCHEMA_INVALID");
+  for(const index of [0,3,4,5])if(selected[index].annotations?.readOnlyHint!==true)fail("INSTALLED_VIDEO2AUDIO_INPUT_SCHEMA_INVALID");
+  return Object.freeze({tool_count:6,current_input:current});
 }
 
 export function formatVideo2AudioInstalledSummary(proof) {

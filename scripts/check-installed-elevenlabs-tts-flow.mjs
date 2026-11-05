@@ -22,6 +22,7 @@ const CATALOG_VERSION = "sha256-b06698c84a002f5cc7d379e5d3ead94974b0e279fae45c8b
 const SETTINGS_VERSION = "sha256-1b48c058362e847886f90dd733b8e4b28e598e16a0360f2b466916ef9a3e33c5.json";
 const PROJECT_ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const SOURCE_MODULES = Object.freeze([
+  "application/owner-elevenlabs-voice-discovery", "mcp/owner-elevenlabs-voice-tools",
   "application/owner-elevenlabs-generation-parameters", "application/owner-elevenlabs-voice-reference-service",
   "application/owner-elevenlabs-tts-request-preparer", "application/owner-elevenlabs-tts-one-shot-policy",
   "application/owner-elevenlabs-tts-generation-service", "application/account-status", "application/model-access",
@@ -72,7 +73,7 @@ export function assertElevenLabsTtsToolSurface(tools, enabled, modules) {
   const byName = new Map(tools.filter((tool) => TOOL_NAMES.includes(tool?.name)).map((tool) => [tool.name, tool]));
   const requiredInputs = [[], ["link_attempt_id"], ["link_attempt_id", "model_id", "mode", "prompt", "voice_ref", "stability", "similarity_boost"],
     ["link_attempt_id", "recovery_id"], ["link_attempt_id"], ["link_attempt_id", "recovery_id"]];
-  const optionalInputs = [[], [], ["language_code"], [], ["limit"], ["offset"]];
+  const optionalInputs = [[], ["page", "page_size", "cursor", "search", "gender", "age", "use_case", "accent", "language", "sort_by", "sort_direction"], ["language_code"], [], ["limit"], ["offset"]];
   const outputKeys = [
     ["backend_acceptance", "controls", "effective_defaults", "models", "runtime_usable", "source_binding", "status"],
     ["coverage", "has_more", "ownership_confidence", "page", "page_size", "source_confidence", "status", "total", "voices"],
@@ -84,10 +85,11 @@ export function assertElevenLabsTtsToolSurface(tools, enabled, modules) {
   for (let index = 0; index < TOOL_NAMES.length; index += 1) {
     const tool = byName.get(TOOL_NAMES[index]);
     assertClosedObject(tool?.inputSchema, requiredInputs[index], optionalInputs[index], `INSTALLED_ELEVENLABS_TTS_INPUT_SCHEMA_${index}_INVALID`);
-    assertClosedObject(tool?.outputSchema, outputKeys[index], [], `INSTALLED_ELEVENLABS_TTS_OUTPUT_SCHEMA_${index}_INVALID`);
+    assertClosedObject(tool?.outputSchema, outputKeys[index], index === 1 ? ["next_cursor", "filter_options"] : [], `INSTALLED_ELEVENLABS_TTS_OUTPUT_SCHEMA_${index}_INVALID`);
     assertEveryObjectClosed(tool.inputSchema, `INSTALLED_ELEVENLABS_TTS_INPUT_SCHEMA_${index}_INVALID`);
     assertEveryObjectClosed(tool.outputSchema, `INSTALLED_ELEVENLABS_TTS_OUTPUT_SCHEMA_${index}_INVALID`);
   }
+  assertVoiceDiscoverySchema(byName.get(TOOL_NAMES[1]));
   const generate = byName.get(TOOL_NAMES[2]), branches = generate.inputSchema.oneOf;
   if (!Array.isArray(branches) || branches.length !== MODELS.length) fail("INSTALLED_ELEVENLABS_TTS_MODEL_BRANCHES_INVALID");
   for (const [index, branch] of branches.entries()) {
@@ -121,6 +123,19 @@ export function assertElevenLabsTtsToolSurface(tools, enabled, modules) {
     if (!outputSchema.safeParse(sourceProjectionForCheck(profile)).success) fail("INSTALLED_ELEVENLABS_TTS_SOURCE_SCHEMA_INVALID");
   }
   return Object.freeze({ ...names, closed_schemas: true, model_branches: MODELS.length, control_cases: controlCases });
+}
+
+function assertVoiceDiscoverySchema(tool) {
+  const code = "INSTALLED_ELEVENLABS_VOICE_DISCOVERY_SCHEMA_INVALID", input=tool.inputSchema.properties, output=tool.outputSchema.properties;
+  const cursor="^owner_elevenlabs_cursor_[0-9a-f-]{36}$", facets=["gender","age","use_case","accent","language","sort_by","sort_direction"];
+  if(input.page?.const!==1 || !sameArray(input.page_size?.anyOf?.map(v=>v.const),[10,20]) || input.cursor?.pattern!==cursor ||
+    output.page?.type!=="integer" || output.page.minimum!==1 || output.page.maximum!==1000 || !sameArray(output.page_size?.anyOf?.map(v=>v.const),[10,20]) ||
+    output.next_cursor?.anyOf?.[0]?.pattern!==cursor || output.next_cursor?.anyOf?.[1]?.type!=="null" || output.voices?.maxItems!==20 ||
+    output.coverage?.const!=="PARTIAL_PAGE_ONLY" || output.ownership_confidence?.const!=="UNPROVEN") fail(code);
+  for(const key of ["search",...facets]) if(input[key]?.type!=="string" || input[key].maxLength!==(key==="search"?500:256)) fail(code);
+  assertClosedObject(output.filter_options,[],facets,code);
+  for(const key of facets){const field=output.filter_options.properties[key];if(field.type!=="array"||field.maxItems!==100||field.items?.type!=="string"||field.items.minLength!==1||field.items.maxLength!==256)fail(code);}
+  if(tool.annotations?.readOnlyHint!==true || tool.annotations.idempotentHint!==true || tool.annotations.openWorldHint!==true) fail(code);
 }
 
 export function assertElevenLabsTtsControlMatrix(schema) {

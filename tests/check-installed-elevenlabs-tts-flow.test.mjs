@@ -54,3 +54,29 @@ test("package smoke invokes and prints the installed ElevenLabs flow as a mandat
   assert.match(source, /formatElevenLabsTtsInstalledSummary/u);
   assert.match(source, /\$\{installedElevenLabsTtsFlow\}/u);
 });
+
+test("installed voice discovery exact paging/facets stay read-only and fixed TTS language remains model-scoped", async () => {
+  const [{Client},{InMemoryTransport},r,s,parameters,tools]=await Promise.all([
+    import("@modelcontextprotocol/sdk/client/index.js"),import("@modelcontextprotocol/sdk/inMemory.js"),
+    import("../dist/src/runtime/observed-owner-runtime.js"),import("../dist/src/mcp/server.js"),
+    import("../dist/src/application/owner-elevenlabs-generation-parameters.js"),import("../dist/src/mcp/owner-elevenlabs-tts-tools.js")]);
+  let network=0;const runtime=r.createObservedOwnerRuntime({ownerElevenLabsTtsEnabled:true,fetchImpl:async()=>{network++;throw new Error("NETWORK_DISABLED");}});
+  const server=s.createMcpServer(runtime.application,runtime.serverOptions),client=new Client({name:"voice-helper-schema",version:"1"});const[a,b]=InMemoryTransport.createLinkedPair();
+  try{await server.connect(b);await client.connect(a);const listed=(await client.listTools()).tools;
+    assert.equal(checker.assertElevenLabsTtsToolSurface(listed,true,{parameters,tools}).control_cases,884);
+    const input=tools.OWNER_ELEVENLABS_TTS_TOOL_INPUT_SCHEMAS.list_voices,attempt="link_voice_checker_current_0123456789";
+    const base={link_attempt_id:attempt,page:1,page_size:20,search:"Synthetic",gender:"female",age:"adult",use_case:"narration",accent:"neutral",language:"en",sort_by:"name",sort_direction:"asc"};
+    assert.equal(input.safeParse(base).success,true);
+    for(const bad of [{...base,page:2},{...base,page_size:21},{...base,cursor:"foreign"},{...base,search:"x".repeat(501)},{...base,gender:"x".repeat(257)},{...base,voice_id:"private"}])assert.equal(input.safeParse(bad).success,false);
+    const generate=tools.OWNER_ELEVENLABS_TTS_TOOL_INPUT_SCHEMAS.generate;
+    const tuple={link_attempt_id:attempt,model_id:"eleven_v4",mode:"text_to_speech",prompt:"A synthetic control",voice_ref:"owner_elevenlabs_voice_00000000-0000-4000-8000-000000000001",stability:0.5,similarity_boost:0.5};
+    assert.equal(generate.safeParse({...tuple,language_code:"auto"}).success,true);
+    assert.equal(generate.safeParse({...tuple,language_code:"ru"}).success,false);
+    assert.equal(generate.safeParse({...tuple,model_id:"eleven_v3",language_code:"auto"}).success,false);
+    for(const mutate of [a=>{a[1].inputSchema.properties.page.const=2;},a=>{a[1].outputSchema.properties.filter_options.additionalProperties=true;},a=>{a[1].outputSchema.properties.voices.maxItems=21;},a=>{a[1].inputSchema.properties.provider_voice_id={type:"string"};},a=>{a[2].inputSchema.oneOf[2].properties.language_code={enum:["auto","ru"]};}]){
+      const changed=TOOLS.map(name=>structuredClone(listed.find(t=>t.name===name)));mutate(changed);
+      assert.throws(()=>checker.assertElevenLabsTtsToolSurface(changed,true,{parameters,tools}),e=>e instanceof checker.ElevenLabsTtsInstalledCheckError);
+    }
+    assert.equal(network,0);
+  }finally{await client.close();await server.close();await runtime.ownerElevenLabsTtsLifecycle?.close();await runtime.authStore.close();}
+});

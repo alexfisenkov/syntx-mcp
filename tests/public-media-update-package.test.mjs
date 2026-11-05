@@ -151,6 +151,10 @@ test("release test command pins catalog, coverage, profiles, updater, and packag
     "dist/tests/owner-flux3-current-sdk.test.js",
     "dist/tests/owner-image-manual-current-sdk.test.js",
     "dist/tests/mcp-estimate-reference-pattern.test.js",
+    "tests/check-installed-wan-t2v-flow.test.mjs",
+    "tests/check-installed-elevenlabs-tts-flow.test.mjs",
+    "tests/check-installed-video2audio-flow.test.mjs",
+    "dist/tests/owner-wan-document-dependency.test.js",
     "deploy/private-owner.test.mjs"
   ]) assert.ok(command.includes(path), `release tests omit ${path}`);
   assert.ok(command.includes('tests/export-public-snapshot.test.mjs'));

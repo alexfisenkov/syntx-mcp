@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { types } from "node:util";
 import { isOwnerActTwoCurrentDuration } from "./owner-actor-current-controls.js";
 import { execFile } from "node:child_process";
@@ -80,13 +81,14 @@ async function probeActTwoPerformanceVideo(ffprobePath: string, bytes: Buffer, s
   let directory: string | undefined, path: string | undefined, created = false;
   try {
     if (signal?.aborted) aborted();
-    directory = await mkdtemp(join(tmpdir(), "syntx-acttwo-probe-")); await chmod(directory, 0o700);
+    directory = await mkdtemp(join(tmpdir(), "syntx-acttwo-probe-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     path = join(directory, "original.mp4");
     const file = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
     created = true;
     let identity: { dev: number; ino: number };
     try { await file.chmod(0o600); await file.writeFile(bytes); await file.sync(); const stat = await file.stat(); identity = { dev: stat.dev, ino: stat.ino }; }
     finally { await file.close(); }
+    await assertLocalMediaWindowsFiles([path], signal);
     const args = ["-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,duration,color_transfer:stream_disposition=attached_pic:format=duration,format_name", "-of", "json", path];
     const text = await new Promise<string>((resolve, reject) => {
       execFile(ffprobePath, args, { encoding: "utf8", timeout: 15000, maxBuffer: 64 * 1024, killSignal: "SIGKILL", ...(signal === undefined ? {} : { signal }) },

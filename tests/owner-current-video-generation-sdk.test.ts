@@ -26,6 +26,7 @@ function png(index: number): Buffer {
 async function fixture(ffprobePath = join(process.cwd(), "unused-binary-for-structural-png")) {
   const binding = { tenant_id: `current-family-sdk-${++fixtureCount}`, subject: "owner" };
   let now = Date.parse("2026-11-06T00:00:00Z"), linked = true, denied = false, loseAck = false;
+  let rejectPost = false, invalidAck = false, failHistory = false;
   let echo: "normal" | "missing" | "swapped" | "foreign-author" = "normal";
   const counters = { uploads: 0, chats: 0, posts: 0, account: 0, quotes: 0, history: 0, results: 0 };
   const uploaded: { url: string; model: string }[] = [], bodies: any[] = [], queries: Record<string, string>[] = [];
@@ -44,6 +45,8 @@ async function fixture(ffprobePath = join(process.cwd(), "unused-binary-for-stru
     if (url.pathname === "/api/v1/chats" && method === "POST") { counters.chats++; events.push("chat"); return Response.json({ uuid: `current-sdk-chat-${counters.chats}` }); }
     if (url.pathname.endsWith("video/generate") && method === "POST") {
       counters.posts++; events.push("post"); const body = JSON.parse(String(init.body)); bodies.push(body); assert.ok(body.settings.model_type); assert.ok(Array.isArray(body.settings.file_urls));
+      if (rejectPost) { rejectPost = false; return new Response("private upstream body", { status: 400 }); }
+      if (invalidAck) { invalidAck = false; return Response.json({}); }
       if (loseAck) { loseAck = false; throw new Error("synthetic unknown generation ACK"); } return Response.json({ id: `owner-${body.chat_id}` });
     }
     const route = url.pathname.match(/^\/api\/v1\/chats\/(current-sdk-chat-\d+)\/(messages|bot-current-sdk-chat-\d+)$/u);
@@ -56,7 +59,7 @@ async function fixture(ffprobePath = join(process.cwd(), "unused-binary-for-stru
       const owner = { id: ownerId, chat_id: 100, author_id: echo === "foreign-author" ? -2 : 42, message_object: [
         ...(body.prompt ? [{ id: "text", message_id: ownerId, object_type: "text", object_text: body.prompt, model_type: model }] : []), ...media] };
       const bot = { id: botId, chat_id: 100, author_id: -1, message_object: [{ id: `output-${chat}`, message_id: botId, object_type: "video", model_type: model }] };
-      if (route[2] === "messages") { counters.history++; return Response.json({ messages: [owner, bot], pagination: { page: 1, page_size: 10, total_count: 2, total_pages: 1, has_next: false, has_previous: false } }); }
+      if (route[2] === "messages") { counters.history++; if (failHistory) { failHistory = false; throw new Error("private history failure"); } return Response.json({ messages: [owner, bot], pagination: { page: 1, page_size: 10, total_count: 2, total_pages: 1, has_next: false, has_previous: false } }); }
       counters.results++; return Response.json({ ...bot, message_object: [{ ...bot.message_object[0], completed: true, object_url: `https://r2.syntx.ai/current-sdk/${chat}.mp4` }] });
     }
     throw new Error("Unexpected synthetic current-family route");
@@ -77,7 +80,7 @@ async function fixture(ffprobePath = join(process.cwd(), "unused-binary-for-stru
   };
   const upload = async (model: string, index: number) => await uploadBytes(model, `reference${index}.png`, "image/png", png(index));
   return { runtime, client, tool, upload, uploadBytes, counters, bodies, queries, events, binding,
-    setDenied(value: boolean) { denied = value; }, setLostAck() { loseAck = true; }, setEcho(value: typeof echo) { echo = value; }, unlink() { linked = false; }, relink() { linked = true; },
+    setDenied(value: boolean) { denied = value; }, setRejectedPost() { rejectPost = true; }, setFailHistory() { failHistory = true; }, setInvalidAck() { invalidAck = true; }, setLostAck() { loseAck = true; }, setEcho(value: typeof echo) { echo = value; }, unlink() { linked = false; }, relink() { linked = true; },
     advance() { now += 16 * 60000; }, async close() { await client.close(); await server.close(); await runtime.ownerCurrentVideoLifecycle?.close(); } };
 }
 function contentError(result: any) { return JSON.parse(result.content[0].text).error; }
@@ -175,4 +178,42 @@ test("current Hailuo SDK genuinely probes mixed audio and video without inheriti
     assert.deepEqual(f.bodies[0].settings.file_urls.map((file: any) => file.type), ["image", "video", "audio"]);
     assert.equal(f.queries[0]!.duration, "2.13"); assert.equal(f.queries[0]!.ref_count, "1"); assert.equal(f.counters.posts, 1); assert.equal(f.counters.quotes, 2);
   } finally { await f.close(); video.fill(0); audio.fill(0); await rm(directory, { recursive: true, force: true }); }
+});
+
+
+test("current video recovery exposes only bounded observed dispatch diagnostics", async () => {
+  const f = await fixture();
+  const args = { mode: "omni-references", resolution: "768p", video_duration: 5, aspect_ratio: "16:9", references: [] };
+  try {
+    f.setRejectedPost();
+    const rejected = await f.tool("syntx_owner_generate_hailuo3_current", { ...args, prompt: "Distinct rejected diagnostic scene" });
+    assert.equal(contentError(rejected).code, "OUTCOME_UNKNOWN");
+    const rejectedId = contentError(rejected).recovery_id;
+    f.setFailHistory();
+    const failedHistory = await f.tool("syntx_owner_get_hailuo3_current_result", { recovery_id: rejectedId });
+    assert.equal((failedHistory.structuredContent as any).status, "unverified");
+    assert.deepEqual((failedHistory.structuredContent as any).diagnostic, { category: "HTTP_REJECTED", http_status: 400 });
+    assert.equal(JSON.stringify(failedHistory).includes("private history failure"), false);
+    const rejectedResult = await f.tool("syntx_owner_get_hailuo3_current_result", { recovery_id: rejectedId });
+    assert.deepEqual((rejectedResult.structuredContent as any).diagnostic, { category: "HTTP_REJECTED", http_status: 400 });
+    assert.equal(JSON.stringify(rejectedResult).includes("private upstream body"), false);
+    f.setLostAck();
+    const lost = await f.tool("syntx_owner_generate_hailuo3_current", { ...args, prompt: "Distinct lost diagnostic scene" });
+    assert.equal(contentError(lost).code, "OUTCOME_UNKNOWN");
+    const lostResult = await f.tool("syntx_owner_get_hailuo3_current_result", { recovery_id: contentError(lost).recovery_id });
+    assert.deepEqual((lostResult.structuredContent as any).diagnostic, { category: "TRANSPORT_UNVERIFIED" });
+    const foreign = await f.tool("syntx_owner_get_hailuo3_current_result", { link_attempt_id: "link_current_family_foreign_012345678901", recovery_id: rejectedId });
+    assert.equal(foreign.isError, true); assert.equal(JSON.stringify(foreign).includes("HTTP_REJECTED"), false);
+    f.setInvalidAck();
+    const invalidAck = await f.tool("syntx_owner_generate_hailuo3_current", { ...args, prompt: "Distinct malformed ack diagnostic scene" });
+    assert.equal(contentError(invalidAck).code, "OUTCOME_UNKNOWN");
+    const ackResult = await f.tool("syntx_owner_get_hailuo3_current_result", { recovery_id: contentError(invalidAck).recovery_id });
+    assert.deepEqual((ackResult.structuredContent as any).diagnostic, { category: "ACK_UNVERIFIED", http_status: 200 });
+    const good = await f.tool("syntx_owner_generate_hailuo3_current", { ...args, prompt: "Distinct successful diagnostic scene" });
+    assert.equal((good.structuredContent as any).status, "completed");
+    assert.equal(Object.hasOwn(good.structuredContent as object, "diagnostic"), false);
+    assert.equal(f.counters.posts, 4);
+    const replay = await f.tool("syntx_owner_generate_hailuo3_current", { ...args, prompt: "Distinct rejected diagnostic scene" });
+    assert.equal(replay.isError, true); assert.equal(f.counters.posts, 4);
+  } finally { await f.close(); }
 });

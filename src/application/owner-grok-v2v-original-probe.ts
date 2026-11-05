@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync, realpathSync } from "node:fs";
@@ -143,7 +144,7 @@ export async function probeOwnerGrokV2vOriginal(
     const container = identifyContainer(source, request.mime_type);
 
     directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [request.ffprobePath], validatedSignal);
     inputPath = join(directory, container === "ISO_BMFF_MP4" ? "source.mp4" : "source.mov");
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
@@ -155,6 +156,7 @@ export async function probeOwnerGrokV2vOriginal(
       if (!info.isFile() || info.size !== source.byteLength) invalid();
     } finally { await file.close(); }
 
+    await assertLocalMediaWindowsFiles([inputPath], validatedSignal);
     const metadata = parseFfprobe(await runFfprobe(request.ffprobePath, inputPath, validatedSignal));
     if (signalAborted(validatedSignal)) throw new OwnerGrokV2vOriginalProbeError("PROBE_ABORTED");
     const after = await lstat(inputPath);

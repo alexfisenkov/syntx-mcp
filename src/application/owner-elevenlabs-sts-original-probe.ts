@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -137,7 +138,7 @@ async function probeOriginal(
   let retainedBytes: Buffer | undefined;
   try {
     directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     inputPath = join(directory, "source.mp3");
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
@@ -151,6 +152,7 @@ async function probeOriginal(
       await file.close();
     }
 
+    await assertLocalMediaWindowsFiles([inputPath], signal);
     const stdout = await runFfprobe(ffprobePath, inputPath, signal);
     const metadata = parseProbe(stdout);
     const prepared = request.prepared_audio === undefined ? null : readPreparedOwnerElevenLabsStsAudio(request.prepared_audio, sourceSha256);
@@ -206,7 +208,7 @@ function runFfprobe(ffprobePath: string, inputPath: string, signal?: AbortSignal
     "stream=codec_type,codec_name,sample_rate,channels,nb_read_frames,duration:format=duration,format_name", "-of", "json", inputPath];
   const childOptions: ExecFileOptionsWithStringEncoding = {
     encoding: "utf8", timeout: PROBE_TIMEOUT_MS, killSignal: "SIGKILL", maxBuffer: MAX_STDOUT_BYTES,
-    windowsHide: true, signal, env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" }
+    windowsHide: true, signal, env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) }
   };
   return new Promise((resolve, reject) => {
     let spawned = false;

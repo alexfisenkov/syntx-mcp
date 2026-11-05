@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync, realpathSync } from "node:fs";
@@ -176,7 +177,7 @@ async function probeOriginal(ffprobePath: string, input: unknown, options?: Read
     if (!hasMp4Brand(source)) invalid();
 
     directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     inputPath = join(directory, "source.mp4");
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
@@ -188,6 +189,7 @@ async function probeOriginal(ffprobePath: string, input: unknown, options?: Read
       if (!info.isFile() || info.size !== source.byteLength) invalid();
     } finally { await file.close(); }
 
+    await assertLocalMediaWindowsFiles([inputPath], signal);
     const stdout = await runFfprobe(ffprobePath, inputPath, signal);
     if (signalAborted(signal)) throw new OwnerTopazEnhanceOriginalProbeError("PROBE_ABORTED");
     const measured = parseFfprobe(stdout);

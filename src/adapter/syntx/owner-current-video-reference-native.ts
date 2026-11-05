@@ -22,7 +22,7 @@ const pageSchema=z.object({messages:z.array(rowSchema).max(PAGE_SIZE),pagination
 type Echo=Readonly<{object_type:string;url:string}>;
 type State={readonly service:OwnerCurrentVideoNativeService;readonly client:SyntxChatHttpClient;readonly attemptId:string;readonly principal:Readonly<GenerationPrincipalRef>;
  readonly references:OwnerCurrentVideoReferenceStore;readonly bundle:OwnerCurrentVideoReferenceBundle;readonly intent:object;readonly description:Readonly<OwnerCurrentVideoIntentDescription>;readonly chatId:string;readonly epoch:number;
- phase:"READY"|"UNKNOWN"|"ACKNOWLEDGED"|"INVALIDATED";postStarted:boolean;ack?:string;wirePrompt?:string;echoes?:readonly Echo[]};
+ phase:"READY"|"UNKNOWN"|"ACKNOWLEDGED"|"INVALIDATED";postStarted:boolean;httpStatus?:number;diagnostic?:import("../../application/owner-current-video-reference-types.js").OwnerCurrentVideoDispatchDiagnostic;ack?:string;wirePrompt?:string;echoes?:readonly Echo[]};
 const OPERATIONS=new WeakMap<object,State>();
 export interface OwnerCurrentVideoNativeServiceOptions {readonly binding:AuthBinding;readonly linkService:Pick<PerUserLinkService,"getStatus">;
  readonly references:OwnerCurrentVideoReferenceStore;readonly resolveClient:(attemptId:string)=>SyntxChatHttpClient}
@@ -48,10 +48,10 @@ export class OwnerCurrentVideoNativeService implements OwnerCurrentVideoNativePo
   const state=this.#state(operation);if(state.phase!=="READY")invalid();const run=this.#begin(state.attemptId,signal);signal=run.signal;try {await this.#authorize(state,signal);await this.#references.revalidate(state.bundle,signal);
   try{const receipt=await state.client.startOwnerCurrentVideoReferenceOperation(operation,signal);if(!receipt||receipt.chat_uuid!==state.chatId||!ID.test(receipt.message_id)||signal?.aborted)throw new Error("OUTCOME_UNKNOWN");await this.#authorize(state,signal);
    state.ack=receipt.message_id;state.phase="ACKNOWLEDGED";return Object.freeze({status:"acknowledged"});
-  }catch(error){if(state.postStarted)throw new Error("OUTCOME_UNKNOWN");throw error;}}finally{run.finish();}
+  }catch(error){if(state.postStarted){const status=state.httpStatus;state.diagnostic=Object.freeze({category:status===undefined?"TRANSPORT_UNVERIFIED":status>=400?"HTTP_REJECTED":"ACK_UNVERIFIED",...(status===undefined?{}:{http_status:status})});throw new Error("OUTCOME_UNKNOWN");}throw error;}}finally{run.finish();}
  }
- async observe(operation:OwnerCurrentVideoNativeOperation,signal?:AbortSignal):Promise<Readonly<{status:"pending"|"complete"|"unverified";artifacts:readonly Readonly<{url:string;mime_type:string|null;message_id:string;message_object_id:string}>[]}>>{
-  const state=this.#state(operation);if(state.phase!=="UNKNOWN"&&state.phase!=="ACKNOWLEDGED")invalid();const empty=(status:"pending"|"unverified")=>Object.freeze({status,artifacts:Object.freeze([])});
+ async observe(operation:OwnerCurrentVideoNativeOperation,signal?:AbortSignal):Promise<Readonly<{status:"pending"|"complete"|"unverified";diagnostic?:import("../../application/owner-current-video-reference-types.js").OwnerCurrentVideoDispatchDiagnostic;artifacts:readonly Readonly<{url:string;mime_type:string|null;message_id:string;message_object_id:string}>[]}>>{
+  const state=this.#state(operation);if(state.phase!=="UNKNOWN"&&state.phase!=="ACKNOWLEDGED")invalid();const empty=(status:"pending"|"unverified")=>Object.freeze({status,artifacts:Object.freeze([]),...(state.diagnostic?{diagnostic:state.diagnostic}:{})});
   const run=this.#begin(state.attemptId,signal);signal=run.signal;try{const rows:z.infer<typeof rowSchema>[]=[],ids=new Set<string>(),objectIds=new Set<string>();let total:number|undefined,pages:number|undefined,providerChat:string|undefined;
    for(let page=1;page<=Math.min(MAX_PAGES,Math.max(1,pages??1));page++){
     await this.#authorize(state,signal);const raw=await state.client.readOwnerCurrentVideoReferenceHistory(operation,page,signal);await this.#authorize(state,signal);
@@ -77,7 +77,7 @@ export class OwnerCurrentVideoNativeService implements OwnerCurrentVideoNativePo
     for(const obj of parsed.data.message_object){if(!expected.includes(obj.id)||obj.message_id!==undefined&&obj.message_id!==candidate.id||obj.object_type!=="video"||obj.model_type!==state.description.model_id||obj.completed!==true||typeof obj.object_url!=="string"||!isSafeUploadReferenceUrl(obj.object_url))return empty("unverified");
      const ext=new URL(obj.object_url).pathname.toLowerCase();artifacts.push(Object.freeze({url:obj.object_url,mime_type:ext.endsWith(".mp4")?"video/mp4":ext.endsWith(".mov")?"video/quicktime":null,message_id:candidate.id,message_object_id:obj.id}));}
    }
-   return Object.freeze({status:"complete",artifacts:Object.freeze(artifacts)});
+   return Object.freeze({status:"complete",artifacts:Object.freeze(artifacts),...(state.diagnostic?{diagnostic:state.diagnostic}:{})});
   }catch{return empty("unverified");}finally{run.finish();}
  }
  async invalidateAttempt(attemptId:string):Promise<void>{const id=readAttempt(attemptId),existing=this.#invalidating.get(id);if(existing)return existing;this.#epochs.set(id,this.#epoch(id)+1);
@@ -106,3 +106,10 @@ export function readOwnerCurrentVideoOperationChat(client:SyntxChatHttpClient,op
 function exact(value:unknown,keys:readonly string[]):Record<string,unknown>{if(!value||typeof value!=="object"||Array.isArray(value)||types.isProxy(value))invalid();const proto=Object.getPrototypeOf(value),d=Object.getOwnPropertyDescriptors(value),own=Reflect.ownKeys(d);if(proto!==Object.prototype&&proto!==null||own.length!==keys.length||own.some(k=>typeof k!=="string"||!keys.includes(k)||!Object.hasOwn(d[k]!,"value")||!d[k]!.enumerable))invalid();return Object.fromEntries(keys.map(k=>[k,d[k]!.value]));}
 function readAttempt(value:unknown):string{if(typeof value!=="string"||!ATTEMPT.test(value))invalid();return value;}
 function invalid():never{throw new Error("OWNER_CURRENT_VIDEO_NATIVE_INVALID");}
+
+/** Record only an actually observed status for this genuine client operation. */
+export function recordOwnerCurrentVideoDispatchStatus(client:SyntxChatHttpClient,operation:unknown,status:number):void {
+ const state=operation && typeof operation==="object" ? OPERATIONS.get(operation) : undefined;
+ if(!state || state.client!==client || state.phase!=="UNKNOWN" || !state.postStarted || !Number.isInteger(status) || status<100 || status>599) invalid();
+ state.httpStatus=status;
+}

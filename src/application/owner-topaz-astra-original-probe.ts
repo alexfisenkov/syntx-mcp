@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -153,7 +154,7 @@ async function probeOriginal(
   let retainedBytes: Buffer | undefined;
   try {
     directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     const suffix = request.mime_type === "video/mp4" ? ".mp4" : ".mov";
     inputPath = join(directory, `source${suffix}`);
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
@@ -168,6 +169,7 @@ async function probeOriginal(
       await file.close();
     }
 
+    await assertLocalMediaWindowsFiles([inputPath], signal);
     const stdout = await runFfprobe(ffprobePath, inputPath, signal);
     const probed = parseProbe(stdout);
     try { assertReviewedTopazVideoCodecAllowed(codecPolicy, probed.codecName, probed.codecTagString); }
@@ -239,7 +241,7 @@ function runFfprobe(ffprobePath: string, inputPath: string, signal?: AbortSignal
     maxBuffer: MAX_STDOUT_BYTES,
     windowsHide: true,
     signal,
-    env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" }
+    env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) }
   };
   return new Promise((resolve, reject) => {
     let childSpawned = false;

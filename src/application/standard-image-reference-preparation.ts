@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { access, chmod, mkdtemp, open, readFile, realpath, rm, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { isAbsolute, join } from "node:path";
@@ -174,11 +175,12 @@ async function prepareCopiedImage(
   let directory: string | undefined;
   try {
     directory = await mkdtemp(join(tmpdir(), "syntx-image-prepare-"));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [resolvedFfmpeg], signal);
     const sourcePath = join(directory, `source.${dimensions.mime.slice(6) === "jpeg" ? "jpg" : dimensions.mime.slice(6)}`);
     const outputPath = join(directory, "prepared.jpg");
     const handle = await open(sourcePath, "wx", 0o600);
     try { await handle.writeFile(source); } finally { await handle.close(); }
+    await assertLocalMediaWindowsFiles([sourcePath], signal);
     const firstEdge = Math.min(Math.max(dimensions.width, dimensions.height), MAX_EDGE);
     const edges = [...new Set([firstEdge, 3072, 2048, 1024])];
     let attempts = 0;
@@ -191,6 +193,7 @@ async function prepareCopiedImage(
         await rm(outputPath, { force: true });
         const scale = `scale='if(gt(iw,ih),min(iw,${edge}),-2)':'if(gt(iw,ih),-2,min(ih,${edge}))':force_original_aspect_ratio=decrease`;
         await runFfmpeg(resolvedFfmpeg, ["-nostdin", "-hide_banner", "-loglevel", "error", "-i", sourcePath, "-map", "0:v:0", "-frames:v", "1", "-map_metadata", "-1", "-vf", scale, "-q:v", String(quality), "-fs", String(outputCap), "-y", outputPath], Math.min(remaining, deadline - Date.now()), signal);
+        await assertLocalMediaWindowsFiles([outputPath], signal);
         const info = await stat(outputPath).catch(() => undefined);
         if (!info?.isFile() || info.size < 1 || info.size > outputCap) continue;
         const prepared = await readFile(outputPath);
@@ -216,7 +219,7 @@ function runFfmpeg(binary: string, args: string[], timeoutMs: number, signal?: A
     if (signal?.aborted) { reject(new StandardImageReferencePreparationError("IMAGE_PREPARATION_ABORTED")); return; }
     if (timeoutMs <= 0) { reject(new StandardImageReferencePreparationError("IMAGE_PREPARATION_FAILED")); return; }
     let child: ReturnType<typeof spawn>;
-    try { child = spawn(binary, args, { shell: false, windowsHide: true, stdio: ["ignore", "ignore", "pipe"], env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" } }); }
+    try { child = spawn(binary, args, { shell: false, windowsHide: true, stdio: ["ignore", "ignore", "pipe"], env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) } }); }
     catch { reject(new StandardImageReferencePreparationError("IMAGE_PREPARATION_FAILED")); return; }
     let stderrBytes = 0;
     child.stderr?.on("data", (chunk: Buffer) => { stderrBytes = Math.min(STDERR_LIMIT, stderrBytes + Math.min(chunk.byteLength, STDERR_LIMIT)); });

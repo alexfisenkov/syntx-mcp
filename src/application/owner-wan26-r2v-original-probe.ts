@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -183,7 +184,7 @@ async function probeOriginal(
     if (!hasMatchingBmffBrand(source, request.mime_type)) invalid();
 
     directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     inputPath = join(directory, request.mime_type === "video/mp4" ? "source.mp4" : "source.mov");
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
@@ -195,6 +196,7 @@ async function probeOriginal(
       if (!info.isFile() || info.size !== length) invalid();
     } finally { await file.close(); }
 
+    await assertLocalMediaWindowsFiles([inputPath], signal);
     const measured = parseFfprobe(await runFfprobe(ffprobePath, inputPath, signal));
     const pinnedBounds = WAN26_R2V_ORIGINAL_VIDEO_POLICY.catalog_limits;
     const currentBounds = WAN26_R2V_ORIGINAL_VIDEO_POLICY.current_public_observation;

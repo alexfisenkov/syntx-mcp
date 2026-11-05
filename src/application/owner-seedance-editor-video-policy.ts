@@ -5,6 +5,7 @@ import { chmod, lstat, mkdtemp, open, readFile, realpath, rmdir, unlink, type Fi
 import { tmpdir } from "node:os";
 import { basename, extname, isAbsolute, join, resolve } from "node:path";
 import { types } from "node:util";
+import { assertLocalMediaWindowsFiles, prepareLocalMediaWindowsDirectory } from "./local-media-native-permissions.js";
 
 const MIME_TYPES = Object.freeze(["video/mp4", "video/quicktime"] as const);
 const MODEL_ID = "seedance-2.5-editor" as const;
@@ -143,20 +144,24 @@ export async function validateOwnerSeedanceEditorVideo(
     directory = await mkdtemp(join(CANONICAL_TEMP_ROOT, TEMP_PREFIX));
     await chmod(directory, 0o700);
     const directoryInfo = await lstat(directory);
-    if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink() || (directoryInfo.mode & 0o777) !== 0o700 ||
+    if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink() || (process.platform !== "win32" && (directoryInfo.mode & 0o777) !== 0o700) ||
         await realpath(directory) !== directory || (currentUid() !== null && directoryInfo.uid !== currentUid())) invalid();
+    if (process.platform === "win32") await prepareLocalMediaWindowsDirectory(directory, [request.ffprobePath], actualSignal);
 
     inputPath = join(directory, `input${request.mime_type === "video/mp4" ? ".mp4" : ".mov"}`);
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
+    let fileIdentity: { dev: bigint; ino: bigint } | undefined;
     try {
       await file.chmod(0o600);
       await file.writeFile(source);
       await file.sync();
       const info = await file.stat();
-      if (!info.isFile() || info.size !== source.byteLength || (info.mode & 0o777) !== 0o600 ||
+      if (!info.isFile() || info.size !== source.byteLength || (process.platform !== "win32" && (info.mode & 0o777) !== 0o600) ||
           info.nlink !== 1 || (currentUid() !== null && info.uid !== currentUid())) invalid();
+      if (process.platform === "win32") { const identity = await file.stat({ bigint: true }); fileIdentity = { dev: identity.dev, ino: identity.ino }; }
     } finally { await file.close(); }
+    if (process.platform === "win32") await assertLocalMediaWindowsFiles([inputPath], actualSignal);
 
     const probeOutput = await runFfprobe(request.ffprobePath, inputPath, actualSignal);
     if (isAborted(actualSignal)) aborted();
@@ -168,8 +173,12 @@ export async function validateOwnerSeedanceEditorVideo(
 
     const afterProbe = await lstat(inputPath);
     if (!afterProbe.isFile() || afterProbe.isSymbolicLink() || afterProbe.size !== source.byteLength ||
-        (afterProbe.mode & 0o777) !== 0o600 || afterProbe.nlink !== 1 ||
+        (process.platform !== "win32" && (afterProbe.mode & 0o777) !== 0o600) || afterProbe.nlink !== 1 ||
         (currentUid() !== null && afterProbe.uid !== currentUid()) || await realpath(inputPath) !== inputPath) invalid();
+    if (process.platform === "win32") {
+      const identity = await lstat(inputPath, { bigint: true });
+      if (!fileIdentity || identity.dev !== fileIdentity.dev || identity.ino !== fileIdentity.ino) invalid();
+    }
     const afterBytes = await readFile(inputPath);
     try { if (sha256(afterBytes) !== sourceSha256) invalid(); }
     finally { afterBytes.fill(0); }
@@ -466,7 +475,8 @@ async function runFfprobe(ffprobePath: string, inputPath: string, signal?: Abort
   const options: ExecFileOptionsWithStringEncoding = {
     encoding: "utf8", timeout: PROBE_TIMEOUT_MS, killSignal: "SIGKILL", maxBuffer: MAX_STDOUT_BYTES,
     windowsHide: true, shell: false, ...(signal === undefined ? {} : { signal }),
-    env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" }
+    env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C",
+      ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) }
   };
   return new Promise((resolveOutput, rejectOutput) => {
     let callbackDone = false, closed = false, spawnFailed = false, settled = false;
@@ -525,7 +535,7 @@ function isSafeAbsoluteExecutable(path: string): boolean {
   if (!isAbsolute(path) || path !== path.trim() || path.includes("\0") || resolve(path) !== path || basename(path) === "") return false;
   try {
     const stat = lstatSync(path);
-    if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o022) !== 0 || realpathSync(path) !== path) return false;
+    if (!stat.isFile() || stat.isSymbolicLink() || (process.platform !== "win32" && (stat.mode & 0o022) !== 0) || realpathSync(path) !== path) return false;
     accessSync(path, fsConstants.X_OK);
     return true;
   } catch { return false; }

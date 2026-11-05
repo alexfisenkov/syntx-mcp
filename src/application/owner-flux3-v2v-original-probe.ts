@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync, realpathSync } from "node:fs";
@@ -136,7 +137,7 @@ export async function probeOwnerFlux3V2vOriginal(
     if (!hasMp4Brand(source)) invalid();
 
     directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [request.ffprobePath], validatedSignal);
     inputPath = join(directory, "source.mp4");
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
@@ -148,6 +149,7 @@ export async function probeOwnerFlux3V2vOriginal(
       if (!info.isFile() || info.size !== source.byteLength) invalid();
     } finally { await file.close(); }
 
+    await assertLocalMediaWindowsFiles([inputPath], validatedSignal);
     const metadata = parseFfprobe(await runFfprobe(request.ffprobePath, inputPath, validatedSignal));
     if (signalAborted(validatedSignal)) throw new OwnerFlux3V2vOriginalProbeError("PROBE_ABORTED");
     const after = await lstat(inputPath);

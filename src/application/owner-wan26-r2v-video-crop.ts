@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -55,16 +56,18 @@ async function crop(paths: Readonly<{ ffmpegPath: string; ffprobePath: string }>
     if (source.length > MAX_BYTES) limit();
     if (source.length !== original.bytes_copied || sha(source) !== original.source_sha256) return invalid();
     const audioCount = original.metadata.codec_streams.filter((s) => s.type === "audio").length; if (audioCount > 16) limit();
-    dir = await mkdtemp(join(tmpdir(), "syntx-wan26-r2v-crop-")); await chmod(dir, 0o700);
+    dir = await mkdtemp(join(tmpdir(), "syntx-wan26-r2v-crop-")); await chmod(dir, 0o700); await prepareLocalMediaWindowsDirectory(dir, [paths.ffmpegPath, paths.ffprobePath], signal);
     inputPath = join(dir, "source.mp4"); outputPath = join(dir, "crop.mp4"); inputCreated = true; await secureWrite(inputPath, source);
     outputCreated = true; await createPrivateOutput(outputPath);
+    await assertLocalMediaWindowsFiles([inputPath, outputPath], signal);
     await run(paths.ffmpegPath, ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(metadata.effective_start_seconds), "-i", inputPath,
       "-t", String(metadata.duration_seconds), "-map", "0:v:0", "-map", "0:a?", "-vf", `fps=${metadata.frame_rate.numerator}/${metadata.frame_rate.denominator}`,
       "-frames:v", String(metadata.frame_count), "-fps_mode", "cfr", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-pix_fmt", "yuv420p",
       "-c:a", "aac", "-movflags", "+faststart", "-fs", String(MAX_BYTES + 1), outputPath], signal, 8 * 1024);
     if (!isTrustedOwnerWan26R2vOriginalProbeResult(original) || getOwnerWan26R2vVideoSelectionMetadata(original, selection) !== metadata) return invalid();
+    await assertLocalMediaWindowsFiles([outputPath], signal);
     const info = await lstat(outputPath);
-    if (!info.isFile() || info.isSymbolicLink() || (info.mode & 0o777) !== 0o600 || info.size < 16) invalid(); if (info.size > MAX_BYTES) limit();
+    if (!info.isFile() || info.isSymbolicLink() || (process.platform !== "win32" && (info.mode & 0o777) !== 0o600) || info.size < 16) invalid(); if (info.size > MAX_BYTES) limit();
     const parsed = parseProbe(await run(paths.ffprobePath, ["-v", "error", "-count_frames", "-show_entries", "stream=codec_type,codec_name,width,height,avg_frame_rate,nb_read_frames,duration:format=format_name", "-of", "json", outputPath], signal, MAX_TEXT));
     const fn = BigInt(metadata.frame_rate.numerator), fd = BigInt(metadata.frame_rate.denominator), pn = BigInt(parsed.rate.numerator), pd = BigInt(parsed.rate.denominator);
     const frameSeconds = metadata.frame_rate.denominator / metadata.frame_rate.numerator;
@@ -92,11 +95,11 @@ async function crop(paths: Readonly<{ ffmpegPath: string; ffprobePath: string }>
 }
 function revoke(value: object): void { receipts.get(value)?.fill(0); receipts.delete(value); descriptors.delete(value); }
 async function secureWrite(path: string, bytes: Buffer): Promise<void> { const f = await open(path, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600); try { await f.chmod(0o600); await f.writeFile(bytes); await f.sync(); const s = await f.stat(); if (!s.isFile() || s.size !== bytes.length) invalid(); } finally { await f.close(); } }
-async function createPrivateOutput(path: string): Promise<void> { const f = await open(path, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600); try { await f.chmod(0o600); await f.sync(); const s = await f.stat(); if (!s.isFile() || (s.mode & 0o777) !== 0o600) invalid(); } finally { await f.close(); } }
+async function createPrivateOutput(path: string): Promise<void> { const f = await open(path, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600); try { await f.chmod(0o600); await f.sync(); const s = await f.stat(); if (!s.isFile() || (process.platform !== "win32" && (s.mode & 0o777) !== 0o600)) invalid(); } finally { await f.close(); } }
 async function readOwnedFile(path: string, size: number): Promise<Buffer> { const f = await open(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0)); try { const a = await f.stat(); if (!a.isFile() || a.size !== size || size > MAX_BYTES) invalid(); const b = await f.readFile(); if ((await f.stat()).size !== size || b.length !== size) { b.fill(0); invalid(); } return b; } finally { await f.close(); } }
 async function wipe(path: string): Promise<void> { const s = await lstat(path); if (s.isSymbolicLink()) { await unlink(path); return; } if (!s.isFile()) invalid(); const f = await open(path, fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0)); try { const n = (await f.stat()).size; if (n > MAX_BYTES + 1) { await f.truncate(0); await f.sync(); } else { const zeros = Buffer.alloc(64 * 1024); try { for (let at = 0; at < n; at += zeros.length) await f.write(zeros, 0, Math.min(zeros.length, n - at), at); await f.sync(); } finally { zeros.fill(0); } } } finally { await f.close(); } await unlink(path); }
 function run(path: string, args: string[], signal: AbortSignal | undefined, max: number): Promise<string> { return new Promise((resolve, reject) => {
-  let child: ReturnType<typeof spawn>; try { child = spawn(path, args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" } }); } catch (e) { reject(e); return; }
+  let child: ReturnType<typeof spawn>; try { child = spawn(path, args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) } }); } catch (e) { reject(e); return; }
   let out = "", outBytes = 0, failed: Error | undefined, timer: NodeJS.Timeout; const kill = (e: Error) => { if (!failed) { failed = e; child.kill("SIGKILL"); } };
   timer = setTimeout(() => kill(new OwnerWan26R2vVideoCropError("CROP_FAILED")), TIMEOUT_MS);
   const onAbort = () => kill(new OwnerWan26R2vVideoCropError("CROP_ABORTED"));

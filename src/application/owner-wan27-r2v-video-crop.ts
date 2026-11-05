@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -77,17 +78,19 @@ async function crop(paths: Readonly<{ ffmpegPath: string; ffprobePath: string }>
   if (audioCount > 16) { source.fill(0); return limit(); }
   let dir: string | undefined, inputPath: string | undefined, outputPath: string | undefined, inCreated = false, outCreated = false, owned: Buffer | undefined;
   try {
-    dir = await mkdtemp(join(tmpdir(), "syntx-wan27-r2v-crop-")); await chmod(dir, 0o700);
+    dir = await mkdtemp(join(tmpdir(), "syntx-wan27-r2v-crop-")); await chmod(dir, 0o700); await prepareLocalMediaWindowsDirectory(dir, [paths.ffmpegPath, paths.ffprobePath], signal);
     inputPath = join(dir, "source.mp4"); outputPath = join(dir, "crop.mp4");
     inCreated = true; await secureWrite(inputPath, source);
     outCreated = true; await createPrivateOutput(outputPath);
+    await assertLocalMediaWindowsFiles([inputPath, outputPath], signal);
     await run(paths.ffmpegPath, ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(metadata.effective_start_seconds), "-i", inputPath,
       "-t", String(metadata.duration_seconds), "-map", "0:v:0", "-map", "0:a?", "-vf", `fps=${metadata.frame_rate.numerator}/${metadata.frame_rate.denominator}`,
       "-frames:v", String(metadata.frame_count), "-fps_mode", "cfr", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-pix_fmt", "yuv420p",
       "-c:a", "aac", "-movflags", "+faststart", "-fs", String(MAX_BYTES + 1), outputPath], signal, 8 * 1024);
     if (!isTrustedOwnerWan27R2vOriginalProbeResult(original) || getOwnerWan27R2vVideoSelectionMetadata(original, selection) !== metadata) invalid();
+    await assertLocalMediaWindowsFiles([outputPath], signal);
     const info = await lstat(outputPath);
-    if (!info.isFile() || info.isSymbolicLink() || (info.mode & 0o777) !== 0o600 || info.size < 16) invalid(); if (info.size > MAX_BYTES) limit();
+    if (!info.isFile() || info.isSymbolicLink() || (process.platform !== "win32" && (info.mode & 0o777) !== 0o600) || info.size < 16) invalid(); if (info.size > MAX_BYTES) limit();
     const parsed = parseProbe(await run(paths.ffprobePath, ["-v", "error", "-count_frames", "-show_entries", "stream=codec_type,codec_name,width,height,avg_frame_rate,nb_read_frames,duration:format=format_name", "-of", "json", outputPath], signal, MAX_TEXT));
     const frameSeconds = metadata.frame_rate.denominator / metadata.frame_rate.numerator;
     if (parsed.width !== original.metadata.width || parsed.height !== original.metadata.height || parsed.codec !== "h264" ||
@@ -119,7 +122,7 @@ async function secureWrite(path: string, bytes: Buffer): Promise<void> {
 }
 async function createPrivateOutput(path: string): Promise<void> {
   const file = await open(path, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
-  try { await file.chmod(0o600); await file.sync(); const stat = await file.stat(); if (!stat.isFile() || (stat.mode & 0o777) !== 0o600) invalid(); } finally { await file.close(); }
+  try { await file.chmod(0o600); await file.sync(); const stat = await file.stat(); if (!stat.isFile() || (process.platform !== "win32" && (stat.mode & 0o777) !== 0o600)) invalid(); } finally { await file.close(); }
 }
 async function readOwnedFile(path: string, expectedSize: number): Promise<Buffer> {
   const file = await open(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
@@ -144,7 +147,7 @@ async function wipe(path: string, allowOversize = false): Promise<void> {
 }
 function run(path: string, args: string[], signal: AbortSignal | undefined, max: number): Promise<string> {
   return new Promise((resolve, reject) => {
-    let child: ReturnType<typeof spawn>; try { child = spawn(path, args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" } }); }
+    let child: ReturnType<typeof spawn>; try { child = spawn(path, args, { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) } }); }
     catch (e) { reject(e); return; }
     let out = "", err = "", failed = false, failure: Error | undefined, timer: NodeJS.Timeout;
     const kill = (reason: Error) => { if (!failed) { failed = true; failure = reason; child.kill("SIGKILL"); } };

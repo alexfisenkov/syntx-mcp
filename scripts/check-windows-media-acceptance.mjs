@@ -233,6 +233,7 @@ try {
     SYNTX_CURRENT_VIDEO_TEST_FFMPEG: ffmpeg, SYNTX_CURRENT_VIDEO_TEST_FFPROBE: ffprobe,
     SYNTX_ELEVENLABS_STS_TEST_FFMPEG: ffmpeg, SYNTX_ELEVENLABS_STS_TEST_FFPROBE: ffprobe };
   const selected = [
+    ["local-media-native-permissions.test.js"],
     ["owner-seedance-editor-flow2230.test.js", "2230 real MCP SDK tools drive"],
     ["owner-suno-audio-reference.test.js", "genuine uploaded audio reaches"],
     ["standard-image-reference-preparation.test.js", "compresses high-entropy JPEG"],

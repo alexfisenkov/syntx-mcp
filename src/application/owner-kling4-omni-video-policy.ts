@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync } from "node:fs";
@@ -159,7 +160,7 @@ export async function validateOwnerKling4OmniVideo(
     const sourceSha256 = sha256(source);
 
     directory = await mkdtemp(join(tmpdir(), TEMP_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [request.ffprobePath], actualSignal);
     inputPath = join(directory, `input${extname(request.filename).toLowerCase()}`);
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
@@ -171,6 +172,7 @@ export async function validateOwnerKling4OmniVideo(
       if (!stat.isFile() || stat.size !== source.byteLength) invalid();
     } finally { await file.close(); }
 
+    await assertLocalMediaWindowsFiles([inputPath], actualSignal);
     const output = await runFfprobe(request.ffprobePath, inputPath, actualSignal);
     if (isAborted(actualSignal)) aborted();
     const metadata = parseFfprobe(output);
@@ -472,7 +474,7 @@ async function runFfprobe(path: string, inputPath: string, signal?: AbortSignal)
     windowsHide: true,
     shell: false,
     ...(signal === undefined ? {} : { signal }),
-    env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" }
+    env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) }
   };
   return new Promise((resolveOutput, rejectOutput) => {
     let spawned = false;

@@ -7,6 +7,7 @@ const attempt = z.string().regex(/^link_[A-Za-z0-9_-]{20,120}$/u), recovery = z.
 const resultSchema = z.object({ status: z.enum(["pending", "completed", "unverified", "outcome_unknown"]), recovery_id: recovery, model_id: z.string(),
   source_binding: z.object({ profile_sha256: z.string(), source_pins: z.record(z.string(), z.string()), intent_fingerprint: z.string() }).strict(),
   parameters: z.record(z.string(), z.unknown()), artifacts: z.array(z.object({ url: z.string().url(), mime_type: z.string().nullable(), message_id: z.string(), message_object_id: z.string() }).strict()).max(64),
+  diagnostic: z.object({ category: z.enum(["HTTP_REJECTED", "TRANSPORT_UNVERIFIED", "ACK_UNVERIFIED"]), http_status: z.number().int().min(100).max(599).optional() }).strict().optional(),
   phase: z.enum(["CHAT_CREATE_INVOKED", "CHAT_CREATED", "DISPATCH_INVOKED", "ACKNOWLEDGED", "OBSERVED"]), backend_acceptance: z.literal("UNPROVEN"), cost_cap_enforced: z.literal(false), durability: z.literal("PROCESS_LOCAL_ONLY") }).strict();
 export const ownerCurrentVideoAttemptSchema = attempt;
 export const ownerCurrentVideoReferenceSelectionSchema = z.object({ reference_handle: z.string().regex(/^current_video_ref_[0-9a-f-]{36}$/u),

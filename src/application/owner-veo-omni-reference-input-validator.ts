@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants, accessSync, lstatSync, realpathSync } from "node:fs";
@@ -125,7 +126,7 @@ export async function validateOwnerVeoOmniReferenceInput(
     } else {
       identifyVideoContainer(owned, mime);
       verifyTrustedBinary(request.ffprobePath);
-      probeTemp = await writePrivateProbeFile(owned, mime);
+      probeTemp = await writePrivateProbeFile(owned, mime, request.ffprobePath, validatedSignal);
       const output = await runFfprobe(request.ffprobePath, probeTemp.inputPath, validatedSignal);
       if (signalAborted(validatedSignal)) fail("PROBE_ABORTED");
       const afterProbe = await lstat(probeTemp.inputPath);
@@ -621,11 +622,11 @@ function identifyVideoContainer(bytes: Buffer, mime: OwnerVeoOmniReferenceMimeTy
   return fail("UNSUPPORTED_MEDIA");
 }
 
-async function writePrivateProbeFile(bytes: Buffer, mime: OwnerVeoOmniReferenceMimeType): Promise<ProbeTemp> {
+async function writePrivateProbeFile(bytes: Buffer, mime: OwnerVeoOmniReferenceMimeType, ffprobePath: string, signal?: AbortSignal): Promise<ProbeTemp> {
   const directory = await mkdtemp(join(tmpdir(), TEMP_PREFIX));
   let inputPath: string | undefined, created = false;
   try {
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     const suffix = mime === "video/quicktime" ? ".mov" : ".mp4";
     inputPath = join(directory, `source${suffix}`);
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
@@ -637,6 +638,7 @@ async function writePrivateProbeFile(bytes: Buffer, mime: OwnerVeoOmniReferenceM
       const stat = await file.stat();
       if (!stat.isFile() || stat.size !== bytes.byteLength) fail("PROBE_FAILED");
     } finally { await file.close(); }
+    await assertLocalMediaWindowsFiles([inputPath], signal);
     return Object.freeze({ directory, inputPath, mime });
   } catch (error) {
     if (created && inputPath) { try { await wipeAndUnlink(inputPath); } catch { /* preserve the original safe error */ } }

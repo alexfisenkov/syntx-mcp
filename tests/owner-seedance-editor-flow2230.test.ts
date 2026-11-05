@@ -175,6 +175,8 @@ test("2230 real MCP SDK tools drive the genuine Editor services from bytes to re
     } });
     assert.equal(uploaded.isError, undefined, JSON.stringify(uploaded));
     assert.equal(JSON.stringify(uploaded).includes(INPUT), false);
+    const metadata = uploaded.structuredContent as { width: number; height: number; duration_seconds: number };
+    assert.equal(metadata.width, 1280); assert.equal(metadata.height, 720); assert.equal(metadata.duration_seconds, 4.25);
     const handle = (uploaded.structuredContent as { reference_handle: string }).reference_handle;
     const generated = await client.callTool({ name: "syntx_owner_generate_seedance_editor_video", arguments: {
       link_attempt_id: ATTEMPT, model_id: "seedance-2.5-editor", prompt: "Synthetic MCP SDK Editor test", resolution: "480p", reference_handle: handle

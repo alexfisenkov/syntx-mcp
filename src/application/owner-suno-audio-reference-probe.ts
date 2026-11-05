@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
@@ -86,15 +87,16 @@ async function probe(ffprobePath: string, input: unknown, signal?: AbortSignal):
   let directory: string | undefined, path: string | undefined;
   let createdFile = false;
   try {
-    directory = await mkdtemp(join(tmpdir(), "syntx-suno-audio-")); await chmod(directory, 0o700);
+    directory = await mkdtemp(join(tmpdir(), "syntx-suno-audio-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     path = join(directory, mime === "audio/wav" ? "source.wav" : "source.mp3");
     const file = await open(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
     try { await file.chmod(0o600); await file.writeFile(bytes); await file.sync(); } finally { await file.close(); }
+    await assertLocalMediaWindowsFiles([path], signal);
     const { stdout } = await run(ffprobePath, ["-v", "error", "-protocol_whitelist", "file,pipe", "-count_frames", "-show_entries",
       "stream=codec_type,codec_name,sample_rate,channels,nb_read_frames,duration:format=duration,format_name", "-of", "json", path],
     { encoding: "utf8", timeout: 15_000, killSignal: "SIGKILL", maxBuffer: 65_536, windowsHide: true,
-      ...(signal ? { signal } : {}), env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" } });
+      ...(signal ? { signal } : {}), env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) } });
     const data = JSON.parse(stdout) as { streams?: Array<Record<string, unknown>>; format?: Record<string, unknown> };
     const stream = data.streams?.[0];
     const duration = Number(stream?.duration ?? data.format?.duration);

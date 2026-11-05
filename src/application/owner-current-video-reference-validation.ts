@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
@@ -72,8 +73,9 @@ export function consumeOwnerCurrentValidatedVideoReference(value:unknown):Uint8A
 export function releaseOwnerCurrentValidatedVideoReference(value:unknown):void {if(value&&typeof value==="object"){BYTES.get(value)?.fill(0);BYTES.delete(value);}}
 async function measureAudio(bytes:Uint8Array,mime:string,ffprobePath:string,signal?:AbortSignal):Promise<number>{
  let directory:string|undefined;
- try {directory=await mkdtemp(join(tmpdir(),"syntx-current-reference-audio-"));await chmod(directory,0o700);const path=join(directory,mime==="audio/wav"?"source.wav":"source.mp3");
+ try {directory=await mkdtemp(join(tmpdir(),"syntx-current-reference-audio-"));await chmod(directory,0o700);await prepareLocalMediaWindowsDirectory(directory,[ffprobePath],signal);const path=join(directory,mime==="audio/wav"?"source.wav":"source.mp3");
   const file=await open(path,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY|(constants.O_NOFOLLOW??0),0o600);try{await file.writeFile(bytes);await file.sync();}finally{await file.close();}
+  await assertLocalMediaWindowsFiles([path],signal);
   const stdout=await new Promise<string>((resolve,reject)=>execFile(ffprobePath,["-v","error","-protocol_whitelist","file","-show_entries","stream=codec_type,codec_name,duration:stream_disposition=attached_pic:format=duration,format_name","-of","json",path],
    {encoding:"utf8",timeout:15000,maxBuffer:65536,windowsHide:true,...(signal?{signal}:{})},(error,out)=>error?reject(error):resolve(out)));
   const parsed=JSON.parse(stdout),streams=parsed?.streams;if(!Array.isArray(streams)||streams.length<1||streams.length>32)invalid();
@@ -87,8 +89,9 @@ async function measureImage(bytes:Uint8Array,mime:string,ffprobePath:string,sign
  if(mime==="image/bmp"?!ascii.startsWith("BM"):mime==="image/gif"?!/^GIF8[79]a/u.test(ascii):mime==="image/tiff"?!((b[0]===0x49&&b[1]===0x49&&b[2]===42&&b[3]===0)||(b[0]===0x4d&&b[1]===0x4d&&b[2]===0&&b[3]===42)):
    !(ascii.slice(4,8)==="ftyp" && (mime==="image/avif" ? /^(avif|avis)$/u.test(ascii.slice(8,12)) : /^(heic|heix|hevc|hevx|mif1|msf1)$/u.test(ascii.slice(8,12)))))invalid();
  let directory:string|undefined;
- try{directory=await mkdtemp(join(tmpdir(),"syntx-current-reference-image-"));await chmod(directory,0o700);const path=join(directory,`source.${ext}`);
+ try{directory=await mkdtemp(join(tmpdir(),"syntx-current-reference-image-"));await chmod(directory,0o700);await prepareLocalMediaWindowsDirectory(directory,[ffprobePath],signal);const path=join(directory,`source.${ext}`);
   const file=await open(path,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY|(constants.O_NOFOLLOW??0),0o600);try{await file.writeFile(bytes);await file.sync();}finally{await file.close();}
+  await assertLocalMediaWindowsFiles([path],signal);
   const stdout=await new Promise<string>((resolve,reject)=>execFile(ffprobePath,["-v","error","-protocol_whitelist","file","-show_entries","stream=codec_type,codec_name,width,height","-of","json",path],
    {encoding:"utf8",timeout:15000,maxBuffer:65536,windowsHide:true,...(signal?{signal}:{})},(error,out)=>error?reject(error):resolve(out)));
   const parsed=JSON.parse(stdout),streams=parsed?.streams;if(!Array.isArray(streams)||streams.length!==1||streams[0]?.codec_type!=="video")invalid();

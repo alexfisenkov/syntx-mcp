@@ -111,6 +111,7 @@ export interface OwnerCurrentVideoGenerationResult {
   readonly backend_acceptance: "UNPROVEN";
   readonly cost_cap_enforced: false;
   readonly durability: "PROCESS_LOCAL_ONLY";
+  readonly diagnostic?: import("./owner-current-video-reference-types.js").OwnerCurrentVideoDispatchDiagnostic;
 }
 interface RecoveryEntry {
   readonly id: string; readonly attempt: string; readonly principal: Readonly<GenerationPrincipalRef>;
@@ -255,7 +256,10 @@ export class OwnerCurrentVideoGenerationService<N extends OwnerCurrentVideoNorma
           typeof artifact.message_id !== "string" || !/^[A-Za-z0-9._~-]{1,160}$/u.test(artifact.message_id) || typeof artifact.message_object_id !== "string" || !/^[A-Za-z0-9._~-]{1,160}$/u.test(artifact.message_object_id)) fail("OPERATION_UNVERIFIED");
       return Object.freeze({ url: artifact.url, mime_type: artifact.mime_type as string | null, message_id: artifact.message_id, message_object_id: artifact.message_object_id });
     });
-    entry.result = result(entry.id, entry.description, observed.status === "complete" && artifacts.length ? "completed" : observed.status === "pending" ? "pending" : "unverified", "OBSERVED", artifacts);
+    const diagnostic = observed.diagnostic;
+    if (diagnostic !== undefined && (!["HTTP_REJECTED", "TRANSPORT_UNVERIFIED", "ACK_UNVERIFIED"].includes(diagnostic.category) ||
+        (diagnostic.http_status !== undefined && (!Number.isInteger(diagnostic.http_status) || diagnostic.http_status < 100 || diagnostic.http_status > 599)))) fail("OPERATION_UNVERIFIED");
+    entry.result = result(entry.id, entry.description, observed.status === "complete" && artifacts.length ? "completed" : observed.status === "pending" ? "pending" : "unverified", "OBSERVED", artifacts, diagnostic);
     return entry.result;
   }
   async #principal(attempt: string) { this.#assertOpen(); if (this.#invalidating.has(attempt)) fail("PRINCIPAL_NOT_LINKED");
@@ -273,10 +277,10 @@ export class OwnerCurrentVideoGenerationService<N extends OwnerCurrentVideoNorma
   #assertOpen() { if (this.#closed) fail("SERVICE_CLOSED"); }
 }
 function result(id: string, description: Readonly<OwnerCurrentVideoIntentDescription>, status: OwnerCurrentVideoGenerationResult["status"],
-  phase: OwnerCurrentVideoGenerationResult["phase"], artifacts: OwnerCurrentVideoGenerationResult["artifacts"]): OwnerCurrentVideoGenerationResult {
+  phase: OwnerCurrentVideoGenerationResult["phase"], artifacts: OwnerCurrentVideoGenerationResult["artifacts"], diagnostic?: OwnerCurrentVideoGenerationResult["diagnostic"]): OwnerCurrentVideoGenerationResult {
   return Object.freeze({ status, recovery_id: id, model_id: description.model_id, source_binding: Object.freeze({ profile_sha256: description.source_profile_sha256,
     source_pins: description.source_pins, intent_fingerprint: description.intent_fingerprint }), parameters: description.settings, artifacts: Object.freeze([...artifacts]),
-    phase, backend_acceptance: "UNPROVEN", cost_cap_enforced: false, durability: "PROCESS_LOCAL_ONLY" });
+    ...(diagnostic ? { diagnostic: Object.freeze({ category: diagnostic.category, ...(diagnostic.http_status === undefined ? {} : { http_status: diagnostic.http_status }) }) } : {}), phase, backend_acceptance: "UNPROVEN", cost_cap_enforced: false, durability: "PROCESS_LOCAL_ONLY" });
 }
 function fresh(iso: string, now: number) { const time = Date.parse(iso); return Number.isFinite(time) && time <= now + 30000 && time >= now - 30000; }
 function decimalLte(left: string, right: string) { if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/u.test(left)) return false;

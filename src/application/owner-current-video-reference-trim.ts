@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { chmod, lstat, mkdtemp, open, rm } from "node:fs/promises";
@@ -20,15 +21,18 @@ export async function prepareOwnerCurrentVideoTrim(source: OwnerCurrentVideoMeta
   const original = join(directory, "original.mp4"), selected = join(directory, "selected.mp4");
   let bytes: Buffer | undefined;
   try {
+    await prepareLocalMediaWindowsDirectory(directory, [ffmpegPath], signal);
     const file = await open(original, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
     try { await file.chmod(0o600); await file.writeFile(source.bytes); await file.sync(); } finally { await file.close(); }
     const target = await open(selected, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
     let identity: { dev: number; ino: number };
     try { await target.chmod(0o600); const stat = await target.stat(); identity = { dev: stat.dev, ino: stat.ino }; } finally { await target.close(); }
+    await assertLocalMediaWindowsFiles([original, selected], signal);
     await new Promise<void>((resolve, reject) => execFile(ffmpegPath, ["-v", "error", "-nostdin", "-y", "-ss", String(start), "-i", original,
       "-t", String(end - start), "-map", "0:v:0", "-map", "0:a?", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
       "-c:a", "aac", "-movflags", "+faststart", "-fs", String(100 * 1024 * 1024 + 1), selected],
     { timeout: 60000, maxBuffer: 8192, killSignal: "SIGKILL", windowsHide: true, ...(signal === undefined ? {} : { signal }) }, error => error ? reject(new Error("CURRENT_VIDEO_TRIM_PREPARATION_FAILED")) : resolve()));
+    await assertLocalMediaWindowsFiles([selected], signal);
     const stat = await lstat(selected);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.dev !== identity.dev || stat.ino !== identity.ino || stat.size < 16 || stat.size > 100 * 1024 * 1024) invalid();
     const result = await open(selected, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));

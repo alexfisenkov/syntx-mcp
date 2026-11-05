@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
@@ -34,9 +35,10 @@ export async function prepareOwnerElevenLabsStsWav(input: { readonly bytes: Uint
   if (!["RIFF", "RIFX", "RF64"].includes(source.toString("ascii", 0, 4)) || source.toString("ascii", 8, 12) !== "WAVE") { source.fill(0); invalid(); }
   let directory: string | undefined, prepared: Buffer | undefined;
   try {
-    directory = await mkdtemp(join(tmpdir(), "syntx-sts-wav-")); await chmod(directory, 0o700);
+    directory = await mkdtemp(join(tmpdir(), "syntx-sts-wav-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [config.ffprobePath, config.ffmpegPath], signal);
     const original = join(directory, "original.wav"), output = join(directory, "prepared.mp3");
     await privateWrite(original, source);
+    await assertLocalMediaWindowsFiles([original], signal);
     const root = JSON.parse(await run(config.ffprobePath, ["-v", "error", "-show_entries", "stream=codec_type,codec_name,sample_rate,channels,duration:format=format_name,duration", "-of", "json", original], signal, 15000));
     if (root.format?.format_name !== "wav" || !Array.isArray(root.streams) || root.streams.length !== 1 || root.streams[0]?.codec_type !== "audio") invalid();
     const stream = root.streams[0], duration = Number(stream.duration ?? root.format.duration), sampleRate = Number(stream.sample_rate), originalChannels = Number(stream.channels);
@@ -47,6 +49,7 @@ export async function prepareOwnerElevenLabsStsWav(input: { readonly bytes: Uint
     try { await created.chmod(0o600); const stat = await created.stat(); identity = { dev: stat.dev, ino: stat.ino }; } finally { await created.close(); }
     await run(config.ffmpegPath, ["-v", "error", "-nostdin", "-y", "-i", original, "-map", "0:a:0", "-vn", "-ar", String(RATE), "-ac", String(channels),
       "-c:a", "libmp3lame", "-b:a", "192k", "-write_xing", "1", "-map_metadata", "-1", "-fs", String(MAX_BYTES + 1), output], signal, 60000);
+    await assertLocalMediaWindowsFiles([output], signal);
     const stat = await lstat(output); if (!stat.isFile() || stat.isSymbolicLink() || stat.dev !== identity.dev || stat.ino !== identity.ino || stat.size < 16 || stat.size > MAX_BYTES) invalid();
     // Counting streamed mono float samples accounts for Xing delay/padding; it neither retains PCM nor trims the source.
     const presentationDuration = await decodedPresentationDuration(config.ffmpegPath, output, signal);

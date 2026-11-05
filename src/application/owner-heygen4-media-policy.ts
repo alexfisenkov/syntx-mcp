@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -151,13 +152,14 @@ async function validateAudio(ffprobePath: string, input: unknown, signal?: Abort
   let directory: string | undefined, inputPath: string | undefined, created = false;
   try {
     if (signal?.aborted) throw new OwnerHeygen4MediaPolicyError("PROBE_ABORTED");
-    directory = await mkdtemp(join(tmpdir(), TEMP_PREFIX)); await chmod(directory, 0o700);
+    directory = await mkdtemp(join(tmpdir(), TEMP_PREFIX)); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     inputPath = join(directory, `source${extname(row.filename).toLowerCase()}`);
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     created = true;
     try { await file.chmod(0o600); await file.writeFile(bytes); await file.sync(); const info = await file.stat();
       if (!info.isFile() || info.size !== bytes.byteLength) invalidAudio(); }
     finally { await file.close(); }
+    await assertLocalMediaWindowsFiles([inputPath], signal);
     const metadata = parseAudioProbe(await runFfprobe(ffprobePath, inputPath, signal), detectedContainer);
     if (metadata.duration_seconds < MIN_AUDIO_DURATION || metadata.duration_seconds > MAX_AUDIO_DURATION) {
       throw new OwnerHeygen4MediaPolicyError("AUDIO_DURATION_OUTSIDE_PUBLIC_BOUNDS");
@@ -204,7 +206,7 @@ function parseAudioProbe(text: string, container: "MP3" | "WAV" | "M4A"): AudioM
 function runFfprobe(ffprobePath: string, path: string, signal?: AbortSignal): Promise<string> {
   const options: ExecFileOptionsWithStringEncoding = { encoding: "utf8", timeout: PROBE_TIMEOUT_MS, killSignal: "SIGKILL",
     maxBuffer: MAX_STDOUT_BYTES, windowsHide: true, ...(signal ? { signal } : {}),
-    env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" } };
+    env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) } };
   const args = ["-v", "error", "-show_entries",
     "stream=codec_type,codec_name,sample_rate,channels,duration:format=duration,format_name", "-of", "json", path];
   return new Promise((resolve, reject) => {

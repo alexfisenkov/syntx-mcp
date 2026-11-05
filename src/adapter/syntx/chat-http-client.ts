@@ -8186,7 +8186,7 @@ export class SyntxChatHttpClient {
     if(!isOwnerCurrentVideoNativeClient(this))throw invalidRequest();const native=await import("./owner-current-video-reference-native.js");
     const request=native.consumeOwnerCurrentVideoDispatch(this,operation);validateModelIdentifier(request.ai_name);validatePathIdentifier(request.chat_id);
     const settings=sanitizeSettings(request.settings,512*1024);const raw=await this.#request(generationUrl("video/generate",request.ai_name),"POST",
-      {chat_id:request.chat_id,prompt:request.prompt,settings},"JSON_REQUIRED",signal,undefined,{requestBytes:1024*1024,responseBytes:1024*1024});
+      {chat_id:request.chat_id,prompt:request.prompt,settings},"JSON_REQUIRED",signal,status=>native.recordOwnerCurrentVideoDispatchStatus(this,operation,status),{requestBytes:1024*1024,responseBytes:1024*1024});
     const parsed=mediaStartResponseSchema.safeParse(raw);if(!parsed.success)throw protocolError();return {chat_uuid:request.chat_id,message_id:parsed.data.id};
   }
   async readOwnerCurrentVideoReferenceHistory(operation:unknown,page:number,signal?:AbortSignal):Promise<unknown>{

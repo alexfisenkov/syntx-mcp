@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "../../application/local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -137,7 +138,7 @@ async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unkn
     if (!hasMp4Brand(source)) invalid();
 
     directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [executablePath], request.signal);
     inputPath = join(directory, "source.mp4");
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
@@ -149,6 +150,7 @@ async function probeOriginal(ffprobePath: string, timeoutMs: number, input: unkn
       if (!info.isFile() || info.size !== length) invalid();
     } finally { await file.close(); }
 
+    await assertLocalMediaWindowsFiles([inputPath], request.signal);
     const stdout = await runFfprobe(executablePath, inputPath, timeoutMs, request.signal);
     if (request.signal && signalIsAborted(request.signal)) throw new OwnerWan30EditOriginalProbeError("PROBE_ABORTED");
     const measured = parseFfprobe(stdout, current);

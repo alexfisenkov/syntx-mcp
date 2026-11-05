@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -128,7 +129,7 @@ async function probeOriginal(ffprobePath: string, input: unknown, options?: Read
   let directory: string | undefined, inputPath: string | undefined, createdFile = false, ownedCopy: Buffer | undefined;
   try {
     directory = await mkdtemp(join(tmpdir(), INPUT_PREFIX));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     inputPath = join(directory, expectedContainer === "MP3" ? "source.mp3" : "source.wav");
     const file = await open(inputPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     createdFile = true;
@@ -140,6 +141,7 @@ async function probeOriginal(ffprobePath: string, input: unknown, options?: Read
       if (!info.isFile() || info.size !== sourceCopy.byteLength) invalid();
     } finally { await file.close(); }
 
+    await assertLocalMediaWindowsFiles([inputPath], signal);
     const metadata = parseProbe(await runFfprobe(ffprobePath, inputPath, signal), expectedContainer);
     if (metadata.durationSeconds < OWNER_WAN26_I2V_AUDIO_PROBE_POLICY.limits.min_duration_seconds ||
         metadata.durationSeconds > OWNER_WAN26_I2V_AUDIO_PROBE_POLICY.limits.max_duration_seconds) limit();
@@ -182,7 +184,7 @@ function runFfprobe(path: string, input: string, signal?: AbortSignal): Promise<
     "stream=codec_type,codec_name,sample_rate,channels,nb_read_frames,duration:format=duration,format_name", "-of", "json", input];
   const options: ExecFileOptionsWithStringEncoding = {
     encoding: "utf8", timeout: PROBE_TIMEOUT_MS, killSignal: "SIGKILL", maxBuffer: MAX_STDOUT_BYTES,
-    windowsHide: true, signal, env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" }
+    windowsHide: true, signal, env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) }
   };
   return new Promise((resolve, reject) => {
     let spawned = false, spawnFailed = false, callbackDone = false, closed = false, settled = false;

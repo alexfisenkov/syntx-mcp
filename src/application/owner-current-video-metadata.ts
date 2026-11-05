@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
@@ -44,12 +45,13 @@ export async function probeOwnerCurrentVideoMetadata(input: {
     if (bytes.length < 24 || bytes.toString("ascii", 4, 8) !== "ftyp" ||
         input.mime_type !== "video/mp4" && input.mime_type !== "video/quicktime" ||
         input.mime_type === "video/mp4" && bytes.toString("ascii", 8, 12) === "qt  ") fail("INVALID_VIDEO");
-    directory = await mkdtemp(join(tmpdir(), "syntx-current-video-")); await chmod(directory, 0o700);
+    directory = await mkdtemp(join(tmpdir(), "syntx-current-video-")); await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [config.ffprobePath], signal);
     path = join(directory, input.mime_type === "video/quicktime" ? "original.mov" : "original.mp4");
     const file = await open(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600); created = true;
     let identity: { dev: number; ino: number };
     try { await file.chmod(0o600); await file.writeFile(bytes); await file.sync(); const stat = await file.stat(); identity = { dev: stat.dev, ino: stat.ino }; }
     finally { await file.close(); }
+    await assertLocalMediaWindowsFiles([path], signal);
     const inspect = async (countFrames: boolean) => {
       const args = ["-v", "error", ...(countFrames ? ["-count_frames"] : []), "-show_entries",
         "stream=codec_type,codec_name,codec_tag_string,width,height,duration,avg_frame_rate,r_frame_rate,nb_frames,nb_read_frames,color_transfer:stream_disposition=attached_pic:format=duration,format_name", "-of", "json", path!];

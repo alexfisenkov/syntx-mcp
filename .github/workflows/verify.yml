@@ -190,8 +190,25 @@ jobs:
         # https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip.sha256
         run: |
           $ErrorActionPreference = 'Stop'
-          $mediaRoot = Join-Path $env:RUNNER_TEMP 'syntx media кодеки 🎞'
-          New-Item -ItemType Directory -Path $mediaRoot -Force | Out-Null
+          $mediaRoot = Join-Path $env:RUNNER_TEMP ('syntx media кодеки 🎞 ' + [Guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $mediaRoot -ErrorAction Stop | Out-Null
+          if (@(Get-ChildItem -LiteralPath $mediaRoot -Force).Count -ne 0) { throw 'codec stage must be newly empty' }
+          # Protect the NEW directory before archive/binaries exist. Never rewrite an existing codec ACL.
+          $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+          $acl = Get-Acl -LiteralPath $mediaRoot
+          $acl.SetAccessRuleProtection($true, $false)
+          foreach ($rule in @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))) {
+            [void]$acl.RemoveAccessRuleSpecific($rule)
+          }
+          foreach ($sidValue in @($currentSid, 'S-1-5-18', 'S-1-5-32-544')) {
+            $sid = [System.Security.Principal.SecurityIdentifier]::new($sidValue)
+            $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($sid,
+              [System.Security.AccessControl.FileSystemRights]::FullControl,
+              ([System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [System.Security.AccessControl.InheritanceFlags]::ObjectInherit),
+              [System.Security.AccessControl.PropagationFlags]::None, [System.Security.AccessControl.AccessControlType]::Allow))
+          }
+          Set-Acl -LiteralPath $mediaRoot -AclObject $acl
+          if (!(Get-Acl -LiteralPath $mediaRoot).AreAccessRulesProtected) { throw 'codec stage DACL is not protected' }
           $archive = Join-Path $mediaRoot 'ffmpeg-9.0.2.zip'
           Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip' -OutFile $archive -TimeoutSec 180
           $expectedHash = '60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba'

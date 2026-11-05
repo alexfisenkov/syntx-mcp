@@ -1,3 +1,4 @@
+import { prepareLocalMediaWindowsDirectory, assertLocalMediaWindowsFiles } from "./local-media-native-permissions.js";
 import { execFile as execFileCallback, type ExecFileOptionsWithStringEncoding } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -121,12 +122,13 @@ async function probeVideo(ffprobePath: string, input: unknown, options?: Readonl
     if (!hasMatchingBmffBrand(source, request.mime_type)) invalid();
     if (signal?.aborted) aborted();
     directory = await mkdtemp(join(tmpdir(), "syntx-mcv-video-"));
-    await chmod(directory, 0o700);
+    await chmod(directory, 0o700); await prepareLocalMediaWindowsDirectory(directory, [ffprobePath], signal);
     path = join(directory, "original" + expectedExtension);
     const file = await open(path, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), 0o600);
     created = true;
     try { await file.chmod(0o600); await file.writeFile(source); await file.sync(); const info = await file.stat(); if (!info.isFile() || info.size !== source.byteLength) invalid(); }
     finally { await file.close(); }
+    await assertLocalMediaWindowsFiles([path], signal);
     const metadata = parseFfprobe(await runFfprobe(ffprobePath, path, signal));
     if (metadata.transfer !== "" && !SDR_TRANSFERS.has(metadata.transfer)) hdr();
     if (metadata.width < 300 || metadata.height < 300 || metadata.duration < 3 || metadata.duration > 30) sourceLimit();
@@ -184,7 +186,7 @@ async function wipeAndUnlink(path: string): Promise<void> {
 function runFfprobe(ffprobePath: string, inputPath: string, signal?: AbortSignal): Promise<string> {
   const args = ["-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,duration,color_transfer:stream_disposition=attached_pic:format=duration,format_name", "-of", "json", inputPath];
   const options: ExecFileOptionsWithStringEncoding = { encoding: "utf8", timeout: PROBE_TIMEOUT_MS, killSignal: "SIGKILL", maxBuffer: MAX_STDOUT_BYTES,
-    windowsHide: true, ...(signal ? { signal } : {}), env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C" } };
+    windowsHide: true, ...(signal ? { signal } : {}), env: { PATH: process.env.PATH ?? "", LANG: "C", LC_ALL: "C", ...(process.platform === "win32" && process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) } };
   return new Promise((resolve, reject) => {
     let callbackDone = false, closed = false, spawnFailed = false, settled = false;
     let callbackError: Error | null = null, output: string | undefined, closeCode: number | null = null, closeSignal: NodeJS.Signals | null = null;

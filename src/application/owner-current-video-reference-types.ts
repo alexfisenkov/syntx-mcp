@@ -33,13 +33,14 @@ export interface OwnerCurrentVideoReferencePort {
   close():Promise<void>;
 }
 
+export type OwnerCurrentVideoDispatchDiagnostic = Readonly<{ category: "HTTP_REJECTED" | "TRANSPORT_UNVERIFIED" | "ACK_UNVERIFIED"; http_status?: number }>;
 declare const currentVideoNativeOperationBrand: unique symbol;
 export interface OwnerCurrentVideoNativeOperation { readonly [currentVideoNativeOperationBrand]: never; }
 export interface OwnerCurrentVideoNativePort<TIntent extends object = object> {
   createChat(input:{readonly attemptId:string;readonly bundle:OwnerCurrentVideoReferenceBundle;readonly intent:TIntent},signal?:AbortSignal):Promise<OwnerCurrentVideoNativeOperation>;
   dispatch(operation:OwnerCurrentVideoNativeOperation,signal?:AbortSignal):Promise<Readonly<{status:"acknowledged"}>>;
   observe(operation:OwnerCurrentVideoNativeOperation,signal?:AbortSignal):Promise<Readonly<{
-    status:"pending"|"complete"|"unverified";artifacts:readonly Readonly<{url:string;mime_type:string|null;message_id:string;message_object_id:string}>[]
+    status:"pending"|"complete"|"unverified";diagnostic?:OwnerCurrentVideoDispatchDiagnostic;artifacts:readonly Readonly<{url:string;mime_type:string|null;message_id:string;message_object_id:string}>[]
   }>>;
   invalidateAttempt(attemptId:string):Promise<void>;
   close():Promise<void>;

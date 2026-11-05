@@ -150,6 +150,7 @@ test("release test command pins catalog, coverage, profiles, updater, and packag
     "dist/tests/owner-soul-generation-parameters.test.js",
     "dist/tests/owner-flux3-current-sdk.test.js",
     "dist/tests/owner-image-manual-current-sdk.test.js",
+    "dist/tests/local-media-native-permissions.test.js",
     "dist/tests/mcp-estimate-reference-pattern.test.js",
     "tests/check-installed-wan-t2v-flow.test.mjs",
     "tests/check-installed-elevenlabs-tts-flow.test.mjs",

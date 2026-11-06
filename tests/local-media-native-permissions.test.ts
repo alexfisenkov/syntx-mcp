@@ -4,14 +4,31 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, open, readFile, rm, chmod, stat, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { assertLocalMediaWindowsAcl, assertLocalMediaWindowsFiles, prepareLocalMediaWindowsDirectory, localMediaTempRoot,
+import { join, win32 } from "node:path";
+import { assertLocalMediaWindowsAcl, assertLocalMediaWindowsFiles, prepareLocalMediaWindowsDirectory, localMediaTempRoot, localMediaWindowsAclCommand,
   type LocalMediaNativeAclSnapshot } from "../src/application/local-media-native-permissions.js";
 
 const USER = "S-1-5-21-111-222-333-1001", ADMIN = "S-1-5-32-544", SYSTEM = "S-1-5-18", FOREIGN = "S-1-1-0";
 const rule = (sid = USER, rights = 2032127, inherit_only = false) => ({ sid, rights, allow: true, inherit_only });
 const descriptor = (changes: Partial<LocalMediaNativeAclSnapshot> = {}): LocalMediaNativeAclSnapshot => ({ current_sid: USER,
   owner_sid: USER, protected_dacl: true, null_dacl: false, access: [rule(), rule(ADMIN), rule(SYSTEM)], ...changes });
+
+test("native ACL encoded production command preserves actual builtin module path segments after JavaScript cooking", () => {
+  const args = localMediaWindowsAclCommand();
+  assert.equal(args.length, 5);
+  assert.deepEqual(args.slice(0, 4), ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand"]);
+  const program = Buffer.from(args[4]!, "base64").toString("utf16le");
+  const line = program.split("\n").find(value => value.startsWith("Import-Module -Name "));
+  assert.ok(line);
+  const match = /^Import-Module -Name \(\[System\.IO\.Path\]::Combine\(\$PSHOME, '([^']+)', '([^']+)', '([^']+)'\)\) -ErrorAction Stop$/u.exec(line);
+  assert.ok(match, "decoded production wire must use four Path.Combine arguments, not an escape-sensitive path literal");
+  const segments = match.slice(1);
+  assert.deepEqual(segments, ["Modules", "Microsoft.PowerShell.Utility", "Microsoft.PowerShell.Utility.psd1"]);
+  const fakePSHOME = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0";
+  assert.equal(win32.join(fakePSHOME, ...segments), "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules\\Microsoft.PowerShell.Utility\\Microsoft.PowerShell.Utility.psd1");
+  assert.ok(program.indexOf("BUILTIN_UTILITY_IMPORT") < program.indexOf(line));
+  assert.ok(program.indexOf(line) < program.indexOf("$decoded = ConvertFrom-Json"));
+});
 
 test("native media DACL policy accepts current user System Admin and Windows default admin ownership", () => {
   for (const owner_sid of [USER, ADMIN, SYSTEM]) for (const kind of ["directory", "file", "executable"] as const)

@@ -47,7 +47,7 @@ try {
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
 $script:nativePhase = 'INPUT_PATHS'
 $script:nativePhase = 'BUILTIN_UTILITY_IMPORT'
-Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1')) -ErrorAction Stop
+Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules', 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Utility.psd1')) -ErrorAction Stop
 $script:nativePhase = 'INPUT_PATHS'
 $decoded = ConvertFrom-Json -InputObject $env:SYNTX_LOCAL_MEDIA_ACL_PATHS
 $paths = @($decoded | ForEach-Object { if ($_ -isnot [string]) { throw 'INPUT_PATH_KIND' }; $_ })
@@ -96,6 +96,11 @@ if ($action -eq 'PREPARE_DIRECTORY') {
 }
 `;
 
+/** The actual encoded wire arguments shared by native execution and regression checks. */
+export function localMediaWindowsAclCommand(): readonly string[] {
+  return Object.freeze(["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(PROGRAM, "utf16le").toString("base64")]);
+}
+
 async function readDescriptors(paths: readonly string[], action: "READ" | "PREPARE_DIRECTORY", signal?: AbortSignal): Promise<readonly LocalMediaNativeAclSnapshot[]> {
   if (process.platform !== "win32" || paths.length < 1 || paths.length > 8 || paths.some(path => !isAbsolute(path) || path.includes("\0"))) rejected("PATH_ARGUMENTS");
   const systemRoot = process.env.SystemRoot;
@@ -116,7 +121,7 @@ async function readDescriptors(paths: readonly string[], action: "READ" | "PREPA
     }));
     phase = "NATIVE_ACL_PROCESS";
     const { stdout } = await execute(join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
-      ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(PROGRAM, "utf16le").toString("base64")], {
+      [...localMediaWindowsAclCommand()], {
         encoding: "utf8", timeout: 30000, maxBuffer: 64 * 1024, windowsHide: true, shell: false,
         ...(signal === undefined ? {} : { signal }),
         env: { SystemRoot: systemRoot, PATH: process.env.PATH ?? "", SYNTX_LOCAL_MEDIA_ACL_PATHS: JSON.stringify(paths), SYNTX_LOCAL_MEDIA_ACL_ACTION: action }

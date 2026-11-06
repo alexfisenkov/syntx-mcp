@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "7a8efe9fddbf460b574e7c704c00b0e39cd4d79f",
+  "source_commit": "7ca80b3bf49d6e8acbced2d99aa5ec46d1ba2520",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2589,7 +2589,7 @@
     "src/application/generation-contract-validator-v2.ts": "081df17ff07ab9c780ae7748964df8d8405330d470690c782996d1917cf75885",
     "src/application/generation-contract-validator.ts": "382bb63d8f49aa96bb4e9226f1bad999d774cca93bd7c93adf800ad474d2bfbd",
     "src/application/generation-request.ts": "3052ea1b41085e7d9ad6bd31011090dd1de36256e4c4caa212524fa9fc3c168a",
-    "src/application/local-media-native-permissions.ts": "6c8fb3225990c9651a58a10522eeaad68a5fafcc868aaf4ce9e28b33ced80c4b",
+    "src/application/local-media-native-permissions.ts": "b9f3f6b20494c4a548339ba71eeaa3e15b0722e40ae865bca6847ea0022fe935",
     "src/application/mcp-self-update-service.ts": "71d71921cdde732ec92c00545463d06b487a25627bd80db005cfd5e8bab2270f",
     "src/application/model-access.ts": "047d3b7eee50f276570211e4af2f2a6e66dd08953f2e3f5cbc37d52b6dfec223",
     "src/application/observed-generation-estimate.ts": "72df8d02c000fac66233012c17da7c30533b5b097a9dc978b51e26c83f67c5b9",
@@ -3399,7 +3399,7 @@
     "tests/live-owner-video-contract-observe.test.ts": "be0a20c462a04a08fec7971009bcad3385537544bb3f286127be16f730c3cde6",
     "tests/live-owner-video-reconcile.test.ts": "b396f63a9561fbf6b9aafecb2db65dc6bb5e1a6ee86be6ab25b8b85e19038aed",
     "tests/live-owner-wan-i2v-smoke.test.ts": "3883dbf57eff4abe91e742ae4d253e4784776fa53b2eff1d9edea88323ff9b81",
-    "tests/local-media-native-permissions.test.ts": "8924af58e3963c2c478e7ce0ca42d55d17f2471c5f2227ec7e997392da3b88b5",
+    "tests/local-media-native-permissions.test.ts": "ee6059b15483ee5728b16db7d56450635b0606cfbbb50c671fbf70a7afedd8d8",
     "tests/lock-signal-cleanup.test.ts": "c93c456a4067f21397788bef399bc1aa4de1c7979184637c3bb4657bfb0c1d1a",
     "tests/maintenance-skill-resources.test.ts": "1e03ca888f480bdfab14abf236f3f39d71596859564c65e7b72d5ad862c77876",
     "tests/maintenance-tools.test.ts": "dcce5b7d5770fb4a4ed0c5e7e105f7bf65ebf8997fd365f7a49b20c4e018cd94",

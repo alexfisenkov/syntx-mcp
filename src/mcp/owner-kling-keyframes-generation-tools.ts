@@ -20,6 +20,20 @@ export const OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES = Object.freeze([
 ] as const);
 
 const SOURCE = getOwnerKlingKeyframesParametersSource();
+// These nested projections are immutable metadata, so advertise their exact
+// literal/tuple/object shape from the same constants returned by the getter.
+function staticProjectionSchema(value: unknown): z.ZodType {
+  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") return z.literal(value);
+  if (Array.isArray(value)) {
+    const items = value.map(staticProjectionSchema);
+    return items.length ? z.tuple(items as [z.ZodType, ...z.ZodType[]]) : z.tuple([]);
+  }
+  if (value && typeof value === "object") return z.object(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, staticProjectionSchema(item)]))).strict();
+  throw new Error("OWNER_KLING_KEYFRAMES_STATIC_PROJECTION_INVALID");
+}
+const parametersOutputSchema = z.object({ source: staticProjectionSchema(SOURCE),
+  current_controls: staticProjectionSchema(OWNER_KLING_CURRENT_MANUAL_CONTROLS),
+  generation_tools_registered: z.literal(true), backend_acceptance: z.literal("UNPROVEN") }).strict();
 const attempt = z.string().regex(/^link_[A-Za-z0-9_-]{20,120}$/u);
 const recovery = z.string().regex(/^kling_keyframes_generation_recovery_[0-9a-f-]{36}$/u);
 const versions = z.enum(SOURCE.controls.version.values);
@@ -51,7 +65,7 @@ const listToolOutput = z.object({ recoveries: listOutput.shape.recoveries.option
 export function registerSyntxOwnerKlingKeyframesGenerationTools(server: McpServer, serviceInput: unknown): void {
   if (!isOwnerKlingKeyframesGenerationService(serviceInput)) throw new Error("OWNER_KLING_KEYFRAMES_GENERATION_SERVICE_INVALID");
   const service: OwnerKlingKeyframesGenerationService = serviceInput;
-  server.registerTool(OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES[0], { title: "Get Kling Keyframes parameters", description: "Returns source-reviewed parameter choices and limits. This static source projection is not a provider validator or runtime grant; the separate generation tools appear only under owner opt-in.", inputSchema: z.object({}).strict(), annotations: { title: "Get Kling Keyframes parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async () => structured({ source: SOURCE, current_controls: OWNER_KLING_CURRENT_MANUAL_CONTROLS, generation_tools_registered: true, backend_acceptance: "UNPROVEN" }));
+  server.registerTool(OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES[0], { title: "Get Kling Keyframes parameters", description: "Returns source-reviewed parameter choices and limits. This static source projection is not a provider validator or runtime grant; the separate generation tools appear only under owner opt-in.", inputSchema: z.object({}).strict(), outputSchema: parametersOutputSchema, annotations: { title: "Get Kling Keyframes parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async () => structured(parametersOutputSchema.parse({ source: SOURCE, current_controls: OWNER_KLING_CURRENT_MANUAL_CONTROLS, generation_tools_registered: true, backend_acceptance: "UNPROVEN" })));
   server.registerTool(OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES[1], { title: "Generate Kling Keyframes", description: "Submits one explicit two-image Kling Keyframes request for the exact linked owner attempt. Do not retry an uncertain outcome; reconcile its recovery id.", inputSchema: generateSchema, outputSchema: resultToolOutput, annotations: { title: "Generate Kling Keyframes", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true } }, async (input, { signal }) => {
     const p = generateSchema.safeParse(snapshot(input)); if (!p.success) return errorResult(undefined, "INVALID_REQUEST"); const v = p.data;
     try { return structured(resultSchema.parse(await service.generate({ attemptId: v.link_attempt_id, request: { model_id: v.model_id, prompt: v.prompt, image_handles: v.image_handles, parameters: { model_id: v.model_id, version: v.version, mode: v.mode, video_duration: v.video_duration, native_audio: v.native_audio, aspect_ratio: v.aspect_ratio }, controls: { temperature: v.temperature, ...(v.multi_shots === undefined ? {} : { multi_shots: v.multi_shots }), ...(v.camera_movement === undefined ? {} : { camera_movement: v.camera_movement }) } } }, signal))); } catch (e) { return errorResult(e, "PRE_DISPATCH_FAILED"); }

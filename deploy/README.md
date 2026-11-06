@@ -8,6 +8,8 @@
 
 ## Порядок подключения
 
+Актуально на 2026-11-06: custom MCP-серверы добавляются прямо через Plugins; отдельный Developer Mode включать не нужно. В ChatGPT Pro доступны только read/fetch, полный MCP — на Business, Enterprise и Edu, с учётом прав аккаунта и рабочего пространства. Проверьте возможности своего аккаунта. OAuth-подключение подтверждает доступ ChatGPT к MCP, но не готовность генерации через SYNTX. См. [официальную справку OpenAI](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
+
 1. Установите проверенный публичный выпуск из
    [alexfisenkov/syntx-mcp](https://github.com/alexfisenkov/syntx-mcp) на сервер
    с Node.js 24.21.x, FFmpeg и FFprobe. Используйте `npm ci` и `npm run build`
@@ -19,12 +21,11 @@
    настраивает DNS и не выпускает сертификат. Для другой инфраструктуры
    можно запускать `syntx-mcp-https serve` с приватной конфигурацией и своим
    HTTPS reverse proxy; структура конфигурации описана ниже.
-3. В настройках ChatGPT включите доступный вашему аккаунту режим разработчика
-   приложений и добавьте свой MCP по адресу
-   `https://mcp.example.com/syntx-ai/mcp`. Выберите OAuth. Шлюз поддерживает
+3. В ChatGPT откройте Plugins → «+» → Add custom MCP server. Введите адрес
+   `https://mcp.example.com/syntx-ai/mcp` и выберите OAuth. Шлюз поддерживает
    динамическую регистрацию публичного клиента: заранее выдавать client secret
-   не требуется. Порядок и доступность этих экранов определяет ChatGPT:
-   [официальная инструкция](https://developers.openai.com/plugins/deploy/connect-chatgpt).
+   не требуется. При подключении проверьте предложенные ChatGPT инструменты и
+   метаданные.
 4. На странице авторизации появится идентификатор запроса. В доверенном
    терминале сервера выполните `pending`, сверьте client, redirect, scope и
    resource, затем `approve REQUEST_ID` командами ниже. После одобрения

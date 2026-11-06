@@ -8,6 +8,9 @@ import { isOwnerKlingKeyframesGenerationService } from "../src/application/owner
 import { createMcpServer } from "../src/mcp/server.js";
 import { OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES } from "../src/mcp/owner-kling-keyframes-generation-tools.js";
 import { registerSyntxOwnerKlingKeyframesGenerationTools } from "../src/mcp/owner-kling-keyframes-generation-tools.js";
+import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
+import { getOwnerKlingKeyframesParametersSource } from "../src/application/owner-kling-keyframes-parameters.js";
+import { OWNER_KLING_CURRENT_MANUAL_CONTROLS } from "../src/application/owner-kling-current-controls.js";
 import { closeOwnerImageReferenceServiceOnTransportEof } from "../src/transports/stdio-owner.js";
 
 const nowStart = Date.parse("2026-10-15T04:00:00.000Z");
@@ -25,6 +28,34 @@ async function link(runtime: ReturnType<typeof createObservedOwnerRuntime>, atte
   await runtime.authStore.beginPoll(runtime.authBinding, attemptId); await runtime.authStore.markLinked(runtime.authBinding, attemptId, { scheme: "Bearer", value: `synthetic-${attemptId}-credential` });
 }
 function dto(value: unknown): Record<string, unknown> { assert.ok(value && typeof value === "object"); const v = (value as Record<string, unknown>).structuredContent; assert.ok(v && typeof v === "object"); return v as Record<string, unknown>; }
+
+test("Keyframes readonly parameters getter advertises and validates its unchanged static DTO without account or provider reads", async () => {
+  let fetches = 0;
+  const runtime = createObservedOwnerRuntime({ ownerKlingKeyframesEnabled: true, fetchImpl: async () => { fetches++; throw new Error("READONLY_GETTER_MUST_NOT_FETCH"); } });
+  const server = createMcpServer(runtime.application, runtime.serverOptions), client = new Client({ name: "keyframes-readonly-output-schema", version: "1" });
+  const [caller, host] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(host); await client.connect(caller);
+    const tool = (await client.listTools()).tools.find(item => item.name === OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES[0]);
+    assert.equal(tool?.annotations?.readOnlyHint, true); assert.equal(tool?.outputSchema?.type, "object");
+    const validate = new AjvJsonSchemaValidator().getValidator(tool!.outputSchema as Parameters<AjvJsonSchemaValidator["getValidator"]>[0]);
+    const expected = { source: getOwnerKlingKeyframesParametersSource(), current_controls: OWNER_KLING_CURRENT_MANUAL_CONTROLS,
+      generation_tools_registered: true, backend_acceptance: "UNPROVEN" };
+    const result = await client.callTool({ name: OWNER_KLING_KEYFRAMES_GENERATION_TOOL_NAMES[0], arguments: {} });
+    assert.equal(result.isError, undefined); assert.deepEqual(result.structuredContent, expected);
+    assert.deepEqual(JSON.parse((result.content as Array<{ type: string; text: string }>).find(item => item.type === "text")!.text), expected);
+    assert.equal(validate(result.structuredContent).valid, true);
+    assert.equal(validate({ ...expected, generation_tools_registered: false }).valid, false);
+    assert.equal(validate({ ...expected, source: { ...expected.source, model_id: "other_model" } }).valid, false);
+    assert.equal(validate({ ...expected, current_controls: { ...expected.current_controls, provider_acceptance: "VERIFIED" } }).valid, false);
+    assert.equal(validate({ ...expected, extra: true }).valid, false); assert.equal(fetches, 0);
+  } finally {
+    await client.close(); await server.close();
+    await runtime.serverOptions.ownerKlingKeyframes?.generationService.close();
+    await runtime.serverOptions.ownerKlingKeyframes?.referenceService.close();
+    await runtime.authStore.close?.();
+  }
+});
 
 test("actual Keyframes runtime, stock MCP SDK and fake HTTP complete generation, GET recovery, revoke and EOF drain", async () => {
   let now = nowStart;

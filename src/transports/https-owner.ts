@@ -93,8 +93,13 @@ export function createRemoteOwnerHttpsServer(options: RemoteOwnerHttpsServerOpti
   routes.post("/mcp", express.json({ inflate: false, limit: maxBytes, strict: false }), async (req, res) => {
     if (!req.is("application/json")) { res.status(415).json({ error: "json_required" }); return; }
     let mutatingDispatched = false, disconnected = false;
-    const onClose = () => { if (!res.writableFinished) { disconnected = true; if (mutatingDispatched) bridge.markMutationResponseLost(); } };
+    const onClose = () => {
+      res.off("finish", onFinish);
+      if (!res.writableFinished) { disconnected = true; if (mutatingDispatched) bridge.markMutationResponseLost(); }
+    };
+    const onFinish = () => { res.off("close", onClose); };
     res.once("close", onClose);
+    res.once("finish", onFinish);
     try {
       await bridge.ready();
       const mcp = bridge.createServer({ isOpen: () => !disconnected && !res.destroyed, onMutatingDispatch: () => { mutatingDispatched = true; } });
@@ -105,7 +110,7 @@ export function createRemoteOwnerHttpsServer(options: RemoteOwnerHttpsServerOpti
       } finally { await transport.close(); await mcp.close(); }
     } catch {
       if (!res.headersSent) res.status(503).json({ jsonrpc: "2.0", id: null, error: { code: -32603, message: "Private owner runtime is unavailable. No automatic retry is performed." } });
-    } finally { res.off("close", onClose); }
+    }
   });
   routes.all("/mcp", (_req, res) => { res.status(405).set("Allow", "POST").json({ error: "method_not_allowed" }); });
   app.use(basePath || "/", routes);

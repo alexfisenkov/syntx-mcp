@@ -90,6 +90,8 @@ Telegram-сессии или credentials в свой репозиторий.
 
 ## ChatGPT в облаке и собственный VPS
 
+Актуально на 2026-11-06: custom MCP-сервер добавляется через Plugins → «+» → Add custom MCP server; отдельный Developer Mode не нужен. В ChatGPT Pro custom MCP доступен только с read/fetch, полный MCP — на Business, Enterprise и Edu. Возможности зависят от прав аккаунта и рабочего пространства, поэтому проверьте их в своём ChatGPT. OAuth подтверждает подключение MCP, но не доступ к SYNTX и готовность генерации. Подробнее: [официальная справка OpenAI](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
+
 Разверните отдельный owner HTTPS MCP с OAuth, затем добавьте его в ChatGPT.
 Пошаговая инструкция, Linux helper, конфигурация своего reverse proxy,
 терминальное одобрение OAuth и обновление:

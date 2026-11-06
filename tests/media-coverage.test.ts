@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
 import { MediaCoverageCatalog } from "../src/catalog/media-coverage.js";
 import type { MediaCoverageRecord } from "../src/catalog/media-coverage.js";
 import { registerSyntxMediaCoverageTools, SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME } from "../src/mcp/media-coverage-tools.js";
@@ -132,6 +133,8 @@ test("MCP media coverage tool exposes a read-only page with source version and n
   try {
     const tool = (await client.listTools()).tools.find((item) => item.name === SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME);
     assert.equal(tool?.annotations?.readOnlyHint, true);
+    assert.equal(tool?.outputSchema?.type, "object");
+    const validate = new AjvJsonSchemaValidator().getValidator(tool!.outputSchema as Parameters<AjvJsonSchemaValidator["getValidator"]>[0]);
     const result = await client.callTool({ name: SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME, arguments: { limit: 2 } });
     assert.equal(result.isError, undefined);
     const value = result.structuredContent as Record<string, unknown>;
@@ -139,6 +142,18 @@ test("MCP media coverage tool exposes a read-only page with source version and n
     assert.equal(value.total, 120);
     assert.equal(value.next_offset, 2);
     assert.equal(value.runtime_usable, false);
+    assert.deepEqual(value, catalog.page({ limit: 2 }));
+    assert.deepEqual(JSON.parse((result.content as Array<{ type: string; text: string }>).find(item => item.type === "text")!.text), value);
+    assert.equal(validate(value).valid, true);
+    for (const offset of [0, 100, 10000]) {
+      const page = await client.callTool({ name: SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME, arguments: { offset, limit: 100, include_inactive: true } });
+      assert.equal(page.isError, undefined);
+      assert.deepEqual(page.structuredContent, catalog.page({ offset, limit: 100, include_inactive: true }));
+      assert.equal(validate(page.structuredContent).valid, true);
+    }
+    assert.equal(validate({ ...value, runtime_usable: true }).valid, false);
+    assert.equal(validate({ ...value, items: [{ ...(value.items as object[])[0], runtime_status: "PAID_ALLOWED" }] }).valid, false);
+    assert.equal(validate({ ...value, undocumented: true }).valid, false);
   } finally {
     await client.close();
     await server.close();

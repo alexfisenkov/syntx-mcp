@@ -21,6 +21,8 @@ test("deployment planner is inert by default and confines nginx to namespace plu
   assert.equal((plan.nginx.match(/proxy_set_header Authorization \$http_authorization;/gu) ?? []).length, 3);
   assert.match(plan.nginx, /proxy_set_header X-Forwarded-For "";/u); assert.match(plan.nginx, /client_max_body_size 192M;/u);
   assert.match(plan.unit, /MemoryMax=3G/u); assert.match(plan.unit, /CPUQuota=100%/u); assert.match(plan.unit, /TimeoutStopSec=960/u);
+  assert.match(plan.unit, /^WorkingDirectory=\/opt\/syntx\/releases\/public-0123$/mu);
+  assert.match(plan.unit, /^ReadWritePaths=\/var\/lib\/syntx-mcp$/mu);
   assert.match(plan.unit, /^KillMode=mixed$/mu); assert.doesNotMatch(plan.unit, /KillMode=control-group/u);
   assert.match(plan.unit, /User=syntx-mcp/u); assert.match(plan.unit, /ProtectSystem=strict/u); assert.equal(plan.unit.includes("@@"), false);
 });
@@ -34,6 +36,8 @@ test("deployment arguments reject route/header/command injection, unknown flags 
 });
 test("systemd quotes trusted paths with spaces/percent/backslashes without interpreting specifiers", () => {
   assert.equal(systemdQuote('/opt/a b/100%/"node"'), '"/opt/a b/100%%/\\"node\\""');
+  const options = parseDeploymentArguments(args);
+  assert.throws(() => renderDeploymentPlan({ ...options, release: "/opt/a b" }, environment), /DEPLOY_SYSTEMD_PATH_UNSUPPORTED/u);
 });
 test("deployment CAS rejects drift and symlinks before any writer is reached", () => {
   const directory = mkdtempSync(join(realpathSync(tmpdir()), "syntx-deploy-cas-"));

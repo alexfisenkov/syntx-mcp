@@ -106,6 +106,8 @@ This deployment serves one owner's SYNTX account. Every other user installs a se
 
 The helper installs an already built, clean, root-owned **public Git checkout** at an exact reviewed commit. It does not clone, download Node, install npm dependencies, modify DNS, create certificates, edit an existing nginx vhost, import credentials or generate paid work. Provision Node24.21.x, ffmpeg, ffprobe and the immutable public release first; require the final CI receipt for that exact public commit. The helper records the owner-supplied CI URL; it does not independently query GitHub or certify that run.
 
+For this systemd helper, the release path used in `WorkingDirectory=` must contain only ASCII letters, digits, `/`, `.`, `_` and `-`. The helper rejects other characters before writing the unit. `WorkingDirectory=` and `ReadWritePaths=` are rendered as unquoted absolute paths; `ExecStart=` and `Environment=` retain their separate quoting rules.
+
 Run `node deploy/private-owner-install.mjs --help`. Default execution is a read-only Linux preflight and complete rendered plan. Supply canonical absolute paths and the SHA-256 of the reviewed existing TLS vhost:
 
 ```sh

@@ -13,6 +13,13 @@ export function safeAbsolute(value) {
   return value;
 }
 export function systemdQuote(value) { return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%")}"`; }
+// WorkingDirectory/ReadWritePaths are path-valued settings, not ExecStart/Environment words.
+// systemd treats quotes there as literal path characters on the target host.
+export function systemdAbsolutePath(value) {
+  safeAbsolute(value);
+  if (!/^\/[A-Za-z0-9._/-]+$/u.test(value)) deploymentError("DEPLOY_SYSTEMD_PATH_UNSUPPORTED");
+  return value;
+}
 export function parseDeploymentArguments(argv) {
   const value = { domain: "mcp.example.com", basePath: "/syntx-ai", port: 8860, user: "syntx-mcp", uploadDestination: "uploaded",
     expectedUnitSha256: "absent", expectedNginxSha256: "absent", expectedConfigSha256: "absent", apply: false, acknowledgeRuntimeRestart: false };
@@ -66,7 +73,7 @@ export function renderDeploymentPlan(options, ownerEnvironment) {
     `    proxy_pass http://127.0.0.1:${options.port};`
   ].join("\n");
   return { state, configPath, unitPath: DEPLOY_UNIT, nginxPath: DEPLOY_NGINX, publicOrigin, config,
-    unit: template("syntx-mcp-https.service.tpl", { USER: options.user, RELEASE_QUOTED: systemdQuote(options.release), CONFIG_ENV_QUOTED: systemdQuote(`SYNTX_HTTPS_CONFIG_FILE=${configPath}`),
-      NODE_QUOTED: systemdQuote(options.node), ENTRY_QUOTED: systemdQuote(entry), STATE_QUOTED: systemdQuote(state) }),
+    unit: template("syntx-mcp-https.service.tpl", { USER: options.user, RELEASE_PATH: systemdAbsolutePath(options.release), CONFIG_ENV_QUOTED: systemdQuote(`SYNTX_HTTPS_CONFIG_FILE=${configPath}`),
+      NODE_QUOTED: systemdQuote(options.node), ENTRY_QUOTED: systemdQuote(entry), STATE_PATH: systemdAbsolutePath(state) }),
     nginx: template("syntx-ai.nginx.conf.tpl", { BASE_PATH: options.basePath, PROXY_SETTINGS: proxySettings }) };
 }

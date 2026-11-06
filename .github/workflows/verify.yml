@@ -18,6 +18,7 @@ on:
           - media-cloud-final
           - windows-native-fix
           - windows-acl-perf
+          - https-deploy-fix
           - full
 
 permissions:
@@ -26,7 +27,7 @@ permissions:
 jobs:
   changed-media:
     name: Scoped checks / Ubuntu 24.04 / Node 24.21.0
-    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final'
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-deploy-fix'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -157,6 +158,10 @@ jobs:
           SYNTX_SWITCHX_TEST_FFMPEG: /usr/bin/ffmpeg
           SYNTX_SWITCHX_TEST_FFPROBE: /usr/bin/ffprobe
         run: npm run test:media:update
+
+      - name: Verify isolated HTTPS deployment repair
+        if: inputs.scope == 'https-deploy-fix'
+        run: node --test deploy/private-owner.test.mjs
 
   windows-native-media:
     name: Native media acceptance / Windows 2025 / Node 24.21.0

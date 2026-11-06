@@ -6,6 +6,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema, ListResourcesRequestSche
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { isRemoteOwnerToolAllowed, REMOTE_OWNER_RESOURCE_URIS } from "./remote-owner-tool-policy.js";
 import { describeRemoteMediaFileTool, resolveRemoteMediaFileArguments } from "./remote-owner-media-file-input.js";
+import { normalizeRemoteOwnerToolSchemas } from "./remote-owner-schema-compatibility.js";
 import { REMOTE_OWNER_SCOPE } from "../auth/remote-owner-oauth.js";
 import { OWNER_STDIO_MAX_BUFFER_BYTES } from "../transports/owner-stdio-buffer.js";
 
@@ -152,7 +153,7 @@ export class RemoteOwnerStdioBridge {
     server.setRequestHandler(ListToolsRequestSchema, async () => {
       try {
         return { tools: (await this.listTools()).map((tool) => {
-          const described = describeRemoteMediaFileTool(tool);
+          const described = normalizeRemoteOwnerToolSchemas(describeRemoteMediaFileTool(tool));
           const securitySchemes = [{ type: "oauth2", scopes: [REMOTE_OWNER_SCOPE] }];
           return { ...described, securitySchemes, _meta: { ...described._meta, securitySchemes } };
         }) };

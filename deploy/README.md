@@ -101,6 +101,14 @@ HTTPS CLI запускает канонический owner-stdio из того 
 Локальные stdio-установки используют
 [инструкцию обновления MCP](../docs/интеграция/Обновление-MCP.md).
 
+После серверного обновления отдельно обновите каталог инструментов ChatGPT:
+в настройках плагина выберите **Manage → Refresh tools**, затем откройте новый
+чат с явным `@SYNTX` и проверьте импорт схем. Если ChatGPT показывает пустой
+список, выполните обновление локального MCP из Codex или документированным CLI,
+а VPS — этой операторской процедурой; затем повторите Refresh. OAuth-вход не
+подтверждает импорт схем. Не удаляйте профиль и не повторяйте платные операции
+ради восстановления списка инструментов.
+
 ## Linux helper: preflight, apply, OAuth approval и rollback
 
 This deployment serves one owner's SYNTX account. Every other user installs a separate instance and completes their own SYNTX Telegram login. No shared provider credentials, imported desktop profiles or public sign-up service are provided.

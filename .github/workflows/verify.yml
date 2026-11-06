@@ -20,6 +20,7 @@ on:
           - windows-acl-perf
           - https-deploy-fix
           - https-runtime-fix
+          - schema-import-fix
           - full
 
 permissions:
@@ -28,7 +29,7 @@ permissions:
 jobs:
   changed-media:
     name: Scoped checks / Ubuntu 24.04 / Node 24.21.0
-    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-deploy-fix' || inputs.scope == 'https-runtime-fix'
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-deploy-fix' || inputs.scope == 'https-runtime-fix' || inputs.scope == 'schema-import-fix'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -51,8 +52,12 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
       - name: Build
-        if: inputs.scope == 'changed-media' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-runtime-fix'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-runtime-fix' || inputs.scope == 'schema-import-fix'
         run: npm run build
+
+      - name: Verify remote owner schema compatibility and stdio bridge
+        if: inputs.scope == 'schema-import-fix'
+        run: node --test --test-concurrency=1 dist/tests/remote-owner-schema-compatibility.test.js dist/tests/remote-owner-stdio-bridge.test.js
 
       - name: Install media probe tools for changed video checks
         if: inputs.scope == 'changed-media' || inputs.scope == 'media-update' || inputs.scope == 'image-file-fix' || inputs.scope == 'media-cloud-final'

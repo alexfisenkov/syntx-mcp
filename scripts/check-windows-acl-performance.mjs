@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CI-only diagnostic. No production flags, arbitrary commands or ACL mutation.
+// CI-only diagnostic with pinned historical R5 baseline; no production flags, arbitrary commands or ACL mutation.
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -74,7 +74,7 @@ async function main() {
   const imported = PROGRAM.replace('$decoded = ConvertFrom-Json', UTILITY_IMPORT + '$decoded = ConvertFrom-Json');
   if (imported === PROGRAM || !PROGRAM.includes("$action -eq 'PREPARE_DIRECTORY'")) throw Error('PROGRAM_SNAPSHOT_MISMATCH');
   const variants = [
-    { name: 'CURRENT_CLOSED_ENV', program: PROGRAM, env: baseEnv, available: true },
+    { name: 'R5_BASELINE_CLOSED_ENV', program: PROGRAM, env: baseEnv, available: true },
     { name: 'ABSOLUTE_BUILTIN_UTILITY_IMPORT', program: imported, env: baseEnv, available: true },
     { name: 'STANDARD_PROFILE_CACHE_BUILTIN_MODULES', program: PROGRAM,
       env: { ...baseEnv, ...profiles, PSModulePath: builtinModules }, available: profileAvailable }

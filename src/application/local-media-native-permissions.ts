@@ -46,6 +46,9 @@ $script:nativePhase = 'IDENTITY'
 try {
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
 $script:nativePhase = 'INPUT_PATHS'
+$script:nativePhase = 'BUILTIN_UTILITY_IMPORT'
+Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1')) -ErrorAction Stop
+$script:nativePhase = 'INPUT_PATHS'
 $decoded = ConvertFrom-Json -InputObject $env:SYNTX_LOCAL_MEDIA_ACL_PATHS
 $paths = @($decoded | ForEach-Object { if ($_ -isnot [string]) { throw 'INPUT_PATH_KIND' }; $_ })
 if ($paths.Count -lt 1 -or $paths.Count -gt 8) { throw 'INPUT_PATH_COUNT' }

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "6b03cecb7eb6787e9c845958a7b5d401213ab50d",
+  "source_commit": "7a8efe9fddbf460b574e7c704c00b0e39cd4d79f",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -2400,7 +2400,7 @@
     "scripts/check-png-source-canvas.mjs": "bb6753c2bb946e1a3fed6135efa495672c859be31ff97f103373e69e4d7fb736",
     "scripts/check-runtime-sources.mjs": "7544a1bbc265a066ba1166dfd07575818403472b171bed37378ff3df1f8cfd26",
     "scripts/check-settings-implementations.mjs": "b6866b92f2f48b0f086cf2e23d2fba7faf7e344c61eaba8a53e522b0b481def2",
-    "scripts/check-windows-acl-performance.mjs": "4d02a091fb2b3f8246136247cc4d3f557051d5e423c4a25eccea65a5670589ed",
+    "scripts/check-windows-acl-performance.mjs": "d5c390b13c2ac360212180357a382bb0a19038bd564b41cc5308233818eaf4ff",
     "scripts/check-windows-media-acceptance.mjs": "742b6466f2adc1b431f8f212d43f59e7411968e4fe88868b52ac68836426af02",
     "scripts/export-public-snapshot.mjs": "92e0664e50b59e59012553f7ef1b88c6e7f175c434f52c7302de0ba8ae9a2865",
     "scripts/installed-inpaint-foundation-check.mjs": "dc260f3bb0daec4c5017a2b6faf8764762ace698a40ecb39a2a63a2ea85251f0",
@@ -2589,7 +2589,7 @@
     "src/application/generation-contract-validator-v2.ts": "081df17ff07ab9c780ae7748964df8d8405330d470690c782996d1917cf75885",
     "src/application/generation-contract-validator.ts": "382bb63d8f49aa96bb4e9226f1bad999d774cca93bd7c93adf800ad474d2bfbd",
     "src/application/generation-request.ts": "3052ea1b41085e7d9ad6bd31011090dd1de36256e4c4caa212524fa9fc3c168a",
-    "src/application/local-media-native-permissions.ts": "b8747968443fb3fe399771581d94a94b9c3cffea9a6db042c645ace1260ef43b",
+    "src/application/local-media-native-permissions.ts": "6c8fb3225990c9651a58a10522eeaad68a5fafcc868aaf4ce9e28b33ced80c4b",
     "src/application/mcp-self-update-service.ts": "71d71921cdde732ec92c00545463d06b487a25627bd80db005cfd5e8bab2270f",
     "src/application/model-access.ts": "047d3b7eee50f276570211e4af2f2a6e66dd08953f2e3f5cbc37d52b6dfec223",
     "src/application/observed-generation-estimate.ts": "72df8d02c000fac66233012c17da7c30533b5b097a9dc978b51e26c83f67c5b9",

@@ -167,7 +167,7 @@ jobs:
 
       - name: Verify isolated HTTPS deployment repair
         if: inputs.scope == 'https-deploy-fix'
-        run: node --test deploy/private-owner.test.mjs
+        run: node --test deploy/private-owner.test.mjs deploy/private-owner-health-readiness.test.mjs
 
       - name: Verify HTTPS lifecycle and readonly descriptor contracts
         if: inputs.scope == 'https-runtime-fix'

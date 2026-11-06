@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { lstatSync, mkdirSync, chmodSync, chownSync, readFileSync, writeFileSync, renameSync, unlinkSync, openSync, closeSync, fsyncSync, realpathSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { performance } from "node:perf_hooks";
 import { parseDeploymentArguments, deploymentError, DEPLOY_BACKUPS, DEPLOY_NGINX, DEPLOY_UNIT, SERVICE_NAME } from "./private-owner-plan.mjs";
 import { preflightDeployment, run, sha256, currentTarget, assertTargetCAS } from "./private-owner-preflight.mjs";
 
@@ -40,18 +41,30 @@ function restoreReceiptFiles(directory, receipt) {
     }
   }
 }
-async function verifyLoopbackHealth(plan) {
-  for (let i = 0; i < 30; i++) {
+/** Elapsed-time readiness budget also covers fast ECONNREFUSED before eager CLI warm-up binds. */
+export async function verifyLoopbackHealth(plan, controls = {}) {
+  const now = controls.now ?? (() => performance.now());
+  const request = controls.fetch ?? fetch;
+  const sleep = controls.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const timeoutSignal = controls.timeoutSignal ?? ((ms) => AbortSignal.timeout(ms));
+  const deadline = now() + 45_000;
+  const signal = () => {
+    const remaining = deadline - now();
+    if (remaining <= 0) deploymentError("DEPLOY_LOOPBACK_HEALTH_OR_AUTH_FAILED");
+    return timeoutSignal(Math.max(1, Math.min(1000, Math.ceil(remaining))));
+  };
+  while (now() < deadline) {
     try {
-      const response = await fetch(`http://127.0.0.1:${plan.config.port}${plan.config.basePath}/health`, { signal: AbortSignal.timeout(1000) });
+      const response = await request(`http://127.0.0.1:${plan.config.port}${plan.config.basePath}/health`, { signal: signal() });
       const result = await response.json();
       if (response.status === 200 && result.surface === "private-owner" && result.status === "ok") {
-        const protectedResponse = await fetch(`http://127.0.0.1:${plan.config.port}${plan.config.basePath}/mcp`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal: AbortSignal.timeout(1000) });
+        const protectedResponse = await request(`http://127.0.0.1:${plan.config.port}${plan.config.basePath}/mcp`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal: signal() });
         const expected = `${plan.publicOrigin}/.well-known/oauth-protected-resource${plan.config.basePath}/mcp`;
         if (protectedResponse.status === 401 && protectedResponse.headers.get("www-authenticate")?.includes(expected)) return;
       }
     } catch { /* bounded startup read-back; never retries an upstream operation */ }
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    const remaining = deadline - now();
+    if (remaining > 0) await sleep(Math.min(200, remaining));
   }
   deploymentError("DEPLOY_LOOPBACK_HEALTH_OR_AUTH_FAILED");
 }

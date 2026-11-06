@@ -55,9 +55,9 @@ jobs:
         if: inputs.scope == 'changed-media' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-runtime-fix' || inputs.scope == 'schema-import-fix'
         run: npm run build
 
-      - name: Verify remote owner schema compatibility and stdio bridge
+      - name: Verify remote owner Unicode filename and HTTPS startup regressions
         if: inputs.scope == 'schema-import-fix'
-        run: node --test --test-concurrency=1 dist/tests/remote-owner-schema-compatibility.test.js dist/tests/remote-owner-stdio-bridge.test.js
+        run: node --test --test-concurrency=1 dist/tests/remote-owner-schema-unicode-filename.test.js dist/tests/remote-owner-https-startup.test.js
 
       - name: Install media probe tools for changed video checks
         if: inputs.scope == 'changed-media' || inputs.scope == 'media-update' || inputs.scope == 'image-file-fix' || inputs.scope == 'media-cloud-final'

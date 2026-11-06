@@ -36,7 +36,8 @@ const attempt = z.string().regex(ATTEMPT);
 const model = z.enum(MODELS);
 const handle = z.string().regex(HANDLE);
 const recovery = z.string().regex(RECOVERY);
-const filename = z.string().min(1).max(255).regex(PORTABLE_FILENAME).refine((v) => v === v.trim());
+const filename = z.string().min(1).max(255).refine((v) => PORTABLE_FILENAME.test(v))
+  .refine((v) => v === v.trim()).describe("Portable filename, checked server-side for path separators, invisible controls and reserved basenames.");
 const imageMime = z.enum(OWNER_WAN26_R2V_IMAGE_POLICY.source_mime_types);
 const serviceError = z.enum(["INVALID_REQUEST", "SERVICE_CLOSED", "SERVICE_BUSY", "PRINCIPAL_NOT_LINKED", "MODEL_BINDING_MISMATCH", "PREFLIGHT_FAILED", "INTENT_ALREADY_CLAIMED", "PRE_DISPATCH_FAILED", "OUTCOME_UNKNOWN", "RECOVERY_NOT_FOUND", "REQUEST_ABORTED", "OUTPUT_INVALID", "SERVICE_UNAVAILABLE"]);
 const referenceError = z.enum(["INVALID_REQUEST", "SERVICE_CLOSED", "SERVICE_BUSY", "PRINCIPAL_NOT_LINKED", "MODEL_BINDING_MISMATCH", "REFERENCE_UNAVAILABLE", "REFERENCE_EXPIRED", "UPLOAD_REJECTED", "UPLOAD_OUTCOME_UNKNOWN", "CAPACITY_EXCEEDED", "REQUEST_ABORTED"]);

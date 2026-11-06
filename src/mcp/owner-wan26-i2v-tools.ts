@@ -38,7 +38,8 @@ const attempt = z.string().regex(ATTEMPT).describe("Exact linked owner attempt I
 const modelId = z.enum(MODEL_IDS);
 const imageMime = z.enum(OWNER_WAN26_I2V_IMAGE_POLICY.source_mime_types);
 const audioMime = z.enum(["audio/mp3", "audio/mpeg", "audio/wav", "audio/x-wav"]);
-const filename = z.string().min(1).max(255).regex(PORTABLE_FILENAME).refine((value) => value === value.trim());
+const filename = z.string().min(1).max(255).refine((value) => PORTABLE_FILENAME.test(value))
+  .refine((value) => value === value.trim()).describe("Portable filename, checked server-side for path separators, invisible controls and reserved basenames.");
 const imageHandle = z.string().regex(IMAGE_HANDLE);
 const audioHandle = z.string().regex(AUDIO_HANDLE);
 const recoveryId = z.string().regex(RECOVERY_ID);

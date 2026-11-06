@@ -124,7 +124,10 @@ export function registerSyntxOwnerVideo2AudioTools(server: McpServer, options: R
     description: "Uploads caller video bytes for the linked owner, returning a URL-free15min handle. Current operator-ffprobe profile accepts MP4/WebM/QuickTime/MOV up100MiB; header and real bounded local metadata probe bind bytes/MIME/positive finite duration before upload. No arbitrary20s maximum. Alias video/mov becomes video/quicktime without changing bytes. Explicit historical profile retains MP4/10MiB/20s compatibility. Upload is not generation; unknown upload must not be retried.",
     inputSchema: z.object({ link_attempt_id: attemptSchema,
       content_base64: z.string().min(24).max(maximumBase64).refine((value) => isCanonicalBase64Bounded(value, maximumBase64)).refine(isCanonicalBase64, "Expected canonical padded base64."),
-      filename: current ? z.string().min(1).max(255).regex(/^[^\\/\p{Cc}\p{Cf}\p{Cs}]+$/u) : z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}\.mp4$/iu), mime_type: current ? z.enum(["video/mp4", "video/webm", "video/quicktime", "video/mov"]) : z.literal("video/mp4") }).strict(),
+      // Keep the Unicode filename guard in the runtime parser. Zod's exported
+      // JSON Schema `pattern` loses the JS /u flag and some hosts reject \p{}.
+      filename: current ? z.string().min(1).max(255).refine((value) => /^[^\\/\p{Cc}\p{Cf}\p{Cs}]+$/u.test(value))
+        .describe("Filename checked server-side for path separators and invisible controls.") : z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}\.mp4$/iu), mime_type: current ? z.enum(["video/mp4", "video/webm", "video/quicktime", "video/mov"]) : z.literal("video/mp4") }).strict(),
     outputSchema: uploadOutputSchema,
     annotations: { title: "Upload an owned original for Video2Audio", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
   }, async (input, { signal }): Promise<CallToolResult> => {

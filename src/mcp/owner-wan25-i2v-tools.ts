@@ -26,7 +26,8 @@ const PORTABLE_FILENAME = /^(?!\.{1,2}$)(?!.*[. ]$)(?!.*[<>:"/\\|?*\p{Cc}\p{Cf}\
 const source = getOwnerWan25I2vGenerationParametersSource();
 const attempt = z.string().regex(ATTEMPT).describe("Exact linked owner attempt ID.");
 const imageMime = z.enum(OWNER_WAN25_I2V_PREVIEW_IMAGE_POLICY.source_mime_types);
-const filename = z.string().min(1).max(255).regex(PORTABLE_FILENAME).refine((value) => value === value.trim());
+const filename = z.string().min(1).max(255).refine((value) => PORTABLE_FILENAME.test(value))
+  .refine((value) => value === value.trim()).describe("Portable filename, checked server-side for path separators, invisible controls and reserved basenames.");
 const imageHandle = z.string().regex(IMAGE_HANDLE);
 const recoveryId = z.string().regex(RECOVERY_ID);
 const errorCode = z.enum([

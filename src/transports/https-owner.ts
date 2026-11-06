@@ -152,15 +152,40 @@ export async function remoteOwnerHttpsMain(argv = process.argv.slice(2)): Promis
     const oauth = new RemoteOwnerOAuthProvider({ stateDirectory: config.stateDirectory, issuer: `${config.publicOrigin}${config.basePath}/`, resource: `${config.publicOrigin}${config.basePath}/mcp`,
       ownerSubject: config.ownerSubject, redirectUris: config.redirectUris, allowLoopbackRedirects: config.allowLoopbackRedirects });
     let runtime: RemoteOwnerHttpsServer;
+    let bridge: RemoteOwnerStdioBridge;
     try {
-      const bridge = new RemoteOwnerStdioBridge(createRemoteOwnerStdioFactory(remoteOwnerChildConfiguration(config)));
+      bridge = new RemoteOwnerStdioBridge(createRemoteOwnerStdioFactory(remoteOwnerChildConfiguration(config)));
       runtime = createRemoteOwnerHttpsServer({ oauth, bridge, allowedOrigins: config.allowedOrigins, maxBodyBytes: config.maxBodyBytes });
     } catch (error) { oauth.close(); throw error; }
-    try { await new Promise<void>((resolve, reject) => { runtime.server.once("error", reject); runtime.server.listen(config.port, "127.0.0.1", resolve); }); }
-    catch (error) { await runtime.close(); throw error; }
     let stopping = false;
-    const stop = () => { if (stopping) return; stopping = true; void runtime.close().catch(() => { process.exitCode = 1; console.error("REMOTE_OWNER_SHUTDOWN_INCOMPLETE"); }); };
+    let stopClose: Promise<void> | undefined;
+    const clearStopHandlers = () => { process.off("SIGINT", stop); process.off("SIGTERM", stop); };
+    const stop = () => {
+      if (stopping) return;
+      stopping = true;
+      stopClose = runtime.close();
+      void stopClose.then(clearStopHandlers, () => { process.exitCode = 1; console.error("REMOTE_OWNER_SHUTDOWN_INCOMPLETE"); clearStopHandlers(); });
+    };
+    const stopped = async (): Promise<number> => {
+      try { await (stopClose ?? runtime.close()); return 0; }
+      catch { return 1; }
+      finally { clearStopHandlers(); }
+    };
     process.once("SIGINT", stop); process.once("SIGTERM", stop);
+    try {
+      // CLI startup is operator-authorized. The library server remains lazy for unauthenticated requests.
+      await bridge.ready();
+      if (stopping) return await stopped();
+      await bridge.listTools();
+      if (stopping) return await stopped();
+      await new Promise<void>((resolve, reject) => { runtime.server.once("error", reject); runtime.server.listen(config.port, "127.0.0.1", resolve); });
+      if (stopping) return await stopped();
+    } catch (error) {
+      if (stopping) return await stopped();
+      clearStopHandlers();
+      await runtime.close();
+      throw error;
+    }
     console.error("Private owner HTTPS upstream listening on loopback."); return 0;
   } catch { console.error("REMOTE_OWNER_HTTPS_CONFIGURATION_OR_OPERATION_FAILED"); return 1; }
 }

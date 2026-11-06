@@ -68,6 +68,10 @@ test("Video2Audio current SDK real31second MP4 WebM MOV and12MiB bytes preserve 
   await server.connect(host); await client.connect(caller);
   const upload = async (filename: string, mime_type: string, bytes: Buffer) => await client.callTool({ name: "syntx_upload_video2audio_original", arguments: { link_attempt_id: attempt, filename, mime_type, content_base64: bytes.toString("base64") } });
   try {
+    const uploadTool = (await client.listTools()).tools.find((tool) => tool.name === "syntx_upload_video2audio_original")!;
+    const filenameSchema = uploadTool.inputSchema.properties?.filename as { pattern?: string; minLength?: number; maxLength?: number };
+    assert.equal(filenameSchema.pattern, undefined, "the exported descriptor must not lose a Unicode regex flag");
+    assert.equal(filenameSchema.minLength, 1); assert.equal(filenameSchema.maxLength, 255);
     const source = await client.callTool({ name: "syntx_owner_get_video2audio_source", arguments: {} }); assert.notEqual(source.isError, true, JSON.stringify(source)); assert.match(JSON.stringify(source.structuredContent), /CURRENT_A829_4DA7/u);
     const handles: string[] = [];
     for (const [name, mime, bytes] of [["original.mp4", "video/mp4", mp4], ["original.webm", "video/webm", webm], ["original.mov", "video/quicktime", mov], ["alias.mov", "video/mov", mov]] as const) {
@@ -76,6 +80,11 @@ test("Video2Audio current SDK real31second MP4 WebM MOV and12MiB bytes preserve 
       assert.equal(receipt.mime_type, mime === "video/mov" ? "video/quicktime" : mime); handles.push(receipt.video_original_handle);
     }
     assert.equal(uploads, 4); assert.ok(mp4.length > 10 * 1024 * 1024);
+    for (const filename of ["bad/name.mp4", "bad\\name.mp4", "bad\u0001name.mp4"]) {
+      const invalidName = await upload(filename, "video/mp4", mp4);
+      assert.equal(invalidName.isError, true);
+      assert.equal(uploads, 4);
+    }
     const wrongHeader = await upload("wrong.webm", "video/webm", mp4); assert.equal(wrongHeader.isError, true); assert.equal(uploads, 4);
     const composition = runtime.serverOptions.ownerVideo2Audio!;
     const preparer = createOwnerVideo2AudioRequestPreparer({ profile: composition.profile, originalReferenceService: composition.originalReferenceService,

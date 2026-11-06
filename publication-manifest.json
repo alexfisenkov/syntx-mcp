@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "profile": "public-source",
-  "source_commit": "0946736dca69af369de7e5a8cb0245cdcffc7e90",
+  "source_commit": "6b03cecb7eb6787e9c845958a7b5d401213ab50d",
   "included_paths": [
     ".gitattributes",
     ".github/workflows/verify.yml",
@@ -239,6 +239,7 @@
     "scripts/check-png-source-canvas.mjs",
     "scripts/check-runtime-sources.mjs",
     "scripts/check-settings-implementations.mjs",
+    "scripts/check-windows-acl-performance.mjs",
     "scripts/check-windows-media-acceptance.mjs",
     "scripts/export-public-snapshot.mjs",
     "scripts/installed-inpaint-foundation-check.mjs",
@@ -2164,7 +2165,7 @@
   ],
   "file_sha256": {
     ".gitattributes": "e6a761bace28c69308bf1c43ab5f2f398d01de3cfbae6e2cb316ea86226b0fbe",
-    ".github/workflows/verify.yml": "834d0e81aa5130bd4229de3af029db37a4c61a55a4c5257793584c23c470f86c",
+    ".github/workflows/verify.yml": "c8fbd994fee7d47be8bfda3d079d262a17940b0b0b32851e54fe8e2dc19333cf",
     ".gitignore": "d69b6e3b1799372e2e768fd634e2171f918155cb202498225e7eafadb90db99b",
     ".gitleaks.toml": "649d0cd3ee28612d2dd429e42a17953e7e19c35223e5affb1cc97e477fd584f1",
     "AGENTS.md": "b20a2ce6807b20f90a8d7817c885a047d85da19576983bf2b3cb29fcac36b06e",
@@ -2399,6 +2400,7 @@
     "scripts/check-png-source-canvas.mjs": "bb6753c2bb946e1a3fed6135efa495672c859be31ff97f103373e69e4d7fb736",
     "scripts/check-runtime-sources.mjs": "7544a1bbc265a066ba1166dfd07575818403472b171bed37378ff3df1f8cfd26",
     "scripts/check-settings-implementations.mjs": "b6866b92f2f48b0f086cf2e23d2fba7faf7e344c61eaba8a53e522b0b481def2",
+    "scripts/check-windows-acl-performance.mjs": "4d02a091fb2b3f8246136247cc4d3f557051d5e423c4a25eccea65a5670589ed",
     "scripts/check-windows-media-acceptance.mjs": "742b6466f2adc1b431f8f212d43f59e7411968e4fe88868b52ac68836426af02",
     "scripts/export-public-snapshot.mjs": "92e0664e50b59e59012553f7ef1b88c6e7f175c434f52c7302de0ba8ae9a2865",
     "scripts/installed-inpaint-foundation-check.mjs": "dc260f3bb0daec4c5017a2b6faf8764762ace698a40ecb39a2a63a2ea85251f0",

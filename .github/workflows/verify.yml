@@ -17,6 +17,7 @@ on:
           - media-update
           - media-cloud-final
           - windows-native-fix
+          - windows-acl-perf
           - full
 
 permissions:
@@ -159,7 +160,7 @@ jobs:
 
   windows-native-media:
     name: Native media acceptance / Windows 2025 / Node 24.21.0
-    if: inputs.scope == 'media-cloud-final' || inputs.scope == 'windows-native-fix'
+    if: inputs.scope == 'media-cloud-final' || inputs.scope == 'windows-native-fix' || inputs.scope == 'windows-acl-perf'
     runs-on: windows-2025
     timeout-minutes: 25
     defaults:
@@ -222,7 +223,12 @@ jobs:
           "SYNTX_MEDIA_FFMPEG_PATH=$ffmpegPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "SYNTX_MEDIA_FFPROBE_PATH=$ffprobePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Compare bounded native Windows ACL startup
+        if: inputs.scope == 'windows-acl-perf'
+        run: node scripts/check-windows-acl-performance.mjs
+
       - name: Verify real Windows stdio, native codecs, Unicode files and mocked media lifecycles
+        if: inputs.scope != 'windows-acl-perf'
         run: node scripts/check-windows-media-acceptance.mjs
 
   local-image-file-portability:

@@ -130,7 +130,9 @@ function readArrayLoose(value: unknown): unknown[] | null {
 }
 
 function providerId(value: unknown): string | undefined {
-  return typeof value === "string" && SAFE_IDENTIFIER.test(value) ? value : undefined;
+  if (typeof value === "string") return SAFE_IDENTIFIER.test(value) ? value : undefined;
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return String(value);
+  return undefined;
 }
 
 function isVariant(value: unknown): value is OwnerSeedreamImageVariant {

@@ -348,6 +348,57 @@ test("Seedream result decoder binds one completed output for every source varian
   }
 });
 
+test("Seedream 5.5 result GET canonicalizes three exact safe numeric provider IDs", async () => {
+  const context = { chat_uuid: "seedream-chat", message_id: "42", variant: "seedream-5.5",
+    provider_chat_id: "987654321", message_object_ids: ["17"] as [string] };
+  const raw = { id: 42, chat_id: 987654321, author_id: -1, message_object: [{
+    id: 17, message_id: 42, object_type: "image", model_type: "seedream-5.5", completed: true,
+    object_url: "https://r2.syntx.ai/seedream/result.png"
+  }] };
+  let gets = 0;
+  const client = new SyntxChatHttpClient({ credentialBroker: broker(), fetchImpl: async (input, init) => {
+    gets += 1;
+    assert.equal(String(input), "https://api.syntx.ai/api/v1/chats/seedream-chat/42");
+    assert.equal(init?.method, "GET");
+    return json(raw);
+  } });
+  const result = await client.getSeedreamImageResult(context);
+  assert.equal(gets, 1);
+  assert.equal(result.status, "COMPLETE");
+  if (result.status === "COMPLETE") {
+    assert.equal(result.artifact.message_id, "42");
+    assert.equal(result.artifact.message_object_id, "17");
+    assert.equal(result.artifact.mime_type, "image/png");
+    assert.equal(result.artifact.geometry_verified, false);
+  }
+});
+
+test("Seedream numeric IDs fail closed on mismatch, negative, fractional, unsafe and string aliases", () => {
+  const context = { chat_uuid: "seedream-chat", message_id: "42", variant: "seedream-5.5",
+    provider_chat_id: "987654321", message_object_ids: ["17"] as [string] };
+  const base = { id: 42, chat_id: 987654321, author_id: -1, message_object: [{
+    id: 17, message_id: 42, object_type: "image", model_type: "seedream-5.5", completed: true,
+    object_url: "https://r2.syntx.ai/seedream/result.png"
+  }] };
+  const outerCases = [43, -42, 42.5, Number.MAX_SAFE_INTEGER + 1, "042"];
+  for (const id of outerCases) {
+    const result = decodeSeedreamImageResult({ ...base, id }, context);
+    assert.equal(result.status, "UNVERIFIED");
+    if (result.status === "UNVERIFIED") assert.equal(result.reason, "OUTER_MESSAGE_MISMATCH");
+  }
+  const objectCases = [18, -17, 17.5, Number.MAX_SAFE_INTEGER + 1, "017"];
+  for (const id of objectCases) {
+    const result = decodeSeedreamImageResult({ ...base, message_object: [{ ...base.message_object[0], id }] }, context);
+    assert.equal(result.status, "UNVERIFIED");
+    if (result.status === "UNVERIFIED") assert.equal(result.reason, "OBJECT_ID_MISMATCH");
+  }
+  for (const message_id of outerCases) {
+    const result = decodeSeedreamImageResult({ ...base, message_object: [{ ...base.message_object[0], message_id }] }, context);
+    assert.equal(result.status, "UNVERIFIED");
+    if (result.status === "UNVERIFIED") assert.equal(result.reason, "OBJECT_MESSAGE_MISMATCH");
+  }
+});
+
 test("Seedream result decoder keeps empty or unfinished output pending and rejects mismatches", () => {
   assert.deepEqual(decodeSeedreamImageResult({ ...rawResult(), message_object: [] }, resultContext()),
     { ...resultContext(), status: "PENDING", reason: "NO_RESULT_OBJECTS" });

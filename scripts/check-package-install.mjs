@@ -332,6 +332,11 @@ const REQUIRED_PACKAGE_PATHS = [
   "dist/src/application/mcp-self-update-service.js",
   "dist/src/catalog/media-coverage.js",
   "dist/src/mcp/media-coverage-tools.js",
+  "dist/src/mcp/owner-gpt26-image-tools.js",
+  "dist/src/mcp/owner-seedream-image-tools.js",
+  "dist/src/mcp/owner-veo-omni12-current-tools.js",
+  "dist/src/application/owner-gpt26-image-source-profile.js",
+  "dist/src/application/owner-seedream55-image-source-profile.js",
   "dist/src/application/owner-expanded-t2v-profile.js",
   "dist/src/application/owner-reviewed-no-reference-t2v-service.js",
   "dist/src/mcp/owner-expanded-t2v-tools.js",
@@ -341,6 +346,7 @@ const REQUIRED_PACKAGE_PATHS = [
   "catalog/media-coverage/owner-tool-routes-v4.json",
   "catalog/media-coverage/owner-tool-routes-v5.json",
   "catalog/media-coverage/owner-tool-routes-v6.json",
+  "catalog/media-coverage/owner-tool-routes-v7.json",
   "catalog/media-coverage/owner-expanded-t2v-controls-v2.json"
 ];
 
@@ -463,6 +469,7 @@ async function assertInstalledMediaUpdateArtifacts(installedPackagePath, consume
     "catalog/media-coverage/owner-tool-routes-v4.json",
     "catalog/media-coverage/owner-tool-routes-v5.json",
     "catalog/media-coverage/owner-tool-routes-v6.json",
+    "catalog/media-coverage/owner-tool-routes-v7.json",
     "catalog/media-coverage/owner-expanded-t2v-controls-v2.json"
   ]);
   const routes = JSON.parse(await readFile(join(installedPackagePath, "catalog/media-coverage/owner-tool-routes-v1.json"), "utf8"));
@@ -538,6 +545,27 @@ async function assertInstalledMediaUpdateArtifacts(installedPackagePath, consume
       JSON.stringify(routesV6.source_only_model_ids) !== JSON.stringify(["gpt-image-2.6-flare", "gpt-image-2.6-sunburst"]) ||
       routesV6.source_only_model_ids.some(id => Object.hasOwn(routesV6.routes, id) ||
         routesV6.native_alias_bindings.some(binding => binding.public_model_ids.includes(id)))) {
+    throw new PackageSmokeError("MEDIA_COVERAGE_PACKAGE_INVALID");
+  }
+  const routesV7 = JSON.parse(await readFile(join(installedPackagePath, "catalog/media-coverage/owner-tool-routes-v7.json"), "utf8"));
+  const v6Hash = "sha256:" + createHash("sha256").update(await readFile(join(installedPackagePath, "catalog/media-coverage/owner-tool-routes-v6.json"))).digest("hex");
+  const newFamilyGroups = [
+    [["seedream-5.5"], ["syntx_get_seedream55_image_parameters", "syntx_upload_seedream55_image_reference", "syntx_owner_generate_seedream55_image", "syntx_owner_reconcile_seedream55_image", "syntx_owner_list_seedream55_image_recoveries"]],
+    [["gpt-image-2.6-flare", "gpt-image-2.6-sunburst"], ["syntx_get_gpt26_image_parameters", "syntx_upload_gpt26_image_reference", "syntx_owner_generate_gpt26_image", "syntx_owner_reconcile_gpt26_image", "syntx_owner_list_gpt26_image_recoveries"]],
+    [["omni1.2"], ["syntx_owner_get_veo_omni12_current_source", "syntx_owner_generate_veo_omni12_current", "syntx_owner_get_veo_omni12_current_result", "syntx_owner_list_veo_omni12_current_recoveries"]]
+  ];
+  const routeEvidence = routesV7.route_provenance?.new_family_route_evidence ?? [];
+  if (routesV7.schema_version !== "7.0.0" || routesV7.owner_tool_count !== null ||
+      routesV7.public_catalog_version !== "sha256-49f41bb1565932456137e2a264a2904c441a95e9f5e0aa2a76a9a0c503fedc13.json" ||
+      routesV7.route_method !== "REUSED_V6_WITH_EXACT_NEW_FAMILY_SOURCE_BINDINGS_NO_PROVIDER_PROOF" ||
+      routesV7.route_provenance?.source_v6_sha256 !== v6Hash ||
+      routesV7.route_provenance?.frontend_build_id !== "1794311734" ||
+      JSON.stringify(routesV7.source_only_model_ids) !== JSON.stringify(["wan_30", "wan_30_prime"]) ||
+      routesV7.source_census?.active_source_only !== 2 ||
+      newFamilyGroups.some(([ids, names]) => !routeEvidence.some(group =>
+        JSON.stringify(group.public_model_ids) === JSON.stringify(ids) &&
+        names.every(name => group.tool_names.includes(name)))) ||
+      ["wan_30", "wan_30_prime"].some(id => Object.hasOwn(routesV7.routes, id))) {
     throw new PackageSmokeError("MEDIA_COVERAGE_PACKAGE_INVALID");
   }
   const updater = await readFile(join(installedPackagePath, "scripts/update-mcp.mjs"), "utf8");

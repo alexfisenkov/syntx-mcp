@@ -5,7 +5,7 @@ import {
   getOwnerSeedreamImageSourceProfile,
   type OwnerSeedreamImageCatalogPort
 } from "./owner-seedream-image-source-profile.js";
-import type { OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
+import type { OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
 import {
   getOwnerSeedreamImagePreparedCandidateState,
   isOwnerSeedreamImagePreparedCandidateForPrincipal,

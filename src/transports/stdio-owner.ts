@@ -812,9 +812,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const magnificUpscaleService = runtime.serverOptions.ownerMagnificUpscale?.generationService;
       const kontextImageReferencesService = runtime.serverOptions.ownerKontextImageReferences?.generationService;
       const wanImageReferencesService = runtime.serverOptions.ownerWanImageReferences?.generationService;
-      const standardImageReferencesService = runtime.serverOptions.ownerStandardImageReferences?.generationService;
+      const standardImageReferencesService = combineOwnerServiceLifecycles(runtime.serverOptions.ownerStandardImageReferences?.generationService, runtime.serverOptions.ownerGpt26ImageReferences?.generationService);
       const runwayImageReferencesService = runtime.serverOptions.ownerRunwayImageReferences?.generationService;
-      const seedreamImageReferencesService = runtime.serverOptions.ownerSeedreamImageReferences?.generationService;
+      const seedreamImageReferencesService = combineOwnerServiceLifecycles(runtime.serverOptions.ownerSeedreamImageReferences?.generationService, runtime.serverOptions.ownerSeedream55ImageReferences?.generationService);
       const seedreamEditorImageReferencesService = runtime.serverOptions.ownerSeedreamEditorImageReferences?.generationService;
       const wanT2vVideosService = runtime.serverOptions.ownerWanT2vVideos?.generationService;
       const wan30FirstLastVideosService = runtime.serverOptions.ownerWan30FirstLastVideos?.generationService;
@@ -987,9 +987,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
       const magnificUpscaleService = runtime.serverOptions.ownerMagnificUpscale?.generationService;
       const kontextImageReferencesService = runtime.serverOptions.ownerKontextImageReferences?.generationService;
       const wanImageReferencesService = runtime.serverOptions.ownerWanImageReferences?.generationService;
-      const standardImageReferencesService = runtime.serverOptions.ownerStandardImageReferences?.generationService;
+      const standardImageReferencesService = combineOwnerServiceLifecycles(runtime.serverOptions.ownerStandardImageReferences?.generationService, runtime.serverOptions.ownerGpt26ImageReferences?.generationService);
       const runwayImageReferencesService = runtime.serverOptions.ownerRunwayImageReferences?.generationService;
-      const seedreamImageReferencesService = runtime.serverOptions.ownerSeedreamImageReferences?.generationService;
+      const seedreamImageReferencesService = combineOwnerServiceLifecycles(runtime.serverOptions.ownerSeedreamImageReferences?.generationService, runtime.serverOptions.ownerSeedream55ImageReferences?.generationService);
       const seedreamEditorImageReferencesService = runtime.serverOptions.ownerSeedreamEditorImageReferences?.generationService;
       const wanT2vVideosService = runtime.serverOptions.ownerWanT2vVideos?.generationService;
       const wan30FirstLastVideosService = runtime.serverOptions.ownerWan30FirstLastVideos?.generationService;
@@ -1151,9 +1151,9 @@ export async function runObservedOwnerStdioServer(input: Readable = process.stdi
         runtime.serverOptions.ownerMagnificUpscale?.generationService,
         runtime.serverOptions.ownerKontextImageReferences?.generationService,
         runtime.serverOptions.ownerWanImageReferences?.generationService,
-        runtime.serverOptions.ownerStandardImageReferences?.generationService,
+        combineOwnerServiceLifecycles(runtime.serverOptions.ownerStandardImageReferences?.generationService, runtime.serverOptions.ownerGpt26ImageReferences?.generationService),
         runtime.serverOptions.ownerRunwayImageReferences?.generationService,
-        runtime.serverOptions.ownerSeedreamImageReferences?.generationService,
+        combineOwnerServiceLifecycles(runtime.serverOptions.ownerSeedreamImageReferences?.generationService, runtime.serverOptions.ownerSeedream55ImageReferences?.generationService),
         runtime.ownerSeedreamEditorImageReferencesLifecycle,
         runtime.ownerWanT2vVideosLifecycle,
         runtime.ownerWan30FirstLastVideosLifecycle,

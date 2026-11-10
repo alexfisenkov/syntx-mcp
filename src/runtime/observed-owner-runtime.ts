@@ -185,9 +185,13 @@ import { createOwnerVideo2AudioSourceProfile } from "../application/owner-video2
 import { OwnerCurrentVideoReferenceStore } from "../application/owner-current-video-reference-store.js";
 import { OwnerCurrentVideoNativeService } from "../adapter/syntx/owner-current-video-reference-native.js";
 import { OwnerCurrentVideoGenerationService } from "../application/owner-current-video-generation-service.js";
+import { OWNER_GPT26_PUBLIC_CATALOG_VERSION } from "../application/owner-gpt26-image-source-profile.js";
+import { OWNER_GPT26_IMAGE_VARIANTS } from "../application/owner-gpt26-image-parameters.js";
+import { SEEDREAM55_PUBLIC_CATALOG_VERSION } from "../application/owner-seedream55-image-source-profile.js";
 import { getOwnerHailuo3CurrentFamilyDefinition } from "../application/owner-hailuo3-current-intent.js";
 import { getOwnerLumaCurrentFamilyDefinition } from "../application/owner-luma-current-intent.js";
 import { getOwnerVeo3CurrentFamilyDefinition } from "../application/owner-veo3-current-intent.js";
+import { getOwnerVeoOmni12CurrentFamilyDefinition } from "../application/owner-veo-omni12-current-intent.js";
 import { getOwnerWanCurrentFamilyDefinition } from "../application/owner-wan-current-intent.js";
 import { getOwnerSeedanceCurrentFamilyDefinition } from "../application/owner-seedance-current-intent.js";
 import { getOwnerFlux3CurrentFamilyDefinition } from "../application/owner-flux3-current-intent.js";
@@ -991,6 +995,38 @@ export function createObservedOwnerRuntime(
           ...(localImageFileService === undefined ? {} : { localImageFileService }) });
       })()
     : undefined;
+  const ownerGpt26ImageReferences = options.ownerStandardImageReferencesEnabled === true
+    ? (() => {
+        const freshCatalog = loadSelectedDiscoveryCatalog(OWNER_GPT26_PUBLIC_CATALOG_VERSION, options.catalogDirectory).discoveryCatalog;
+        const uploadService = new OwnerStandardImageUploadService({
+          binding: authBinding, linkService, catalog: freshCatalog,
+          catalog_version: OWNER_GPT26_PUBLIC_CATALOG_VERSION,
+          variants: OWNER_GPT26_IMAGE_VARIANTS, resolveClient: createChatClient, now
+        });
+        let generationService: OwnerStandardImageGenerationService;
+        try { generationService = new OwnerStandardImageGenerationService({
+          binding: authBinding, linkService, catalog: freshCatalog,
+          catalog_version: OWNER_GPT26_PUBLIC_CATALOG_VERSION,
+          variants: OWNER_GPT26_IMAGE_VARIANTS, uploadService, resolveChatClient: createChatClient,
+          preflight: async ({ attemptId, variant, cost_inputs, signal }: Parameters<OwnerStandardImageGenerationPreflight>[0]) => {
+            const readClient = createReadClient(attemptId);
+            const account = await new AccountStatusService(readClient, now).getAccountStatus(signal);
+            const model_access = await new ModelAccessService(freshCatalog, readClient, now)
+              .getModelAccess({ model_id: variant, cost_parameters: cost_inputs }, signal);
+            return { account, model_access };
+          },
+          now
+        }); }
+        catch (error) {
+          const cleanup = uploadService.close();
+          if (error !== null && (typeof error === "object" || typeof error === "function"))
+            OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          void cleanup.catch(() => {});
+          throw error;
+        }
+        return Object.freeze({ uploadService, generationService });
+      })()
+    : undefined;
   const ownerRunwayImageReferences = options.ownerRunwayImageReferencesEnabled === true
     ? (() => {
         if (selectedCatalogVersion !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION) {
@@ -1052,6 +1088,39 @@ export function createObservedOwnerRuntime(
           },
           now
         });
+        return Object.freeze({ uploadService, generationService });
+      })()
+    : undefined;
+  const ownerSeedream55ImageReferences = options.ownerSeedreamImageReferencesEnabled === true
+    ? (() => {
+        const freshCatalog = loadSelectedDiscoveryCatalog(SEEDREAM55_PUBLIC_CATALOG_VERSION, options.catalogDirectory).discoveryCatalog;
+        const variants = ["seedream-5.5"] as const;
+        const uploadService = new OwnerSeedreamImageUploadService({
+          binding: authBinding, linkService, catalog: freshCatalog,
+          catalog_version: SEEDREAM55_PUBLIC_CATALOG_VERSION,
+          variants, resolveClient: createChatClient, now
+        });
+        let generationService: OwnerSeedreamImageGenerationService;
+        try { generationService = new OwnerSeedreamImageGenerationService({
+          binding: authBinding, linkService, catalog: freshCatalog,
+          catalog_version: SEEDREAM55_PUBLIC_CATALOG_VERSION,
+          variants, uploadService, resolveChatClient: createChatClient,
+          preflight: async ({ attemptId, variant, cost_inputs, signal }: Parameters<OwnerSeedreamImageGenerationPreflight>[0]) => {
+            const readClient = createReadClient(attemptId);
+            const account = await new AccountStatusService(readClient, now).getAccountStatus(signal);
+            const model_access = await new ModelAccessService(freshCatalog, readClient, now)
+              .getModelAccess({ model_id: variant, cost_parameters: cost_inputs }, signal);
+            return { account, model_access };
+          },
+          now
+        }); }
+        catch (error) {
+          const cleanup = uploadService.close();
+          if (error !== null && (typeof error === "object" || typeof error === "function"))
+            OWNER_RUNTIME_STARTUP_CLEANUPS.set(error as object, cleanup);
+          void cleanup.catch(() => {});
+          throw error;
+        }
         return Object.freeze({ uploadService, generationService });
       })()
     : undefined;
@@ -3364,6 +3433,7 @@ export function createObservedOwnerRuntime(
     let hailuo:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerHailuo3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerHailuo3CurrentFamilyDefinition>["compile"]>>;
     let luma:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerLumaCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerLumaCurrentFamilyDefinition>["compile"]>>;
     let veo:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerVeo3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerVeo3CurrentFamilyDefinition>["compile"]>>;
+    let veoOmni12:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerVeoOmni12CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerVeoOmni12CurrentFamilyDefinition>["compile"]>>;
     let wan:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerWanCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerWanCurrentFamilyDefinition>["compile"]>>;
     let seedance:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerSeedanceCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerSeedanceCurrentFamilyDefinition>["compile"]>>;
     let flux:OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerFlux3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerFlux3CurrentFamilyDefinition>["compile"]>>;
@@ -3371,14 +3441,15 @@ export function createObservedOwnerRuntime(
     try{hailuo=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerHailuo3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerHailuo3CurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerHailuo3CurrentFamilyDefinition()});created.push(hailuo);
       luma=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerLumaCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerLumaCurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerLumaCurrentFamilyDefinition()});created.push(luma);
       veo=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerVeo3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerVeo3CurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerVeo3CurrentFamilyDefinition()});created.push(veo);
+      veoOmni12=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerVeoOmni12CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerVeoOmni12CurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerVeoOmni12CurrentFamilyDefinition()});created.push(veoOmni12);
       wan=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerWanCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerWanCurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerWanCurrentFamilyDefinition()});created.push(wan);
       seedance=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerSeedanceCurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerSeedanceCurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerSeedanceCurrentFamilyDefinition()});created.push(seedance);
       flux=new OwnerCurrentVideoGenerationService<ReturnType<ReturnType<typeof getOwnerFlux3CurrentFamilyDefinition>["normalize"]>,ReturnType<ReturnType<typeof getOwnerFlux3CurrentFamilyDefinition>["compile"]>>({...base,family:getOwnerFlux3CurrentFamilyDefinition()});created.push(flux);}
     catch(error){const cleanup=Promise.allSettled(created.map(service=>service.close())).then(()=>Promise.allSettled([native.close(),references.close()])).then(()=>{clients.clear();});
       if(error&&typeof error==="object")OWNER_RUNTIME_STARTUP_CLEANUPS.set(error,cleanup);void cleanup.catch(()=>{});throw error;}
-    const lifecycle=Object.freeze({async invalidateAttempt(attemptId:string){try{await Promise.all([hailuo.invalidateAttempt(attemptId),luma.invalidateAttempt(attemptId),veo.invalidateAttempt(attemptId),wan.invalidateAttempt(attemptId),seedance.invalidateAttempt(attemptId),flux.invalidateAttempt(attemptId)]);await native.invalidateAttempt(attemptId);await references.invalidateAttempt(attemptId);}finally{clients.delete(attemptId);}},
-      async close(){try{await Promise.all([hailuo.close(),luma.close(),veo.close(),wan.close(),seedance.close(),flux.close()]);await native.close();await references.close();}finally{clients.clear();}}});
-    return Object.freeze({references,native,resolveClient,hailuo,luma,veo,wan,seedance,flux,lifecycle});
+    const lifecycle=Object.freeze({async invalidateAttempt(attemptId:string){try{await Promise.all([hailuo.invalidateAttempt(attemptId),luma.invalidateAttempt(attemptId),veo.invalidateAttempt(attemptId),veoOmni12.invalidateAttempt(attemptId),wan.invalidateAttempt(attemptId),seedance.invalidateAttempt(attemptId),flux.invalidateAttempt(attemptId)]);await native.invalidateAttempt(attemptId);await references.invalidateAttempt(attemptId);}finally{clients.delete(attemptId);}},
+      async close(){try{await Promise.all([hailuo.close(),luma.close(),veo.close(),veoOmni12.close(),wan.close(),seedance.close(),flux.close()]);await native.close();await references.close();}finally{clients.clear();}}});
+    return Object.freeze({references,native,resolveClient,hailuo,luma,veo,veoOmni12,wan,seedance,flux,lifecycle});
   })():undefined;
 
   const ownerVideo2Audio = options.ownerVideo2AudioEnabled === true
@@ -3465,8 +3536,8 @@ export function createObservedOwnerRuntime(
       ownerGrokT2v === undefined &&
       ownerHailuoLiveT2v === undefined &&
       ownerCurrentVideo === undefined && ownerVideo2Audio === undefined &&
-      ownerUniImageReferences === undefined && ownerWanImageReferences === undefined && ownerStandardImageReferences === undefined &&
-      ownerRunwayImageReferences === undefined && ownerSeedreamImageReferences === undefined &&
+      ownerUniImageReferences === undefined && ownerWanImageReferences === undefined && ownerStandardImageReferences === undefined && ownerGpt26ImageReferences === undefined &&
+      ownerRunwayImageReferences === undefined && ownerSeedreamImageReferences === undefined && ownerSeedream55ImageReferences === undefined &&
       ownerSeedreamEditorImageReferences === undefined &&
       ownerFluxImageReferences === undefined && ownerIdeogramImageReferences === undefined && ownerBananaInpaintImageReferences === undefined
       ? linkService
@@ -3651,8 +3722,8 @@ export function createObservedOwnerRuntime(
             for (const service of [ownerSoulImageReferences?.generationService, ownerGrokT2iImageReferences?.generationService,
               ownerWanT2iImageReferences?.generationService,
               ownerUniImageReferences?.generationService, ownerWanImageReferences?.generationService,
-              ownerStandardImageReferences?.generationService, ownerRunwayImageReferences?.generationService,
-              ownerSeedreamImageReferences?.generationService, ownerFluxImageReferences?.generationService,
+              ownerStandardImageReferences?.generationService, ownerGpt26ImageReferences?.generationService, ownerRunwayImageReferences?.generationService,
+              ownerSeedreamImageReferences?.generationService, ownerSeedream55ImageReferences?.generationService, ownerFluxImageReferences?.generationService,
               ownerIdeogramImageReferences?.generationService]) {
               if (service === undefined) continue;
               try { await service.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -3692,8 +3763,8 @@ export function createObservedOwnerRuntime(
         ownerTopazAstra === undefined && ownerTopazEnhance === undefined &&
         ownerSoulCatalogShape === undefined && ownerSoulStyleOptions === undefined && ownerClarityUpscale === undefined &&
         ownerMagnificUpscale === undefined && ownerKontextImageReferences === undefined &&
-        ownerStandardImageReferences === undefined && ownerRunwayImageReferences === undefined &&
-        ownerSeedreamImageReferences === undefined && ownerSeedreamEditorImageReferences === undefined && ownerFluxImageReferences === undefined &&
+        ownerStandardImageReferences === undefined && ownerGpt26ImageReferences === undefined && ownerRunwayImageReferences === undefined &&
+        ownerSeedreamImageReferences === undefined && ownerSeedream55ImageReferences === undefined && ownerSeedreamEditorImageReferences === undefined && ownerFluxImageReferences === undefined &&
         ownerIdeogramImageReferences === undefined && ownerBananaInpaintImageReferences === undefined) ? {} : {
         onRevoked: async (attemptId: string) => {
           const errors: unknown[] = [];
@@ -3841,8 +3912,8 @@ export function createObservedOwnerRuntime(
             ownerUniImageReferences?.generationService,
             ownerSoulCatalogShape, ...(ownerSoulImageReferences === undefined ? [ownerSoulStyleOptions] : []),
             ownerClarityUpscale?.generationService, ownerMagnificUpscale?.generationService,
-            ownerKontextImageReferences?.generationService, ownerStandardImageReferences?.generationService,
-            ownerRunwayImageReferences?.generationService, ownerSeedreamImageReferences?.generationService,
+            ownerKontextImageReferences?.generationService, ownerStandardImageReferences?.generationService, ownerGpt26ImageReferences?.generationService,
+            ownerRunwayImageReferences?.generationService, ownerSeedreamImageReferences?.generationService, ownerSeedream55ImageReferences?.generationService,
             ownerFluxImageReferences?.generationService, ownerIdeogramImageReferences?.generationService,
             ownerBananaInpaintImageReferences?.generationService]) {
             if (service === undefined) continue;
@@ -4018,7 +4089,7 @@ export function createObservedOwnerRuntime(
     ...(ownerGrokT2v === undefined ? {} : { ownerGrokT2v: { generationService: ownerGrokT2v.generationService } }),
     ...(ownerHailuoLiveT2v === undefined ? {} : { ownerHailuoLiveT2v: { generationService: ownerHailuoLiveT2v.generationService } }),
     ...(ownerCurrentVideo === undefined ? {} : { ownerCurrentVideoReferences: ownerCurrentVideo.references }),
-    ...(ownerCurrentVideo === undefined ? {} : { ownerHailuo3Current:{service:ownerCurrentVideo.hailuo},ownerLumaCurrent:{service:ownerCurrentVideo.luma},ownerVeo3Current:{service:ownerCurrentVideo.veo},ownerWanCurrent:{service:ownerCurrentVideo.wan},ownerSeedanceCurrent:{service:ownerCurrentVideo.seedance},ownerFlux3Current:{service:ownerCurrentVideo.flux} }),
+    ...(ownerCurrentVideo === undefined ? {} : { ownerHailuo3Current:{service:ownerCurrentVideo.hailuo},ownerLumaCurrent:{service:ownerCurrentVideo.luma},ownerVeo3Current:{service:ownerCurrentVideo.veo},ownerVeoOmni12Current:{service:ownerCurrentVideo.veoOmni12},ownerWanCurrent:{service:ownerCurrentVideo.wan},ownerSeedanceCurrent:{service:ownerCurrentVideo.seedance},ownerFlux3Current:{service:ownerCurrentVideo.flux} }),
     ...(ownerVideo2Audio === undefined ? {} : { ownerVideo2Audio }),
     ...(ownerWan27R2v === undefined ? {} : { ownerWan27R2v: { referenceUploadService: ownerWan27R2v.uploadService, generationService: ownerWan27R2v.generationService } }),
     ...(ownerWan26I2v === undefined ? {} : { ownerWan26I2v: { referenceService: ownerWan26I2v.referenceService, generationService: ownerWan26I2v.generationService } }),
@@ -4034,8 +4105,10 @@ export function createObservedOwnerRuntime(
     ...(ownerKontextImageReferences === undefined ? {} : { ownerKontextImageReferences }),
     ...(ownerWanImageReferences === undefined ? {} : { ownerWanImageReferences }),
     ...(ownerStandardImageReferences === undefined ? {} : { ownerStandardImageReferences }),
+    ...(ownerGpt26ImageReferences === undefined ? {} : { ownerGpt26ImageReferences }),
     ...(ownerRunwayImageReferences === undefined ? {} : { ownerRunwayImageReferences }),
     ...(ownerSeedreamImageReferences === undefined ? {} : { ownerSeedreamImageReferences }),
+    ...(ownerSeedream55ImageReferences === undefined ? {} : { ownerSeedream55ImageReferences }),
     ...(ownerSeedreamEditorImageReferences === undefined ? {} : {
       ownerSeedreamEditorImageReferences: {
         originalReferenceService: ownerSeedreamEditorImageReferences.originalReferenceService,

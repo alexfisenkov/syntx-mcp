@@ -5,6 +5,8 @@ import { OwnerStandardImageUploadService } from "../src/application/owner-standa
 import { SyntxChatHttpClient } from "../src/adapter/syntx/chat-http-client.js";
 import { ACCOUNT_CONTRACT_EVIDENCE, ACCOUNT_SOURCE_BUILD } from "../src/adapter/syntx/account-decoder.js";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION, loadSelectedDiscoveryCatalog } from "../src/catalog/selected-discovery-catalog.js";
+import { OWNER_GPT26_PUBLIC_CATALOG_VERSION } from "../src/application/owner-gpt26-image-source-profile.js";
+import { OWNER_GPT26_IMAGE_VARIANTS } from "../src/application/owner-gpt26-image-parameters.js";
 
 const NOW = Date.now();
 const PNG_1X1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
@@ -69,7 +71,7 @@ function freshPreflight(input: Record<string, unknown>, now: number = NOW, chang
   readonly parameterKeys?: readonly string[];
   readonly endDate?: string | null;
   readonly endDateKind?: "DATE_ONLY" | "LOCAL_DATETIME" | "OFFSET_DATETIME" | null;
-} = {}) {
+} = {}, catalog = CATALOG) {
   const variant = input.variant as string;
   return {
     account: { balance: { unit: "tokens", available: null },
@@ -78,7 +80,7 @@ function freshPreflight(input: Record<string, unknown>, now: number = NOW, chang
       contract_evidence: ACCOUNT_CONTRACT_EVIDENCE, source_build: ACCOUNT_SOURCE_BUILD,
       observed_at: new Date(changes.observedAt ?? now).toISOString() },
     model_access: { catalog_kind: "OFFICIAL_PUBLIC_API_SNAPSHOT",
-      catalog_version: `${CATALOG.fetched_at}.${CATALOG.source_hashes.models.slice(7, 19)}`,
+      catalog_version: `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`,
       model_id: variant, ai_name: variant.startsWith("banana") ? "banana" : "sora-images", model_type: variant,
       account_read_live: true, parameter_keys: [...(changes.parameterKeys ?? Object.keys(input.cost_inputs as object).sort())],
       parameters_redacted: true, access: changes.access ?? true, cost: changes.cost ?? 0,
@@ -88,6 +90,10 @@ function freshPreflight(input: Record<string, unknown>, now: number = NOW, chang
 }
 
 function makeRig(options: {
+  readonly catalog?: typeof CATALOG;
+  readonly catalogVersion?: string;
+  readonly variants?: readonly (typeof OWNER_GPT26_IMAGE_VARIANTS)[number][];
+  readonly resultFormat?: "png" | "gif";
   readonly preflightResult?: (input: Record<string, unknown>, call: number) => unknown;
   readonly failPostAck?: boolean;
   readonly pendingFirstResult?: boolean;
@@ -98,6 +104,9 @@ function makeRig(options: {
   readonly linkStatus?: (attemptId: string, events: readonly string[]) => unknown;
 } = {}) {
   const events: string[] = [];
+  const postedSettings: Record<string, unknown>[] = [];
+  const catalog = options.catalog ?? CATALOG;
+  const catalogVersion = options.catalogVersion ?? DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION;
   const preflightInputs: Array<Record<string, unknown>> = [];
   let chats = 0;
   let posts = 0;
@@ -130,6 +139,7 @@ function makeRig(options: {
         posts += 1; events.push("post");
         assert.equal(init?.method, "POST");
         const body = JSON.parse(String(init?.body));
+        postedSettings.push(body.settings as Record<string, unknown>);
         const variant = body.settings.model_type as string;
         assert.equal(url.searchParams.get("ai_name"), variant.startsWith("banana") ? "banana" : "sora-images");
         assert.equal(body.settings.n, 1);
@@ -167,7 +177,7 @@ function makeRig(options: {
             completed: false, object_url: `https://r2.syntx.ai/standard-results/${item.variant}.png` }] });
         return Response.json({ id: item.botId, chat_id: 700 + posts, author_id: -1,
           message_object: [{ id: options.wrongResultObjectId ? "other-image-object" : item.objectId, message_id: item.botId, object_type: "image", model_type: item.variant,
-            completed: true, object_url: `https://r2.syntx.ai/standard-results/${item.variant}.${options.unknownResultMime ? "unknown" : "png"}` }] });
+            completed: true, object_url: `https://r2.syntx.ai/standard-results/${item.variant}.${options.unknownResultMime ? "unknown" : options.resultFormat ?? "png"}` }] });
       }
       if (/^\/api\/v1\/chats\/standard-chat-\d+\/inprogress$/u.test(url.pathname)) {
         events.push("inprogress"); return Response.json([]);
@@ -181,18 +191,20 @@ function makeRig(options: {
     return { attempt_id: attemptId, authorization_profile: "OBSERVED_OWNER_AUTHORIZED", status: "LINKED",
       expires_at: new Date((options.now ?? (() => NOW))() + 60 * 60_000).toISOString(), linked: true };
   } } as never;
-  const uploadService = new OwnerStandardImageUploadService({ binding: BINDING, linkService, catalog: CATALOG,
-    catalog_version: DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION, resolveClient: () => client, now: options.now ?? (() => NOW) });
-  const service = new OwnerStandardImageGenerationService({ binding: BINDING, linkService, catalog: CATALOG,
-    catalog_version: DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION, uploadService, resolveChatClient: () => client,
+  const uploadService = new OwnerStandardImageUploadService({ binding: BINDING, linkService, catalog,
+    catalog_version: catalogVersion, resolveClient: () => client, now: options.now ?? (() => NOW),
+    ...(options.variants === undefined ? {} : { variants: options.variants }) });
+  const service = new OwnerStandardImageGenerationService({ binding: BINDING, linkService, catalog,
+    catalog_version: catalogVersion, uploadService, resolveChatClient: () => client,
+    ...(options.variants === undefined ? {} : { variants: options.variants }),
     preflight: async (input: Record<string, unknown>) => {
       const call = preflightInputs.length + 1;
       preflightInputs.push(input);
       events.push("preflight");
       if (options.preflightResult) return options.preflightResult(input, call);
-      return freshPreflight(input, (options.now ?? (() => NOW))());
+      return freshPreflight(input, (options.now ?? (() => NOW))(), {}, catalog);
     }, now: options.now ?? (() => NOW), timeoutMs: 5_000, pollDelayMs: 0, maxPollAttempts: 1, wait: async () => undefined });
-  return { service, uploadService, client, events, preflightInputs, counters: () => ({ uploads, chats, posts, histories, results }) };
+  return { service, uploadService, client, events, preflightInputs, postedSettings, counters: () => ({ uploads, chats, posts, histories, results }) };
 }
 
 test("full standard image generation exposes the frozen lifecycle contract", async () => {
@@ -273,6 +285,58 @@ test("generates each of the ten admitted models with the complete requested para
   } finally {
     await rig.service.close();
   }
+});
+
+test("GPT Image 2.6 native fake wire preserves exact output format and GIF result for both variants", async () => {
+  const candidateCatalog = loadSelectedDiscoveryCatalog(OWNER_GPT26_PUBLIC_CATALOG_VERSION).discoveryCatalog;
+  const rig = makeRig({ catalog: candidateCatalog, catalogVersion: OWNER_GPT26_PUBLIC_CATALOG_VERSION,
+    variants: OWNER_GPT26_IMAGE_VARIANTS, resultFormat: "gif" });
+  const parameters = { aspect_ratio: "16:9", quality: "1K", details_quality: "max", output_format: "gif" };
+  try {
+    for (const [index, variant] of OWNER_GPT26_IMAGE_VARIANTS.entries()) {
+      const attemptId = attempt(100 + index);
+      const upload = await rig.uploadService.upload({ attemptId, variant, content_base64: PNG_1X1,
+        filename: "reference.png", mime_type: "image/png" });
+      const result = await rig.service.generate({ attemptId, variant, reference_handles: [upload.reference_handle],
+        parameters, prompt: `Create a GIF for ${variant}` });
+      assert.equal(result.variant, variant);
+      assert.equal(result.catalog_version, OWNER_GPT26_PUBLIC_CATALOG_VERSION);
+      assert.deepEqual(result.parameters, parameters);
+      assert.deepEqual(result.cost_inputs, { quality: "1K", details_quality: "max", output_format: "gif", ref_count: 1 });
+      assert.deepEqual(rig.postedSettings[index], { n: 1, model_type: variant, ...parameters,
+        file_urls: [{ type: "image", url: `https://r2.syntx.ai/standard-upload/${index + 1}` }] });
+      assert.equal(result.artifact.mime_type, "image/gif");
+      assert.equal(result.artifact.url, `https://r2.syntx.ai/standard-results/${variant}.gif`);
+    }
+    assert.deepEqual(rig.counters(), { uploads: 2, chats: 2, posts: 2, histories: 2, results: 2 });
+  } finally { await rig.service.close(); }
+});
+
+test("GPT Image 2.6 pending result reconciles by GET with the same recovery handle and no second POST", async () => {
+  const candidateCatalog = loadSelectedDiscoveryCatalog(OWNER_GPT26_PUBLIC_CATALOG_VERSION).discoveryCatalog;
+  const rig = makeRig({ catalog: candidateCatalog, catalogVersion: OWNER_GPT26_PUBLIC_CATALOG_VERSION,
+    variants: OWNER_GPT26_IMAGE_VARIANTS, resultFormat: "gif", pendingFirstResult: true });
+  const attemptId = attempt(103);
+  const request = { attemptId, variant: "gpt-image-2.6-flare" as const, reference_handles: [],
+    parameters: { aspect_ratio: "1:1", quality: "1K", details_quality: "high", output_format: "gif" },
+    prompt: "A looping line-art animation" };
+  try {
+    let recoveryId = "";
+    await assert.rejects(rig.service.generate(request), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal((error as { code?: string }).code, "OUTCOME_UNKNOWN");
+      recoveryId = (error as { recovery_id?: string }).recovery_id ?? "";
+      return recoveryId.startsWith("standard_image_recovery_");
+    });
+    const listed = await rig.service.listRecoveries({ attemptId });
+    assert.deepEqual(listed.map(item => item.recovery_id), [recoveryId]);
+    const before = rig.counters();
+    const result = await rig.service.reconcile({ attemptId, recovery_id: recoveryId });
+    assert.equal(result.artifact.mime_type, "image/gif");
+    assert.deepEqual(rig.counters(), { ...before, results: before.results + 1 });
+    assert.equal(rig.counters().posts, 1);
+    assert.deepEqual(await rig.service.listRecoveries({ attemptId }), []);
+  } finally { await rig.service.close(); }
 });
 
 test("fresh model access denial is rejected before chat creation", async () => {

@@ -9,6 +9,8 @@ import {
   type SyntxCredentialBroker
 } from "../src/adapter/syntx/http-client.js";
 import { DiscoveryCatalogRepository } from "../src/catalog/discovery-catalog.js";
+import { loadSelectedDiscoveryCatalog } from "../src/catalog/selected-discovery-catalog.js";
+import { ModelAccessService } from "../src/application/model-access.js";
 import {
   registerSyntxModelAccessTool,
   SYNTX_MODEL_ACCESS_TOOL_NAME
@@ -202,6 +204,32 @@ test("model access errors never include upstream response bodies", async () => {
     assert.equal(JSON.stringify(result).includes(privateBody), false);
     assert.equal(JSON.stringify(result).includes(SECRET), false);
   });
+});
+
+test("only the trusted Omni first-clip quote binding admits exact veo3_type", async () => {
+  const catalog = loadSelectedDiscoveryCatalog("sha256-49f41bb1565932456137e2a264a2904c441a95e9f5e0aa2a76a9a0c503fedc13.json").discoveryCatalog;
+  const urls: URL[] = [];
+  const client = new SyntxHttpClient({ credentialBroker: broker(), fetchImpl: async input => {
+    urls.push(new URL(String(input))); return jsonResponse();
+  } });
+  const request = { model_id: "omni1.2", cost_parameters: { upscale: 0, video_duration: 5, veo3_type: "extend" } };
+  const ordinary = new ModelAccessService(catalog, client);
+  await assert.rejects(ordinary.getModelAccess(request), { code: "INVALID_COST_PARAMETERS" });
+  assert.equal(urls.length, 0);
+  const trusted = new ModelAccessService(catalog, client, Date.now, {
+    model_id: "omni1.2", extraCostParameterKeys: { veo3_type: "extend" }
+  });
+  for (const cost_parameters of [{ upscale: 0, video_duration: 5, veo3_type: "other" },
+    { upscale: 0, video_duration: 5, veo3_type: "extend", unrelated: "x" }]) {
+    await assert.rejects(trusted.getModelAccess({ model_id: "omni1.2", cost_parameters }), { code: "INVALID_COST_PARAMETERS" });
+  }
+  await assert.rejects(trusted.getModelAccess({ model_id: "veo3", cost_parameters: request.cost_parameters }), { code: "INVALID_COST_PARAMETERS" });
+  assert.equal(urls.length, 0);
+  const accepted = await trusted.getModelAccess(request);
+  assert.deepEqual(accepted.parameter_keys, ["upscale", "veo3_type", "video_duration"]);
+  assert.equal(urls.length, 1);
+  assert.equal(urls[0]!.searchParams.get("veo3_type"), "extend");
+  assert.equal(urls[0]!.searchParams.get("model_type"), "omni1.2");
 });
 
 function jsonResponse(): Response {

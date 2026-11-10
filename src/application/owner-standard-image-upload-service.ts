@@ -26,6 +26,8 @@ import {
   getOwnerGptImageSourceProfile,
   type OwnerGptImageCatalogPort
 } from "./owner-gpt-image-source-profile.js";
+import { getOwnerGpt26ImageSourceProfile, OWNER_GPT26_PUBLIC_CATALOG_VERSION } from "./owner-gpt26-image-source-profile.js";
+import { OWNER_GPT26_IMAGE_VARIANTS } from "./owner-gpt26-image-parameters.js";
 import {
   OwnerStandardImageInputError,
   validateOwnerStandardImageInput,
@@ -56,6 +58,8 @@ export interface OwnerStandardImageUploadServiceOptions {
   readonly catalog_version: string;
   readonly resolveClient: (attemptId: string) => unknown;
   readonly now?: () => number;
+  /** Explicit candidate-only pool; omitted keeps the historical E551 pool. */
+  readonly variants?: readonly OwnerStandardImageVariant[];
 }
 
 export interface OwnerStandardImageUploadInput {
@@ -166,8 +170,9 @@ export class OwnerStandardImageUploadService {
   #issuer: IssuerPair | undefined;
 
   constructor(optionsInput: OwnerStandardImageUploadServiceOptions | unknown) {
-    const fields = exactRecord(optionsInput, ["binding", "linkService", "catalog", "catalog_version", "resolveClient"], ["now"]);
-    if (fields.catalog_version !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION || !isPlainService(fields.linkService) ||
+    const fields = exactRecord(optionsInput, ["binding", "linkService", "catalog", "catalog_version", "resolveClient"], ["now", "variants"]);
+    const variants = selectVariants(fields.variants, fields.catalog_version);
+    if (!isPlainService(fields.linkService) ||
         !isPlainService(fields.catalog) || typeof fields.resolveClient !== "function" || types.isProxy(fields.resolveClient) ||
         (fields.now !== undefined && (typeof fields.now !== "function" || types.isProxy(fields.now)))) fail("MODEL_BINDING_MISMATCH");
     this.#binding = snapshotBinding(fields.binding);
@@ -177,7 +182,7 @@ export class OwnerStandardImageUploadService {
     this.#resolveClient = fields.resolveClient as OwnerStandardImageUploadServiceOptions["resolveClient"];
     this.#now = fields.now === undefined ? Date.now : readClock(fields.now);
     try {
-      for (const variant of STANDARD_VARIANTS) this.#profiles.set(variant, getProfile(variant, this.#catalog, this.#catalogVersion));
+      for (const variant of variants) this.#profiles.set(variant, getProfile(variant, this.#catalog, this.#catalogVersion));
     } catch { fail("MODEL_BINDING_MISMATCH"); }
   }
 
@@ -577,7 +582,9 @@ export class OwnerStandardImageUploadService {
 }
 
 function getProfile(variant: OwnerStandardImageVariant, catalog: StandardCatalogPort, catalogVersion: string): Readonly<OwnerStandardImageSourceProfile> {
-  return variant.startsWith("gpt-image-")
+  return (OWNER_GPT26_IMAGE_VARIANTS as readonly string[]).includes(variant)
+    ? getOwnerGpt26ImageSourceProfile(variant, catalog as OwnerGptImageCatalogPort, catalogVersion)
+    : variant.startsWith("gpt-image-")
     ? getOwnerGptImageSourceProfile(variant, catalog as OwnerGptImageCatalogPort, catalogVersion)
     : getOwnerBananaImageSourceProfile(variant as "banana" | "banana-2.1" | "banana2" | "banana3" | "banana3_light",
       catalog as OwnerBananaImageCatalogPort, catalogVersion);
@@ -678,4 +685,15 @@ function acceptedMimeTypes(profile: Readonly<OwnerStandardImageSourceProfile>): 
 function fail(code: OwnerStandardImageUploadErrorCode): never { throw new OwnerStandardImageUploadServiceError(code); }
 
 const STANDARD_VARIANTS = Object.freeze(["banana", "banana-2.1", "banana2", "banana3", "banana3_light",
-  "gpt-image-1", "gpt-image-1.5", "gpt-image-2", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst"] as const);
+  "gpt-image-1", "gpt-image-1.5", "gpt-image-2", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst",
+  ...OWNER_GPT26_IMAGE_VARIANTS] as const);
+
+function selectVariants(value: unknown, version: unknown): readonly OwnerStandardImageVariant[] {
+  if (value === undefined) {
+    if (version !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION) fail("MODEL_BINDING_MISMATCH");
+    return STANDARD_VARIANTS.filter(variant => !(OWNER_GPT26_IMAGE_VARIANTS as readonly string[]).includes(variant));
+  }
+  if (version !== OWNER_GPT26_PUBLIC_CATALOG_VERSION || !Array.isArray(value) || types.isProxy(value) ||
+      value.length !== 2 || value[0] !== OWNER_GPT26_IMAGE_VARIANTS[0] || value[1] !== OWNER_GPT26_IMAGE_VARIANTS[1]) fail("MODEL_BINDING_MISMATCH");
+  return OWNER_GPT26_IMAGE_VARIANTS;
+}

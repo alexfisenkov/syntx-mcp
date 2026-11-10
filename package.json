@@ -128,7 +128,8 @@
     "start:stdio": "node dist/src/transports/stdio.js",
     "start:owner:http": "node dist/src/transports/http-owner.js",
     "start:owner:https": "node dist/src/transports/https-owner.js serve",
-    "start:owner:stdio": "node dist/src/transports/stdio-owner.js"
+    "start:owner:stdio": "node dist/src/transports/stdio-owner.js",
+    "test:media:nov10": "node --test --test-concurrency=1 dist/tests/owner-gpt26-image-native-preparation.test.js dist/tests/owner-gpt26-image-source-profile.test.js dist/tests/owner-gpt26-image-tools.test.js dist/tests/owner-standard-image-generation-service.test.js dist/tests/owner-seedream55-source-profile.test.js dist/tests/owner-seedream55-image-tools.test.js dist/tests/owner-seedream-image-generation-service.test.js dist/tests/owner-current-video-generation-sdk.test.js dist/tests/owner-veo-omni12-current-intent.test.js dist/tests/model-access.test.js dist/tests/owner-nov10-runtime-composition.test.js dist/tests/media-coverage.test.js dist/tests/public-catalog-selection.test.js && node --test tests/public-media-update-package.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",

@@ -5,7 +5,7 @@ import type { OwnerSeedreamImageVariant } from "../../application/owner-seedream
 const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
 const SAFE_PROVIDER_CHAT_ID = /^\d{1,16}$/u;
 const MAX_URL_LENGTH = 4096;
-const VARIANTS: readonly string[] = ["seedream-4", "seedream-4.5", "seedream-5", "seedream-5.0-flash", "seedream-5.0-pro"];
+const VARIANTS: readonly string[] = ["seedream-4", "seedream-4.5", "seedream-5", "seedream-5.0-flash", "seedream-5.0-pro", "seedream-5.5"];
 
 export interface SeedreamImageResultReadContext {
   readonly chat_uuid: string;

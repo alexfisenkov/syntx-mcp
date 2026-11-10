@@ -4,7 +4,7 @@ import { OwnerCurrentVideoReferenceError, OwnerCurrentVideoReferenceStore } from
 
 export const SYNTX_OWNER_UPLOAD_CURRENT_VIDEO_REFERENCE = "syntx_owner_upload_current_video_reference" as const;
 export const SYNTX_GET_CURRENT_VIDEO_REFERENCE_POLICY = "syntx_get_current_video_reference_policy" as const;
-const model=z.enum(["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"]);
+const model=z.enum(["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","omni1.2","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"]);
 const mime=z.enum(["image/jpeg","image/jpg","image/png","image/webp","image/bmp","image/gif","image/tiff","image/heic","image/heif","image/avif",
  "video/mp4","video/quicktime","audio/mpeg","audio/mp3","audio/wav","audio/x-wav","application/pdf","text/plain","text/markdown","application/msword",
  "application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -22,7 +22,7 @@ export function registerOwnerCurrentVideoReferenceTools(server:McpServer,store:O
   inputSchema:z.object({}).strict(),outputSchema:z.object({models:z.array(model),image_types:z.array(z.string()),video_types:z.array(z.string()),audio_types:z.array(z.string()),
     documents:z.string(),local_max_bytes:z.number(),preparation:z.string(),provider_acceptance:z.literal("UNPROVEN")}).strict(),
   annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false}},async()=>({content:[{type:"text",text:"Current local reference policy."}],structuredContent:{
-   models:["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"],
+   models:["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","omni1.2","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"],
    image_types:["image/jpeg","image/png","image/webp","image/bmp","image/gif","image/tiff","image/heic","image/heif","image/avif"],video_types:["video/mp4","video/quicktime"],audio_types:["audio/mpeg","audio/wav"],
    documents:"WAN 3.0 Omni: PDF, UTF-8 text/Markdown, and structurally identified Office containers",local_max_bytes:100*1024*1024,
    preparation:"Image types vary by model; extra formats require codec support in the trusted local ffprobe. Optional video trim requires an operator-configured local ffmpeg.",provider_acceptance:"UNPROVEN"}}));

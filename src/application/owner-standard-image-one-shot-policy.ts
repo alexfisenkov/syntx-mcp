@@ -6,12 +6,13 @@ import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-brid
 import {
   getOwnerStandardImageSourceProfile,
   isOwnerStandardImagePreparedCandidateForPrincipal,
-  OWNER_STANDARD_IMAGE_VARIANTS,
+  OWNER_STANDARD_IMAGE_ALL_VARIANTS,
   type OwnerStandardImagePreparedCandidate,
   type OwnerStandardImageVariant
 } from "./owner-standard-image-request-preparer.js";
 import { normalizeOwnerBananaImageParameters, type OwnerBananaImageVariant } from "./owner-banana-image-parameters.js";
 import { normalizeOwnerGptImageParameters, type OwnerGptImageVariant } from "./owner-gpt-image-parameters.js";
+import { normalizeOwnerGpt26ImageParameters, OWNER_GPT26_IMAGE_VARIANTS } from "./owner-gpt26-image-parameters.js";
 
 const TTL_MS = 15 * 60_000;
 const CANDIDATE_KEYS = Object.freeze([
@@ -212,7 +213,9 @@ function validateCandidate(
   let normalized: { parameters: unknown; cost_inputs: unknown; cost_input_confidence: string; wire: Record<string, unknown> };
   try {
     const parameters = record.parameters;
-    const result = isBanana(variant)
+    const result = (OWNER_GPT26_IMAGE_VARIANTS as readonly string[]).includes(variant)
+      ? normalizeOwnerGpt26ImageParameters({ variant, reference_count: count as number, parameters })
+      : isBanana(variant)
       ? normalizeOwnerBananaImageParameters({ variant: variant as OwnerBananaImageVariant, reference_count: count as number, parameters })
       : normalizeOwnerGptImageParameters({ variant: variant as OwnerGptImageVariant, reference_count: count as number, parameters });
     normalized = { parameters: result.parameters, cost_inputs: result.cost_inputs,
@@ -224,7 +227,7 @@ function validateCandidate(
       !isDeepStrictEqual(request.prompt, record.prompt) ||
       !Number.isSafeInteger(record.total_reference_count) || record.total_reference_count !== record.references.length) fail("CANDIDATE_UNBOUND");
   const settingsValue = request.settings;
-  const settings = readExactRecord(settingsValue, ["n", "model_type", "aspect_ratio", "image_size", "thinking_level", "quality", "details_quality", "file_urls"],
+  const settings = readExactRecord(settingsValue, ["n", "model_type", "aspect_ratio", "image_size", "thinking_level", "quality", "details_quality", "output_format", "file_urls"],
     ["n", "model_type", "aspect_ratio", "file_urls"]);
   const refs = record.references as unknown[];
   if (types.isProxy(refs) || !Object.isFrozen(refs) || !Array.isArray(settings.file_urls) || types.isProxy(settings.file_urls) ||
@@ -338,7 +341,7 @@ function isPermitBrand(value: object): boolean {
 }
 
 function isVariant(value: unknown): value is OwnerStandardImageVariant {
-  return typeof value === "string" && (OWNER_STANDARD_IMAGE_VARIANTS as readonly string[]).includes(value);
+  return typeof value === "string" && (OWNER_STANDARD_IMAGE_ALL_VARIANTS as readonly string[]).includes(value);
 }
 function isBanana(value: OwnerStandardImageVariant): boolean { return value.startsWith("banana"); }
 function isKind(value: unknown): value is "image" | "video" | "file" { return value === "image" || value === "video" || value === "file"; }

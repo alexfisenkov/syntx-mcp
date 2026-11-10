@@ -6,6 +6,11 @@ import type {
 import { isSyntxModelInfoCallerParameterKey } from "../adapter/syntx/http-client.js";
 import type { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 
+export interface ModelAccessTrustedExtraCostParameters {
+  readonly model_id: string;
+  readonly extraCostParameterKeys: Readonly<Record<string, SyntxCostParameter>>;
+}
+
 export interface GetModelAccessRequest {
   model_id: string;
   cost_parameters?: Readonly<Record<string, SyntxCostParameter>> | undefined;
@@ -47,15 +52,21 @@ export class ModelAccessService {
   readonly #catalog: DiscoveryCatalogRepository;
   readonly #client: SyntxHttpClient;
   readonly #now: () => number;
+  readonly #extraCost: ModelAccessTrustedExtraCostParameters | undefined;
 
   constructor(
     catalog: DiscoveryCatalogRepository,
     client: SyntxHttpClient,
-    now: () => number = Date.now
+    now: () => number = Date.now,
+    trustedExtraCost?: ModelAccessTrustedExtraCostParameters
   ) {
     this.#catalog = catalog;
     this.#client = client;
     this.#now = now;
+    this.#extraCost = trustedExtraCost === undefined ? undefined : Object.freeze({
+      model_id: trustedExtraCost.model_id,
+      extraCostParameterKeys: Object.freeze({ ...trustedExtraCost.extraCostParameterKeys })
+    });
   }
 
   async getModelAccess(
@@ -77,7 +88,9 @@ export class ModelAccessService {
         isSyntxModelInfoCallerParameterKey
       )
     );
-    if (parameterKeys.some((key) => !allowed.has(key))) {
+    const extra = this.#extraCost?.model_id === request.model_id ? this.#extraCost.extraCostParameterKeys : undefined;
+    if (parameterKeys.some((key) => !allowed.has(key) &&
+        (extra === undefined || !Object.hasOwn(extra, key) || costParameters[key] !== extra[key]))) {
       throw new ModelAccessError(
         "INVALID_COST_PARAMETERS",
         "Cost parameters are not allowlisted by the selected catalog record."

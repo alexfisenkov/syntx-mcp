@@ -2,9 +2,10 @@ import { isProxy } from "node:util/types";
 import { schemaHash } from "../domain/generation-contract.js";
 import type { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION } from "../catalog/selected-discovery-catalog.js";
+import { getOwnerSeedream55ImageSourceProfile } from "./owner-seedream55-image-source-profile.js";
 import {
   getOwnerSeedreamImageSourceParameters,
-  type OwnerSeedreamImageVariant
+  type OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant
 } from "./owner-seedream-image-parameters.js";
 
 const CATALOG_VERSION = DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION;
@@ -48,22 +49,22 @@ type DeepReadonly<T> = T extends readonly unknown[] ? { readonly [K in keyof T]:
   : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
 
 export interface OwnerSeedreamImageSourceProfile {
-  readonly profile_id: "seedream-image-source-reviewed-v1";
+  readonly profile_id: string;
   readonly model_id: OwnerSeedreamImageVariant;
   readonly variant: OwnerSeedreamImageVariant;
   readonly ai_name: "seedream";
   readonly model_type: OwnerSeedreamImageVariant;
   readonly catalog_default_flag: boolean;
   readonly operation_id: "generate-image";
-  readonly public_catalog_version: typeof CATALOG_VERSION;
+  readonly public_catalog_version: string;
   readonly source_binding: Readonly<Record<string, unknown>>;
   readonly source_controller_markers: Readonly<{
     controlled_fields: readonly ["aspect_ratio", "resolution", "output_format", "background"];
-    inactive_fields: "NON_FLASH_FIELDS_NULL_IN_LOCAL_STATE_AND_OMITTED_FROM_WIRE";
+    inactive_fields: string;
     fixed_wire: Readonly<{ n: 1; stream: false }>;
-    transparency: "FLASH_ONLY_SINGLE_PNG_AND_PIXEL_ELIGIBILITY_CONTEXT; NO_OWNED_OR_PIXEL_PROOF_HERE";
+    transparency: string;
   }>;
-  readonly parameters_source: ReturnType<typeof getOwnerSeedreamImageSourceParameters>;
+  readonly parameters_source: Readonly<Record<string, unknown>>;
   readonly public_settings: Readonly<Record<string, unknown>>;
   readonly reference_count: Readonly<{ minimum: 0; maximum: number; confidence: "PUBLIC_FILE_COUNT_METADATA_NOT_PROVIDER_ACCEPTANCE" }>;
   readonly mime_policy: Readonly<{ accepted_file_types: readonly string[]; confidence: "PUBLIC_CATALOG_DECLARATION_NOT_PROVIDER_ACCEPTANCE" }>;
@@ -71,7 +72,7 @@ export interface OwnerSeedreamImageSourceProfile {
     generic_max_file_bytes: number;
     image_max_file_bytes: number;
     local_structural_max_bytes: number;
-    local_policy: "SELECTED_E551_IMAGE_METADATA_CEILING_NOT_PROVIDER_LIMIT";
+    local_policy: string;
     max_image_dimension: number | null;
     max_image_width: number | null;
     max_image_height: number | null;
@@ -86,11 +87,11 @@ export interface OwnerSeedreamImageSourceProfile {
   readonly cost_policy: Readonly<{
     declared_metadata_keys: readonly string[];
     controlled_inputs: readonly string[];
-    pro_batch_size_semantics: "EXPLICIT_REFERENCE_COUNT_INCLUDING_ZERO";
+    pro_batch_size_semantics: string;
     quote_or_amount: "UNPROVEN";
     confidence: "SOURCE_JOINED_CONTROLLED_STATE_NOT_QUOTE";
   }>;
-  readonly effective_defaults: "UNKNOWN";
+  readonly effective_defaults: string;
   readonly dispatch_allowed: false;
   readonly runtime_activation: false;
   readonly backend_acceptance: "UNPROVEN";
@@ -112,6 +113,10 @@ export function getOwnerSeedreamImageSourceProfile(
   catalogInput: OwnerSeedreamImageCatalogPort,
   catalogVersionInput: unknown
 ): Readonly<OwnerSeedreamImageSourceProfile> {
+  if (variantInput === "seedream-5.5") {
+    try { return getOwnerSeedream55ImageSourceProfile(catalogInput, catalogVersionInput); }
+    catch { fail("PROFILE_BINDING_MISMATCH"); }
+  }
   if (!isVariant(variantInput)) fail("INVALID_REQUEST");
   if (catalogVersionInput !== CATALOG_VERSION) fail("PROFILE_BINDING_MISMATCH");
   const catalog = snapshotCatalog(catalogInput);
@@ -223,7 +228,7 @@ interface SeedreamModelSnapshot {
   readonly operations: readonly Readonly<{ id: unknown; output_modality: unknown; derivation: unknown }>[];
   readonly settings: Readonly<Record<string, unknown>>;
 }
-function snapshotModel(value: unknown, variant: OwnerSeedreamImageVariant): SeedreamModelSnapshot {
+function snapshotModel(value: unknown, variant: typeof SOURCE_PARAMETERS.variants[number]): SeedreamModelSnapshot {
   const fields = readSelectedFields(value, ["id", "upstream_id", "ai_name", "active", "default", "scope", "modalities", "operations", "settings", "fetched_at", "source_hashes", "catalog_kind", "runtime_usable"]);
   const settingKeys = Object.keys(MODEL_SETTINGS[variant]);
   const settings = readDataRecord(fields.settings, settingKeys);
@@ -281,6 +286,6 @@ function sameJson(left: unknown, right: unknown): boolean { try { return JSON.st
 function readString(value: unknown): string { if (typeof value !== "string") fail("PROFILE_BINDING_MISMATCH"); return value; }
 function numberOrNull(record: Readonly<Record<string, unknown>>, key: string): number | null { const value = record[key]; return typeof value === "number" ? value : null; }
 function plainRecord(value: unknown): value is Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value) || isProxy(value)) return false; const proto = Object.getPrototypeOf(value); return proto === Object.prototype || proto === null; }
-function isVariant(value: unknown): value is OwnerSeedreamImageVariant { return typeof value === "string" && SOURCE_PARAMETERS.variants.includes(value as OwnerSeedreamImageVariant); }
+function isVariant(value: unknown): value is typeof SOURCE_PARAMETERS.variants[number] { return typeof value === "string" && SOURCE_PARAMETERS.variants.includes(value as typeof SOURCE_PARAMETERS.variants[number]); }
 function deepFreeze<T>(value: T): DeepReadonly<T> { if (!value || typeof value !== "object" || Object.isFrozen(value)) return value as DeepReadonly<T>; for (const key of Reflect.ownKeys(value)) deepFreeze((value as Record<PropertyKey, unknown>)[key]); return Object.freeze(value) as DeepReadonly<T>; }
 function fail(code: "INVALID_REQUEST" | "PROFILE_BINDING_MISMATCH"): never { throw new OwnerSeedreamImageSourceProfileError(code); }

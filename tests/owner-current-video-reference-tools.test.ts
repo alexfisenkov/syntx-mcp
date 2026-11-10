@@ -21,8 +21,13 @@ test("stock SDK lists and validates current reference upload without exposing ow
  const server=new McpServer({name:"current-reference",version:"1"}),client=new Client({name:"current-reference-test",version:"1"}),[caller,host]=InMemoryTransport.createLinkedPair();
  try{registerOwnerCurrentVideoReferenceTools(server,store);await server.connect(host);await client.connect(caller);const listed=await client.listTools();assert.equal(listed.tools.length,2);
   const upload=listed.tools.find(tool=>tool.name==="syntx_owner_upload_current_video_reference");assert.ok(upload);assert.deepEqual(describeRemoteMediaFileTool(upload)._meta?.["openai/fileParams"],["file"]);
+  assert.ok((upload.inputSchema.properties?.model_id as {enum?:unknown[]})?.enum?.includes("omni1.2"));
+  const policy=await client.callTool({name:"syntx_get_current_video_reference_policy",arguments:{}});
+  assert.equal(policy.isError,undefined);assert.ok((policy.structuredContent as {models:string[]}).models.includes("omni1.2"));
   const result=await client.callTool({name:"syntx_owner_upload_current_video_reference",arguments:{link_attempt_id:"link_current_reference_0000000001",model_id:"seedance-2.0",filename:"source.png",mime_type:"image/png",content_base64:png().toString("base64")}});
   assert.equal(result.isError,undefined,JSON.stringify(result));assert.equal(JSON.stringify(result).includes("r2.syntx.ai"),false);assert.ok((result.structuredContent as {reference_handle:string}).reference_handle);
+  const omni=await client.callTool({name:"syntx_owner_upload_current_video_reference",arguments:{link_attempt_id:"link_current_reference_0000000001",model_id:"omni1.2",filename:"source.png",mime_type:"image/png",content_base64:png().toString("base64")}});
+  assert.equal(omni.isError,undefined,JSON.stringify(omni));assert.ok((omni.structuredContent as {reference_handle:string}).reference_handle);
   const args={link_attempt_id:"link_current_reference_0000000001",model_id:"seedance-2.0",filename:"source.png",mime_type:"image/png",content_base64:png().toString("base64")};
   const invalid=await client.callTool({name:"syntx_owner_upload_current_video_reference",arguments:{...args,content_base64:Buffer.from("bad").toString("base64")}});
   assert.equal(errorCode(invalid),"INVALID_REQUEST");

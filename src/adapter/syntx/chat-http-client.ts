@@ -479,7 +479,7 @@ import {
   consumeOwnerSeedreamImageOneShotPermit,
   type OwnerSeedreamImageOneShotPermit
 } from "../../application/owner-seedream-image-one-shot-policy.js";
-import { OWNER_SEEDREAM_IMAGE_VARIANTS, type OwnerSeedreamImageVariant } from "../../application/owner-seedream-image-parameters.js";
+import { OWNER_SEEDREAM_IMAGE_VARIANTS, OWNER_SEEDREAM_ALL_IMAGE_VARIANTS, type OwnerSeedreamImageVariant } from "../../application/owner-seedream-image-parameters.js";
 import {
   isOwnerRunwayImagePreparedCandidateForPrincipal,
   type OwnerRunwayImagePreparedCandidate
@@ -489,7 +489,7 @@ import {
   type OwnerRunwayImageOneShotPermit
 } from "../../application/owner-runway-image-one-shot-policy.js";
 import {
-  OWNER_STANDARD_IMAGE_VARIANTS,
+  OWNER_STANDARD_IMAGE_ALL_VARIANTS,
   isOwnerStandardImagePreparedCandidateForPrincipal,
   type OwnerStandardImagePreparedCandidate,
   type OwnerStandardImageVariant
@@ -4424,9 +4424,11 @@ export class SyntxChatHttpClient {
     const request = readExactDataRecord(prepared.request, ["prompt", "settings"], ["prompt", "settings"]);
     if (typeof request.prompt !== "string" || prepared.prompt !== request.prompt) throw invalidRequest();
     validateBoundedText(request.prompt, MAX_PROMPT_BYTES, true);
+    const gpt26 = prepared.variant === "gpt-image-2.6-flare" || prepared.variant === "gpt-image-2.6-sunburst";
     const settings = readExactDataRecord(request.settings,
-      ["n", "model_type", "aspect_ratio", "image_size", "thinking_level", "quality", "details_quality", "file_urls"],
-      ["n", "model_type", "aspect_ratio", "file_urls"]);
+      ["n", "model_type", "aspect_ratio", "image_size", "thinking_level", "quality", "details_quality", "file_urls", ...(gpt26 ? ["output_format"] : [])],
+      ["n", "model_type", "aspect_ratio", "file_urls", ...(gpt26 ? ["output_format"] : [])]);
+    if (gpt26 && !["png", "jpg", "webp", "gif"].includes(settings.output_format as string)) throw invalidRequest();
     const safeSettings = sanitizeSettings(settings);
     if (!isDeepStrictEqual(safeSettings, { ...settings })) throw invalidRequest();
     const body: Record<string, JsonValue> = {
@@ -4504,21 +4506,26 @@ export class SyntxChatHttpClient {
         candidate.dispatch_allowed !== false || candidate.backend_acceptance !== "UNPROVEN" ||
         candidate.ai_name !== "seedream" || candidate.scope !== "image" || candidate.operation_id !== "generate-image" ||
         candidate.model_id !== candidate.variant || candidate.model_type !== candidate.variant ||
-        !OWNER_SEEDREAM_IMAGE_VARIANTS.includes(candidate.variant)) throw invalidRequest();
+        !(OWNER_SEEDREAM_ALL_IMAGE_VARIANTS as readonly string[]).includes(candidate.variant)) throw invalidRequest();
 
     const request = readExactDataRecord(candidate.request, ["prompt", "settings"], ["prompt", "settings"]);
     if (typeof request.prompt !== "string" || candidate.prompt !== request.prompt) throw invalidRequest();
     validateBoundedText(request.prompt, 65_536, true);
     const flash = candidate.variant === "seedream-5.0-flash";
+    const seedream55 = candidate.variant === "seedream-5.5";
     const settingsKeys = ["n", "stream", "model_type", "aspect_ratio", "resolution", "file_urls",
-      ...(flash ? ["output_format", "background"] : [])];
+      ...(flash || seedream55 ? ["output_format", "background"] : [])];
     const settings = readExactDataRecord(request.settings, settingsKeys, settingsKeys);
     const safeSettings = sanitizeSettings(settings);
     if (!isDeepStrictEqual(safeSettings, { ...settings }) || settings.n !== 1 || settings.stream !== false ||
         settings.model_type !== candidate.variant || typeof settings.aspect_ratio !== "string" ||
         typeof settings.resolution !== "string" || !Array.isArray(settings.file_urls) ||
         settings.file_urls.length !== candidate.reference_count) throw invalidRequest();
-    if (flash) {
+    if (seedream55) {
+      if ((settings.output_format !== "jpeg" && settings.output_format !== "png") ||
+          (settings.background !== "auto" && settings.background !== "opaque" && settings.background !== "transparent") ||
+          (settings.background === "transparent" && settings.output_format !== "png")) throw invalidRequest();
+    } else if (flash) {
       if ((settings.output_format !== "jpeg" && settings.output_format !== "png") ||
           (settings.background !== "opaque" && settings.background !== "transparent")) throw invalidRequest();
     } else if (Object.hasOwn(settings, "output_format") || Object.hasOwn(settings, "background")) throw invalidRequest();
@@ -8213,7 +8220,7 @@ export class SyntxChatHttpClient {
     try {const receipt=row.reference as import("../../application/owner-current-video-reference-validation.js").OwnerCurrentValidatedVideoReference;
       if(receipt.generation_permit!==false||receipt.size!==bytes.byteLength||receipt.size<1||receipt.size>100*1024*1024||
         receipt.sha256!==`sha256:${createHash("sha256").update(bytes).digest("hex")}`||typeof receipt.filename!=="string"||typeof receipt.mime_type!=="string"||
-        !["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"].includes(receipt.model_id))throw invalidRequest();
+        !["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","omni1.2","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"].includes(receipt.model_id))throw invalidRequest();
       form=this.#buildUploadForm({bytes,filename:receipt.filename,mime_type:receipt.mime_type,destination:"uploaded",check_duplicates:true,model_type:receipt.model_id},bytes);
       const raw=await this.#requestUpload(new URL("chats/upload-files",V1_BASE_URL),form,signal);
       let refs:InternalUploadReference[];try{refs=parseInternalUploadReferences(raw);}catch{throw protocolError();}if(refs.length!==1)throw protocolError();
@@ -13469,7 +13476,7 @@ function snapshotStandardImageResultReadContext(value: unknown): Readonly<Standa
     ["chat_uuid", "message_id", "variant", "provider_chat_id", "message_object_ids"],
     ["chat_uuid", "message_id", "variant", "provider_chat_id", "message_object_ids"]);
   if (typeof fields.chat_uuid !== "string" || typeof fields.message_id !== "string" ||
-      typeof fields.variant !== "string" || !OWNER_STANDARD_IMAGE_VARIANTS.includes(fields.variant as OwnerStandardImageVariant) ||
+      typeof fields.variant !== "string" || !(OWNER_STANDARD_IMAGE_ALL_VARIANTS as readonly string[]).includes(fields.variant) ||
       typeof fields.provider_chat_id !== "string" || !/^\d{1,16}$/u.test(fields.provider_chat_id) ||
       !Number.isSafeInteger(Number(fields.provider_chat_id))) throw invalidRequest();
   validatePathIdentifier(fields.chat_uuid);

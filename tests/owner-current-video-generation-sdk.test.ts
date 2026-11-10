@@ -143,6 +143,72 @@ test("current-family actual SDK uses shared native port, both account gates, sou
     assert.equal(relinkReplay.isError, true); assert.equal(contentError(relinkReplay).code, "INTENT_ALREADY_CLAIMED"); assert.equal(f.counters.posts, 9);
   } finally { await f.close(); }
 });
+
+test("Veo Omni Flash 1.2 has a separate pinned SDK tool and text quote without a reference mode", async () => {
+  const f = await fixture();
+  try {
+    const names = (await f.client.listTools()).tools.map(tool => tool.name);
+    for (const name of ["syntx_owner_get_veo_omni12_current_source", "syntx_owner_generate_veo_omni12_current",
+      "syntx_owner_get_veo_omni12_current_result", "syntx_owner_list_veo_omni12_current_recoveries"]) assert.ok(names.includes(name));
+    const source = await f.client.callTool({ name: "syntx_owner_get_veo_omni12_current_source", arguments: {} });
+    assert.equal((source.structuredContent as any).source.model_id, "omni1.2");
+    const args = { model_id: "omni1.2", type: "text", prompt: "A separate pinned Omni twelve scene",
+      aspect_ratio: "16:9", video_duration: 3, upscale: 3, references: [] };
+    const result = await f.tool("syntx_owner_generate_veo_omni12_current", args);
+    assert.notEqual(result.isError, true, JSON.stringify(result));
+    assert.equal((result.structuredContent as any).status, "completed");
+    assert.deepEqual(Object.keys(f.queries[0]!).sort(), ["ai_name", "model_type", "upscale", "video_duration"]);
+    assert.equal(f.queries[0]!.model_type, "omni1.2");
+    assert.equal(f.bodies[0]!.settings.model_type, "omni1.2");
+    assert.deepEqual(f.bodies[0]!.settings.file_urls, []);
+    const wrongModel = await f.tool("syntx_owner_generate_veo_omni12_current", { ...args, model_id: "veo_omni", prompt: "A wrong model cannot cross the binding" });
+    assert.equal(wrongModel.isError, true); assert.equal(f.counters.posts, 1);
+    f.setLostAck();
+    const unknown = await f.tool("syntx_owner_generate_veo_omni12_current", { ...args, prompt: "A second Omni twelve uncertain scene" });
+    assert.equal(contentError(unknown).code, "OUTCOME_UNKNOWN");
+    const before = { ...f.counters };
+    const recovered = await f.tool("syntx_owner_get_veo_omni12_current_result", { recovery_id: contentError(unknown).recovery_id });
+    assert.equal((recovered.structuredContent as any).status, "completed");
+    assert.equal(f.counters.posts, before.posts); assert.equal(f.counters.quotes, before.quotes);
+  } finally { await f.close(); }
+});
+
+test("Veo Omni Flash 1.2 routes frames, first clip and mixed references to exact quote branches", { timeout: 30000 }, async t => {
+  const ffmpeg = process.env.SYNTX_CURRENT_VIDEO_TEST_FFMPEG ?? "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/bin/ffmpeg";
+  const ffprobe = process.env.SYNTX_CURRENT_VIDEO_TEST_FFPROBE ?? "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/bin/ffprobe";
+  if (!existsSync(ffmpeg) || !existsSync(ffprobe)) { t.skip("Trusted current codec pair required"); return; }
+  const directory = await mkdtemp(join(tmpdir(), "syntx-omni12-mixed-")), videoPath = join(directory, "clip.mp4");
+  execFileSync(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=320x240:r=16:d=4",
+    "-an", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-y", videoPath]);
+  const video = await readFile(videoPath), f = await fixture(ffprobe);
+  try {
+    const first = await f.upload("omni1.2", 1), last = await f.upload("omni1.2", 2);
+    const frame = await f.tool("syntx_owner_generate_veo_omni12_current", { model_id: "omni1.2", type: "image",
+      prompt: "A deliberate two-frame Omni twelve scene", aspect_ratio: "16:9", video_duration: 10, upscale: 1,
+      references: [{ reference_handle: first, role: "first_frame" }, { reference_handle: last, role: "last_frame" }] });
+    assert.notEqual(frame.isError, true, JSON.stringify(frame));
+    assert.deepEqual(Object.keys(f.queries[0]!).sort(), ["ai_name", "model_type", "upscale", "video_duration"]);
+    assert.deepEqual(f.bodies[0]!.settings.file_urls.map((file: any) => file.type), ["first_frame", "last_frame"]);
+    const clip = await f.uploadBytes("omni1.2", "clip.mp4", "video/mp4", video);
+    const extend = await f.tool("syntx_owner_generate_veo_omni12_current", { model_id: "omni1.2", type: "image",
+      prompt: "Continue the supplied Omni twelve clip", aspect_ratio: "9:16", video_duration: 6, upscale: 0,
+      references: [{ reference_handle: clip, role: "first_clip" }] });
+    assert.notEqual(extend.isError, true, JSON.stringify(extend));
+    assert.equal(f.queries[2]!.veo3_type, "extend"); assert.equal(f.queries[3]!.veo3_type, "extend");
+    assert.equal(f.queries[2]!.mode, undefined);
+    const mixed = await f.tool("syntx_owner_generate_veo_omni12_current", { model_id: "omni1.2", type: "references",
+      prompt: "A mixed reference Omni twelve scene", aspect_ratio: "9:16", video_duration: 15, upscale: 2,
+      references: [{ reference_handle: first, role: "image" }, { reference_handle: clip, role: "video" }] });
+    assert.notEqual(mixed.isError, true, JSON.stringify(mixed));
+    assert.equal(f.queries[4]!.mode, "full"); assert.equal(f.queries[5]!.mode, "full");
+    assert.equal(f.queries[4]!.veo3_type, undefined);
+    assert.equal(f.counters.posts, 3); assert.equal(f.counters.quotes, 6);
+    const invalid = await f.tool("syntx_owner_generate_veo_omni12_current", { model_id: "omni1.2", type: "image",
+      prompt: "A forbidden long two-frame output", aspect_ratio: "16:9", video_duration: 11, upscale: 1,
+      references: [{ reference_handle: first, role: "first_frame" }, { reference_handle: last, role: "last_frame" }] });
+    assert.equal(invalid.isError, true); assert.equal(f.counters.posts, 3); assert.equal(f.counters.quotes, 6);
+  } finally { await f.close(); video.fill(0); await rm(directory, { recursive: true, force: true }); }
+});
 test("current shared app denies source forgery, foreign handles, invalid modes and live access before generation", async () => {
   const f = await fixture(), other = await fixture();
   try {

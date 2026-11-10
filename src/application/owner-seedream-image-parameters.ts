@@ -3,7 +3,9 @@ import { isProxy } from "node:util/types";
 export const OWNER_SEEDREAM_IMAGE_VARIANTS = Object.freeze([
   "seedream-4", "seedream-4.5", "seedream-5", "seedream-5.0-flash", "seedream-5.0-pro"
 ] as const);
+export const OWNER_SEEDREAM_ALL_IMAGE_VARIANTS = Object.freeze([...OWNER_SEEDREAM_IMAGE_VARIANTS, "seedream-5.5"] as const);
 export type OwnerSeedreamImageVariant = typeof OWNER_SEEDREAM_IMAGE_VARIANTS[number];
+export type OwnerSeedreamAnyImageVariant = typeof OWNER_SEEDREAM_ALL_IMAGE_VARIANTS[number];
 export type OwnerSeedreamImageResolution = "1K" | "1.5K" | "2K" | "3K" | "4K";
 export type OwnerSeedreamImageRatio = "21:9" | "16:9" | "3:2" | "4:3" | "1:1" | "3:4" | "2:3" | "9:16";
 
@@ -13,17 +15,19 @@ const RESOLUTIONS = Object.freeze({
   "seedream-4.5": Object.freeze(["2K", "4K"] as const),
   "seedream-5": Object.freeze(["2K", "3K", "4K"] as const),
   "seedream-5.0-flash": Object.freeze(["1K", "1.5K", "2K"] as const),
-  "seedream-5.0-pro": Object.freeze(["1K", "2K"] as const)
+  "seedream-5.0-pro": Object.freeze(["1K", "2K"] as const),
+  "seedream-5.5": Object.freeze(["1K", "1.5K", "2K"] as const)
 } as const);
 const LIMITS = Object.freeze({
   "seedream-4": 4,
   "seedream-4.5": 4,
   "seedream-5": 14,
   "seedream-5.0-flash": 10,
-  "seedream-5.0-pro": 10
+  "seedream-5.0-pro": 10,
+  "seedream-5.5": 10
 } as const);
 const FORMATS = Object.freeze(["jpeg", "png"] as const);
-const BACKGROUNDS = Object.freeze(["opaque", "transparent"] as const);
+const BACKGROUNDS = Object.freeze(["auto", "opaque", "transparent"] as const);
 const SOURCE_PARAMETERS = deepFreeze({
   profile_id: "seedream-image-source-parameters-v1",
   ai_name: "seedream" as const,
@@ -31,12 +35,19 @@ const SOURCE_PARAMETERS = deepFreeze({
   parameter_keys: Object.freeze(["aspect_ratio", "resolution", "output_format", "background"] as const),
   controls: {
     aspect_ratio: { kind: "string_enum" as const, values: RATIOS },
-    resolution: { kind: "string_enum_by_variant" as const, values_by_variant: RESOLUTIONS },
+    resolution: { kind: "string_enum_by_variant" as const, values_by_variant: {
+      "seedream-4": RESOLUTIONS["seedream-4"], "seedream-4.5": RESOLUTIONS["seedream-4.5"],
+      "seedream-5": RESOLUTIONS["seedream-5"], "seedream-5.0-flash": RESOLUTIONS["seedream-5.0-flash"],
+      "seedream-5.0-pro": RESOLUTIONS["seedream-5.0-pro"]
+    } },
     output_format: { kind: "nullable_string_enum" as const, values: FORMATS, active_by_variant: flashOnly() },
-    background: { kind: "nullable_string_enum" as const, values: BACKGROUNDS, active_by_variant: flashOnly() }
+    background: { kind: "nullable_string_enum" as const, values: ["opaque", "transparent"] as const, active_by_variant: flashOnly() }
   },
   inactive_control_policy: "EXPLICIT_NULL_IN_LOCAL_STATE_OMITTED_FROM_WIRE" as const,
-  reference_count: { minimum: 0, maximum_by_variant: LIMITS, confidence: "PUBLIC_FILE_COUNT_METADATA_NOT_PROVIDER_ACCEPTANCE" as const },
+  reference_count: { minimum: 0, maximum_by_variant: {
+    "seedream-4": 4, "seedream-4.5": 4, "seedream-5": 14,
+    "seedream-5.0-flash": 10, "seedream-5.0-pro": 10
+  }, confidence: "PUBLIC_FILE_COUNT_METADATA_NOT_PROVIDER_ACCEPTANCE" as const },
   transparency: {
     allowed_only_for: "seedream-5.0-flash" as const,
     requirements: "EXACTLY_ONE_SOURCE_PNG_AND_PIXEL_ALPHA_ELIGIBILITY_DECLARED_BY_CALLER" as const,
@@ -75,7 +86,7 @@ export interface OwnerSeedreamImageParameters {
   readonly aspect_ratio: OwnerSeedreamImageRatio;
   readonly resolution: OwnerSeedreamImageResolution;
   readonly output_format: "jpeg" | "png" | null;
-  readonly background: "opaque" | "transparent" | null;
+  readonly background: "auto" | "opaque" | "transparent" | null;
 }
 export interface OwnerSeedreamImageTransparencyContext {
   readonly reference_count: 1;
@@ -84,8 +95,8 @@ export interface OwnerSeedreamImageTransparencyContext {
 }
 export interface OwnerSeedreamImageNormalizedParameters {
   readonly ai_name: "seedream";
-  readonly model_id: OwnerSeedreamImageVariant;
-  readonly variant: OwnerSeedreamImageVariant;
+  readonly model_id: OwnerSeedreamAnyImageVariant;
+  readonly variant: OwnerSeedreamAnyImageVariant;
   readonly parameters: OwnerSeedreamImageParameters;
   readonly reference_count: number;
   readonly wire_settings: Readonly<Record<string, string | number | boolean>>;
@@ -121,17 +132,19 @@ export function normalizeOwnerSeedreamImageParameters(input: unknown): OwnerSeed
   const referenceCount = request.reference_count as number;
   const raw = readExactRecord(request.parameters, ["aspect_ratio", "resolution", "output_format", "background"]);
   if (!isOneOf(raw.aspect_ratio, RATIOS) || !isOneOf(raw.resolution, RESOLUTIONS[variant])) invalid();
-  const isFlash = variant === "seedream-5.0-flash";
-  if (isFlash) {
-    if (!isOneOf(raw.output_format, FORMATS) || !isOneOf(raw.background, BACKGROUNDS)) invalid();
+  const hasExtras = variant === "seedream-5.0-flash" || variant === "seedream-5.5";
+  if (hasExtras) {
+    if (!isOneOf(raw.output_format, FORMATS) || !isOneOf(raw.background, variant === "seedream-5.5" ? BACKGROUNDS : ["opaque", "transparent"] as const)) invalid();
   } else if (raw.output_format !== null || raw.background !== null) invalid();
 
-  const transparent = isFlash && raw.background === "transparent";
+  const transparent = hasExtras && raw.background === "transparent";
   let context: OwnerSeedreamImageTransparencyContext | undefined;
   if (request.transparency_context !== undefined) context = snapshotTransparencyContext(request.transparency_context);
-  if (transparent && (raw.output_format !== "png" || referenceCount !== 1 || !context ||
+  if (transparent && raw.output_format !== "png") invalid();
+  if (variant === "seedream-5.0-flash" && transparent && (referenceCount !== 1 || !context ||
       context.reference_count !== 1 || context.source_mime_types.length !== 1 || context.source_mime_types[0] !== "image/png" ||
       context.pixel_alpha_eligible !== true)) invalid();
+  if (variant === "seedream-5.5" && request.transparency_context !== undefined) invalid();
   if (!transparent && request.transparency_context !== undefined && referenceCount !== context?.reference_count) invalid();
 
   const parameters = deepFreeze({
@@ -143,11 +156,11 @@ export function normalizeOwnerSeedreamImageParameters(input: unknown): OwnerSeed
   const wireSettings: Record<string, string | number | boolean> = {
     aspect_ratio: parameters.aspect_ratio, resolution: parameters.resolution, stream: false, n: 1
   };
-  if (isFlash) {
+  if (hasExtras) {
     wireSettings.output_format = parameters.output_format!;
     wireSettings.background = parameters.background!;
   }
-  const costInputs: Readonly<Record<string, string | number>> = variant === "seedream-5.0-pro"
+  const costInputs: Readonly<Record<string, string | number>> = variant === "seedream-5.0-pro" || variant === "seedream-5.5"
     ? { batch_size: referenceCount, resolution: parameters.resolution }
     : {};
   return deepFreeze({
@@ -156,8 +169,8 @@ export function normalizeOwnerSeedreamImageParameters(input: unknown): OwnerSeed
     wire_settings: wireSettings,
     cost_inputs: costInputs,
     transparency_eligibility: {
-      declared_context_consumed: transparent,
-      source_png_declared: transparent,
+      declared_context_consumed: variant === "seedream-5.0-flash" && transparent,
+      source_png_declared: variant === "seedream-5.0-flash" && transparent,
       pixel_alpha_proven: false as const,
       owned_references_bound: false as const,
       browser_geometry_proven: false as const
@@ -201,7 +214,7 @@ function readExactArray(value: unknown, minimum: number, maximum: number): reado
   }
   return Object.freeze(result);
 }
-function isVariant(value: unknown): value is OwnerSeedreamImageVariant { return typeof value === "string" && OWNER_SEEDREAM_IMAGE_VARIANTS.includes(value as OwnerSeedreamImageVariant); }
+function isVariant(value: unknown): value is OwnerSeedreamAnyImageVariant { return typeof value === "string" && OWNER_SEEDREAM_ALL_IMAGE_VARIANTS.includes(value as OwnerSeedreamAnyImageVariant); }
 function isOneOf<T>(value: unknown, values: readonly T[]): value is T { return values.includes(value as T); }
 function flashOnly() { return Object.freeze({ "seedream-4": false, "seedream-4.5": false, "seedream-5": false, "seedream-5.0-flash": true, "seedream-5.0-pro": false } as const); }
 type DeepReadonly<T> = T extends readonly unknown[] ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;

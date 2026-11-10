@@ -6,8 +6,9 @@ import { inspectBoundedOwnerImageBytes32MiB } from "./owner-image-reference-inpu
 import { inspectBoundedOwnerClarityAvifBytes32MiB, UnsupportedOwnerClarityAvifCompositionError } from "./owner-clarity-upscale-input-validator.js";
 import { inspectOwnerStandardHeifBytes, OwnerStandardHeifInspectorError } from "./owner-standard-heif-inspector.js";
 import { inspectOwnerSeedreamExtraImageBytes, OwnerSeedreamExtraImageInspectorError } from "./owner-seedream-extra-image-inspector.js";
-import { OWNER_SEEDREAM_IMAGE_VARIANTS, type OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
+import { OWNER_SEEDREAM_ALL_IMAGE_VARIANTS, type OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
 import { getOwnerSeedreamImageSourceProfile, type OwnerSeedreamImageSourceProfile } from "./owner-seedream-image-source-profile.js";
+import { SEEDREAM55_PUBLIC_CATALOG_VERSION } from "./owner-seedream55-image-source-profile.js";
 
 const BASIC_MIMES = Object.freeze(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"] as const);
 const EXTRA_MIMES = Object.freeze(["image/bmp", "image/gif", "image/tiff", "image/heic", "image/heif"] as const);
@@ -38,7 +39,7 @@ export interface ValidatedOwnerSeedreamImageInput {
   readonly validation_confidence: string;
 }
 export const OWNER_SEEDREAM_IMAGE_INPUT_POLICY = Object.freeze({
-  variants: OWNER_SEEDREAM_IMAGE_VARIANTS,
+  variants: OWNER_SEEDREAM_ALL_IMAGE_VARIANTS,
   basic_source_mime_types: BASIC_MIMES,
   flash_pro_extra_source_mime_types: EXTRA_MIMES,
   generic_byte_caps: Object.freeze({ legacy: 10_485_760, flash_pro: 31_457_280 }),
@@ -139,11 +140,12 @@ function inspect(bytes: Uint8Array, mime: OwnerSeedreamImageSourceMime, maxBytes
   return { ...inspectBoundedOwnerImageBytes32MiB(bytes, maxBytes), validation_confidence: "JPEG_PNG_WEBP_STRUCTURAL_HEADER_ONLY" };
 }
 function profileFor(variant: OwnerSeedreamImageVariant) {
-  const { discoveryCatalog } = loadSelectedDiscoveryCatalog();
-  return getOwnerSeedreamImageSourceProfile(variant, discoveryCatalog, DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION);
+  const version = variant === "seedream-5.5" ? SEEDREAM55_PUBLIC_CATALOG_VERSION : DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION;
+  const { discoveryCatalog } = loadSelectedDiscoveryCatalog(version);
+  return getOwnerSeedreamImageSourceProfile(variant, discoveryCatalog, version);
 }
 function readVariant(value: unknown): OwnerSeedreamImageVariant {
-  if (typeof value !== "string" || !OWNER_SEEDREAM_IMAGE_VARIANTS.includes(value as OwnerSeedreamImageVariant)) invalid();
+  if (typeof value !== "string" || !OWNER_SEEDREAM_ALL_IMAGE_VARIANTS.includes(value as OwnerSeedreamImageVariant)) invalid();
   return value as OwnerSeedreamImageVariant;
 }
 function readMime(value: string, accepted: readonly string[]): OwnerSeedreamImageSourceMime {

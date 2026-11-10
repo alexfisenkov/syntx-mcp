@@ -285,7 +285,7 @@ export function registerSyntxOwnerStandardImageTools(
 ): void {
   server.registerTool(SYNTX_UPLOAD_STANDARD_IMAGE_REFERENCE_TOOL_NAME, {
     title: "Upload a Banana or GPT Image reference",
-    description: "Upload one owner-provided image, or for Banana 2.1 a supported video or PDF input. Base64 is capped at 44,739,244 characters (the encoded form of a 32 MiB decoded-input ceiling); variant validators enforce actual decoded limits, including the 7 MiB direct-image ceiling for Banana 2.1. When syntx_upload_standard_image_reference_file is listed, prefer it for local photos, especially large images, to avoid serializing file bytes as Base64; it reads paths only on the computer running this local MCP process and inside an operator-approved root. This tool accepts one ChatGPT-attached image file from the supported files.oaiusercontent.com origin; caller URLs are not fetched. Metadata confidence is reported explicitly. The filename is used only for validation and is never returned.",
+    description: "Upload one owner-provided image, or for Banana 2.1 a supported video or PDF input. Base64 is capped at 44,739,244 characters (the encoded form of a 32 MiB decoded-input ceiling); variant validators enforce actual decoded limits, including the 7 MiB direct-image ceiling for Banana 2.1. GPT Image 2/2.5 references also have an additive 80 MiB aggregate local admission ceiling informed by current public catalog metadata; it is not a billing cap. When syntx_upload_standard_image_reference_file is listed, prefer it for local photos, especially large images, to avoid serializing file bytes as Base64; it reads paths only on the computer running this local MCP process and inside an operator-approved root. This tool accepts one ChatGPT-attached image file from the supported files.oaiusercontent.com origin; caller URLs are not fetched. Metadata confidence is reported explicitly. The filename is used only for validation and is never returned.",
     inputSchema: uploadInputSchema, outputSchema: uploadOutputSchema,
     _meta: CHATGPT_IMAGE_FILE_TOOL_META,
     annotations: { title: "Upload a standard image reference", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
@@ -378,6 +378,7 @@ function parametersMatchVariant(variant: OwnerStandardImageVariant, value: unkno
 
 function referenceLimits(variant: OwnerStandardImageVariant): { minimum: number; maximum: number } {
   if (variant === "banana-2.1") return { minimum: 0, maximum: 34 };
+  if (variant === "gpt-image-2.6-flare" || variant === "gpt-image-2.6-sunburst") return { minimum: 0, maximum: 16 };
   return isBanana(variant) ? BANANA_SOURCE.reference_limits[variant] : { minimum: 0, maximum: GPT_SOURCE.reference_limits[variant] };
 }
 function isBanana(variant: OwnerStandardImageVariant): variant is typeof BANANA_SOURCE.variants[number] {
@@ -410,10 +411,10 @@ function isValidPrompt(value: string): boolean {
 function isHttpsUrl(value: string): boolean {
   try { return new URL(value).protocol === "https:"; } catch { return false; }
 }
-function safeStructured(value: object): CallToolResult {
+export function safeStructured(value: object): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value as Record<string, unknown> };
 }
-function safeImageResult(value: OwnerStandardImageGenerationResult): CallToolResult {
+export function safeImageResult(value: OwnerStandardImageGenerationResult): CallToolResult {
   return {
     content: [
       { type: "text", text: imageArtifactResultJsonText(value) },
@@ -422,7 +423,7 @@ function safeImageResult(value: OwnerStandardImageGenerationResult): CallToolRes
     structuredContent: value as unknown as Record<string, unknown>
   };
 }
-function errorResult(error: unknown, fallback: string): CallToolResult {
+export function errorResult(error: unknown, fallback: string): CallToolResult {
   let code = fallback;
   let recoveryId: string | undefined;
   let diagnostic: unknown;

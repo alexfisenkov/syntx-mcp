@@ -15,6 +15,7 @@ on:
           - image-file-fix
           - catalog-update
           - media-update
+          - nov10-media-update
           - media-cloud-final
           - windows-native-fix
           - windows-acl-perf
@@ -29,7 +30,7 @@ permissions:
 jobs:
   changed-media:
     name: Scoped checks / Ubuntu 24.04 / Node 24.21.0
-    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-deploy-fix' || inputs.scope == 'https-runtime-fix' || inputs.scope == 'schema-import-fix'
+    if: inputs.scope == 'changed-media' || inputs.scope == 'docs-only' || inputs.scope == 'media-cli-fix' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-deploy-fix' || inputs.scope == 'https-runtime-fix' || inputs.scope == 'schema-import-fix' || inputs.scope == 'nov10-media-update'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -52,7 +53,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
       - name: Build
-        if: inputs.scope == 'changed-media' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-runtime-fix' || inputs.scope == 'schema-import-fix'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'image-file-fix' || inputs.scope == 'catalog-update' || inputs.scope == 'media-update' || inputs.scope == 'media-cloud-final' || inputs.scope == 'https-runtime-fix' || inputs.scope == 'schema-import-fix' || inputs.scope == 'nov10-media-update'
         run: npm run build
 
       - name: Verify remote owner Unicode filename and HTTPS startup regressions
@@ -60,7 +61,7 @@ jobs:
         run: node --test --test-concurrency=1 dist/tests/remote-owner-schema-unicode-filename.test.js dist/tests/remote-owner-https-startup.test.js
 
       - name: Install media probe tools for changed video checks
-        if: inputs.scope == 'changed-media' || inputs.scope == 'media-update' || inputs.scope == 'image-file-fix' || inputs.scope == 'media-cloud-final'
+        if: inputs.scope == 'changed-media' || inputs.scope == 'media-update' || inputs.scope == 'image-file-fix' || inputs.scope == 'media-cloud-final' || inputs.scope == 'nov10-media-update'
         shell: bash
         run: |
           set -euo pipefail
@@ -70,12 +71,12 @@ jobs:
             exit 0
           fi
           sudo env DEBIAN_FRONTEND=noninteractive timeout 180s apt-get \
-            -o Acquire::Retries=1 \
+            -o Acquire::Retries=0 \
             -o Acquire::http::Timeout=20 \
             -o Acquire::https::Timeout=20 \
             update
           sudo env DEBIAN_FRONTEND=noninteractive timeout 600s apt-get \
-            -o Acquire::Retries=1 \
+            -o Acquire::Retries=0 \
             -o Acquire::http::Timeout=20 \
             -o Acquire::https::Timeout=20 \
             install --yes --no-install-recommends ffmpeg
@@ -122,6 +123,13 @@ jobs:
         run: |
           node --test tests/print-media-kling-switchx2357.test.mjs
           node --test --test-name-pattern="allowlisted media guides|exports only the exact committed" tests/export-public-snapshot.test.mjs
+
+      - name: Verify November 10 source-backed media update
+        if: inputs.scope == 'nov10-media-update'
+        env:
+          SYNTX_CURRENT_VIDEO_TEST_FFMPEG: /usr/bin/ffmpeg
+          SYNTX_CURRENT_VIDEO_TEST_FFPROBE: /usr/bin/ffprobe
+        run: npm run test:media:nov10
 
       # Linux scope installs ffmpeg and runs the real JPEG preparation/decode suite.
       - name: Verify ChatGPT image-file input, local image import, and real Linux JPEG preparation

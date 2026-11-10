@@ -1,5 +1,5 @@
 /** Internal ABI for source-reviewed current video references. No URL or provider ID is public. */
-export type OwnerCurrentVideoReferenceModelId = "seedance-2.0" | "seedance-2.5" | "seedance_pro" | "seedance_pro-fast" | "seedance-1.5-pro" | "hailuo-3.0" | "ray-3.14" | "veo3" | "veo3fast" | "veo3fast_r" | "flux3_t2v" | "flux3_i2v" | "flux3_v2v" | "wan_25_t2v_preview" | "wan_25_i2v_preview" | "wan_27_i2v" | "wan_27_r2v" | "wan_27_videoedit" | "wan_30_t2v" | "wan_30_reference" | "wan_30_omni" | "wan_30_edit" | "wan_30_first_last_frame";
+export type OwnerCurrentVideoReferenceModelId = "seedance-2.0" | "seedance-2.5" | "seedance_pro" | "seedance_pro-fast" | "seedance-1.5-pro" | "hailuo-3.0" | "ray-3.14" | "veo3" | "veo3fast" | "veo3fast_r" | "omni1.2" | "flux3_t2v" | "flux3_i2v" | "flux3_v2v" | "wan_25_t2v_preview" | "wan_25_i2v_preview" | "wan_27_i2v" | "wan_27_r2v" | "wan_27_videoedit" | "wan_30_t2v" | "wan_30_reference" | "wan_30_omni" | "wan_30_edit" | "wan_30_first_last_frame";
 export type OwnerCurrentVideoReferenceKind = "image" | "video" | "audio" | "file";
 export type OwnerCurrentVideoReferenceRole = OwnerCurrentVideoReferenceKind | "first_frame" | "last_frame" | "first_clip";
 export interface OwnerCurrentVideoReferenceMetadata {

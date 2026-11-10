@@ -19,6 +19,9 @@ import {
   type OwnerSeedreamImageUploadService
 } from "../application/owner-seedream-image-upload-service.js";
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
+import { loadSelectedDiscoveryCatalog } from "../catalog/selected-discovery-catalog.js";
+import { getOwnerSeedream55ImageSourceProfile, SEEDREAM55_PUBLIC_CATALOG_VERSION,
+  SEEDREAM55_SETTINGS_VERSION } from "../application/owner-seedream55-image-source-profile.js";
 
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const REFERENCE = /^seedream_image_[0-9a-f-]{36}$/u;
@@ -54,6 +57,11 @@ export const SYNTX_UPLOAD_SEEDREAM_IMAGE_REFERENCE_TOOL_NAME = "syntx_upload_see
 export const SYNTX_OWNER_GENERATE_SEEDREAM_IMAGE_TOOL_NAME = "syntx_owner_generate_seedream_image" as const;
 export const SYNTX_OWNER_RECONCILE_SEEDREAM_IMAGE_TOOL_NAME = "syntx_owner_reconcile_seedream_image" as const;
 export const SYNTX_OWNER_LIST_SEEDREAM_IMAGE_RECOVERIES_TOOL_NAME = "syntx_owner_list_seedream_image_recoveries" as const;
+export const SYNTX_UPLOAD_SEEDREAM55_IMAGE_REFERENCE_TOOL_NAME = "syntx_upload_seedream55_image_reference" as const;
+export const SYNTX_OWNER_GENERATE_SEEDREAM55_IMAGE_TOOL_NAME = "syntx_owner_generate_seedream55_image" as const;
+export const SYNTX_OWNER_RECONCILE_SEEDREAM55_IMAGE_TOOL_NAME = "syntx_owner_reconcile_seedream55_image" as const;
+export const SYNTX_OWNER_LIST_SEEDREAM55_IMAGE_RECOVERIES_TOOL_NAME = "syntx_owner_list_seedream55_image_recoveries" as const;
+export const SYNTX_GET_SEEDREAM55_IMAGE_PARAMETERS_TOOL_NAME = "syntx_get_seedream55_image_parameters" as const;
 
 export interface RegisterSyntxOwnerSeedreamImageToolsOptions {
   readonly uploadService: Pick<OwnerSeedreamImageUploadService, "upload">;
@@ -148,63 +156,106 @@ const recoveryListOutputSchema = z.object({
   }).strict()).max(20), confidence_scope: z.literal("process_local_get_only_recovery")
 }).strict();
 
+export function registerSyntxOwnerSeedream55ImageTools(server: McpServer, options: RegisterSyntxOwnerSeedreamImageToolsOptions): void {
+  registerImageTools(server, options, true);
+  server.registerTool(SYNTX_GET_SEEDREAM55_IMAGE_PARAMETERS_TOOL_NAME, {
+    title: "Get Seedream 5.5 source parameters",
+    description: "Read-only static public-source controls and local input limits. Does not check account access, rendered UI, cost amount or provider acceptance.",
+    inputSchema: seedream55GetterInputSchema, outputSchema: seedream55GetterOutputSchema,
+    annotations: annotations("Get Seedream 5.5 source parameters", true, false, false)
+  }, async (input) => {
+    if (!seedream55GetterInputSchema.safeParse(input).success) return errorResult(undefined, "INVALID_REQUEST");
+    try {
+      const catalog = loadSelectedDiscoveryCatalog(SEEDREAM55_PUBLIC_CATALOG_VERSION).discoveryCatalog;
+      const profile = getOwnerSeedream55ImageSourceProfile(catalog, SEEDREAM55_PUBLIC_CATALOG_VERSION);
+      return structured(seedream55GetterOutputSchema.parse({
+        evidence_level: "STATIC_PUBLIC_SOURCE_ONLY", model_id: profile.model_id, ai_name: profile.ai_name,
+        public_catalog_version: SEEDREAM55_PUBLIC_CATALOG_VERSION, settings_version: SEEDREAM55_SETTINGS_VERSION,
+        form_build_id: "1794311734", form_sha256: "sha256:792ed18820311f638530324962234f1207be3880d5e8181cf713d0620229334c",
+        controls: { aspect_ratio: RATIOS, resolution: ["1K", "1.5K", "2K"], output_format: ["jpeg", "png"],
+          background: ["auto", "opaque", "transparent"], transparent_requires_png: true,
+          defaults: profile.source_controller_markers.defaults },
+        reference_count_maximum: profile.reference_count.maximum,
+        accepted_file_types: profile.mime_policy.accepted_file_types,
+        generic_max_file_bytes: profile.input_policy.generic_max_file_bytes,
+        image_max_file_bytes: profile.input_policy.image_max_file_bytes,
+        cost_input_keys: profile.cost_policy.controlled_inputs,
+        rendered_ui: "NOT_CHECKED", account_access: "NOT_CHECKED", backend_acceptance: "UNPROVEN"
+      }));
+    } catch { return errorResult(undefined, "MODEL_BINDING_MISMATCH"); }
+  });
+}
+
 export function registerSyntxOwnerSeedreamImageTools(server: McpServer, options: RegisterSyntxOwnerSeedreamImageToolsOptions): void {
-  server.registerTool(SYNTX_UPLOAD_SEEDREAM_IMAGE_REFERENCE_TOOL_NAME, {
+  registerImageTools(server, options, false);
+}
+
+function registerImageTools(server: McpServer, options: RegisterSyntxOwnerSeedreamImageToolsOptions, seedream55: boolean): void {
+  const uploadName = seedream55 ? SYNTX_UPLOAD_SEEDREAM55_IMAGE_REFERENCE_TOOL_NAME : SYNTX_UPLOAD_SEEDREAM_IMAGE_REFERENCE_TOOL_NAME;
+  const generateName = seedream55 ? SYNTX_OWNER_GENERATE_SEEDREAM55_IMAGE_TOOL_NAME : SYNTX_OWNER_GENERATE_SEEDREAM_IMAGE_TOOL_NAME;
+  const reconcileName = seedream55 ? SYNTX_OWNER_RECONCILE_SEEDREAM55_IMAGE_TOOL_NAME : SYNTX_OWNER_RECONCILE_SEEDREAM_IMAGE_TOOL_NAME;
+  const listName = seedream55 ? SYNTX_OWNER_LIST_SEEDREAM55_IMAGE_RECOVERIES_TOOL_NAME : SYNTX_OWNER_LIST_SEEDREAM_IMAGE_RECOVERIES_TOOL_NAME;
+  const uploadInput = seedream55 ? seedream55UploadInputSchema : uploadInputSchema;
+  const uploadOutput = seedream55 ? seedream55UploadOutputSchema : uploadOutputSchema;
+  const generateInput = seedream55 ? seedream55GenerateInputSchema : generateInputSchema;
+  const generationOutput = seedream55 ? seedream55GenerationOutputSchema : generationOutputSchema;
+  const recoveryListOutput = seedream55 ? seedream55RecoveryListOutputSchema : recoveryListOutputSchema;
+  server.registerTool(uploadName, {
     title: "Upload an owned Seedream image reference",
     description: "Upload one source-validated image for the exact linked owner attempt. Returns a private handle and bounded metadata; upload is not generation permission.",
-    inputSchema: uploadInputSchema, outputSchema: uploadOutputSchema,
+    inputSchema: uploadInput, outputSchema: uploadOutput,
     annotations: annotations("Upload Seedream image reference", false, true, false)
-  }, async (input, { signal }) => {
-    const parsed = uploadInputSchema.safeParse(input);
+  }, async (input: unknown, { signal }: { signal?: AbortSignal }) => {
+    const parsed = uploadInput.safeParse(input);
     if (!parsed.success) return errorResult(undefined, "INVALID_REQUEST");
     try {
       const receipt = await options.uploadService.upload({ attemptId: parsed.data.link_attempt_id, variant: parsed.data.variant,
         content_base64: parsed.data.content_base64, filename: parsed.data.filename, mime_type: parsed.data.mime_type,
         ...(signal === undefined ? {} : { signal }) });
-      return structured(uploadOutputSchema.parse(receipt));
+      return structured(uploadOutput.parse(receipt));
     } catch (error) { return errorResult(error, "UPLOAD_FAILED"); }
   });
 
-  server.registerTool(SYNTX_OWNER_GENERATE_SEEDREAM_IMAGE_TOOL_NAME, {
+  server.registerTool(generateName, {
     title: "Generate a Seedream image",
     description: "Starts one generation after fresh account and model-access preflights. If the outcome is uncertain, do not repeat; use the exact recovery handle.",
-    inputSchema: generateInputSchema, outputSchema: generationOutputSchema,
+    inputSchema: generateInput, outputSchema: generationOutput,
     annotations: annotations("Generate Seedream image", false, true, true)
-  }, async (input, { signal }) => {
-    const parsed = generateInputSchema.safeParse(input);
+  }, async (input: unknown, { signal }: { signal?: AbortSignal }) => {
+    const parsed = generateInput.safeParse(input);
     if (!parsed.success) return errorResult(undefined, "INVALID_REQUEST");
     try {
       const result = await options.generationService.generate({ attemptId: parsed.data.link_attempt_id, variant: parsed.data.variant,
         reference_handles: parsed.data.reference_handles, parameters: parsed.data.parameters, prompt: parsed.data.prompt }, signal);
-      return structured(generationOutputSchema.parse(result));
+      return structured(generationOutput.parse(result));
     } catch (error) { return errorResult(error, "GENERATION_FAILED"); }
   });
 
-  server.registerTool(SYNTX_OWNER_RECONCILE_SEEDREAM_IMAGE_TOOL_NAME, {
+  server.registerTool(reconcileName, {
     title: "Reconcile a Seedream image generation",
     description: "Read-only, bounded GET-only reconciliation for the exact attempt and opaque recovery handle. Never starts another generation.",
-    inputSchema: reconcileInputSchema, outputSchema: generationOutputSchema,
+    inputSchema: reconcileInputSchema, outputSchema: generationOutput,
     annotations: annotations("Reconcile Seedream image generation", true, false, true)
   }, async (input, { signal }) => {
     const parsed = reconcileInputSchema.safeParse(input);
     if (!parsed.success) return errorResult(undefined, "INVALID_REQUEST");
     try {
       const result = await options.generationService.reconcile({ attemptId: parsed.data.link_attempt_id, recovery_id: parsed.data.recovery_id }, signal);
-      return structured(generationOutputSchema.parse(result));
+      return structured(generationOutput.parse(result));
     } catch (error) { return errorResult(error, "GENERATION_FAILED"); }
   });
 
-  server.registerTool(SYNTX_OWNER_LIST_SEEDREAM_IMAGE_RECOVERIES_TOOL_NAME, {
+  server.registerTool(listName, {
     title: "List Seedream image recovery handles",
     description: "Lists bounded, process-local recovery metadata for the exact owner attempt. Prompt, artifact URLs, and principal details are never returned.",
-    inputSchema: listInputSchema, outputSchema: recoveryListOutputSchema,
+    inputSchema: listInputSchema, outputSchema: recoveryListOutput,
     annotations: annotations("List Seedream image recoveries", true, false, true)
   }, async (input) => {
     const parsed = listInputSchema.safeParse(input);
     if (!parsed.success) return errorResult(undefined, "INVALID_REQUEST");
     try {
       const recoveries = await options.generationService.listRecoveries({ attemptId: parsed.data.link_attempt_id, limit: parsed.data.limit });
-      return structured(recoveryListOutputSchema.parse({ recoveries, confidence_scope: "process_local_get_only_recovery" }));
+      return structured(recoveryListOutput.parse({ recoveries, confidence_scope: "process_local_get_only_recovery" }));
     } catch (error) { return errorResult(error, "RECOVERY_LIST_UNAVAILABLE"); }
   });
 }
@@ -258,6 +309,62 @@ const generationOutputSchema = z.object({
     context.addIssue({ code: "custom", path: ["cost_inputs"], message: "Non-Pro variants have no declared cost inputs." });
   }
 });
+
+const seedream55ParametersSchema = z.object({
+  aspect_ratio: z.enum(RATIOS), resolution: z.enum(["1K", "1.5K", "2K"]),
+  output_format: z.enum(["jpeg", "png"]), background: z.enum(["auto", "opaque", "transparent"])
+}).strict().superRefine((value, context) => {
+  if (value.background === "transparent" && value.output_format !== "png")
+    context.addIssue({ code: "custom", path: ["output_format"], message: "Transparent background requires PNG." });
+});
+const seedream55UploadInputSchema = z.object({
+  link_attempt_id: attemptSchema, variant: z.literal("seedream-5.5"),
+  content_base64: z.string().min(4).max(MAX_BASE64_CHARS).refine((value) => isCanonicalBase64Bounded(value, MAX_BASE64_CHARS)),
+  filename: filenameSchema, mime_type: z.enum(PRO_MIMES)
+}).strict();
+const seedream55GenerateInputSchema = z.object({
+  link_attempt_id: attemptSchema, variant: z.literal("seedream-5.5"),
+  reference_handles: z.array(referenceHandleSchema).max(10), parameters: seedream55ParametersSchema, prompt: promptSchema
+}).strict().superRefine((value, context) => {
+  if (new Set(value.reference_handles).size !== value.reference_handles.length)
+    context.addIssue({ code: "custom", path: ["reference_handles"], message: "Reference handles must be unique and ordered." });
+});
+const seedream55UploadOutputSchema = z.object({ ...uploadOutputSchema.shape, variant: z.literal("seedream-5.5") }).strict().superRefine((receipt, context) => {
+  if (!PRO_MIMES.includes(receipt.original_mime_type as never) || receipt.size > 27_525_120)
+    context.addIssue({ code: "custom", path: ["variant"], message: "Upload metadata must match Seedream 5.5." });
+});
+const seedream55GenerationOutputSchema = z.object({ ...generationOutputSchema.shape,
+  model_id: z.literal("seedream-5.5"), variant: z.literal("seedream-5.5"),
+  parameters: seedream55ParametersSchema, reference_count: z.number().int().min(0).max(10),
+  input_references: z.array(inputReferenceSchema).max(10),
+  cost_inputs: z.object({ batch_size: z.number().int().min(0).max(10), resolution: z.enum(["1K", "1.5K", "2K"]) }).strict()
+}).strict().superRefine((result, context) => {
+  if (result.cost_inputs.batch_size !== result.reference_count || result.cost_inputs.resolution !== result.parameters.resolution ||
+      result.input_references.length !== result.reference_count)
+    context.addIssue({ code: "custom", path: ["cost_inputs"], message: "Seedream 5.5 cost and reference metadata must match." });
+  if (result.actual_image.mime_type !== result.artifact.mime_type ||
+      ((result.artifact.mime_type === null) !== (result.artifact.mime_source === "UNKNOWN")))
+    context.addIssue({ code: "custom", path: ["actual_image", "mime_type"], message: "MIME evidence must match the artifact." });
+});
+const seedream55RecoveryListOutputSchema = z.object({
+  recoveries: z.array(z.object({ recovery_id: recoveryIdSchema, created_at: z.iso.datetime(), model_id: z.literal("seedream-5.5"),
+    operation_id: z.literal("generate-image"), status: z.literal("OUTCOME_UNKNOWN"), diagnostic: diagnosticSchema }).strict()).max(20),
+  confidence_scope: z.literal("process_local_get_only_recovery")
+}).strict();
+const seedream55GetterInputSchema = z.object({}).strict();
+const seedream55GetterOutputSchema = z.object({
+  evidence_level: z.literal("STATIC_PUBLIC_SOURCE_ONLY"), model_id: z.literal("seedream-5.5"), ai_name: z.literal("seedream"),
+  public_catalog_version: z.literal(SEEDREAM55_PUBLIC_CATALOG_VERSION), settings_version: z.literal(SEEDREAM55_SETTINGS_VERSION),
+  form_build_id: z.literal("1794311734"), form_sha256: z.string().regex(SHA256),
+  controls: z.object({ aspect_ratio: z.array(z.enum(RATIOS)).length(8), resolution: z.array(z.enum(["1K", "1.5K", "2K"])).length(3),
+    output_format: z.array(z.enum(["jpeg", "png"])).length(2), background: z.array(z.enum(["auto", "opaque", "transparent"])).length(3),
+    transparent_requires_png: z.literal(true), defaults: z.object({ aspect_ratio: z.literal("1:1"), resolution: z.literal("2K"),
+      output_format: z.literal("png"), background: z.literal("auto") }).strict() }).strict(),
+  reference_count_maximum: z.literal(10), accepted_file_types: z.array(z.enum(PRO_MIMES)).length(9),
+  generic_max_file_bytes: z.literal(31_457_280), image_max_file_bytes: z.literal(27_525_120),
+  cost_input_keys: z.array(z.enum(["batch_size", "resolution"])).length(2),
+  rendered_ui: z.literal("NOT_CHECKED"), account_access: z.literal("NOT_CHECKED"), backend_acceptance: z.literal("UNPROVEN")
+}).strict();
 
 function annotations(title: string, readOnly: boolean, destructive: boolean, openWorld: boolean) {
   return { title, readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: readOnly, openWorldHint: openWorld };

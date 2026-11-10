@@ -17,7 +17,7 @@ import type { OwnerCurrentVideoNativeUpload, OwnerCurrentVideoReferenceBundle, O
 
 const TTL=15*60_000, CAP=128, MAX_BYTES=100*1024*1024, MAX_BASE64=Math.ceil(MAX_BYTES/3)*4;
 const ATTEMPT=/^link_[A-Za-z0-9_-]{20,120}$/u, HANDLE=/^current_video_ref_[0-9a-f-]{36}$/u;
-const MODELS=new Set<OwnerCurrentVideoReferenceModelId>(["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"]);
+const MODELS=new Set<OwnerCurrentVideoReferenceModelId>(["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","omni1.2","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"]);
 type Entry={readonly handle:string;readonly attemptId:string;readonly model:OwnerCurrentVideoReferenceModelId;readonly principal:Readonly<GenerationPrincipalRef>;
  readonly client:SyntxChatHttpClient;readonly native:OwnerCurrentVideoNativeUpload;readonly metadata:OwnerCurrentValidatedVideoReference;readonly expires:number;
  readonly preparation:"ORIGINAL_BYTES"|"USER_SELECTED_SEGMENT_LOCAL_TRANSCODE"};

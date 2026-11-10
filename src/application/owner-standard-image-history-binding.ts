@@ -5,11 +5,13 @@ import {
   loadSelectedDiscoveryCatalog
 } from "../catalog/selected-discovery-catalog.js";
 import {
-  OWNER_STANDARD_IMAGE_VARIANTS,
+  OWNER_STANDARD_IMAGE_ALL_VARIANTS,
   getOwnerStandardImageSourceProfile,
   type OwnerStandardImageReferenceMediaKind,
   type OwnerStandardImageVariant
 } from "./owner-standard-image-request-preparer.js";
+import { OWNER_GPT26_PUBLIC_CATALOG_VERSION } from "./owner-gpt26-image-source-profile.js";
+import { OWNER_GPT26_IMAGE_VARIANTS } from "./owner-gpt26-image-parameters.js";
 
 const INPUT_KEYS = Object.freeze([
   "snapshot", "requested_chat_uuid", "owner_echo_message_id", "variant", "profile_id",
@@ -29,6 +31,7 @@ const MAX_REFERENCES = 34;
 const MAX_HISTORY_MESSAGES = 10;
 const MAX_OBJECTS_PER_MESSAGE = 64;
 const SELECTED_CATALOG = loadSelectedDiscoveryCatalog(DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION).discoveryCatalog;
+const GPT26_CATALOG = loadSelectedDiscoveryCatalog(OWNER_GPT26_PUBLIC_CATALOG_VERSION).discoveryCatalog;
 
 export interface CorrelateOwnerStandardImageHistoryBindingInput {
   readonly snapshot: ChatMessageHistorySnapshot | unknown;
@@ -93,9 +96,10 @@ export function correlateOwnerStandardImageHistoryBinding(
       !isKindArray(request.requested_reference_kinds, request.variant)) return invalid("INVALID_INPUT");
   let sourceProfile;
   try {
-    sourceProfile = getOwnerStandardImageSourceProfile(
-      request.variant, SELECTED_CATALOG, DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION
-    );
+    const isGpt26 = (OWNER_GPT26_IMAGE_VARIANTS as readonly string[]).includes(request.variant as string);
+    sourceProfile = getOwnerStandardImageSourceProfile(request.variant,
+      isGpt26 ? GPT26_CATALOG : SELECTED_CATALOG,
+      isGpt26 ? OWNER_GPT26_PUBLIC_CATALOG_VERSION : DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION);
   } catch {
     return invalid("INVALID_INPUT");
   }
@@ -246,7 +250,7 @@ function readRecord(value: unknown, allowedKeys: readonly string[]): Record<stri
 }
 
 function isVariant(value: unknown): value is OwnerStandardImageVariant {
-  return typeof value === "string" && (OWNER_STANDARD_IMAGE_VARIANTS as readonly string[]).includes(value);
+  return typeof value === "string" && (OWNER_STANDARD_IMAGE_ALL_VARIANTS as readonly string[]).includes(value);
 }
 
 function isBanana21(variant: OwnerStandardImageVariant): boolean {
@@ -258,6 +262,7 @@ function familyFor(variant: OwnerStandardImageVariant): "banana" | "sora-images"
 }
 
 function expectedProfileId(variant: OwnerStandardImageVariant): string {
+  if ((OWNER_GPT26_IMAGE_VARIANTS as readonly string[]).includes(variant)) return "gpt-image-26-source-reviewed-v1";
   return variant.startsWith("banana") ? "banana-image-source-reviewed-v1" : "gpt-image-family-source-reviewed-v1";
 }
 

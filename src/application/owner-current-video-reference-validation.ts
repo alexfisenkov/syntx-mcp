@@ -15,7 +15,7 @@ export interface OwnerCurrentValidatedVideoReference {
  readonly generation_permit:false;
 }
 const BYTES=new WeakMap<object,Uint8Array>();
-const MODELS=new Set<OwnerCurrentVideoReferenceModelId>(["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"]);
+const MODELS=new Set<OwnerCurrentVideoReferenceModelId>(["seedance-2.0","seedance-2.5","seedance_pro","seedance_pro-fast","seedance-1.5-pro","hailuo-3.0","ray-3.14","veo3","veo3fast","veo3fast_r","omni1.2","flux3_t2v","flux3_i2v","flux3_v2v","wan_25_t2v_preview","wan_25_i2v_preview","wan_27_i2v","wan_27_r2v","wan_27_videoedit","wan_30_t2v","wan_30_reference","wan_30_omni","wan_30_edit","wan_30_first_last_frame"]);
 /** Local bounded measurement, with no upload or generation authority. */
 export async function validateOwnerCurrentVideoReference(input:{readonly model_id:OwnerCurrentVideoReferenceModelId;readonly filename:string;readonly mime_type:string;readonly bytes:Uint8Array},
  ffprobePath:string,signal?:AbortSignal):Promise<Readonly<OwnerCurrentValidatedVideoReference>> {
@@ -26,23 +26,23 @@ export async function validateOwnerCurrentVideoReference(input:{readonly model_i
  const raw=input.bytes;if(raw.byteLength<1||raw.byteLength>100*1024*1024)invalid();
  let bytes=new Uint8Array(raw),kind:OwnerCurrentVideoReferenceKind,mime=input.mime_type,width:number|undefined,height:number|undefined,duration:number|undefined;
  try {
-  const seed=input.model_id.startsWith("seedance"),modernSeed=input.model_id==="seedance-2.0"||input.model_id==="seedance-2.5",frames=input.model_id==="wan_30_first_last_frame",imageOnly=input.model_id==="ray-3.14"||input.model_id.startsWith("veo3")||input.model_id==="flux3_i2v"||seed&&!modernSeed;
+  const seed=input.model_id.startsWith("seedance"),modernSeed=input.model_id==="seedance-2.0"||input.model_id==="seedance-2.5",frames=input.model_id==="wan_30_first_last_frame",veoOmni12=input.model_id==="omni1.2",imageOnly=input.model_id==="ray-3.14"||input.model_id.startsWith("veo3")||input.model_id==="flux3_i2v"||seed&&!modernSeed;
   const oldWan=input.model_id==="wan_25_i2v_preview"||input.model_id==="wan_25_t2v_preview"||input.model_id==="wan_27_i2v"||input.model_id==="wan_27_r2v"||input.model_id==="wan_27_videoedit";
   const basicImage=["image/jpeg","image/jpg","image/png","image/webp"].includes(mime);
   const extraImage=(modernSeed&&["image/bmp","image/tiff","image/gif","image/heic","image/heif"].includes(mime)) ||
-    ((input.model_id==="seedance-2.0"||imageOnly&&input.model_id!=="flux3_i2v")&&mime==="image/avif") || (input.model_id==="hailuo-3.0"&&["image/bmp","image/gif"].includes(mime)) || oldWan&&mime==="image/bmp";
+    ((input.model_id==="seedance-2.0"||imageOnly&&input.model_id!=="flux3_i2v"||veoOmni12)&&mime==="image/avif") || (input.model_id==="hailuo-3.0"&&["image/bmp","image/gif"].includes(mime)) || oldWan&&mime==="image/bmp";
   if(basicImage||extraImage) {
    if(input.model_id==="wan_25_t2v_preview"||input.model_id==="wan_30_t2v"||input.model_id==="flux3_t2v"||input.model_id==="flux3_v2v")invalid();
-   kind="image";const hailuo=input.model_id==="hailuo-3.0",cap=input.model_id==="flux3_i2v"?10*1024*1024:input.model_id==="ray-3.14"?25*1024*1024:input.model_id==="wan_25_i2v_preview"?11_010_048:oldWan?22_020_096:seed||hailuo?27_525_120:20*1024*1024;if(bytes.byteLength>cap)invalid();
+   kind="image";const hailuo=input.model_id==="hailuo-3.0",cap=input.model_id==="flux3_i2v"?10*1024*1024:input.model_id==="ray-3.14"?25*1024*1024:input.model_id==="wan_25_i2v_preview"?11_010_048:oldWan?22_020_096:seed||hailuo||veoOmni12?27_525_120:20*1024*1024;if(bytes.byteLength>cap)invalid();
    if(basicImage){const image=inspectBoundedOwnerImageBytesWithMax(bytes,cap);if(image.mime!==(mime==="image/jpg"?"image/jpeg":mime))invalid();mime=image.mime;width=image.width;height=image.height;}
    else {const image=await measureImage(bytes,mime,ffprobePath,signal);width=image.width;height=image.height;}
-   const min=seed?300:hailuo?256:imageOnly?1:input.model_id==="wan_25_i2v_preview"?384:240,max=seed?6000:hailuo?5760:imageOnly?8400:8000;if(width<min||height<min||width>max||height>max||width*height>52_500_000||
+   const min=seed?300:hailuo?256:imageOnly||veoOmni12?1:input.model_id==="wan_25_i2v_preview"?384:240,max=seed?6000:hailuo?5760:imageOnly?8400:8000;if(width<min||height<min||width>max||height>max||width*height>52_500_000||
      (modernSeed||hailuo)&&(width/height<0.4||width/height>2.5)||input.model_id==="wan_27_i2v"&&(width/height<0.125||width/height>8))invalid();
   } else if(mime==="video/mp4"||mime==="video/quicktime") {
    if(frames||imageOnly||input.model_id==="wan_25_i2v_preview"||input.model_id==="wan_25_t2v_preview"||input.model_id==="wan_30_t2v"||input.model_id==="flux3_t2v"||input.model_id==="flux3_v2v"&&mime!=="video/mp4")invalid();kind="video";const hailuo=input.model_id==="hailuo-3.0",cap=input.model_id==="seedance-2.0"||hailuo||input.model_id==="flux3_v2v"?50*1024*1024:100*1024*1024;
    const measured=await probeOwnerCurrentVideoMetadata({bytes,mime_type:mime},{ffprobePath,maximumBytes:cap},signal);
    try {width=measured.width;height=measured.height;duration=measured.duration_seconds;const min=seed?300:hailuo||input.model_id==="flux3_v2v"?1:240,max=seed?6000:hailuo||input.model_id==="flux3_v2v"?Number.MAX_SAFE_INTEGER:8000;
-    const minDuration=input.model_id==="flux3_v2v"?0:seed||hailuo||input.model_id==="wan_27_i2v"||input.model_id==="wan_27_videoedit"?2:1,maxDuration=input.model_id==="seedance-2.5"?30:input.model_id==="wan_27_i2v"||input.model_id==="wan_27_videoedit"?10:input.model_id==="wan_27_r2v"?5:15,minFps=input.model_id==="seedance-2.0"?24:input.model_id==="seedance-2.5"?23:hailuo||oldWan||input.model_id==="flux3_v2v"?0:16;
+    const minDuration=veoOmni12?2.9:input.model_id==="flux3_v2v"?0:seed||hailuo||input.model_id==="wan_27_i2v"||input.model_id==="wan_27_videoedit"?2:1,maxDuration=veoOmni12?15.1:input.model_id==="seedance-2.5"?30:input.model_id==="wan_27_i2v"||input.model_id==="wan_27_videoedit"?10:input.model_id==="wan_27_r2v"?5:15,minFps=input.model_id==="seedance-2.0"?24:input.model_id==="seedance-2.5"?23:hailuo||oldWan||input.model_id==="flux3_v2v"?0:16;
     if(width<min||height<min||width>max||height>max||duration<minDuration||duration>maxDuration||
       minFps>0&&(measured.frame_rate===null||measured.frame_rate<minFps)||seed&&measured.frame_rate!==null&&measured.frame_rate>60)invalid();
    } finally {measured.bytes.fill(0);}

@@ -23,22 +23,22 @@ test("current media coverage pages the complete non-text census including inacti
     if (page.next_offset === null) break;
     offset = page.next_offset;
   }
-  assert.equal(pages.length, 127);
-  assert.equal(new Set(pages.map((row) => row.model_id)).size, 127);
-  assert.equal(pages.filter((row) => row.active).length, 120);
-  assert.equal(pages.filter((row) => row.active && row.runtime_status === "CODE_MAPPED").length, 119);
+  assert.equal(pages.length, 129);
+  assert.equal(new Set(pages.map((row) => row.model_id)).size, 129);
+  assert.equal(pages.filter((row) => row.active).length, 126);
+  assert.equal(pages.filter((row) => row.active && row.runtime_status === "CODE_MAPPED").length, 123);
   assert.equal(pages.filter((row) => row.runtime_status === "CODE_MAPPED").every((row) => row.mcp_tool_names.some((name) => /^syntx_owner_(?:generate|cover|extend)_/u.test(name))), true);
   const tupleOnlyIds = pages.filter((row) => row.settings_status === "LIMITED_RUNTIME_TUPLE_ONLY").map((row) => row.model_id).sort();
   assert.deepEqual(tupleOnlyIds, []);
   const mixedIds = pages.filter((row) => row.settings_status === "MIXED_LIMITED_AND_NATIVE").map((row) => row.model_id).sort();
   assert.deepEqual(mixedIds, ["banana", "banana-2.1", "flux-1", "flux3_t2v", "gpt-image-1", "gpt-image-1.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "grok_imagine_2", "grok_imagine_quality", "grok_t2i", "grok_t2i_pro", "happy_horse_t2v", "ideogram", "kling_text2video", "ray-3.14", "runway_frames", "seedance-1.5-pro", "seedance-2.0", "seedance_pro", "seedance_pro-fast", "seedream-4", "seedream-4.5", "seedream-5", "seedream-5.0-pro", "text2video-4.5", "uni-1", "wan_26_t2i", "wan_26_t2v", "wan_27_t2v"]);
-  assert.deepEqual(pages.filter((row) => row.runtime_status !== "CODE_MAPPED").map((row) => row.model_id).sort(), ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst", "hailuo-minimax", "higgsfield-soul-train", "wan_30", "wan_30_prime"]);
+  assert.deepEqual(pages.filter((row) => row.runtime_status !== "CODE_MAPPED").map((row) => row.model_id).sort(), ["hailuo-minimax", "higgsfield-soul-train", "wan_30", "wan_30_prime"]);
   assert.deepEqual(pages.reduce((counts, row) => {
     for (const modality of row.modalities) counts[modality] = (counts[modality] ?? 0) + 1;
     return counts;
-  }, {} as Record<string, number>), { image: 48, video: 71, audio: 8 });
-  assert.equal(pages.some((row) => row.model_id === "wan_30" && !row.active), true);
-  assert.equal(pages.some((row) => row.model_id === "wan_30_prime" && !row.active), true);
+  }, {} as Record<string, number>), { image: 49, video: 72, audio: 8 });
+  assert.equal(pages.some((row) => row.model_id === "wan_30" && row.active), true);
+  assert.equal(pages.some((row) => row.model_id === "wan_30_prime" && row.active), true);
   assert.equal(pages.find((row) => row.model_id === "hailuo-minimax")?.operation_role, "SELECTOR");
   assert.equal(catalog.page({ limit: 1 }).interpretation_notes.some((note) => note.includes("attached to seedance-2.5")), true);
   for (const modelId of ["flux3_t2v", "happy_horse_t2v", "seedance-1.5-pro", "seedance_pro", "seedance_pro-fast", "text2video-4.5"]) {
@@ -70,8 +70,9 @@ test("current media coverage pages the complete non-text census including inacti
   assert.equal(soulTrain?.active, false);
   assert.deepEqual(soulTrain?.mcp_tool_names, []);
   assert.notEqual(soulTrain?.runtime_status, "CODE_MAPPED");
-  assert.equal(pages.find((row) => row.model_id === "grok_imagine_quality")?.active, false);
-  assert.equal(pages.filter((row) => row.active && row.operation_role === "MODEL_OPERATION").length, 119);
+  assert.equal(pages.find((row) => row.model_id === "grok_imagine_quality")?.active, true);
+  assert.equal(pages.find((row) => row.model_id === "acttwo")?.active, false);
+  assert.equal(pages.filter((row) => row.active && row.operation_role === "MODEL_OPERATION").length, 125);
   assert.deepEqual(pages.find((row) => row.model_id === "happy_horse_edit")?.settings?.max_file_size,
     { images: 10485760, videos: 104857600 });
   assert.ok(pages.find((row) => row.model_id === "seedance-2.5")?.settings?.accepted_file_types?.includes("audio/mpeg"));
@@ -138,8 +139,8 @@ test("MCP media coverage tool exposes a read-only page with source version and n
     const result = await client.callTool({ name: SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME, arguments: { limit: 2 } });
     assert.equal(result.isError, undefined);
     const value = result.structuredContent as Record<string, unknown>;
-    assert.equal(value.coverage_version, "6.0.0");
-    assert.equal(value.total, 120);
+    assert.equal(value.coverage_version, "7.0.0");
+    assert.equal(value.total, 126);
     assert.equal(value.next_offset, 2);
     assert.equal(value.runtime_usable, false);
     assert.deepEqual(value, catalog.page({ limit: 2 }));
@@ -164,7 +165,7 @@ test("media coverage preserves unknowns and rejects invalid paging bounds", () =
   const selected = loadCurrentDiscoveryReadCatalog();
   const catalog = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
   const first = catalog.page({ limit: 3, include_inactive: true });
-  assert.equal(first.total, 127);
+  assert.equal(first.total, 129);
   assert.equal(first.next_offset, 3);
   assert.throws(() => catalog.page({ offset: -1 }), /MEDIA_COVERAGE_PAGE_INVALID/);
   assert.throws(() => catalog.page({ limit: 101 }), /MEDIA_COVERAGE_PAGE_INVALID/);
@@ -237,15 +238,52 @@ test("v6 adds source-bound current media routes and keeps inactive GPT2.6 source
   editor.route_evidence_sources.push("src/application/owner-seedance-editor-frame-policy.ts");
   assert.deepEqual(v6.native_alias_bindings, aliases);
   assert.deepEqual(v6.source_only_model_ids, ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst"]);
+});
+
+test("v7 binds the new public source and preserves historical routes without promoting bare WAN", () => {
+  const v6Bytes = readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v6.json"));
+  const v6 = JSON.parse(v6Bytes.toString());
+  const v7 = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v7.json"), "utf8"));
+  assert.equal(v7.schema_version, "7.0.0");
+  assert.equal(v7.public_catalog_version, "sha256-49f41bb1565932456137e2a264a2904c441a95e9f5e0aa2a76a9a0c503fedc13.json");
+  assert.equal(v7.route_provenance.source_v6_sha256, "sha256:" + createHash("sha256").update(v6Bytes).digest("hex"));
+  assert.equal(v7.route_provenance.settings_inventory_version, "sha256-0a03f8d27f72361e8ca6cff628e2a6245e8fca11b338d0c996ecf71c79b43c32.json");
+  assert.equal(v7.route_provenance.frontend_build_id, "1794311734");
+  assert.equal(v7.owner_tool_count, null);
+  assert.deepEqual(v7.native_alias_bindings, v6.native_alias_bindings);
+  for (const [id, tools] of Object.entries(v6.routes) as Array<[string, string[]]>) {
+    assert.deepEqual(v7.routes[id].filter((name: string) => tools.includes(name)), tools, id);
+  }
   const selected = loadCurrentDiscoveryReadCatalog();
   const catalog = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
   const rows = [...catalog.page({ limit: 100, include_inactive: true }).items,
     ...catalog.page({ offset: 100, limit: 100, include_inactive: true }).items];
-  for (const id of v6.source_only_model_ids) {
+  assert.deepEqual(v7.source_only_model_ids, ["wan_30", "wan_30_prime"]);
+  for (const id of v7.source_only_model_ids) {
     const row = rows.find(item => item.model_id === id);
-    assert.equal(row?.active, false);
-    assert.equal(row?.runtime_status, "SOURCE_ONLY");
-    assert.deepEqual(row?.mcp_tool_names, []);
-    assert.equal(row?.provider_case_status, "UNKNOWN");
+    assert.equal(row?.active, true, id);
+    assert.equal(row?.runtime_status, "SOURCE_ONLY", id);
+    assert.deepEqual(row?.mcp_tool_names, [], id);
+    assert.ok(row?.notes.some(note => note.includes("no exact generator route")), id);
   }
+  for (const id of ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst"]) {
+    const row = rows.find(item => item.model_id === id);
+    assert.equal(row?.active, true, id);
+    assert.equal(row?.runtime_status, "CODE_MAPPED", id);
+    assert.equal(row?.settings_status, "NATIVE_PARAMETER_ROUTE_PRESENT", id);
+    assert.ok(row?.mcp_tool_names.includes("syntx_owner_generate_gpt26_image"), id);
+    assert.ok(row?.operator_flags?.includes("SYNTX_OWNER_STANDARD_IMAGE_REFERENCES"), id);
+  }
+  const seedream = rows.find(item => item.model_id === "seedream-5.5");
+  assert.equal(seedream?.settings_status, "NATIVE_PARAMETER_ROUTE_PRESENT");
+  assert.ok(seedream?.mcp_tool_names.includes("syntx_owner_generate_seedream55_image"));
+  assert.ok(seedream?.operator_flags?.includes("SYNTX_OWNER_SEEDREAM_IMAGE_REFERENCES"));
+  assert.equal(seedream?.mcp_tool_names.includes("syntx_owner_generate_seedream_editor_image"), false);
+  const veo = rows.find(item => item.model_id === "omni1.2");
+  assert.ok(veo?.mcp_tool_names.includes("syntx_owner_generate_veo_omni12_current"));
+  assert.ok(veo?.mcp_tool_names.includes("syntx_owner_upload_current_video_reference"));
+  assert.ok(veo?.operator_flags?.includes("SYNTX_OWNER_CURRENT_VIDEO_REFERENCES"));
+  assert.equal(rows.filter(row => row.active && row.runtime_status === "CODE_MAPPED").length, 123);
+  assert.equal(rows.filter(row => row.active && row.operation_role === "MODEL_OPERATION" && row.runtime_status === "SOURCE_ONLY").length, 2);
+  assert.equal(rows.filter(row => row.active && row.operation_role === "SELECTOR").length, 1);
 });

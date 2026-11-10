@@ -31,7 +31,8 @@ import {
   type OwnerSeedreamImageInputReferenceMetadata
 } from "./owner-seedream-image-request-preparer.js";
 import { getOwnerSeedreamImageSourceProfile, type OwnerSeedreamImageSourceProfile } from "./owner-seedream-image-source-profile.js";
-import { OWNER_SEEDREAM_IMAGE_VARIANTS, type OwnerSeedreamImageParameters, type OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
+import { OWNER_SEEDREAM_IMAGE_VARIANTS, OWNER_SEEDREAM_ALL_IMAGE_VARIANTS, type OwnerSeedreamImageParameters, type OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
+import { SEEDREAM55_PUBLIC_CATALOG_VERSION } from "./owner-seedream55-image-source-profile.js";
 import { createOwnerSeedreamImageOneShotPermit, OwnerSeedreamImageOneShotPolicyError } from "./owner-seedream-image-one-shot-policy.js";
 import {
   correlateOwnerSeedreamImageHistoryBinding,
@@ -145,6 +146,7 @@ export interface OwnerSeedreamImageGenerationServiceOptions {
   readonly pollDelayMs?: number;
   readonly maxPollAttempts?: number;
   readonly wait?: (milliseconds: number, signal: AbortSignal) => Promise<void>;
+  readonly variants?: readonly OwnerSeedreamImageVariant[];
 }
 
 export type OwnerSeedreamImageNativeChatClient = Pick<SyntxChatHttpClient,
@@ -336,7 +338,7 @@ export class OwnerSeedreamImageGenerationService implements OwnerSeedreamImageGe
   constructor(options: OwnerSeedreamImageGenerationServiceOptions | unknown) {
     const fields = exactRecord(options,
       ["binding", "linkService", "catalog", "catalog_version", "uploadService", "resolveChatClient", "preflight"],
-      ["now", "timeoutMs", "pollDelayMs", "maxPollAttempts", "wait"]);
+      ["now", "timeoutMs", "pollDelayMs", "maxPollAttempts", "wait", "variants"]);
     if (!(fields.uploadService instanceof OwnerSeedreamImageUploadService) || types.isProxy(fields.uploadService) ||
         !(fields.catalog instanceof DiscoveryCatalogRepository) || types.isProxy(fields.catalog) ||
         typeof fields.resolveChatClient !== "function" || types.isProxy(fields.resolveChatClient) ||
@@ -347,6 +349,11 @@ export class OwnerSeedreamImageGenerationService implements OwnerSeedreamImageGe
     this.#linkService = snapshotLinkService(fields.linkService);
     this.#catalog = fields.catalog as DiscoveryCatalogRepository;
     this.#catalogVersion = readCatalogVersion(fields.catalog_version);
+    const new55 = this.#catalogVersion === SEEDREAM55_PUBLIC_CATALOG_VERSION;
+    const variants = fields.variants;
+    if ((new55 && (!Array.isArray(variants) || variants.length !== 1 || variants[0] !== "seedream-5.5")) ||
+        (!new55 && variants !== undefined && (!Array.isArray(variants) || variants.length !== OWNER_SEEDREAM_IMAGE_VARIANTS.length ||
+          !OWNER_SEEDREAM_IMAGE_VARIANTS.every((variant, index) => variants[index] === variant)))) fail("INVALID_REQUEST");
     this.#uploadService = fields.uploadService as OwnerSeedreamImageUploadService;
     this.#resolveChatClient = fields.resolveChatClient as OwnerSeedreamImageGenerationServiceOptions["resolveChatClient"];
     this.#preflight = fields.preflight as OwnerSeedreamImageGenerationPreflight;
@@ -356,7 +363,7 @@ export class OwnerSeedreamImageGenerationService implements OwnerSeedreamImageGe
     this.#maxPollAttempts = boundedInt(fields.maxPollAttempts, 1, MAX_POLL_ROUNDS, MAX_POLL_ROUNDS);
     this.#wait = fields.wait === undefined ? waitDelay : readWait(fields.wait);
     try {
-      for (const variant of OWNER_SEEDREAM_IMAGE_VARIANTS) {
+      for (const variant of (new55 ? ["seedream-5.5"] as const : OWNER_SEEDREAM_IMAGE_VARIANTS)) {
         this.#profiles.set(variant, getOwnerSeedreamImageSourceProfile(variant, this.#catalog, this.#catalogVersion));
       }
     } catch { fail("MODEL_BINDING_MISMATCH"); }
@@ -996,7 +1003,7 @@ function snapshotLinkService(value: unknown): Pick<PerUserLinkService, "getStatu
 }
 
 function readCatalogVersion(value: unknown): string {
-  if (value !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION) fail("MODEL_BINDING_MISMATCH");
+  if (value !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION && value !== SEEDREAM55_PUBLIC_CATALOG_VERSION) fail("MODEL_BINDING_MISMATCH");
   return value;
 }
 
@@ -1091,7 +1098,7 @@ function sameStringArray(value: unknown, expected: readonly string[]): boolean {
   return Array.isArray(value) && value.length === expected.length && value.every((item, index) => item === expected[index]);
 }
 function isAttemptId(value: unknown): value is string { return typeof value === "string" && ATTEMPT_PATTERN.test(value); }
-function isVariant(value: unknown): value is OwnerSeedreamImageVariant { return typeof value === "string" && (OWNER_SEEDREAM_IMAGE_VARIANTS as readonly string[]).includes(value); }
+function isVariant(value: unknown): value is OwnerSeedreamImageVariant { return typeof value === "string" && (OWNER_SEEDREAM_ALL_IMAGE_VARIANTS as readonly string[]).includes(value); }
 function isSafeIdentifier(value: unknown): value is string { return typeof value === "string" && SAFE_IDENTIFIER.test(value); }
 function currentCatalogVersion(catalog: DiscoveryCatalogRepository): string {
   return `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`;

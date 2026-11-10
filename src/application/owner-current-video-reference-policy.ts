@@ -8,6 +8,7 @@ const LIMITS: Readonly<Record<OwnerCurrentVideoReferenceModelId, Readonly<Record
   "hailuo-3.0":Object.freeze({image:9,video:3,audio:3,file:0}),
   "ray-3.14":Object.freeze({image:2,video:0,audio:0,file:0}),
   veo3:Object.freeze({image:2,video:0,audio:0,file:0}),veo3fast:Object.freeze({image:3,video:0,audio:0,file:0}),veo3fast_r:Object.freeze({image:3,video:0,audio:0,file:0}),
+  "omni1.2":Object.freeze({image:7,video:1,audio:0,file:0}),
   flux3_t2v:Object.freeze({image:0,video:0,audio:0,file:0}),flux3_i2v:Object.freeze({image:10,video:0,audio:0,file:0}),flux3_v2v:Object.freeze({image:0,video:1,audio:0,file:0}),
   wan_25_t2v_preview:Object.freeze({image:0,video:0,audio:1,file:0}),wan_25_i2v_preview:Object.freeze({image:1,video:0,audio:1,file:0}),wan_27_i2v:Object.freeze({image:2,video:1,audio:1,file:0}),wan_27_r2v:Object.freeze({image:6,video:5,audio:1,file:0}),
   wan_27_videoedit:Object.freeze({image:4,video:1,audio:0,file:0}),wan_30_t2v:Object.freeze({image:0,video:0,audio:0,file:0}),
@@ -23,14 +24,14 @@ export function validateOwnerCurrentVideoReferenceSelection(model:OwnerCurrentVi
   const seed=model==="seedance-2.0"||model==="seedance-2.5", frames=model==="wan_30_first_last_frame"||(seed||model==="hailuo-3.0")&&mode==="frames";
   const allowedModes:Readonly<Record<OwnerCurrentVideoReferenceModelId,readonly string[]>>={"seedance-2.0":["omni-references","frames"],
     "seedance-2.5":["omni-references","frames","extend","edit"],seedance_pro:["images"],"seedance_pro-fast":["images"],"seedance-1.5-pro":["images"],"hailuo-3.0":["omni-references","frames"],"ray-3.14":["text2video","keyframes"],
-    veo3:["text","image"],veo3fast:["text","image","references"],veo3fast_r:["text","image","references"],flux3_t2v:["text"],flux3_i2v:["image"],flux3_v2v:["video"],wan_25_t2v_preview:["t2v"],wan_25_i2v_preview:["i2v"],wan_27_i2v:["i2v"],wan_27_r2v:["r2v"],wan_27_videoedit:["videoedit"],wan_30_t2v:["t2v"],
+    veo3:["text","image"],veo3fast:["text","image","references"],veo3fast_r:["text","image","references"],"omni1.2":["text","image","references"],flux3_t2v:["text"],flux3_i2v:["image"],flux3_v2v:["video"],wan_25_t2v_preview:["t2v"],wan_25_i2v_preview:["i2v"],wan_27_i2v:["i2v"],wan_27_r2v:["r2v"],wan_27_videoedit:["videoedit"],wan_30_t2v:["t2v"],
     wan_30_reference:["reference"],wan_30_omni:["omni"],wan_30_edit:["edit"],wan_30_first_last_frame:["frames"]};
   if(!allowedModes[model].includes(mode))invalid();
   const counts:Record<OwnerCurrentVideoReferenceKind,number>={image:0,video:0,audio:0,file:0}, seen=new Set<string>();
   let totalVideo=0,totalAudio=0;
   for(const item of references){
     if(!item||typeof item!=="object"||typeof item.reference_handle!=="string"||!/^current_video_ref_[0-9a-f-]{36}$/u.test(item.reference_handle) ||
-      !Object.hasOwn(counts,item.kind) || !(model==="wan_27_i2v"?validWan27I2vRole(item.kind,item.role):validRole(item.kind,item.role,frames)) || !Number.isSafeInteger(item.size)||item.size<1 ||
+      !Object.hasOwn(counts,item.kind) || !(model==="wan_27_i2v"?validWan27I2vRole(item.kind,item.role):model==="omni1.2"?validVeoOmni12Role(item.kind,item.role,mode):validRole(item.kind,item.role,frames)) || !Number.isSafeInteger(item.size)||item.size<1 ||
       typeof item.sha256!=="string"||!/^sha256:[a-f0-9]{64}$/u.test(item.sha256))invalid();
     const key=`${item.role}:${item.reference_handle}`;if(seen.has(key))invalid();seen.add(key);counts[item.kind as OwnerCurrentVideoReferenceKind]++;
     if(item.kind==="video"||item.kind==="audio"){
@@ -51,6 +52,12 @@ export function validateOwnerCurrentVideoReferenceSelection(model:OwnerCurrentVi
   if(model==="wan_27_r2v"&&(counts.image+counts.video<1||counts.video>0&&(counts.image+counts.video>5||Math.round(totalVideo*100)/100>5)||counts.audio>0&&references.at(-1)?.role!=="audio"))invalid();
   if(model==="ray-3.14"&&(mode==="text2video"?counts.image!==0:counts.image<1||counts.image>2))invalid();
   if((model==="veo3"||model==="veo3fast"||model==="veo3fast_r")&&(mode==="text"?counts.image!==0:mode==="image"?counts.image<1||counts.image>2:counts.image<1||counts.image>3))invalid();
+  if(model==="omni1.2"&&(
+    mode==="text"&&references.length!==0 ||
+    mode==="image"&&(references.length<1||references.length>2||references[0]?.role!=="first_frame"&&references[0]?.role!=="first_clip"||
+      references[0]?.role==="first_clip"&&references.length!==1||references.length===2&&references[1]?.role!=="last_frame") ||
+    mode==="references"&&(references.length<1||references.length>7||counts.video>0&&counts.image>5) ||
+    counts.video>0&&(totalVideo<2.9||totalVideo>15.1)))invalid();
   if(model==="flux3_i2v"&&counts.image<1||model==="flux3_v2v"&&counts.video!==1)invalid();
   if(model==="seedance-2.0"&&counts.audio>0&&counts.image+counts.video===0)invalid();
   if(model==="seedance-2.5"&&(mode==="extend"||mode==="edit")&&counts.video===0)invalid();
@@ -63,4 +70,8 @@ function validRole(kind:OwnerCurrentVideoReferenceKind,role:OwnerCurrentVideoRef
   return frames ? kind==="image"&&(role==="first_frame"||role==="last_frame") : role===kind;
 }
 function validWan27I2vRole(kind:OwnerCurrentVideoReferenceKind,role:OwnerCurrentVideoReferenceRole):boolean{return kind==="image"&&(role==="first_frame"||role==="last_frame")||kind==="video"&&role==="first_clip"||kind==="audio"&&role==="audio";}
+function validVeoOmni12Role(kind:OwnerCurrentVideoReferenceKind,role:OwnerCurrentVideoReferenceRole,mode:string):boolean{
+  return mode==="image" ? kind==="image"&&(role==="first_frame"||role==="last_frame")||kind==="video"&&role==="first_clip" :
+    mode==="references" ? kind==="image"&&role==="image"||kind==="video"&&role==="video" : false;
+}
 function invalid():never {throw new Error("OWNER_CURRENT_VIDEO_REFERENCE_SELECTION_INVALID");}

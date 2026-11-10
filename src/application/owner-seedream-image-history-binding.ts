@@ -1,14 +1,15 @@
 import { types } from "node:util";
 import type { ChatMessageHistorySnapshot } from "../adapter/syntx/chat-http-client.js";
 import {
-  OWNER_SEEDREAM_IMAGE_VARIANTS,
-  type OwnerSeedreamImageVariant
+  OWNER_SEEDREAM_ALL_IMAGE_VARIANTS,
+  type OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant
 } from "./owner-seedream-image-parameters.js";
 import {
   DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION,
   loadSelectedDiscoveryCatalog
 } from "../catalog/selected-discovery-catalog.js";
 import { getOwnerSeedreamImageSourceProfile } from "./owner-seedream-image-source-profile.js";
+import { SEEDREAM55_PUBLIC_CATALOG_VERSION } from "./owner-seedream55-image-source-profile.js";
 
 const INPUT_KEYS = Object.freeze(["snapshot", "requested_chat_uuid", "owner_echo_message_id", "variant",
   "requested_reference_count", "requested_output_count"] as const);
@@ -21,6 +22,7 @@ const SAFE_PROVIDER_CHAT_ID = /^\d{1,16}$/u;
 const MAX_HISTORY_MESSAGES = 10;
 const MAX_OBJECTS_PER_MESSAGE = 64;
 const CATALOG = loadSelectedDiscoveryCatalog(DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION).discoveryCatalog;
+const CATALOG_55 = loadSelectedDiscoveryCatalog(SEEDREAM55_PUBLIC_CATALOG_VERSION).discoveryCatalog;
 
 export interface CorrelateOwnerSeedreamImageHistoryBindingInput {
   readonly snapshot: ChatMessageHistorySnapshot | unknown;
@@ -59,7 +61,9 @@ export function correlateOwnerSeedreamImageHistoryBinding(
       !Number.isSafeInteger(request.requested_reference_count) || (request.requested_reference_count as number) < 0 ||
       request.requested_output_count !== 1) return invalid("INVALID_INPUT");
   let profile: ReturnType<typeof getOwnerSeedreamImageSourceProfile>;
-  try { profile = getOwnerSeedreamImageSourceProfile(request.variant, CATALOG, DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION); }
+  try { profile = request.variant === "seedream-5.5"
+    ? getOwnerSeedreamImageSourceProfile(request.variant, CATALOG_55, SEEDREAM55_PUBLIC_CATALOG_VERSION)
+    : getOwnerSeedreamImageSourceProfile(request.variant, CATALOG, DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION); }
   catch { return invalid("INVALID_INPUT"); }
   const referenceCount = request.requested_reference_count as number;
   if (referenceCount > profile.reference_count.maximum) return invalid("INVALID_INPUT");
@@ -174,7 +178,7 @@ function readArray(value: unknown, maximum: number): unknown[] {
 }
 
 function isVariant(value: unknown): value is OwnerSeedreamImageVariant {
-  return typeof value === "string" && (OWNER_SEEDREAM_IMAGE_VARIANTS as readonly string[]).includes(value);
+  return typeof value === "string" && (OWNER_SEEDREAM_ALL_IMAGE_VARIANTS as readonly string[]).includes(value);
 }
 function pending(reason: OwnerSeedreamImageHistoryBindingReason): OwnerSeedreamImageHistoryBinding { return Object.freeze({ status: "PENDING", reason }); }
 function invalid(reason: OwnerSeedreamImageHistoryBindingReason): OwnerSeedreamImageHistoryBinding { return Object.freeze({ status: "INVALID", reason }); }

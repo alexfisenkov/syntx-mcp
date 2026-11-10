@@ -5,11 +5,11 @@ import type { GenerationPrincipalRef } from "../domain/generation-operation.js";
 import { sameGenerationPrincipal, snapshotGenerationPrincipal } from "../domain/generation-principal.js";
 import {
   normalizeOwnerSeedreamImageParameters,
-  OWNER_SEEDREAM_IMAGE_VARIANTS,
+  OWNER_SEEDREAM_ALL_IMAGE_VARIANTS,
   type OwnerSeedreamImageParameters,
   type OwnerSeedreamImageRatio,
   type OwnerSeedreamImageResolution,
-  type OwnerSeedreamImageVariant
+  type OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant
 } from "./owner-seedream-image-parameters.js";
 import {
   getOwnerSeedreamImageSourceProfile,
@@ -130,7 +130,7 @@ export interface OwnerSeedreamImageRequestSettings {
   readonly aspect_ratio: OwnerSeedreamImageRatio;
   readonly resolution: OwnerSeedreamImageResolution;
   readonly output_format?: "jpeg" | "png";
-  readonly background?: "opaque" | "transparent";
+  readonly background?: "auto" | "opaque" | "transparent";
   readonly file_urls: readonly Readonly<{ type: "image"; url: string }>[];
 }
 export interface OwnerSeedreamImageRequestBody {
@@ -326,7 +326,7 @@ export function prepareOwnerSeedreamImageRequest(
   let normalized: ReturnType<typeof normalizeOwnerSeedreamImageParameters>;
   try {
     const parameters = exact(req.parameters, ["aspect_ratio", "resolution", "output_format", "background"]);
-    const transparent = parameters.background === "transparent";
+    const transparent = req.variant === "seedream-5.0-flash" && parameters.background === "transparent";
     let transparency_context: { reference_count: 1; source_mime_types: readonly ["image/png"]; pixel_alpha_eligible: true } | undefined;
     if (transparent) {
       if (req.variant !== "seedream-5.0-flash" || state.references.length !== 1) fail("PARAMETERS_INVALID");
@@ -342,7 +342,7 @@ export function prepareOwnerSeedreamImageRequest(
 
   const wire: Record<string, unknown> = { n: 1, stream: false, model_type: req.variant,
     aspect_ratio: normalized.parameters.aspect_ratio, resolution: normalized.parameters.resolution };
-  if (req.variant === "seedream-5.0-flash") {
+  if (req.variant === "seedream-5.0-flash" || req.variant === "seedream-5.5") {
     wire.output_format = normalized.parameters.output_format;
     wire.background = normalized.parameters.background;
   }
@@ -515,7 +515,7 @@ function validatePrompt(value: unknown): string {
   return value;
 }
 function maximumReferences(variant: OwnerSeedreamImageVariant): number { return variant === "seedream-4" || variant === "seedream-4.5" ? 4 : variant === "seedream-5" ? 14 : 10; }
-function isVariant(value: unknown): value is OwnerSeedreamImageVariant { return typeof value === "string" && OWNER_SEEDREAM_IMAGE_VARIANTS.includes(value as OwnerSeedreamImageVariant); }
+function isVariant(value: unknown): value is OwnerSeedreamImageVariant { return typeof value === "string" && OWNER_SEEDREAM_ALL_IMAGE_VARIANTS.includes(value as OwnerSeedreamImageVariant); }
 function safeNow(now: () => number): number {
   let value: unknown;
   try { value = now(); } catch { fail("CLOCK_INVALID"); }

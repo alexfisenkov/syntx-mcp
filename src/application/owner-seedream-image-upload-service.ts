@@ -16,7 +16,9 @@ import {
   type OwnerSeedreamImageOwnedReferenceResolverContext,
   type OwnerSeedreamImageOwnedReferenceSet
 } from "./owner-seedream-image-request-preparer.js";
-import { OWNER_SEEDREAM_IMAGE_VARIANTS, type OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
+import { OWNER_SEEDREAM_IMAGE_VARIANTS, type OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
+import { OWNER_SEEDREAM_ALL_IMAGE_VARIANTS } from "./owner-seedream-image-parameters.js";
+import { SEEDREAM55_PUBLIC_CATALOG_VERSION } from "./owner-seedream55-image-source-profile.js";
 import { getOwnerSeedreamImageSourceProfile, type OwnerSeedreamImageCatalogPort, type OwnerSeedreamImageSourceProfile } from "./owner-seedream-image-source-profile.js";
 import {
   OwnerSeedreamImageInputError,
@@ -44,6 +46,7 @@ export interface OwnerSeedreamImageUploadServiceOptions {
   readonly catalog_version: string;
   readonly resolveClient: (attemptId: string) => unknown;
   readonly now?: () => number;
+  readonly variants?: readonly OwnerSeedreamImageVariant[];
 }
 
 export interface OwnerSeedreamImageUploadInput {
@@ -147,8 +150,13 @@ export class OwnerSeedreamImageUploadService {
   #issuer: ReturnType<typeof createOwnerSeedreamImageOwnedReferenceBindingIssuer> | undefined;
 
   constructor(optionsInput: OwnerSeedreamImageUploadServiceOptions | unknown) {
-    const fields = exactRecord(optionsInput, ["binding", "linkService", "catalog", "catalog_version", "resolveClient"], ["now"]);
-    if (fields.catalog_version !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION || !isPlainService(fields.linkService) ||
+    const fields = exactRecord(optionsInput, ["binding", "linkService", "catalog", "catalog_version", "resolveClient"], ["now", "variants"]);
+    const new55 = fields.catalog_version === SEEDREAM55_PUBLIC_CATALOG_VERSION;
+    const variants = fields.variants;
+    if ((!new55 && fields.catalog_version !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION) ||
+        (new55 && (!Array.isArray(variants) || variants.length !== 1 || variants[0] !== "seedream-5.5")) ||
+        (!new55 && variants !== undefined && (!Array.isArray(variants) || variants.length !== OWNER_SEEDREAM_IMAGE_VARIANTS.length ||
+          !OWNER_SEEDREAM_IMAGE_VARIANTS.every((variant, index) => variants[index] === variant))) || !isPlainService(fields.linkService) ||
         !isPlainService(fields.catalog) || typeof fields.resolveClient !== "function" || types.isProxy(fields.resolveClient) ||
         (fields.now !== undefined && (typeof fields.now !== "function" || types.isProxy(fields.now)))) fail("MODEL_BINDING_MISMATCH");
     this.#binding = snapshotBinding(fields.binding);
@@ -158,7 +166,7 @@ export class OwnerSeedreamImageUploadService {
     this.#resolveClient = fields.resolveClient as OwnerSeedreamImageUploadServiceOptions["resolveClient"];
     this.#now = fields.now === undefined ? Date.now : readClock(fields.now);
     try {
-      for (const variant of OWNER_SEEDREAM_IMAGE_VARIANTS) {
+      for (const variant of (new55 ? ["seedream-5.5"] as const : OWNER_SEEDREAM_IMAGE_VARIANTS)) {
         this.#profiles.set(variant, getOwnerSeedreamImageSourceProfile(variant, this.#catalog, this.#catalogVersion));
       }
     } catch { fail("MODEL_BINDING_MISMATCH"); }
@@ -543,9 +551,9 @@ function getStaticReferenceLimit(variant: OwnerSeedreamImageVariant): number {
   switch (variant) {
     case "seedream-4": case "seedream-4.5": return 4;
     case "seedream-5": return 14;
-    case "seedream-5.0-flash": case "seedream-5.0-pro": return 10;
+    case "seedream-5.0-flash": case "seedream-5.0-pro": case "seedream-5.5": return 10;
   }
 }
-function isVariant(value: unknown): value is OwnerSeedreamImageVariant { return typeof value === "string" && OWNER_SEEDREAM_IMAGE_VARIANTS.includes(value as OwnerSeedreamImageVariant); }
+function isVariant(value: unknown): value is OwnerSeedreamImageVariant { return typeof value === "string" && OWNER_SEEDREAM_ALL_IMAGE_VARIANTS.includes(value as OwnerSeedreamImageVariant); }
 function isPlainService(value: unknown): boolean { return !!value && typeof value === "object" && !Array.isArray(value) && !types.isProxy(value); }
 function fail(code: OwnerSeedreamImageUploadServiceErrorCode): never { throw new OwnerSeedreamImageUploadServiceError(code); }

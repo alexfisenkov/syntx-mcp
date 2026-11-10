@@ -71,7 +71,7 @@ export function imageArtifactContent(artifacts: readonly ImageArtifactLinkInput[
     links.push({
       name: `Generated image ${links.length + 1}`,
       uri,
-      ...(typeof artifact.mime_type === "string" && /^image\/(?:jpeg|png|webp)$/u.test(artifact.mime_type)
+      ...(typeof artifact.mime_type === "string" && /^image\/(?:jpeg|png|webp|gif)$/u.test(artifact.mime_type)
         ? { mimeType: artifact.mime_type }
         : {})
     });

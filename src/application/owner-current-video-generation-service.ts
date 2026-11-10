@@ -20,6 +20,7 @@ import { getOwnerSeedanceCurrentFamilyDefinition } from "./owner-seedance-curren
 import { getOwnerHailuo3CurrentFamilyDefinition } from "./owner-hailuo3-current-intent.js";
 import { getOwnerLumaCurrentFamilyDefinition } from "./owner-luma-current-intent.js";
 import { getOwnerVeo3CurrentFamilyDefinition } from "./owner-veo3-current-intent.js";
+import { getOwnerVeoOmni12CurrentFamilyDefinition } from "./owner-veo-omni12-current-intent.js";
 import type { PerUserLinkService } from "../auth/link-service.js";
 import type { SyntxHttpClient } from "../adapter/syntx/http-client.js";
 import type { OwnerCurrentVideoNativePort, OwnerCurrentVideoReferenceMetadata, OwnerCurrentVideoReferenceModelId,
@@ -79,7 +80,7 @@ const MODELS_HASH = "sha256:11f085ad9b0dd97435d6ebece623fa85bce2870e714e876e6fbb
 const ATTEMPT = /^link_[A-Za-z0-9_-]{20,120}$/u, HANDLE = /^current_video_ref_[0-9a-f-]{36}$/u;
 const RECOVERY = /^current_video_recovery_[0-9a-f-]{36}$/u, SHA = /^sha256:[a-f0-9]{64}$/u;
 const CLAIMS = new Set<string>(), MAX_CLAIMS = 8192, MAX_RECORDS = 128, MAX_ACTIVE = 4;
-const definitions = Object.freeze([getOwnerFlux3CurrentFamilyDefinition(), getOwnerWanCurrentFamilyDefinition(), getOwnerSeedanceCurrentFamilyDefinition(), getOwnerHailuo3CurrentFamilyDefinition(), getOwnerLumaCurrentFamilyDefinition(), getOwnerVeo3CurrentFamilyDefinition()]);
+const definitions = Object.freeze([getOwnerFlux3CurrentFamilyDefinition(), getOwnerWanCurrentFamilyDefinition(), getOwnerSeedanceCurrentFamilyDefinition(), getOwnerHailuo3CurrentFamilyDefinition(), getOwnerLumaCurrentFamilyDefinition(), getOwnerVeo3CurrentFamilyDefinition(), getOwnerVeoOmni12CurrentFamilyDefinition()]);
 
 /** Closed static authority only. Descriptors cannot be registered by a caller or recovered from a JSON copy. */
 export function inspectOwnerCurrentVideoIntent(value: unknown): Readonly<OwnerCurrentVideoIntentDescription> | null {
@@ -135,11 +136,16 @@ export class OwnerCurrentVideoGenerationService<N extends OwnerCurrentVideoNorma
     for (const [port, methods] of [[options.references, ["prepare", "revalidate"]], [options.native, ["createChat", "dispatch", "observe"]]] as const) {
       if (!port || typeof port !== "object" || types.isProxy(port) || methods.some(method => typeof dataMethod(port, method) !== "function")) fail("SOURCE_BINDING_MISMATCH");
     }
-    this.#catalog = loadSelectedDiscoveryCatalog(CATALOG, options.catalogDirectory).discoveryCatalog;
-    const inventory = loadMaplessSettingsInventoryVersion(SETTINGS, options.catalogDirectory), pins = options.family.source_pins;
+    const pins = options.family.source_pins;
+    const catalogVersion = options.family === (getOwnerVeoOmni12CurrentFamilyDefinition() as unknown) ? pins.public_catalog_version : CATALOG;
+    const settingsVersion = options.family === (getOwnerVeoOmni12CurrentFamilyDefinition() as unknown) ? pins.settings_inventory_version : SETTINGS;
+    const modelsHash = options.family === (getOwnerVeoOmni12CurrentFamilyDefinition() as unknown)
+      ? "sha256:24bbc57596f4d3aa33e72f8bd8004f72ff1eb769e33675a71eedc75a586d9252" : MODELS_HASH;
+    this.#catalog = loadSelectedDiscoveryCatalog(catalogVersion, options.catalogDirectory).discoveryCatalog;
+    const inventory = loadMaplessSettingsInventoryVersion(settingsVersion, options.catalogDirectory);
     const form = inventory.forms.find(row => row.form_id === pins.form_id);
-    if (this.#catalog.source_hashes.models !== MODELS_HASH || pins.public_catalog_version !== CATALOG || pins.settings_inventory_version !== SETTINGS ||
-        inventory.public_catalog.version !== CATALOG || inventory.public_catalog.models_sha256 !== MODELS_HASH || !form || form.javascript.sha256 !== pins.form_sha256 ||
+    if (this.#catalog.source_hashes.models !== modelsHash || pins.public_catalog_version !== catalogVersion || pins.settings_inventory_version !== settingsVersion ||
+        inventory.public_catalog.version !== catalogVersion || inventory.public_catalog.models_sha256 !== modelsHash || !form || form.javascript.sha256 !== pins.form_sha256 ||
         !SHA.test(options.family.source_profile_sha256) || options.family.model_ids.some(model => !this.#catalog.getModel(model).active ||
           inventory.models.find(row => row.model_id === model)?.form_id !== pins.form_id)) fail("SOURCE_BINDING_MISMATCH");
     this.#options = Object.freeze({ ...options, binding: Object.freeze({ ...options.binding }) });
@@ -227,13 +233,26 @@ export class OwnerCurrentVideoGenerationService<N extends OwnerCurrentVideoNorma
     const model = this.#catalog.getModel(description.model_id), keys = Object.keys(description.cost_parameters).sort();
     // Flux source leaves draft undefined; its pinned Axios serializer omits that query field.
     const fluxOmittedDraft = this.#options.family === (getOwnerFlux3CurrentFamilyDefinition() as unknown) && !Object.hasOwn(description.cost_parameters, "draft");
-    const allowed = (model.settings?.get_cost_params ?? []).filter(isSyntxModelInfoCallerParameterKey).filter(key => !(fluxOmittedDraft && key === "draft")).sort();
+    const omni12 = this.#options.family === (getOwnerVeoOmni12CurrentFamilyDefinition() as unknown);
+    const omni12FirstClip = omni12 && description.mode === "image" && description.reference_metadata.length === 1 &&
+      description.reference_metadata[0]?.role === "first_clip";
+    const omni12ReferenceVideo = omni12 && description.mode === "references" &&
+      description.reference_metadata.some(reference => reference.kind === "video");
+    if (omni12 && (Object.hasOwn(description.cost_parameters, "veo3_type") !== omni12FirstClip ||
+        (omni12FirstClip && description.cost_parameters.veo3_type !== "extend") ||
+        Object.hasOwn(description.cost_parameters, "mode") !== omni12ReferenceVideo ||
+        (omni12ReferenceVideo && description.cost_parameters.mode !== "full"))) fail("SOURCE_BINDING_MISMATCH");
+    const allowed = (model.settings?.get_cost_params ?? []).filter(isSyntxModelInfoCallerParameterKey)
+      .filter(key => !(fluxOmittedDraft && key === "draft") && !(omni12 && key === "mode" && !Object.hasOwn(description.cost_parameters, "mode"))).sort();
+    if (omni12FirstClip) allowed.push("veo3_type");
+    allowed.sort();
     if (keys.join("\0") !== allowed.join("\0")) fail("SOURCE_BINDING_MISMATCH");
     const client = this.#options.createReadClient(attempt);
     if (!client || types.isProxy(client) || Object.getPrototypeOf(client) !== ReadClient.prototype ||
         ["getAccountBalance", "getSubscription", "getModelInfo"].some(method => Object.hasOwn(client, method) || dataMethod(client, method) !== dataMethod(ReadClient.prototype, method))) fail("SOURCE_BINDING_MISMATCH");
     const account = await deadline.waitFor(new AccountStatusService(client, () => this.#time()).getAccountStatus(deadline.signal));
-    const access = await deadline.waitFor(new ModelAccessService(this.#catalog, client, () => this.#time()).getModelAccess({ model_id: description.model_id,
+    const access = await deadline.waitFor(new ModelAccessService(this.#catalog, client, () => this.#time(),
+      omni12FirstClip ? { model_id: "omni1.2", extraCostParameterKeys: { veo3_type: "extend" } } : undefined).getModelAccess({ model_id: description.model_id,
       cost_parameters: description.cost_parameters }, deadline.signal));
     const now = this.#time(), price = access.discount_cost ?? access.cost, expiry = account.subscription.end_date;
     const expires = expiry === null ? null : Date.parse(account.subscription.end_date_kind === "DATE_ONLY" ? `${expiry}T23:59:59.999Z` : expiry);

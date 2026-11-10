@@ -4,7 +4,7 @@ import type { DiscoveryCatalogRepository, DiscoveryModelRecord } from "./discove
 import type { RuntimeCapabilityCatalog, RuntimeCapabilityRecord } from "./runtime-capability-catalog.js";
 import { z } from "zod/v4";
 
-export const MEDIA_COVERAGE_VERSION = "6.0.0" as const;
+export const MEDIA_COVERAGE_VERSION = "7.0.0" as const;
 
 export interface MediaCoverageRecord {
   readonly model_id: string;
@@ -51,18 +51,20 @@ const nativeAliasBindingSchema = z.object({
 }).strict();
 
 const routeSnapshotSchema = z.object({
-  schema_version: z.literal("6.0.0"),
+  schema_version: z.literal("7.0.0"),
   captured_date: z.iso.date(),
   public_catalog_version: z.string().min(1),
   public_source_hashes: z.object({ ai: z.string().min(1), llm_models: z.string().min(1), models: z.string().min(1) }).strict(),
   owner_tool_schema_profile_catalog_version: z.string().min(1),
   owner_tool_count: z.null(),
   owner_tool_count_status: z.literal("UNVERIFIED_FOR_ROUTE_EXTENSION"),
-  route_method: z.literal("REUSED_V5_WITH_CURRENT_MEDIA_SOURCE_BINDINGS_NO_PROVIDER_PROOF"),
+  route_method: z.literal("REUSED_V6_WITH_EXACT_NEW_FAMILY_SOURCE_BINDINGS_NO_PROVIDER_PROOF"),
   route_provenance: z.object({ source_v5: z.literal("catalog/media-coverage/owner-tool-routes-v5.json"),
     source_v5_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+    source_v6: z.literal("catalog/media-coverage/owner-tool-routes-v6.json"),
+    source_v6_sha256: z.literal("sha256:62cabfeca99dff755b8a2a12313c178208ee6c6e1aa8d1288fbd408fca4f6825"),
     settings_inventory_version: z.string().regex(/^sha256-[a-f0-9]{64}\.json$/u),
-    frontend_build_id: z.literal("1793890358"),
+    frontend_build_id: z.literal("1794311734"),
     editor_frame: z.object({ tool_name: z.literal("syntx_owner_upload_seedance_editor_frame"),
       public_model_id: z.literal("seedance-2.5"), form_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
       policy_source: z.literal("src/application/owner-seedance-editor-frame-policy.ts") }).strict(),
@@ -76,10 +78,14 @@ const routeSnapshotSchema = z.object({
       operator_flag: z.string().regex(/^SYNTX_OWNER_[A-Z0-9_]+$/u), source_path: z.string().regex(/^src\//u) }).strict()).min(1),
     current_manual_sources: z.array(z.object({ model_ids: z.array(z.string().min(1)).min(1), tool_name: z.string().min(1),
       source_path: z.literal("src/mcp/owner-image-manual-current-source.ts"), pricing_catalog_version: z.string().min(1) }).strict()).length(3),
+    new_family_route_evidence: z.array(z.object({ public_model_ids: z.array(z.string().min(1)).min(1),
+      tool_names: z.array(z.string().min(1)).min(1), source_paths: z.array(z.string().regex(/^src\//u)).min(1),
+      operator_flag: z.string().regex(/^SYNTX_OWNER_[A-Z0-9_]+$/u) }).strict()).length(3),
     limitations: z.literal("CODE_BINDINGS_ONLY_NO_PROVIDER_ALL_SETTINGS_OR_TOOLS_COUNT_CLAIM") }).strict(),
-  source_only_model_ids: z.tuple([z.literal("gpt-image-2.6-flare"), z.literal("gpt-image-2.6-sunburst")]),
-  source_census: z.object({ non_text: z.literal(127), active: z.literal(120), active_code_mapped: z.literal(119),
-    active_selectors: z.literal(1), image: z.literal(48), video: z.literal(71), audio: z.literal(8) }).strict(),
+  source_only_model_ids: z.tuple([z.literal("wan_30"), z.literal("wan_30_prime")]),
+  source_only_reasons: z.object({ wan_30: z.string().min(1), wan_30_prime: z.string().min(1) }).strict(),
+  source_census: z.object({ non_text: z.literal(129), active: z.literal(126), active_code_mapped: z.literal(123),
+    active_selectors: z.literal(1), active_source_only: z.literal(2), image: z.literal(49), video: z.literal(72), audio: z.literal(8) }).strict(),
   routes: z.record(z.string().min(1), z.array(z.string().min(1)).min(1)),
   native_alias_bindings: z.array(nativeAliasBindingSchema).min(1)
 }).strict();
@@ -91,6 +97,9 @@ const GENERATOR_FLAGS: Readonly<Record<string, string>> = Object.freeze({
   syntx_owner_generate_luma_current: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
   syntx_owner_generate_veo3_current: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
   syntx_owner_generate_flux3_current_video: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
+  syntx_owner_generate_veo_omni12_current: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
+  syntx_owner_generate_seedream55_image: "SYNTX_OWNER_SEEDREAM_IMAGE_REFERENCES",
+  syntx_owner_generate_gpt26_image: "SYNTX_OWNER_STANDARD_IMAGE_REFERENCES",
 
   syntx_owner_generate_acttwo_video: "SYNTX_OWNER_ACTTWO",
   syntx_owner_generate_clarity_upscale_image: "SYNTX_OWNER_CLARITY_UPSCALE",
@@ -161,14 +170,14 @@ const GENERATOR_FLAGS: Readonly<Record<string, string>> = Object.freeze({
 });
 
 function loadReviewedOwnerRoutes(discovery: DiscoveryCatalogRepository) {
-  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v6.json", import.meta.url));
+  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v7.json", import.meta.url));
   const raw: unknown = JSON.parse(readFileSync(routePath, "utf8"));
   const snapshot = routeSnapshotSchema.parse(raw);
   if (JSON.stringify(snapshot.public_source_hashes) !== JSON.stringify(discovery.source_hashes)) {
     throw new TypeError("MEDIA_COVERAGE_OWNER_ROUTE_SOURCE_MISMATCH");
   }
   for (const modelId of snapshot.source_only_model_ids) {
-    if (discovery.getModel(modelId).active || snapshot.routes[modelId] !== undefined ||
+    if (!discovery.getModel(modelId).active || snapshot.routes[modelId] !== undefined ||
         snapshot.native_alias_bindings.some(binding => binding.public_model_ids.includes(modelId))) {
       throw new TypeError("MEDIA_COVERAGE_SOURCE_ONLY_ROUTE_INVALID");
     }
@@ -199,7 +208,7 @@ function loadReviewedOwnerRoutes(discovery: DiscoveryCatalogRepository) {
     const flags = [...new Set([...tools.flatMap((tool) => GENERATOR_FLAGS[tool] ? [GENERATOR_FLAGS[tool]!] : []), ...(flagSets.get(modelId) ?? [])])].sort();
     records.set(modelId, { tools, flags });
   }
-  return records;
+  return { records, sourceOnlyReasons: snapshot.source_only_reasons };
 }
 
 export class MediaCoverageCatalog {
@@ -219,7 +228,8 @@ export class MediaCoverageCatalog {
       cursor = page.next_cursor ?? undefined;
     } while (cursor);
     this.#records = models.filter((model) => model.modalities.some((modality) => modality !== "text"))
-      .map((model) => projectRecord(model, runtimeById.get(model.id), ownerRoutes.get(model.id)));
+      .map((model) => projectRecord(model, runtimeById.get(model.id), ownerRoutes.records.get(model.id),
+        ownerRoutes.sourceOnlyReasons[model.id as "wan_30" | "wan_30_prime"]));
   }
 
   page(input: { offset?: number; limit?: number; include_inactive?: boolean } = {}): MediaCoveragePage {
@@ -236,13 +246,14 @@ export class MediaCoverageCatalog {
       source_hashes: this.#sourceHashes, total: records.length, offset, limit,
       next_offset: offset + items.length < records.length ? offset + items.length : null,
       census: census(records),
-      interpretation_notes: ["Route bindings are reused from v5 with a source-bound Seedance Editor frame upload mapping; code mapping does not establish provider acceptance or full settings coverage.", "Suno audio upload registration requires the Suno owner opt-in and a configured ffprobe path.", "Hailuo Minimax is a selector root, not a generator profile.", "Seedance Editor is an operation attached to seedance-2.5; it is not a separate public model ID.", "The two new inactive GPT Image 2.6 identities are source-only; no generation route or native-profile promotion is implied."],
+      interpretation_notes: ["Route bindings extend immutable v6 with exact source-bound Seedream 5.5, GPT Image 2.6 and Veo Omni 1.2 tools; code mapping does not establish provider acceptance or full settings coverage.", "Suno audio upload registration requires the Suno owner opt-in and a configured ffprobe path.", "Hailuo Minimax is a selector root, not a generator profile.", "Seedance Editor is an operation attached to seedance-2.5; it is not a separate public model ID.", "The two active bare WAN identities have no exact generation route; operation-specific WAN model IDs keep their existing mappings."],
       items
     };
   }
 }
 
-function projectRecord(model: DiscoveryModelRecord, runtime: RuntimeCapabilityRecord | undefined, route: { tools: string[]; flags: string[] } | undefined): MediaCoverageRecord {
+function projectRecord(model: DiscoveryModelRecord, runtime: RuntimeCapabilityRecord | undefined, route: { tools: string[]; flags: string[] } | undefined,
+  sourceOnlyReason?: string): MediaCoverageRecord {
   const operationRole = model.id === "hailuo-minimax" ? "SELECTOR" : "MODEL_OPERATION";
   const hasDispatchRoute = route?.tools.some((tool) => /^syntx_owner_(?:generate|cover|extend)_/u.test(tool)) === true;
   const hasGenericTuple = route?.tools.some((tool) => tool === "syntx_owner_generate_image" || tool === "syntx_owner_generate_video") === true;
@@ -266,7 +277,7 @@ function projectRecord(model: DiscoveryModelRecord, runtime: RuntimeCapabilityRe
     mcp_tool_names: route?.tools ?? [],
     mcp_tool_groups: route?.flags ?? [],
     operator_flags: route ? route.flags.length > 0 ? route.flags : null : null,
-    notes: ["Public catalog metadata does not grant account entitlement or dispatch permission.", ...(hasDispatchRoute ? ["A registered dispatch tool schema proves code routing only, not a provider result."] : route ? ["Registered parameter/source tools are listed, but no exact dispatch route was established."] : []), ...(settingsStatus === "LIMITED_RUNTIME_TUPLE_ONLY" ? ["The generic owner profile exposes only its reviewed legacy tuple; it does not prove full settings coverage."] : []), ...(settingsStatus === "MIXED_LIMITED_AND_NATIVE" ? ["The generic tuple is narrow; additional exact native tool routes are listed separately, and full settings coverage is not inferred."] : []), ...(operationRole === "SELECTOR" ? ["Hailuo Minimax is a selector root, not a generator profile."] : []), ...(!model.active ? ["This public catalog identity is inactive; mapped code does not enable generation."] : []), ...(route ? route.flags.length === 0 ? ["Exact registered tool names are mapped; the operator flag was not resolved from the runtime/config map."] : [] : [model.operations.length > 0 ? "Source operation is known; no exact registered model_id tool literal was found." : "No source operation or runtime mapping was established for this model ID."])]
+    notes: ["Public catalog metadata does not grant account entitlement or dispatch permission.", ...(hasDispatchRoute ? ["A registered dispatch tool schema proves code routing only, not a provider result."] : route ? ["Registered parameter/source tools are listed, but no exact dispatch route was established."] : []), ...(settingsStatus === "LIMITED_RUNTIME_TUPLE_ONLY" ? ["The generic owner profile exposes only its reviewed legacy tuple; it does not prove full settings coverage."] : []), ...(settingsStatus === "MIXED_LIMITED_AND_NATIVE" ? ["The generic tuple is narrow; additional exact native tool routes are listed separately, and full settings coverage is not inferred."] : []), ...(operationRole === "SELECTOR" ? ["Hailuo Minimax is a selector root, not a generator profile."] : []), ...(!model.active ? ["This public catalog identity is inactive; mapped code does not enable generation."] : []), ...(sourceOnlyReason ? [sourceOnlyReason] : []), ...(route ? route.flags.length === 0 ? ["Exact registered tool names are mapped; the operator flag was not resolved from the runtime/config map."] : [] : [model.operations.length > 0 ? "Source operation is known; no exact registered model_id tool literal was found." : "No source operation or runtime mapping was established for this model ID."])]
   };
 }
 

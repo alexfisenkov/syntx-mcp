@@ -215,6 +215,7 @@ test("public package checker compares the packed media map and verifies the upda
     '"catalog/media-coverage/owner-tool-routes-v4.json"',
     '"catalog/media-coverage/owner-tool-routes-v5.json"',
     '"catalog/media-coverage/owner-tool-routes-v6.json"',
+    '"catalog/media-coverage/owner-tool-routes-v7.json"',
     '"catalog/media-coverage/owner-expanded-t2v-controls-v2.json"'
   ]) assert.ok(installChecker.includes(path), `package checker omits ${path}`);
   assert.ok(installChecker.includes("assertInstalledMediaUpdateArtifacts(installedPackagePath, consumerPath)"));

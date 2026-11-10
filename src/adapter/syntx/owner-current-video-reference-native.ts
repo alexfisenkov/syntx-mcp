@@ -11,6 +11,7 @@ import { isSafeUploadReferenceUrl } from "./upload-reference-bridge.js";
 import { compileOwnerCurrentVideoReferenceWire, peekOwnerCurrentVideoReferenceBundle, OwnerCurrentVideoReferenceStore } from "../../application/owner-current-video-reference-store.js";
 import type { OwnerCurrentVideoReferenceBundle, OwnerCurrentVideoNativeOperation, OwnerCurrentVideoNativePort } from "../../application/owner-current-video-reference-types.js";
 import { inspectOwnerCurrentVideoIntent, type OwnerCurrentVideoIntentDescription } from "../../application/owner-current-video-generation-service.js";
+import { getOwnerVeoOmni12CurrentFamilyDefinition } from "../../application/owner-veo-omni12-current-intent.js";
 
 const ID=/^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u, ATTEMPT=/^link_[A-Za-z0-9_-]{20,120}$/u, PAGE_SIZE=10, MAX_PAGES=7;
 const providerId=z.union([z.string().regex(ID),z.number().int().safe().nonnegative()]).transform(String);
@@ -95,9 +96,14 @@ export class OwnerCurrentVideoNativeService implements OwnerCurrentVideoNativePo
 /** Called only by the native client immediately before its one non-idempotent POST. */
 export function consumeOwnerCurrentVideoDispatch(client:SyntxChatHttpClient,operation:unknown):Readonly<{chat_id:string;ai_name:string;prompt:string;settings:Readonly<Record<string,unknown>>}>{
  if(!operation||typeof operation!=="object"||types.isProxy(operation))invalid();const state=OPERATIONS.get(operation);if(!state||state.client!==client||state.phase!=="READY")invalid();
- const current=inspectOwnerCurrentVideoIntent(state.intent);if(!current||!isDeepStrictEqual(current,state.description)||Object.hasOwn(current.settings,"file_urls")||
-   current.settings.model_type!==current.model_id||current.source_pins.public_catalog_version!=="sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json"||
-   current.source_pins.settings_inventory_version!=="sha256-4da7d12483291bb632aa21e0deb220142994fe061999d2f246318276964fa187.json")invalid();
+ const current=inspectOwnerCurrentVideoIntent(state.intent);
+ const omni12=current?.model_id==="omni1.2" && getOwnerVeoOmni12CurrentFamilyDefinition().inspect(state.intent)===current;
+ const expectedPins=omni12?getOwnerVeoOmni12CurrentFamilyDefinition().source_pins:{
+   public_catalog_version:"sha256-a82998ab6aa5f7597e6d37f7efc9abdc194501b83bbb932eb6b1f264af935f88.json",
+   settings_inventory_version:"sha256-4da7d12483291bb632aa21e0deb220142994fe061999d2f246318276964fa187.json"};
+ if(!current||!isDeepStrictEqual(current,state.description)||Object.hasOwn(current.settings,"file_urls")||
+   current.settings.model_type!==current.model_id||current.source_pins.public_catalog_version!==expectedPins.public_catalog_version||
+   current.source_pins.settings_inventory_version!==expectedPins.settings_inventory_version)invalid();
  const wire=compileOwnerCurrentVideoReferenceWire(state.references,state.bundle,client,state.attemptId,state.principal,current.prompt,current.reference_prompt_mode);
  if(wire.model_id!==current.model_id||wire.mode!==current.mode)invalid();state.wirePrompt=wire.prompt;state.echoes=wire.reference_echoes;state.postStarted=true;state.phase="UNKNOWN";
  return Object.freeze({chat_id:state.chatId,ai_name:current.ai_name,prompt:wire.prompt,settings:Object.freeze({...current.settings,file_urls:wire.file_urls})});

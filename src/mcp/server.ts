@@ -129,7 +129,8 @@ import type { OwnerRunwayImageGenerationService } from "../application/owner-run
 import type { OwnerRunwayImageUploadService } from "../application/owner-runway-image-upload-service.js";
 import type { OwnerSeedreamImageGenerationService } from "../application/owner-seedream-image-generation-service.js";
 import type { OwnerSeedreamImageUploadService } from "../application/owner-seedream-image-upload-service.js";
-import { registerSyntxOwnerSeedreamImageTools, type RegisterSyntxOwnerSeedreamImageToolsOptions } from "./owner-seedream-image-tools.js";
+import { registerSyntxOwnerSeedreamImageTools, registerSyntxOwnerSeedream55ImageTools, type RegisterSyntxOwnerSeedreamImageToolsOptions } from "./owner-seedream-image-tools.js";
+import { registerSyntxOwnerGpt26ImageTools, type RegisterSyntxOwnerGpt26ImageToolsOptions } from "./owner-gpt26-image-tools.js";
 import type { OwnerFluxImageUploadService } from "../application/owner-flux-image-upload-service.js";
 import type { OwnerFluxImageAssetService } from "../application/owner-flux-image-asset-service.js";
 import type { OwnerFluxImageGenerationService } from "../application/owner-flux-image-generation-service.js";
@@ -179,6 +180,7 @@ import type { OwnerCurrentVideoReferenceStore } from "../application/owner-curre
 import { registerSyntxOwnerHailuo3CurrentTools } from "./owner-hailuo3-current-tools.js";
 import { registerSyntxOwnerLumaCurrentTools } from "./owner-luma-current-tools.js";
 import { registerSyntxOwnerVeo3CurrentTools } from "./owner-veo3-current-tools.js";
+import { registerSyntxOwnerVeoOmni12CurrentTools } from "./owner-veo-omni12-current-tools.js";
 import { registerOwnerWanCurrentTools } from "./owner-wan-current-tools.js";
 import { registerOwnerSeedanceCurrentTools } from "./owner-seedance-current-tools.js";
 import { registerOwnerFlux3CurrentTools } from "./owner-flux3-current-tools.js";
@@ -344,6 +346,13 @@ export interface OwnerStandardImageServiceComposition extends RegisterSyntxOwner
   readonly localImageFileService?: Pick<OwnerLocalImageFileService, "upload">;
 }
 
+/** Fresh GPT Image 2.6 tools with an independent owner-local lifecycle. */
+export interface OwnerGpt26ImageServiceComposition extends RegisterSyntxOwnerGpt26ImageToolsOptions {
+  readonly uploadService: Pick<OwnerStandardImageUploadService, "upload" | "assertLinkedAttempt" | "invalidateAttempt" | "close">;
+  readonly generationService: Pick<OwnerStandardImageGenerationService,
+    "generate" | "reconcile" | "listRecoveries" | "invalidateAttempt" | "close">;
+}
+
 /** Optional owner-local Runway Frames tools with one generation-owned upload lifecycle. */
 export interface OwnerRunwayImageServiceComposition extends RegisterSyntxOwnerRunwayImageToolsOptions {
   readonly uploadService: Pick<OwnerRunwayImageUploadService, "upload" | "invalidateAttempt" | "close">;
@@ -353,6 +362,13 @@ export interface OwnerRunwayImageServiceComposition extends RegisterSyntxOwnerRu
 
 /** Optional owner-local Seedream image tools with one generation-owned upload lifecycle. */
 export interface OwnerSeedreamImageServiceComposition extends RegisterSyntxOwnerSeedreamImageToolsOptions {
+  readonly uploadService: Pick<OwnerSeedreamImageUploadService, "upload" | "invalidateAttempt" | "close">;
+  readonly generationService: Pick<OwnerSeedreamImageGenerationService,
+    "generate" | "reconcile" | "listRecoveries" | "invalidateAttempt" | "close">;
+}
+
+/** Fresh Seedream 5.5 tools with an independent owner-local lifecycle. */
+export interface OwnerSeedream55ImageServiceComposition extends RegisterSyntxOwnerSeedreamImageToolsOptions {
   readonly uploadService: Pick<OwnerSeedreamImageUploadService, "upload" | "invalidateAttempt" | "close">;
   readonly generationService: Pick<OwnerSeedreamImageGenerationService,
     "generate" | "reconcile" | "listRecoveries" | "invalidateAttempt" | "close">;
@@ -612,6 +628,7 @@ export interface CreateMcpServerOptions {
   ownerHailuo3Current?: Parameters<typeof registerSyntxOwnerHailuo3CurrentTools>[1] | undefined;
   ownerLumaCurrent?: Parameters<typeof registerSyntxOwnerLumaCurrentTools>[1] | undefined;
   ownerVeo3Current?: Parameters<typeof registerSyntxOwnerVeo3CurrentTools>[1] | undefined;
+  ownerVeoOmni12Current?: Parameters<typeof registerSyntxOwnerVeoOmni12CurrentTools>[1] | undefined;
   ownerWanCurrent?: Parameters<typeof registerOwnerWanCurrentTools>[1] | undefined;
   ownerSeedanceCurrent?: Parameters<typeof registerOwnerSeedanceCurrentTools>[1] | undefined;
   ownerFlux3Current?: Parameters<typeof registerOwnerFlux3CurrentTools>[1] | undefined;
@@ -631,10 +648,12 @@ export interface CreateMcpServerOptions {
   ownerWanImageReferences?: OwnerWanImageServiceComposition | undefined;
   /** Explicit owner-local Banana/GPT Image tools; omitted from default and HTTP servers. */
   ownerStandardImageReferences?: OwnerStandardImageServiceComposition | undefined;
+  ownerGpt26ImageReferences?: OwnerGpt26ImageServiceComposition | undefined;
   /** Explicit owner-local Runway image tools; omitted from default and HTTP servers. */
   ownerRunwayImageReferences?: OwnerRunwayImageServiceComposition | undefined;
   /** Explicit owner-local Seedream image tools; omitted from default and HTTP servers. */
   ownerSeedreamImageReferences?: OwnerSeedreamImageServiceComposition | undefined;
+  ownerSeedream55ImageReferences?: OwnerSeedream55ImageServiceComposition | undefined;
   /** Explicit owner-local Seedream Editor upload, generation, and recovery tools; omitted from default and HTTP servers. */
   ownerSeedreamEditorImageReferences?: OwnerSeedreamEditorImageServiceComposition | undefined;
   /** Explicit owner-local full Flux image tools; omitted from default and HTTP servers. */
@@ -862,10 +881,10 @@ export function createMcpServer(
   options: CreateMcpServerOptions = {}
 ): McpServer {
   if (options.ownerDurableGeneration &&
-      (options.ownerCurrentVideoReferences || options.ownerHailuo3Current || options.ownerLumaCurrent || options.ownerVeo3Current || options.ownerWanCurrent || options.ownerSeedanceCurrent || options.ownerFlux3Current || options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerRunwayI2v || options.ownerGrokI2v || options.ownerWan25T2v || options.ownerHiggsfieldDop || options.ownerHailuoInitial || options.ownerHappyHorse || options.ownerWan27I2v || options.ownerKlingMedia || options.ownerSwitchxVideo || options.ownerActTwo || options.ownerHeygen4 || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
+      (options.ownerCurrentVideoReferences || options.ownerHailuo3Current || options.ownerLumaCurrent || options.ownerVeo3Current || options.ownerVeoOmni12Current || options.ownerWanCurrent || options.ownerSeedanceCurrent || options.ownerFlux3Current || options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerRunwayI2v || options.ownerGrokI2v || options.ownerWan25T2v || options.ownerHiggsfieldDop || options.ownerHailuoInitial || options.ownerHappyHorse || options.ownerWan27I2v || options.ownerKlingMedia || options.ownerSwitchxVideo || options.ownerActTwo || options.ownerHeygen4 || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
         options.ownerGrokImageReferences || options.ownerClarityUpscale || options.ownerMagnificUpscale ||
-        options.ownerKontextImageReferences || options.ownerWanImageReferences || options.ownerStandardImageReferences ||
-        options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
+        options.ownerKontextImageReferences || options.ownerWanImageReferences || options.ownerStandardImageReferences || options.ownerGpt26ImageReferences ||
+        options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedream55ImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerFlux3Videos || options.ownerGrokV2v || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v || options.ownerExpandedT2v ||
@@ -1292,12 +1311,14 @@ export function createMcpServer(
       registerSyntxOwnerLocalImageFileTool(server, options.ownerStandardImageReferences.localImageFileService as OwnerLocalImageFileService);
     }
   }
+  if (options.ownerGpt26ImageReferences) registerSyntxOwnerGpt26ImageTools(server, options.ownerGpt26ImageReferences);
   if (options.ownerRunwayImageReferences) {
     registerSyntxOwnerRunwayImageTools(server, options.ownerRunwayImageReferences);
   }
   if (options.ownerSeedreamImageReferences) {
     registerSyntxOwnerSeedreamImageTools(server, options.ownerSeedreamImageReferences);
   }
+  if (options.ownerSeedream55ImageReferences) registerSyntxOwnerSeedream55ImageTools(server, options.ownerSeedream55ImageReferences);
   if (options.ownerSeedreamEditorImageReferences) {
     registerSyntxOwnerSeedreamEditorImageTools(server, options.ownerSeedreamEditorImageReferences);
   }
@@ -1408,6 +1429,7 @@ export function createMcpServer(
   if(options.ownerHailuo3Current)registerSyntxOwnerHailuo3CurrentTools(server,options.ownerHailuo3Current);
   if(options.ownerLumaCurrent)registerSyntxOwnerLumaCurrentTools(server,options.ownerLumaCurrent);
   if(options.ownerVeo3Current)registerSyntxOwnerVeo3CurrentTools(server,options.ownerVeo3Current);
+  if(options.ownerVeoOmni12Current)registerSyntxOwnerVeoOmni12CurrentTools(server,options.ownerVeoOmni12Current);
   if(options.ownerWanCurrent)registerOwnerWanCurrentTools(server,options.ownerWanCurrent);
   if(options.ownerSeedanceCurrent)registerOwnerSeedanceCurrentTools(server,options.ownerSeedanceCurrent);
   if(options.ownerFlux3Current)registerOwnerFlux3CurrentTools(server,options.ownerFlux3Current);

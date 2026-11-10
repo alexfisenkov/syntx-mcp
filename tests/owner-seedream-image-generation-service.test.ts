@@ -6,6 +6,7 @@ import { ACCOUNT_CONTRACT_EVIDENCE, ACCOUNT_SOURCE_BUILD } from "../src/adapter/
 import { OwnerSeedreamImageUploadService } from "../src/application/owner-seedream-image-upload-service.js";
 import { OwnerSeedreamImageGenerationService, OwnerSeedreamImageGenerationServiceError } from "../src/application/owner-seedream-image-generation-service.js";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION, loadSelectedDiscoveryCatalog } from "../src/catalog/selected-discovery-catalog.js";
+import { SEEDREAM55_PUBLIC_CATALOG_VERSION } from "../src/application/owner-seedream55-image-source-profile.js";
 
 const CATALOG = loadSelectedDiscoveryCatalog(DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION).discoveryCatalog;
 const CATALOG_VERSION = DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION;
@@ -39,22 +40,23 @@ function linkedAttempt(attemptId: string) {
     status: "LINKED" as const, expires_at: new Date(Date.now() + 60 * 60_000).toISOString(), linked: true as const };
 }
 
-function freshPreflight(variant: string, observedAt = Date.now()) {
+function freshPreflight(variant: string, observedAt = Date.now(), catalog = CATALOG) {
   return {
     account: { balance: { unit: "tokens" as const, available: null },
       subscription: { active: true, plan_type: "FREE", end_date: null, end_date_kind: null },
       contract_evidence: ACCOUNT_CONTRACT_EVIDENCE, source_build: ACCOUNT_SOURCE_BUILD,
       observed_at: new Date(observedAt).toISOString() },
     model_access: { catalog_kind: "OFFICIAL_PUBLIC_API_SNAPSHOT" as const,
-      catalog_version: `${CATALOG.fetched_at}.${CATALOG.source_hashes.models.slice(7, 19)}`,
+      catalog_version: `${catalog.fetched_at}.${catalog.source_hashes.models.slice(7, 19)}`,
       model_id: variant, ai_name: "seedream", model_type: variant, account_read_live: true as const,
-      parameter_keys: variant === "seedream-5.0-pro" ? ["batch_size", "resolution"] as string[] : [] as string[], parameters_redacted: true as const, access: true,
+      parameter_keys: variant === "seedream-5.0-pro" || variant === "seedream-5.5" ? ["batch_size", "resolution"] as string[] : [] as string[], parameters_redacted: true as const, access: true,
       cost: 0, discount_cost: null, free_remaining_generations: null, limit: null, show_warning: false,
       observed_at: new Date(observedAt).toISOString() }
   };
 }
 
 interface RigOptions {
+  readonly new55?: boolean;
   readonly now?: () => number;
   readonly failPost?: boolean;
   readonly holdPostUntilAbort?: boolean;
@@ -63,6 +65,9 @@ interface RigOptions {
 }
 
 function createRig(options: RigOptions = {}) {
+  const catalogVersion = options.new55 ? SEEDREAM55_PUBLIC_CATALOG_VERSION : CATALOG_VERSION;
+  const catalog = options.new55 ? loadSelectedDiscoveryCatalog(SEEDREAM55_PUBLIC_CATALOG_VERSION).discoveryCatalog : CATALOG;
+  const variants = options.new55 ? ["seedream-5.5"] as const : undefined;
   const calls = { uploads: 0, chats: 0, posts: 0, histories: 0, results: 0, preflights: 0 };
   const events: string[] = [];
   let principalReads = 0;
@@ -134,13 +139,13 @@ function createRig(options: RigOptions = {}) {
     throw new Error(`Unexpected synthetic route ${url.pathname}`);
   } });
   const linkService = { async getStatus(_binding: unknown, attemptId: string) { principalReads += 1; return linkedAttempt(attemptId); } };
-  const uploadService = new OwnerSeedreamImageUploadService({ binding: BINDING, linkService, catalog: CATALOG,
-    catalog_version: CATALOG_VERSION, resolveClient: () => client, now: options.now });
-  const service = new OwnerSeedreamImageGenerationService({ binding: BINDING, linkService, catalog: CATALOG,
-    catalog_version: CATALOG_VERSION, uploadService, resolveChatClient: () => client,
+  const uploadService = new OwnerSeedreamImageUploadService({ binding: BINDING, linkService, catalog,
+    catalog_version: catalogVersion, resolveClient: () => client, now: options.now, ...(variants ? { variants } : {}) });
+  const service = new OwnerSeedreamImageGenerationService({ binding: BINDING, linkService, catalog,
+    catalog_version: catalogVersion, uploadService, resolveChatClient: () => client, ...(variants ? { variants } : {}),
     preflight: async (input: { variant: string; cost_inputs: Readonly<Record<string, string | number>>; request_fingerprint: string }) => {
       calls.preflights += 1; events.push(`preflight-${calls.preflights}`); preflightInputs.push(input);
-      return options.preflight?.(input.variant, calls.preflights) ?? freshPreflight(input.variant, options.now?.() ?? Date.now());
+      return options.preflight?.(input.variant, calls.preflights) ?? freshPreflight(input.variant, options.now?.() ?? Date.now(), catalog);
     }, now: options.now ?? Date.now, pollDelayMs: 0, maxPollAttempts: 1, wait: async () => undefined });
   return { calls, events, transactions, preflightInputs, client, uploadService, service,
     get principalReads() { return principalReads; } };
@@ -264,6 +269,53 @@ test("reconciles an unknown acknowledged request through exact history and resul
     assert.equal(rig.calls.results, 1);
     assert.deepEqual(rig.events.filter((event) => event === "post" || event === "history" || event === "result"),
       ["post", "history", "history", "result"]);
+  } finally { await rig.service.close(); }
+});
+
+test("Seedream 5.5 isolated native instance sends exact text-to-image controls and cost inputs", async () => {
+  const rig = createRig({ new55: true });
+  try {
+    const parameters = { aspect_ratio: "3:4", resolution: "1.5K", output_format: "png", background: "auto" } as const;
+    const result = await rig.service.generate({ attemptId: ATTEMPT, variant: "seedream-5.5", reference_handles: [],
+      parameters, prompt: "synthetic 5.5" });
+    assert.equal(result.status, "result_observed");
+    assert.equal(result.variant, "seedream-5.5");
+    assert.equal(result.catalog_version, SEEDREAM55_PUBLIC_CATALOG_VERSION);
+    assert.deepEqual(rig.preflightInputs.map((input) => input.cost_inputs), [
+      { batch_size: 0, resolution: "1.5K" }, { batch_size: 0, resolution: "1.5K" }
+    ]);
+    assert.deepEqual([...rig.transactions.values()].map((entry) => entry.settings), [{
+      aspect_ratio: "3:4", resolution: "1.5K", stream: false, n: 1, model_type: "seedream-5.5",
+      output_format: "png", background: "auto", file_urls: []
+    }]);
+    assert.equal(rig.calls.posts, 1);
+  } finally { await rig.service.close(); }
+});
+
+test("Seedream 5.5 owned reference and pending result reconcile by GET without a second POST", async () => {
+  const rig = createRig({ new55: true, pendingHistoryFirst: true });
+  let recoveryId = "";
+  try {
+    const uploaded = await rig.uploadService.upload({ attemptId: ATTEMPT, variant: "seedream-5.5",
+      content_base64: png15().toString("base64"), filename: "source.png", mime_type: "image/png" });
+    assert.equal(uploaded.variant, "seedream-5.5");
+    await assert.rejects(rig.service.generate({ attemptId: ATTEMPT, variant: "seedream-5.5",
+      reference_handles: [uploaded.reference_handle],
+      parameters: { aspect_ratio: "1:1", resolution: "2K", output_format: "png", background: "transparent" },
+      prompt: "synthetic 5.5 reference" }), (error: unknown) => {
+      if (!(error instanceof OwnerSeedreamImageGenerationServiceError) || error.code !== "OUTCOME_UNKNOWN") return false;
+      recoveryId = error.recovery_id ?? "";
+      return /^seedream_image_recovery_[0-9a-f-]{36}$/u.test(recoveryId);
+    });
+    assert.equal((await rig.service.listRecoveries({ attemptId: ATTEMPT }))[0]?.recovery_id, recoveryId);
+    const result = await rig.service.reconcile({ attemptId: ATTEMPT, recovery_id: recoveryId });
+    assert.equal(result.variant, "seedream-5.5");
+    assert.equal(result.reference_count, 1);
+    assert.deepEqual(result.cost_inputs, { batch_size: 1, resolution: "2K" });
+    assert.equal(rig.calls.uploads, 1);
+    assert.equal(rig.calls.posts, 1);
+    assert.equal(rig.calls.histories, 2);
+    assert.equal(rig.calls.results, 1);
   } finally { await rig.service.close(); }
 });
 

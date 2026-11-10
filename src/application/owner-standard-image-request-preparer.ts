@@ -27,12 +27,16 @@ import {
   type OwnerGptImageCatalogPort,
   type OwnerGptImageSourceProfile
 } from "./owner-gpt-image-source-profile.js";
+import { getOwnerGpt26ImageSourceProfile, type OwnerGpt26ImageSourceProfile } from "./owner-gpt26-image-source-profile.js";
+import { normalizeOwnerGpt26ImageParameters, OwnerGpt26ImageParametersError,
+  OWNER_GPT26_IMAGE_VARIANTS, type OwnerGpt26ImageNormalizedParameters } from "./owner-gpt26-image-parameters.js";
 
 export const OWNER_STANDARD_IMAGE_VARIANTS = Object.freeze([
   ...OWNER_BANANA_IMAGE_VARIANTS,
   "gpt-image-1", "gpt-image-1.5", "gpt-image-2", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst"
 ] as const);
-export type OwnerStandardImageVariant = typeof OWNER_STANDARD_IMAGE_VARIANTS[number];
+export const OWNER_STANDARD_IMAGE_ALL_VARIANTS = Object.freeze([...OWNER_STANDARD_IMAGE_VARIANTS, ...OWNER_GPT26_IMAGE_VARIANTS] as const);
+export type OwnerStandardImageVariant = typeof OWNER_STANDARD_IMAGE_ALL_VARIANTS[number];
 export type OwnerStandardImageReferenceMediaKind = "image" | "video" | "file";
 export type OwnerStandardImageMimeType = string;
 
@@ -46,15 +50,17 @@ const MAX_PENDING_RESOLVES = 4;
 const MAX_REFERENCE_SETS = 128;
 const MAX_SETS_PER_ATTEMPT = 128;
 const BANANA_21_TOTAL_BYTES = 78_643_200;
+/** Current public 49f41 metadata; an additive local admission ceiling for historical GPT 2/2.5 profiles. */
+const CURRENT_GPT_2_TOTAL_BYTES = 83_886_080;
 const BANANA_21_FILE_COUNT = 34;
 const BANANA_21_KIND_LIMITS = Object.freeze({ image: 14, video: 10, file: 10 });
 const BANANA_21_BYTE_LIMITS = Object.freeze({ image: 7_340_032, video: 20_971_520, file: 5_242_880 });
 const PRINCIPAL_ATTEMPT_PATTERN = /^link_[A-Za-z0-9_-]{20,120}$/u;
 const MEDIA_KINDS = Object.freeze(["image", "video", "file"] as const);
 
-type StandardProfile = Readonly<OwnerBananaImageSourceProfile | OwnerGptImageSourceProfile>;
+type StandardProfile = Readonly<OwnerBananaImageSourceProfile | OwnerGptImageSourceProfile | OwnerGpt26ImageSourceProfile>;
 type StandardCatalogPort = OwnerBananaImageCatalogPort | OwnerGptImageCatalogPort;
-type StandardNormalizedParameters = OwnerBananaImageNormalizedParameters | OwnerGptImageNormalizedParameters;
+type StandardNormalizedParameters = OwnerBananaImageNormalizedParameters | OwnerGptImageNormalizedParameters | OwnerGpt26ImageNormalizedParameters;
 type DeepReadonly<T> = T extends readonly unknown[] ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
   : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
 
@@ -68,7 +74,7 @@ export interface OwnerStandardImageOwnedReferenceResolverContext {
   readonly ai_name: "banana" | "sora-images";
   readonly scope: "image";
   readonly operation_id: "generate-image";
-  readonly catalog_version: typeof CATALOG_VERSION;
+  readonly catalog_version: string;
   readonly profile_schema_hash: string;
   readonly reference_handle: string;
 }
@@ -241,7 +247,9 @@ export function getOwnerStandardImageSourceProfile(
 ): StandardProfile {
   if (!isVariant(variantInput)) fail("INVALID_REQUEST");
   try {
-    const profile = isBananaVariant(variantInput)
+    const profile = isGpt26Variant(variantInput)
+      ? getOwnerGpt26ImageSourceProfile(variantInput, catalogInput as OwnerGptImageCatalogPort, catalogVersionInput)
+      : isBananaVariant(variantInput)
       ? getOwnerBananaImageSourceProfile(variantInput, catalogInput as OwnerBananaImageCatalogPort, catalogVersionInput)
       : getOwnerGptImageSourceProfile(variantInput, catalogInput as OwnerGptImageCatalogPort, catalogVersionInput);
     return profile as StandardProfile;
@@ -426,12 +434,14 @@ export function prepareOwnerStandardImageRequest(
 
   let normalized: StandardNormalizedParameters;
   try {
-    normalized = isBananaVariant(request.variant)
+    normalized = isGpt26Variant(request.variant)
+      ? normalizeOwnerGpt26ImageParameters({ variant: request.variant, reference_count: state.image_reference_count, parameters: request.parameters })
+      : isBananaVariant(request.variant)
       ? normalizeOwnerBananaImageParameters({ variant: request.variant, reference_count: state.image_reference_count, parameters: request.parameters })
       : normalizeOwnerGptImageParameters({ variant: request.variant as OwnerGptImageVariant,
         reference_count: state.image_reference_count, parameters: request.parameters });
   } catch (error) {
-    if (error instanceof OwnerBananaImageParametersError || error instanceof OwnerGptImageParametersError) fail("PARAMETERS_INVALID");
+    if (error instanceof OwnerBananaImageParametersError || error instanceof OwnerGptImageParametersError || error instanceof OwnerGpt26ImageParametersError) fail("PARAMETERS_INVALID");
     fail("PARAMETERS_INVALID");
   }
   const settings = makeWireSettings(request.variant, normalized, state.references);
@@ -537,7 +547,7 @@ function validateHandleCount(profile: StandardProfile, total: number): Readonly<
   }
   const maximum = isBananaVariant(profile.model_id)
     ? (profile as OwnerBananaImageSourceProfile).reference_count.maximum
-    : (profile as OwnerGptImageSourceProfile).reference_count.maximum;
+    : (profile as OwnerGptImageSourceProfile | OwnerGpt26ImageSourceProfile).reference_count.maximum;
   if (total > maximum) fail("INVALID_REQUEST");
   return Object.freeze({ image: maximum, video: 0, file: 0 });
 }
@@ -572,7 +582,7 @@ function validateReferenceCollection(profile: StandardProfile, references: reado
   const counts = countByKind(references);
   let totalBytes = 0;
   const banana21 = profile.model_id === "banana-2.1";
-  const limits = banana21 ? BANANA_21_KIND_LIMITS : { image: (profile as OwnerBananaImageSourceProfile | OwnerGptImageSourceProfile).reference_count.maximum, video: 0, file: 0 };
+  const limits = banana21 ? BANANA_21_KIND_LIMITS : { image: profile.reference_count.maximum, video: 0, file: 0 };
   for (const reference of references) {
     if (urls.has(reference.file_url) || hashes.has(reference.sha256)) fail("REFERENCE_UNAVAILABLE");
     urls.add(reference.file_url); hashes.add(reference.sha256);
@@ -581,6 +591,14 @@ function validateReferenceCollection(profile: StandardProfile, references: reado
       if (reference.size > BANANA_21_BYTE_LIMITS[reference.kind]) fail("REFERENCE_UNAVAILABLE");
       totalBytes += reference.size;
       if (totalBytes > BANANA_21_TOTAL_BYTES) fail("REFERENCE_UNAVAILABLE");
+    }
+    if ("max_total_file_size" in profile) {
+      if (reference.size > profile.public_settings.max_file_size) fail("REFERENCE_UNAVAILABLE");
+      totalBytes += reference.size;
+      if (totalBytes > profile.max_total_file_size) fail("REFERENCE_UNAVAILABLE");
+    } else if (isCurrentGpt2TotalLimitVariant(profile.model_id)) {
+      totalBytes += reference.size;
+      if (totalBytes > CURRENT_GPT_2_TOTAL_BYTES) fail("REFERENCE_UNAVAILABLE");
     }
   }
   if (!banana21 && (counts.video > 0 || counts.file > 0)) fail("REFERENCE_UNAVAILABLE");
@@ -697,11 +715,19 @@ function isAttemptId(value: unknown): value is string {
 }
 
 function isVariant(value: unknown): value is OwnerStandardImageVariant {
-  return typeof value === "string" && (OWNER_STANDARD_IMAGE_VARIANTS as readonly string[]).includes(value);
+  return typeof value === "string" && (OWNER_STANDARD_IMAGE_ALL_VARIANTS as readonly string[]).includes(value);
 }
 
 function isBananaVariant(value: OwnerStandardImageVariant): value is OwnerBananaImageVariant {
   return (OWNER_BANANA_IMAGE_VARIANTS as readonly string[]).includes(value);
+}
+
+function isGpt26Variant(value: OwnerStandardImageVariant): value is typeof OWNER_GPT26_IMAGE_VARIANTS[number] {
+  return (OWNER_GPT26_IMAGE_VARIANTS as readonly string[]).includes(value);
+}
+
+function isCurrentGpt2TotalLimitVariant(value: OwnerStandardImageVariant): boolean {
+  return value === "gpt-image-2" || value === "gpt-image-2.5-flare" || value === "gpt-image-2.5-sunburst";
 }
 
 function isKind(value: unknown): value is OwnerStandardImageReferenceMediaKind {

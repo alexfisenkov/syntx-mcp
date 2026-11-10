@@ -3,11 +3,12 @@ import { types } from "node:util";
 import { isCanonicalBase64 } from "./canonical-base64.js";
 import { OWNER_BANANA_IMAGE_VARIANTS, type OwnerBananaImageVariant } from "./owner-banana-image-parameters.js";
 import { type OwnerGptImageVariant } from "./owner-gpt-image-parameters.js";
+import { OWNER_GPT26_IMAGE_VARIANTS, type OwnerGpt26ImageVariant } from "./owner-gpt26-image-parameters.js";
 import { inspectBoundedOwnerImageBytes32MiB } from "./owner-image-reference-input-validator.js";
 import { inspectBoundedOwnerClarityAvifBytes32MiB, UnsupportedOwnerClarityAvifCompositionError } from "./owner-clarity-upscale-input-validator.js";
 import { inspectOwnerStandardHeifBytes, OwnerStandardHeifInspectorError } from "./owner-standard-heif-inspector.js";
 
-export type OwnerStandardImageInputVariant = OwnerBananaImageVariant | OwnerGptImageVariant;
+export type OwnerStandardImageInputVariant = OwnerBananaImageVariant | OwnerGptImageVariant | OwnerGpt26ImageVariant;
 export interface OwnerStandardImageInput {
   readonly variant: OwnerStandardImageInputVariant;
   readonly content_base64: string;
@@ -34,7 +35,7 @@ const BANANA21_MAX_BYTES = 7 * 1024 * 1024;
 const LOCAL_MAX_BYTES = 32 * 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(LOCAL_MAX_BYTES / 3) * 4;
 const BANANA_VARIANTS = new Set<string>(OWNER_BANANA_IMAGE_VARIANTS);
-const GPT_VARIANTS = new Set<string>(["gpt-image-1", "gpt-image-1.5", "gpt-image-2", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst"]);
+const GPT_VARIANTS = new Set<string>(["gpt-image-1", "gpt-image-1.5", "gpt-image-2", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", ...OWNER_GPT26_IMAGE_VARIANTS]);
 const BANANA21_MIMES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 const STANDARD_MIMES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"]);
 const SAFE_FILENAME = /^[^/\\\p{Cc}\p{Cf}\p{Cs}]{1,255}$/u;

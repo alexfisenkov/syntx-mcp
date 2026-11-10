@@ -10,6 +10,8 @@ import { ACCOUNT_CONTRACT_EVIDENCE, ACCOUNT_SOURCE_BUILD } from "../adapter/synt
 import { isSafeUploadReferenceUrl } from "../adapter/syntx/upload-reference-bridge.js";
 import { OwnerReferencePrincipalError, resolveOwnerReferencePrincipal } from "../auth/owner-reference-principal.js";
 import { DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION } from "../catalog/selected-discovery-catalog.js";
+import { OWNER_GPT26_PUBLIC_CATALOG_VERSION } from "./owner-gpt26-image-source-profile.js";
+import { OWNER_GPT26_IMAGE_VARIANTS } from "./owner-gpt26-image-parameters.js";
 import { DiscoveryCatalogRepository } from "../catalog/discovery-catalog.js";
 import type { AuthBinding } from "../auth/types.js";
 import type { PerUserLinkService } from "../auth/link-service.js";
@@ -26,7 +28,7 @@ import {
   type OwnerStandardImageSourceProfile,
   type OwnerStandardImageVariant
 } from "./owner-standard-image-request-preparer.js";
-import { OWNER_STANDARD_IMAGE_VARIANTS, type OwnerStandardImageReferenceMediaKind } from "./owner-standard-image-request-preparer.js";
+import { OWNER_STANDARD_IMAGE_VARIANTS, OWNER_STANDARD_IMAGE_ALL_VARIANTS, type OwnerStandardImageReferenceMediaKind } from "./owner-standard-image-request-preparer.js";
 import { OwnerBananaImageParametersError } from "./owner-banana-image-parameters.js";
 import { OwnerGptImageParametersError } from "./owner-gpt-image-parameters.js";
 import { createOwnerStandardImageOneShotPermit, OwnerStandardImageOneShotPolicyError } from "./owner-standard-image-one-shot-policy.js";
@@ -143,6 +145,8 @@ export interface OwnerStandardImageGenerationServiceOptions {
   readonly linkService: Pick<PerUserLinkService, "getStatus">;
   readonly catalog: DiscoveryCatalogRepository;
   readonly catalog_version: string;
+  /** Candidate-only pool for the separately bound GPT Image 2.6 archive. */
+  readonly variants?: readonly OwnerStandardImageVariant[];
   readonly uploadService: OwnerStandardImageUploadService;
   readonly resolveChatClient: (attemptId: string) => unknown;
   readonly preflight: OwnerStandardImageGenerationPreflight;
@@ -317,7 +321,7 @@ export class OwnerStandardImageGenerationService implements OwnerStandardImageGe
   constructor(optionsInput: OwnerStandardImageGenerationServiceOptions | unknown) {
     const fields = exactRecord(optionsInput,
       ["binding", "linkService", "catalog", "catalog_version", "uploadService", "resolveChatClient", "preflight"],
-      ["now", "timeoutMs", "pollDelayMs", "maxPollAttempts", "wait"]);
+      ["now", "timeoutMs", "pollDelayMs", "maxPollAttempts", "wait", "variants"]);
     if (!(fields.uploadService instanceof OwnerStandardImageUploadService) || types.isProxy(fields.uploadService) ||
         !(fields.catalog instanceof DiscoveryCatalogRepository) || types.isProxy(fields.catalog) ||
         typeof fields.resolveChatClient !== "function" || types.isProxy(fields.resolveChatClient) ||
@@ -327,6 +331,7 @@ export class OwnerStandardImageGenerationService implements OwnerStandardImageGe
     this.#binding = snapshotBinding(fields.binding);
     this.#linkService = snapshotLinkService(fields.linkService);
     this.#catalog = fields.catalog;
+    const variants = readVariants(fields.variants, fields.catalog_version);
     this.#catalogVersion = readCatalogVersion(fields.catalog_version);
     this.#uploadService = fields.uploadService;
     this.#issuer = this.#uploadService.createOwnedReferenceBindingIssuer();
@@ -337,7 +342,7 @@ export class OwnerStandardImageGenerationService implements OwnerStandardImageGe
     this.#pollDelayMs = boundedInt(fields.pollDelayMs, 0, MAX_POLL_DELAY_MS, DEFAULT_POLL_DELAY_MS);
     this.#maxPollAttempts = boundedInt(fields.maxPollAttempts, 1, MAX_POLL_ROUNDS, MAX_POLL_ROUNDS);
     this.#wait = fields.wait === undefined ? waitDelay : readWait(fields.wait);
-    for (const variant of OWNER_STANDARD_IMAGE_VARIANTS) {
+    for (const variant of variants) {
       const profile = getOwnerStandardImageSourceProfile(variant, this.#catalog, this.#catalogVersion);
       this.#profiles.set(variant, profile);
     }
@@ -957,7 +962,9 @@ function snapshotGenerateInput(value: unknown): Readonly<OwnerStandardImageGener
   if (!isAttemptId(fields.attemptId) || !isVariant(fields.variant) || typeof fields.prompt !== "string") fail("INVALID_REQUEST");
   const handles = denseStringArray(fields.reference_handles, MAX_REFERENCE_HANDLES);
   if (handles.some((handle) => !HANDLE_PATTERN.test(handle)) || new Set(handles).size !== handles.length) fail("INVALID_REQUEST");
-  const parameterKeys = fields.variant.startsWith("banana")
+  const parameterKeys = (OWNER_GPT26_IMAGE_VARIANTS as readonly string[]).includes(fields.variant)
+    ? ["aspect_ratio", "quality", "details_quality", "output_format"]
+    : fields.variant.startsWith("banana")
     ? ["aspect_ratio", "image_size", "thinking_level"]
     : ["aspect_ratio", "quality", "details_quality"];
   const rawParameters = exactRecord(fields.parameters, parameterKeys);
@@ -1004,8 +1011,17 @@ function snapshotLinkService(value: unknown): Pick<PerUserLinkService, "getStatu
 }
 
 function readCatalogVersion(value: unknown): string {
-  if (value !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION) fail("MODEL_BINDING_MISMATCH");
+  if (value !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION && value !== OWNER_GPT26_PUBLIC_CATALOG_VERSION) fail("MODEL_BINDING_MISMATCH");
   return value;
+}
+
+function readVariants(value: unknown, version: unknown): readonly OwnerStandardImageVariant[] {
+  if (value === undefined && version === DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION) {
+    return OWNER_STANDARD_IMAGE_VARIANTS.filter(variant => !(OWNER_GPT26_IMAGE_VARIANTS as readonly string[]).includes(variant));
+  }
+  if (version !== OWNER_GPT26_PUBLIC_CATALOG_VERSION || !Array.isArray(value) || types.isProxy(value) ||
+      value.length !== 2 || value[0] !== OWNER_GPT26_IMAGE_VARIANTS[0] || value[1] !== OWNER_GPT26_IMAGE_VARIANTS[1]) fail("MODEL_BINDING_MISMATCH");
+  return OWNER_GPT26_IMAGE_VARIANTS;
 }
 
 function exactRecord(value: unknown, required: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
@@ -1059,7 +1075,7 @@ function readWait(value: unknown): NonNullable<OwnerStandardImageGenerationServi
 
 function isAttemptId(value: unknown): value is string { return typeof value === "string" && ATTEMPT_PATTERN.test(value); }
 function isVariant(value: unknown): value is OwnerStandardImageVariant {
-  return typeof value === "string" && (OWNER_STANDARD_IMAGE_VARIANTS as readonly string[]).includes(value);
+  return typeof value === "string" && (OWNER_STANDARD_IMAGE_ALL_VARIANTS as readonly string[]).includes(value);
 }
 function isSafeIdentifier(value: unknown): value is string { return typeof value === "string" && SAFE_IDENTIFIER.test(value); }
 function finiteNonnegative(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value) && value >= 0; }

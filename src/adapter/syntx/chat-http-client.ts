@@ -480,6 +480,7 @@ import {
   type OwnerSeedreamImageOneShotPermit
 } from "../../application/owner-seedream-image-one-shot-policy.js";
 import { OWNER_SEEDREAM_IMAGE_VARIANTS, OWNER_SEEDREAM_ALL_IMAGE_VARIANTS, type OwnerSeedreamImageVariant } from "../../application/owner-seedream-image-parameters.js";
+import { createOwnerSeedream55EditorNative, type OwnerSeedream55EditorNative } from "./owner-seedream55-editor-native.js";
 import {
   isOwnerRunwayImagePreparedCandidateForPrincipal,
   type OwnerRunwayImagePreparedCandidate
@@ -760,6 +761,7 @@ const WAN_IMAGE_VARIANTS = new Set<OwnerWanImageVariant>([
   "wan_25_i2i_preview", "wan_26_image", "wan_27_image", "wan_27_image_pro"
 ]);
 const SEEDREAM_EDITOR_ORIGINAL_VARIANTS = new Set<OwnerSeedreamImageVariant>(OWNER_SEEDREAM_IMAGE_VARIANTS);
+const ownerSeedream55EditorNatives = new WeakMap<SyntxChatHttpClient, OwnerSeedream55EditorNative>();
 const WAN_CANONICAL_IMAGE_MIME_TYPES = new Set<OwnerWanCanonicalImageMimeType>([
   "image/jpeg", "image/png", "image/bmp", "image/webp"
 ]);
@@ -3292,6 +3294,59 @@ export class SyntxChatHttpClient {
     if (chats.has(chatUuid)) throw protocolError();
     chats.set(chatUuid, { chat_uuid: chatUuid, phase: "AVAILABLE" });
     return { chat_uuid: chatUuid };
+  }
+
+  /** Separate 5.5 Editor transport; URLs/credentials stay behind the private HTTP client. */
+  getSeedream55EditorNative(): OwnerSeedream55EditorNative {
+    const prior = ownerSeedream55EditorNatives.get(this);
+    if (prior !== undefined) return prior;
+    const native = createOwnerSeedream55EditorNative({
+      createChat: async (title, signal) => {
+        validateBoundedText(title, MAX_TITLE_BYTES, true);
+        const raw = await this.#request(new URL("chats", V1_BASE_URL), "POST",
+          { title, scope: "tool_image_inpaint" }, "JSON_REQUIRED", signal);
+        const parsed = createChatResponseSchema.safeParse(raw);
+        if (!parsed.success) throw protocolError();
+        return Object.freeze({ chat_uuid: parsed.data.uuid });
+      },
+      uploadOriginal: async (input, signal) => {
+        const mime = input.mime_type === "image/jpg" ? "image/jpeg" : input.mime_type;
+        const form = this.#buildUploadForm({ bytes: input.bytes, filename: input.filename, mime_type: mime,
+          destination: "uploaded", check_duplicates: true, model_type: "seedream-5.5" }, input.bytes);
+        try {
+          const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+          return parseSeedreamEditorOriginalUploadReference(raw, mime, input.bytes.byteLength);
+        } finally { form.delete("files"); }
+      },
+      uploadDrawing: async (input, signal) => {
+        const form = this.#buildUploadForm({ bytes: input.bytes, filename: input.filename, mime_type: "image/png",
+          destination: "hidden", check_duplicates: true, model_type: "seedream-5.5" }, input.bytes);
+        try {
+          const raw = await this.#requestUpload(new URL("chats/upload-files", V1_BASE_URL), form, signal);
+          return parseSeedreamEditorDrawingUploadReference(raw, input.bytes.byteLength);
+        } finally { form.delete("files"); }
+      },
+      postGenerate: async (input, signal) => {
+        validatePathIdentifier(input.chat_uuid);
+        const receipt = await this.#startMedia("design/generate", "seedream", input.chat_uuid,
+          { chat_uuid: input.chat_uuid, prompt: input.prompt, settings: sanitizeSettings(input.settings) }, signal);
+        return Object.freeze({ message_id: receipt.message_id });
+      },
+      getHistoryPage: async (chatUuid, page, signal) => {
+        validatePathIdentifier(chatUuid);
+        if (!Number.isSafeInteger(page) || page < 1 || page > 7) throw invalidRequest();
+        const url = new URL(`chats/${chatUuid}/messages`, V1_BASE_URL);
+        url.searchParams.set("page", String(page)); url.searchParams.set("page_size", "10");
+        return this.#request(url, "GET", undefined, "JSON_REQUIRED", signal);
+      },
+      getRawResult: async (chatUuid, messageId, signal) => {
+        validatePathIdentifier(chatUuid); validatePathIdentifier(messageId);
+        return this.#request(new URL(`chats/${chatUuid}/${messageId}`, V1_BASE_URL), "GET", undefined,
+          "JSON_REQUIRED", signal);
+      }
+    });
+    ownerSeedream55EditorNatives.set(this, native);
+    return native;
   }
 
   /** Fixed fresh Editor chat. Its private state is separate from every other inpaint workflow. */

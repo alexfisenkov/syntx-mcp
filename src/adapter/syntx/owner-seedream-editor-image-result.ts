@@ -1,12 +1,12 @@
 import { types } from "node:util";
 import { isSafeUploadReferenceUrl } from "./upload-reference-bridge.js";
-import type { OwnerSeedreamImageVariant } from "../../application/owner-seedream-image-parameters.js";
+import type { OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant } from "../../application/owner-seedream-image-parameters.js";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,159}$/u;
 const SAFE_PROVIDER_CHAT_ID = /^\d{1,16}$/u;
 const MAX_URL_LENGTH = 4096;
 const MAX_RESULT_OBJECTS = 64;
-const VARIANTS: readonly string[] = ["seedream-4", "seedream-4.5", "seedream-5", "seedream-5.0-flash", "seedream-5.0-pro"];
+const VARIANTS: readonly string[] = ["seedream-4", "seedream-4.5", "seedream-5", "seedream-5.0-flash", "seedream-5.0-pro", "seedream-5.5"];
 
 export interface OwnerSeedreamEditorImageResultReadContext {
   readonly chat_uuid: string;

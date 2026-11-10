@@ -1,6 +1,6 @@
 import { types } from "node:util";
 import type { ChatMessageHistorySnapshot } from "../adapter/syntx/chat-http-client.js";
-import { OWNER_SEEDREAM_IMAGE_VARIANTS, type OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
+import { OWNER_SEEDREAM_ALL_IMAGE_VARIANTS, type OwnerSeedreamAnyImageVariant as OwnerSeedreamImageVariant } from "./owner-seedream-image-parameters.js";
 
 const INPUT_KEYS = Object.freeze(["snapshot", "requested_chat_uuid", "owner_echo_message_id", "variant"] as const);
 const SNAPSHOT_KEYS = Object.freeze(["complete", "page", "page_size", "total_count", "total_pages", "has_next", "has_previous",
@@ -189,7 +189,7 @@ function isOverLimitArray(value: unknown, maximum: number): boolean {
 function isSafeId(value: unknown): value is string { return typeof value === "string" && SAFE_ID.test(value); }
 function isProviderChatId(value: unknown): value is string { return typeof value === "string" && SAFE_PROVIDER_CHAT_ID.test(value); }
 function isVariant(value: unknown): value is OwnerSeedreamImageVariant {
-  return typeof value === "string" && (OWNER_SEEDREAM_IMAGE_VARIANTS as readonly string[]).includes(value);
+  return typeof value === "string" && (OWNER_SEEDREAM_ALL_IMAGE_VARIANTS as readonly string[]).includes(value);
 }
 function gap(messageId: string | null, objectIndex: number | null,
   code: OwnerSeedreamEditorHistoryGap["code"]): OwnerSeedreamEditorHistoryGap {

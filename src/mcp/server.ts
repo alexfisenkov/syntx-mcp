@@ -156,6 +156,8 @@ import {
 import type { OwnerSeedreamEditorOriginalReferenceService } from "../application/owner-seedream-editor-original-reference-service.js";
 import type { OwnerSeedreamEditorDrawingReferenceService } from "../application/owner-seedream-editor-drawing-reference-service.js";
 import type { OwnerSeedreamEditorImageGenerationService } from "../application/owner-seedream-editor-image-generation-service.js";
+import type { OwnerSeedream55EditorService } from "../application/owner-seedream55-editor-service.js";
+import { registerSyntxOwnerSeedream55EditorTools } from "./owner-seedream55-editor-tools.js";
 import {
   registerSyntxOwnerSeedreamEditorImageTools,
   type RegisterSyntxOwnerSeedreamEditorImageToolsOptions
@@ -380,6 +382,12 @@ export interface OwnerSeedreamEditorImageServiceComposition extends RegisterSynt
   readonly drawingReferenceService: Pick<OwnerSeedreamEditorDrawingReferenceService, "uploadDrawing" | "invalidateAttempt" | "close">;
   readonly generationService: Pick<OwnerSeedreamEditorImageGenerationService,
     "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "invalidateAttempt" | "close">;
+}
+
+/** Current 5.5 Editor uses an independent source profile, upload store and recovery lifecycle. */
+export interface OwnerSeedream55EditorServiceComposition {
+  readonly service: Pick<OwnerSeedream55EditorService,
+    "uploadOriginal" | "uploadDrawing" | "generate" | "reconcile" | "listRecoveries" | "getResultPage" | "invalidateAttempt" | "close">;
 }
 
 /** Optional owner-local Flux image tools; generation owns the asset-service/uploader close chain. */
@@ -656,6 +664,7 @@ export interface CreateMcpServerOptions {
   ownerSeedream55ImageReferences?: OwnerSeedream55ImageServiceComposition | undefined;
   /** Explicit owner-local Seedream Editor upload, generation, and recovery tools; omitted from default and HTTP servers. */
   ownerSeedreamEditorImageReferences?: OwnerSeedreamEditorImageServiceComposition | undefined;
+  ownerSeedream55EditorImageReferences?: OwnerSeedream55EditorServiceComposition | undefined;
   /** Explicit owner-local full Flux image tools; omitted from default and HTTP servers. */
   ownerFluxImageReferences?: OwnerFluxImageServiceComposition | undefined;
   /** Explicit owner-local Ideogram image tools; omitted from default and HTTP servers. */
@@ -884,7 +893,7 @@ export function createMcpServer(
       (options.ownerCurrentVideoReferences || options.ownerHailuo3Current || options.ownerLumaCurrent || options.ownerVeo3Current || options.ownerVeoOmni12Current || options.ownerWanCurrent || options.ownerSeedanceCurrent || options.ownerFlux3Current || options.ownerWan27VideoEdit || options.ownerSeedanceEditor || options.ownerRunwayI2v || options.ownerGrokI2v || options.ownerWan25T2v || options.ownerHiggsfieldDop || options.ownerHailuoInitial || options.ownerHappyHorse || options.ownerWan27I2v || options.ownerKlingMedia || options.ownerSwitchxVideo || options.ownerActTwo || options.ownerHeygen4 || options.ownerKling4 || options.ownerVeoOmniReferences || options.ownerGenerateImage || options.ownerGenerateVideo || options.ownerContractMedia || options.ownerImageReferences ||
         options.ownerGrokImageReferences || options.ownerClarityUpscale || options.ownerMagnificUpscale ||
         options.ownerKontextImageReferences || options.ownerWanImageReferences || options.ownerStandardImageReferences || options.ownerGpt26ImageReferences ||
-        options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedream55ImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerFluxImageReferences ||
+        options.ownerRunwayImageReferences || options.ownerSeedreamImageReferences || options.ownerSeedream55ImageReferences || options.ownerSeedreamEditorImageReferences || options.ownerSeedream55EditorImageReferences || options.ownerFluxImageReferences ||
         options.ownerIdeogramImageReferences || options.ownerGrokT2iImageReferences || options.ownerUniImageReferences ||
         options.ownerBananaInpaintImageReferences || options.ownerSoulImageReferences || options.ownerWanT2iImageReferences ||
         options.ownerWanT2vVideos || options.ownerWan30FirstLastVideos || options.ownerWan30ReferenceVideos || options.ownerWan30OmniVideos || options.ownerWan30EditVideos || options.ownerFlux3Videos || options.ownerGrokV2v || options.ownerElevenLabsTts || options.ownerElevenLabsDialogue || options.ownerElevenLabsSts || options.ownerTopazAstra || options.ownerTopazEnhance || options.ownerSunoGeneration || options.ownerLumaT2v || options.ownerHailuo01T2v || options.ownerExpandedT2v ||
@@ -1321,6 +1330,9 @@ export function createMcpServer(
   if (options.ownerSeedream55ImageReferences) registerSyntxOwnerSeedream55ImageTools(server, options.ownerSeedream55ImageReferences);
   if (options.ownerSeedreamEditorImageReferences) {
     registerSyntxOwnerSeedreamEditorImageTools(server, options.ownerSeedreamEditorImageReferences);
+  }
+  if (options.ownerSeedream55EditorImageReferences) {
+    registerSyntxOwnerSeedream55EditorTools(server, options.ownerSeedream55EditorImageReferences);
   }
   if (options.ownerFluxImageReferences) {
     registerSyntxOwnerFluxImageTools(server, options.ownerFluxImageReferences);

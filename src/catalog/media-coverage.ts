@@ -4,7 +4,7 @@ import type { DiscoveryCatalogRepository, DiscoveryModelRecord } from "./discove
 import type { RuntimeCapabilityCatalog, RuntimeCapabilityRecord } from "./runtime-capability-catalog.js";
 import { z } from "zod/v4";
 
-export const MEDIA_COVERAGE_VERSION = "7.0.0" as const;
+export const MEDIA_COVERAGE_VERSION = "8.0.0" as const;
 
 export interface MediaCoverageRecord {
   readonly model_id: string;
@@ -51,15 +51,17 @@ const nativeAliasBindingSchema = z.object({
 }).strict();
 
 const routeSnapshotSchema = z.object({
-  schema_version: z.literal("7.0.0"),
+  schema_version: z.literal("8.0.0"),
   captured_date: z.iso.date(),
   public_catalog_version: z.string().min(1),
   public_source_hashes: z.object({ ai: z.string().min(1), llm_models: z.string().min(1), models: z.string().min(1) }).strict(),
   owner_tool_schema_profile_catalog_version: z.string().min(1),
   owner_tool_count: z.null(),
   owner_tool_count_status: z.literal("UNVERIFIED_FOR_ROUTE_EXTENSION"),
-  route_method: z.literal("REUSED_V6_WITH_EXACT_NEW_FAMILY_SOURCE_BINDINGS_NO_PROVIDER_PROOF"),
+  route_method: z.literal("REUSED_V7_WITH_ISOLATED_SEEDREAM55_EDITOR_SOURCE_BINDING_NO_PROVIDER_PROOF"),
   route_provenance: z.object({ source_v5: z.literal("catalog/media-coverage/owner-tool-routes-v5.json"),
+    source_v7: z.literal("catalog/media-coverage/owner-tool-routes-v7.json"),
+    source_v7_sha256: z.literal("sha256:4f7947efac189d7a2bfd18501f8c3ca1f77014eef8880ac684c4ea96f4822f61"),
     source_v5_sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
     source_v6: z.literal("catalog/media-coverage/owner-tool-routes-v6.json"),
     source_v6_sha256: z.literal("sha256:62cabfeca99dff755b8a2a12313c178208ee6c6e1aa8d1288fbd408fca4f6825"),
@@ -80,7 +82,7 @@ const routeSnapshotSchema = z.object({
       source_path: z.literal("src/mcp/owner-image-manual-current-source.ts"), pricing_catalog_version: z.string().min(1) }).strict()).length(3),
     new_family_route_evidence: z.array(z.object({ public_model_ids: z.array(z.string().min(1)).min(1),
       tool_names: z.array(z.string().min(1)).min(1), source_paths: z.array(z.string().regex(/^src\//u)).min(1),
-      operator_flag: z.string().regex(/^SYNTX_OWNER_[A-Z0-9_]+$/u) }).strict()).length(3),
+      operator_flag: z.string().regex(/^SYNTX_OWNER_[A-Z0-9_]+$/u) }).strict()).length(4),
     limitations: z.literal("CODE_BINDINGS_ONLY_NO_PROVIDER_ALL_SETTINGS_OR_TOOLS_COUNT_CLAIM") }).strict(),
   source_only_model_ids: z.tuple([z.literal("wan_30"), z.literal("wan_30_prime")]),
   source_only_reasons: z.object({ wan_30: z.string().min(1), wan_30_prime: z.string().min(1) }).strict(),
@@ -99,6 +101,7 @@ const GENERATOR_FLAGS: Readonly<Record<string, string>> = Object.freeze({
   syntx_owner_generate_flux3_current_video: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
   syntx_owner_generate_veo_omni12_current: "SYNTX_OWNER_CURRENT_VIDEO_REFERENCES",
   syntx_owner_generate_seedream55_image: "SYNTX_OWNER_SEEDREAM_IMAGE_REFERENCES",
+  syntx_owner_generate_seedream55_editor_image: "SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES",
   syntx_owner_generate_gpt26_image: "SYNTX_OWNER_STANDARD_IMAGE_REFERENCES",
 
   syntx_owner_generate_acttwo_video: "SYNTX_OWNER_ACTTWO",
@@ -170,7 +173,7 @@ const GENERATOR_FLAGS: Readonly<Record<string, string>> = Object.freeze({
 });
 
 function loadReviewedOwnerRoutes(discovery: DiscoveryCatalogRepository) {
-  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v7.json", import.meta.url));
+  const routePath = fileURLToPath(new URL("../../../catalog/media-coverage/owner-tool-routes-v8.json", import.meta.url));
   const raw: unknown = JSON.parse(readFileSync(routePath, "utf8"));
   const snapshot = routeSnapshotSchema.parse(raw);
   if (JSON.stringify(snapshot.public_source_hashes) !== JSON.stringify(discovery.source_hashes)) {

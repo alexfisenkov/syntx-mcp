@@ -13,7 +13,7 @@ HTTPS-шлюз с OAuth. Каждый пользователь входит в �
 - Отдельные инструменты редактирования, референсов, кадров, озвучки и музыки.
 - Встроенная карта маршрутов, инструкции обслуживания и обновление кода.
 
-Текущая карта — [v7](catalog/media-coverage/owner-tool-routes-v7.json),
+Текущая карта — [v8](catalog/media-coverage/owner-tool-routes-v8.json),
 построенная на публичном каталоге из 217 моделей (179 активных). Карта медиа
 содержит 129 записей: 49 image, 72 video и 8 audio; активны 126. Среди них
 123 операции имеют code bindings, один ID служит селектором семейства, а два
@@ -23,10 +23,29 @@ HTTPS-шлюз с OAuth. Каждый пользователь входит в �
 В v7 добавлены три отдельные группы: пять инструментов GPT Image 2.6, пять
 Seedream 5.5 и четыре Veo Omni 1.2. Группы используют существующие явные
 opt-in флаги для Standard Image references, Seedream references и current-video
-references. Исторические карты v1–v6 сохранены. Карта маршрутов и синтетические
+references. Исторические карты v1–v7 сохранены. Карта маршрутов и синтетические
 проверки не доказывают доступность аккаунта, provider acceptance или реальную
 генерацию; фактический список инструментов подключённого клиента нужно
 проверять отдельно через `tools/list`.
+
+В v8 добавлена отдельная группа из семи инструментов **Seedream 5.5 Editor**.
+[Подробная инструкция Editor](docs/интеграция/Seedream-5.5-Editor-MCP.md).
+Она включается флагом `SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES` вместе
+с прежними Editor tools и использует собственные original/drawing handles.
+Порядок: `syntx_get_seedream55_editor_parameters` →
+`syntx_upload_seedream55_editor_original` → при необходимости
+`syntx_upload_seedream55_editor_drawing` →
+`syntx_owner_generate_seedream55_editor_image`. Четыре параметра задаются явно:
+соотношение сторон, 1K/1.5K/2K, JPEG/PNG и фон. Drawing — дополнительный PNG
+того же размера, связанный с original; это изображение рисунка, не бинарная маска.
+После неопределённого ответа используйте `syntx_owner_reconcile_seedream55_editor_image`
+с тем же recovery handle. Повторять GEN для восстановления нельзя.
+
+WAN 3.0 запускается через `syntx_owner_generate_wan_current` с конкретным
+`wan_30_*` ID и настройкой `rendering_speed` (`basic`/`prime`). Общие
+`wan_30` и `wan_30_prime` не подменяют конкретный режим. Получение видео —
+`syntx_owner_get_wan_current_result` по тому же recovery handle; новый GEN
+для чтения результата не нужен.
 
 Запрашивайте `syntx_get_media_coverage` постранично, чтобы получить всю карту.
 `tools/list` работающего сервера показывает фактически включённые инструменты

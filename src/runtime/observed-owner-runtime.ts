@@ -64,6 +64,7 @@ import type { OwnerSeedreamImageGenerationPreflight } from "../application/owner
 import { OwnerSeedreamEditorOriginalReferenceService } from "../application/owner-seedream-editor-original-reference-service.js";
 import { OwnerSeedreamEditorDrawingReferenceService } from "../application/owner-seedream-editor-drawing-reference-service.js";
 import { createOwnerSeedreamEditorImageGenerationService } from "../application/owner-seedream-editor-image-generation-service.js";
+import { OwnerSeedream55EditorService } from "../application/owner-seedream55-editor-service.js";
 import {
   OWNER_SEEDREAM_EDITOR_C5_PUBLIC_VERSION,
   OWNER_SEEDREAM_EDITOR_62BC_SETTINGS_VERSION
@@ -1229,6 +1230,23 @@ export function createObservedOwnerRuntime(
         return Object.freeze({ originalReferenceService, drawingReferenceService, generationService, invalidateAttempt, lifecycle });
       })()
     : undefined;
+  const ownerSeedream55EditorImageReferences = options.ownerSeedreamEditorImageReferencesEnabled === true
+    ? new OwnerSeedream55EditorService({ binding: authBinding, linkService,
+        resolveNative: (attemptId: string) => createChatClient(attemptId).getSeedream55EditorNative(),
+        createAccountStatusService: (attemptId: string) => new AccountStatusService(createReadClient(attemptId), now),
+        createModelAccessService: (attemptId: string, actualCatalog: DiscoveryCatalogRepository) =>
+          new ModelAccessService(actualCatalog, createReadClient(attemptId), now), now })
+    : undefined;
+  // Both source-isolated Editor groups share this opt-in and one stdio close hook.
+  const combinedSeedreamEditorLifecycle = ownerSeedreamEditorImageReferences === undefined && ownerSeedream55EditorImageReferences === undefined
+    ? undefined : Object.freeze({ async close(): Promise<void> {
+        const errors: unknown[] = [];
+        for (const lifecycle of [ownerSeedreamEditorImageReferences?.lifecycle, ownerSeedream55EditorImageReferences]) {
+          try { await lifecycle?.close(); } catch (error) { errors.push(error); }
+        }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length > 1) throw new AggregateError(errors, "Seedream Editor source-isolated lifecycles failed to close.");
+      } });
   const ownerFluxImageReferences = options.ownerFluxImageReferencesEnabled === true
     ? (() => {
         if (selectedCatalogVersion !== DEFAULT_DISCOVERY_PUBLIC_CATALOG_VERSION) {
@@ -3554,6 +3572,10 @@ export function createObservedOwnerRuntime(
               await linkService.getStatus(binding, attemptId);
               await ownerSeedreamEditorImageReferences.invalidateAttempt(attemptId);
             }
+            if (ownerSeedream55EditorImageReferences !== undefined) {
+              await linkService.getStatus(binding, attemptId);
+              await ownerSeedream55EditorImageReferences.invalidateAttempt(attemptId);
+            }
             if (ownerWanT2vVideos !== undefined) {
               await linkService.getStatus(binding, attemptId);
               await ownerWanT2vVideos.lifecycle.invalidateAttempt(attemptId);
@@ -3770,6 +3792,9 @@ export function createObservedOwnerRuntime(
           const errors: unknown[] = [];
           if (ownerSeedreamEditorImageReferences !== undefined) {
             try { await ownerSeedreamEditorImageReferences.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
+          }
+          if (ownerSeedream55EditorImageReferences !== undefined) {
+            try { await ownerSeedream55EditorImageReferences.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
           }
           if (ownerWanT2vVideos !== undefined) {
             try { await ownerWanT2vVideos.lifecycle.invalidateAttempt(attemptId); } catch (error) { errors.push(error); }
@@ -4109,6 +4134,7 @@ export function createObservedOwnerRuntime(
     ...(ownerRunwayImageReferences === undefined ? {} : { ownerRunwayImageReferences }),
     ...(ownerSeedreamImageReferences === undefined ? {} : { ownerSeedreamImageReferences }),
     ...(ownerSeedream55ImageReferences === undefined ? {} : { ownerSeedream55ImageReferences }),
+    ...(ownerSeedream55EditorImageReferences === undefined ? {} : { ownerSeedream55EditorImageReferences: { service: ownerSeedream55EditorImageReferences } }),
     ...(ownerSeedreamEditorImageReferences === undefined ? {} : {
       ownerSeedreamEditorImageReferences: {
         originalReferenceService: ownerSeedreamEditorImageReferences.originalReferenceService,
@@ -4130,8 +4156,8 @@ export function createObservedOwnerRuntime(
     catalog,
     authBinding,
     catalogVersion,
-    ...(ownerSeedreamEditorImageReferences === undefined ? {} : {
-      ownerSeedreamEditorImageReferencesLifecycle: ownerSeedreamEditorImageReferences.lifecycle
+    ...(combinedSeedreamEditorLifecycle === undefined ? {} : {
+      ownerSeedreamEditorImageReferencesLifecycle: combinedSeedreamEditorLifecycle
     }),
     ...(ownerWanT2vVideos === undefined ? {} : { ownerWanT2vVideosLifecycle: ownerWanT2vVideos.lifecycle }),
     ...(ownerWan30FirstLastVideos === undefined ? {} : {

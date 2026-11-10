@@ -139,7 +139,7 @@ test("MCP media coverage tool exposes a read-only page with source version and n
     const result = await client.callTool({ name: SYNTX_GET_MEDIA_COVERAGE_TOOL_NAME, arguments: { limit: 2 } });
     assert.equal(result.isError, undefined);
     const value = result.structuredContent as Record<string, unknown>;
-    assert.equal(value.coverage_version, "7.0.0");
+    assert.equal(value.coverage_version, "8.0.0");
     assert.equal(value.total, 126);
     assert.equal(value.next_offset, 2);
     assert.equal(value.runtime_usable, false);
@@ -286,4 +286,29 @@ test("v7 binds the new public source and preserves historical routes without pro
   assert.equal(rows.filter(row => row.active && row.runtime_status === "CODE_MAPPED").length, 123);
   assert.equal(rows.filter(row => row.active && row.operation_role === "MODEL_OPERATION" && row.runtime_status === "SOURCE_ONLY").length, 2);
   assert.equal(rows.filter(row => row.active && row.operation_role === "SELECTOR").length, 1);
+});
+
+test("v8 adds the isolated 5.5 Editor without changing previous mappings or WAN source-only status", () => {
+  const priorBytes = readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v7.json"));
+  const prior = JSON.parse(priorBytes.toString());
+  const current = JSON.parse(readFileSync(resolve(process.cwd(), "catalog/media-coverage/owner-tool-routes-v8.json"), "utf8"));
+  assert.equal(current.schema_version, "8.0.0");
+  assert.equal(current.route_provenance.source_v7_sha256, "sha256:" + createHash("sha256").update(priorBytes).digest("hex"));
+  assert.deepEqual(current.source_census, prior.source_census);
+  assert.deepEqual(current.source_only_model_ids, prior.source_only_model_ids);
+  for (const [id, tools] of Object.entries(prior.routes) as Array<[string, string[]]>) {
+    if (id === "seedream-5.5") assert.ok(tools.every(name => current.routes[id].includes(name)));
+    else assert.deepEqual(current.routes[id], tools, id);
+  }
+  const selected = loadCurrentDiscoveryReadCatalog();
+  const coverage = new MediaCoverageCatalog(selected.discoveryCatalog, selected.runtimeCapabilities);
+  const rows = [...coverage.page({ limit: 100, include_inactive: true }).items,
+    ...coverage.page({ offset: 100, limit: 100, include_inactive: true }).items];
+  const editor = rows.find(row => row.model_id === "seedream-5.5");
+  assert.ok(editor?.mcp_tool_names.includes("syntx_owner_generate_seedream55_editor_image"));
+  assert.ok(editor?.mcp_tool_names.includes("syntx_upload_seedream55_editor_drawing"));
+  assert.ok(editor?.operator_flags?.includes("SYNTX_OWNER_SEEDREAM_EDITOR_IMAGE_REFERENCES"));
+  for (const id of ["wan_30", "wan_30_prime"]) {
+    assert.equal(rows.find(row => row.model_id === id)?.runtime_status, "SOURCE_ONLY");
+  }
 });

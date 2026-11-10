@@ -40,7 +40,8 @@
     "deploy/private-owner-health-readiness.test.mjs",
     "deploy/templates/syntx-mcp-https.service.tpl",
     "deploy/templates/syntx-ai.nginx.conf.tpl",
-    "docs/интеграция/История-публичного-runtime-C07.md"
+    "docs/интеграция/История-публичного-runtime-C07.md",
+    "docs/интеграция/Seedream-5.5-Editor-MCP.md"
   ],
   "bootstrap_paths": [
     ".github/workflows/verify.yml",
